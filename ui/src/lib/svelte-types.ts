@@ -27,7 +27,30 @@ export interface PageData<T> {
   id: string | null;
 }
 
-export type TimeEntriesPageData = PageData<TimeEntriesRecord>;
+export type LinkedWorkRecordSummary = {
+  id: string;
+  work_record: string;
+  date: string;
+  job_id: string;
+  job_number: string;
+  type_id?: string;
+  type_name?: string;
+  location: string;
+  work_description: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  approved: boolean;
+  linked_time_entry_id?: string;
+  linked_timesheet_id?: string;
+  linked_time_entry_date?: string;
+  linked_time_entry_description?: string;
+  linked_time_sheet_week_ending?: string;
+  can_create_time_entry?: boolean;
+};
+
+export type TimeEntriesPageData = PageData<TimeEntriesRecord> & {
+  linked_work_record?: LinkedWorkRecordSummary;
+};
 export type TimeAmendmentsPageData = PageData<TimeAmendmentsRecord>;
 export type PurchaseOrdersPageData = PageData<PurchaseOrdersRecord | PurchaseOrdersResponse> & {
   parent_po_number?: string;
@@ -225,23 +248,51 @@ export interface ClaimAssignableUsers {
   assignable_users: ClaimAssignableUser[];
 }
 
-export interface WorkRecordSearchRow {
-  work_record: string;
-  prefix: "K" | "Q" | "F";
-  entry_count: number;
-  search_text: string;
-}
-
-export interface WorkRecordEntryRow {
+export interface WorkRecordListRow {
   id: string;
   work_record: string;
-  week_ending: string;
+  date: string;
   uid: string;
-  hours: number;
+  creator: string;
   job_number: string;
   job_id: string;
-  description: string;
-  surname: string;
-  given_name: string;
-  timesheet_id: string;
+  type_name: string;
+  location: string;
+  work_description: string;
+  approved: boolean;
+  linked_time_entry_id: string;
+  linked_timesheet_id: string;
+  linked_time_entry_date: string;
+  linked_time_entry_description: string;
+  search_text: string;
+  can_create_time_entry: boolean;
+}
+
+export interface WorkRecordDetailsResponse {
+  id: string;
+  work_record: string;
+  date: string;
+  uid: string;
+  creator: string;
+  job_id: string;
+  job_number: string;
+  type_id: string;
+  type_name: string;
+  location: string;
+  work_description: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  approved: boolean;
+  linked_time_entry_id: string;
+  linked_timesheet_id: string;
+  linked_time_entry_date: string;
+  linked_time_entry_description: string;
+  linked_time_sheet_week_ending: string;
+  can_create_time_entry: boolean;
+  can_copy_to_tomorrow: boolean;
+}
+
+export interface WorkRecordOption {
+  id: string;
+  work_record: string;
 }

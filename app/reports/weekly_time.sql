@@ -26,11 +26,12 @@ FROM (
   te_int.date,
   te_int.hours,
   te_int.meals_hours,
-  te_int.work_record,
+  COALESCE(NULLIF(te_int.work_record, ''), COALESCE(wr.number, '')) AS work_record,
   te_int.description,
   '' amended
   FROM time_entries te_int
   LEFT JOIN time_sheets ts ON te_int.tsid = ts.id
+  LEFT JOIN work_records wr ON te_int.work_record_id = wr.id
   WHERE tsid != ''
     AND ts.committed != ''
     AND te_int.{:date_column_entries} = {:date_column_value}

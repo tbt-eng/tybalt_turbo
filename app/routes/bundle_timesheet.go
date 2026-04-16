@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"tybalt/utilities"
+	"tybalt/workrecords"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -217,6 +218,10 @@ func createBundleTimesheetHandler(app core.App) func(e *core.RequestEvent) error
 				if err := txApp.Save(entry); err != nil {
 					return fmt.Errorf("error updating time entry: %v", err)
 				}
+			}
+
+			if err := workrecords.SyncApprovalForTimeSheet(txApp, newTimeSheet.Id); err != nil {
+				return fmt.Errorf("error syncing linked work records: %v", err)
 			}
 
 			return nil // Return nil if transaction is successful

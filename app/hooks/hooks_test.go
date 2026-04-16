@@ -189,6 +189,52 @@ func TestValidateTimeAmendment_AllowsSignedHalfHourHours(t *testing.T) {
 	}
 }
 
+func TestValidateTimeEntry_AggregatesLinkedWorkRecordMismatchErrors(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	if err := app.RunAllMigrations(); err != nil {
+		t.Fatalf("failed to apply migrations in test app: %v", err)
+	}
+
+	record := buildRecordFromMap(timeEntriesCollection, map[string]any{
+		"time_type":      "dummy",
+		"uid":            "rzr98oadsp9qc11",
+		"date":           "2026-04-09",
+		"division":       "fy4i9poneukvq9u",
+		"hours":          9.0,
+		"job":            "mg0sp9iyjzo4zw9",
+		"description":    "Linked work record mismatch coverage",
+		"role":           "tbgoiwwwfj8cvju",
+		"work_record_id": "wr260400000010a",
+	})
+
+	err := validateTimeEntry(app, record, nil)
+	if err == nil {
+		t.Fatal("expected linked work record validation to fail")
+	}
+
+	errs, ok := err.(validation.Errors)
+	if !ok {
+		t.Fatalf("expected validation.Errors, got %T", err)
+	}
+
+	workRecordErr := errs["work_record_id"]
+	if workRecordErr == nil {
+		t.Fatalf("expected work_record_id error, got %#v", errs)
+	}
+
+	message := workRecordErr.Error()
+	for _, expected := range []string{
+		"Selected work record belongs to a different user",
+		"Selected work record is for a different job",
+		"Selected work record is for a different date",
+	} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("expected aggregated work record error to contain %q, got %q", expected, message)
+		}
+	}
+}
+
 func TestValidateTimeEntry_AllowsInProgressProposal(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()

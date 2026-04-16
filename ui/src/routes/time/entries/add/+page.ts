@@ -12,6 +12,7 @@ export const load: PageLoad<TimeEntriesPageData> = async () => {
     division: "",
     description: "",
     job: "",
+    work_record_id: "",
     work_record: "",
     hours: 0,
     meals_hours: 0,

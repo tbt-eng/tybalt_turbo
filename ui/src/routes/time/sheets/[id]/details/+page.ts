@@ -4,7 +4,7 @@ import type { PageLoad } from "./$types";
 import { calculateTally } from "$lib/utilities";
 import { error } from "@sveltejs/kit";
 
-export const load: PageLoad = async ({ params }) => {
+export const load: PageLoad = async ({ params, url }) => {
   try {
     const response = await pb.send(`/api/time_sheets/${params.id}/details`, {
       method: "GET",
@@ -29,6 +29,7 @@ export const load: PageLoad = async ({ params }) => {
       tallies,
       timeSheet: response.timeSheet,
       timesheetId: params.id,
+      targetEntryId: url.searchParams.get("entry") ?? "",
       approverInfo,
       committerInfo,
       sharedReviewerCount: response.sharedReviewerCount ?? 0,

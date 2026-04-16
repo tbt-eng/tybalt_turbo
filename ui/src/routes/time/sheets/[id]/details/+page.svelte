@@ -30,6 +30,7 @@
   let approverInfo = $state(untrack(() => data.approverInfo as any));
   let committerInfo = $state(untrack(() => data.committerInfo));
   let sharedReviewerCount = $state(untrack(() => data.sharedReviewerCount ?? 0));
+  let targetEntryId = $state(untrack(() => data.targetEntryId ?? ""));
   let showUncommitConfirm = $state(false);
   let uncommitSubmitting = $state(false);
   let uncommitError = $state<string | null>(null);
@@ -80,7 +81,7 @@
         },
         {
           filter: pb.filter("tsid={:tsid}", { tsid: data.timesheetId }),
-          expand: "job,time_type,division,category,role",
+          expand: "job,time_type,division,category,role,work_record_id",
         },
       );
     } catch {
@@ -97,6 +98,10 @@
     if (item.hours) hoursArray.push(item.hours + " hrs");
     if (item.meals_hours) hoursArray.push(item.meals_hours + " hrs meals");
     return hoursArray.join(" + ");
+  }
+
+  function resolvedWorkRecord(item: TimeEntriesResponse) {
+    return item.work_record || item.expand?.work_record_id?.number || "";
   }
 
   async function del(id: string): Promise<void> {
@@ -402,7 +407,7 @@
   <div class="overflow-hidden rounded-lg">
     <DsList items={items as TimeEntriesResponse[]} search={true} inListHeader="Time Entries">
       {#snippet anchor(item: TimeEntriesResponse)}
-        {item.date}
+        <a href={`/time/entries/${item.id}/details`} class="text-blue-600 hover:underline">{item.date}</a>
       {/snippet}
 
       {#snippet headline({ expand }: TimeEntriesResponse)}
@@ -413,9 +418,13 @@
         {/if}
       {/snippet}
 
-      {#snippet byline({ expand, payout_request_amount }: TimeEntriesResponse)}
+      {#snippet byline(item: TimeEntriesResponse)}
+        {@const expand = item.expand}
         {#if expand?.time_type.code === "OTO"}
-          <span>${payout_request_amount}</span>
+          <span>${item.payout_request_amount}</span>
+        {/if}
+        {#if item.id === targetEntryId}
+          <DsLabel color="yellow">Selected</DsLabel>
         {/if}
       {/snippet}
 
@@ -440,11 +449,12 @@
         {hoursString(item)}
       {/snippet}
 
-      {#snippet line3({ work_record, description }: TimeEntriesResponse)}
-        {#if work_record !== ""}
-          <span><span class="opacity-50">Work Record</span> {work_record} / </span>
+      {#snippet line3(item: TimeEntriesResponse)}
+        {@const workRecord = resolvedWorkRecord(item)}
+        {#if workRecord !== ""}
+          <span><span class="opacity-50">Work Record</span> {workRecord} / </span>
         {/if}
-        <span class="opacity-50">{description}</span>
+        <span class="opacity-50">{item.description}</span>
       {/snippet}
     </DsList>
   </div>

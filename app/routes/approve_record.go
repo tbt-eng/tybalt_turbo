@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	"tybalt/workrecords"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -102,6 +103,16 @@ func createApproveRecordHandler(app core.App, collectionName string) func(e *cor
 				return &CodeError{
 					Code:    "error_saving_record",
 					Message: fmt.Sprintf("error saving record: %v", err),
+				}
+			}
+
+			if collectionName == "time_sheets" {
+				if err := workrecords.SyncApprovalForTimeSheet(txApp, record.Id); err != nil {
+					httpResponseStatusCode = http.StatusInternalServerError
+					return &CodeError{
+						Code:    "error_syncing_work_records",
+						Message: fmt.Sprintf("error syncing linked work records: %v", err),
+					}
 				}
 			}
 

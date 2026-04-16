@@ -929,7 +929,30 @@ export type TimeEntriesRecord = {
   uid: RecordIdString;
   updated: IsoDateString;
   week_ending: string;
+  work_record_id: RecordIdString;
   work_record: string;
+};
+
+export type WorkRecordsRecord = {
+  approved: boolean;
+  created: IsoDateString;
+  creator: RecordIdString;
+  date: string;
+  distance_travelled_km: number;
+  field_book_number: string;
+  field_book_page_number: number;
+  hours_on_site: number;
+  hours_travel_time: number;
+  id: string;
+  job: RecordIdString;
+  location: string;
+  number: string;
+  parent_work_record: RecordIdString;
+  report_to: string;
+  type: RecordIdString;
+  uid: RecordIdString;
+  updated: IsoDateString;
+  work_description: string;
 };
 
 export type TimeOffRecord = {
@@ -1080,6 +1103,7 @@ type TimeEntriesRecordExpands = {
   job: JobsRecord;
   role: RateRolesRecord;
   time_type: TimeTypesRecord;
+  work_record_id: WorkRecordsRecord;
 };
 
 type TimeAmendmentsRecordExpands = {
@@ -1226,6 +1250,8 @@ export type TimeAmendmentsAugmentedResponse<Texpand = unknown> =
   Required<TimeAmendmentsAugmentedRecord> & BaseSystemFields<Texpand>;
 export type TimeEntriesResponse<Texpand = TimeEntriesRecordExpands> = Required<TimeEntriesRecord> &
   BaseSystemFields<Texpand>;
+export type WorkRecordsResponse<Texpand = unknown> = Required<WorkRecordsRecord> &
+  BaseSystemFields<Texpand>;
 export type TimeOffResponse<Texpand = unknown> = Required<TimeOffRecord> &
   BaseSystemFields<Texpand>;
 export type TimeReportWeekEndingsResponse<Texpand = unknown> =
@@ -1315,6 +1341,7 @@ export type CollectionRecords = {
   user_view_grants: UserViewGrantsRecord;
   users: UsersRecord;
   vendors: VendorsRecord;
+  work_records: WorkRecordsRecord;
   zip_cache: ZipCacheRecord;
 };
 
@@ -1375,6 +1402,7 @@ export type CollectionResponses = {
   user_view_grants: UserViewGrantsResponse;
   users: UsersResponse;
   vendors: VendorsResponse;
+  work_records: WorkRecordsResponse;
   zip_cache: ZipCacheResponse;
 };
 
@@ -1440,6 +1468,7 @@ export type TypedPocketBase = PocketBase & {
   collection(idOrName: "user_view_grants"): RecordService<UserViewGrantsResponse>;
   collection(idOrName: "users"): RecordService<UsersResponse>;
   collection(idOrName: "vendors"): RecordService<VendorsResponse>;
+  collection(idOrName: "work_records"): RecordService<WorkRecordsResponse>;
   collection(idOrName: "zip_cache"): RecordService<ZipCacheResponse>;
 };
 

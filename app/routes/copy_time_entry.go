@@ -146,6 +146,14 @@ func createCopyTimeEntryHandler(app core.App) func(e *core.RequestEvent) error {
 				}
 			}
 
+			if original.GetString("work_record_id") != "" {
+				httpResponseStatusCode = http.StatusBadRequest
+				return &CodeError{
+					Code:    "linked_work_record_copy_not_supported",
+					Message: "linked time entries must use Copy To Tomorrow from the work record",
+				}
+			}
+
 			copied, err := copyTimeEntryWithDayOffset(txApp, authRecord, original, 1)
 			if err != nil {
 				httpResponseStatusCode = copyTimeEntryErrorStatus(err)
