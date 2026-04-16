@@ -52,7 +52,7 @@
       },
       {
         filter: pb.filter("tsid='' && uid={:userId}", { userId }),
-        expand: "job,time_type,division,category",
+        expand: "job,time_type,division,category,role,work_record_id",
       },
     );
   });
@@ -65,6 +65,10 @@
     if (item.hours) hoursArray.push(item.hours + " hrs");
     if (item.meals_hours) hoursArray.push(item.meals_hours + " hrs meals");
     return hoursArray.join(" + ");
+  }
+
+  function resolvedWorkRecord(item: TimeEntriesResponse) {
+    return item.work_record || item.expand?.work_record_id?.number || "";
   }
 
   async function del(id: string): Promise<void> {
@@ -106,7 +110,9 @@
   }
 </script>
 
-{#snippet anchor(item: TimeEntriesResponse)}{item.date}{/snippet}
+{#snippet anchor(item: TimeEntriesResponse)}
+  <a href={`/time/entries/${item.id}/details`} class="text-blue-600 hover:underline">{item.date}</a>
+{/snippet}
 
 {#snippet headline({ expand }: TimeEntriesResponse)}
   {#if expand?.time_type.code === "R"}
@@ -139,25 +145,37 @@
 {#snippet line2(item: TimeEntriesResponse)}{hoursString(item)}{/snippet}
 
 {#snippet line3(item: TimeEntriesResponse)}
-  {#if item.work_record !== ""}
-    <span><span class="opacity-50">Work Record</span> {item.work_record} / </span>
+  {@const workRecord = resolvedWorkRecord(item)}
+  {#if workRecord !== ""}
+    <span><span class="opacity-50">Work Record</span> {workRecord} / </span>
   {/if}
   <span class="opacity-50">{item.description}</span>
 {/snippet}
 
-{#snippet actions({ id }: TimeEntriesResponse)}
+{#snippet actions(item: TimeEntriesResponse)}
+  {@const id = item.id}
+  <DsActionButton action={`/time/entries/${id}/details`} icon="mdi:open-in-new" title="View" />
   <DsActionButton
     action={`/time/entries/${id}/edit`}
     icon="mdi:edit-outline"
     title="Edit"
     color="blue"
   />
-  <DsActionButton
-    action={() => copyToTomorrow(id)}
-    icon="mdi:content-copy"
-    title="Copy to tomorrow"
-    color="green"
-  />
+  {#if item.work_record_id}
+    <DsActionButton
+      action={`/time/work-records/${item.work_record_id}`}
+      icon="mdi:file-document-outline"
+      title="Open Work Record"
+      color="green"
+    />
+  {:else}
+    <DsActionButton
+      action={() => copyToTomorrow(id)}
+      icon="mdi:content-copy"
+      title="Copy to tomorrow"
+      color="green"
+    />
+  {/if}
   <DsActionButton action={() => del(id)} icon="mdi:delete" title="Delete" color="red" />
 {/snippet}
 

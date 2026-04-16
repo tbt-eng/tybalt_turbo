@@ -10,6 +10,7 @@ import (
 	"tybalt/errs"
 	"tybalt/notifications"
 	"tybalt/utilities"
+	"tybalt/workrecords"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -341,6 +342,23 @@ func AddHooks(app core.App) {
 			return AnnotateHookError(app, e, err)
 		}
 		return e.Next()
+	})
+	syncTimeEntryWorkRecordApproval := func(e *core.RecordEvent) error {
+		var originalWorkRecordID string
+		if original := e.Record.Original(); original != nil {
+			originalWorkRecordID = original.GetString("work_record_id")
+		}
+
+		return workrecords.SyncApprovalForWorkRecordIDs(
+			e.App,
+			originalWorkRecordID,
+			e.Record.GetString("work_record_id"),
+		)
+	}
+	app.OnRecordAfterCreateSuccess("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
+	app.OnRecordAfterUpdateSuccess("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
+	app.OnRecordAfterDeleteSuccess("time_entries").BindFunc(func(e *core.RecordEvent) error {
+		return workrecords.SyncApprovalForWorkRecordIDs(e.App, e.Record.GetString("work_record_id"))
 	})
 	timeEntriesGateHook := func(e *core.RecordRequestEvent) error {
 		enabled, err := utilities.IsTimeEditingEnabled(app)

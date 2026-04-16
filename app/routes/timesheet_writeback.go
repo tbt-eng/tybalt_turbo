@@ -262,7 +262,8 @@ func createTimesheetExportLegacyHandler(app core.App) func(e *core.RequestEvent)
 							 tt.name AS time_type_name,
 				       te.date, te.hours, te.meals_hours,
 							 te.payout_request_amount,
-				       te.work_record, te.description,
+				       COALESCE(NULLIF(te.work_record, ''), COALESCE(wr.number, '')) AS work_record,
+							 te.description,
 							 te.week_ending,
 							 COALESCE(c.name, '') AS client_name,
 							 COALESCE(cc.given_name || ' ' || cc.surname, '') AS client_contact,
@@ -281,6 +282,7 @@ func createTimesheetExportLegacyHandler(app core.App) func(e *core.RequestEvent)
 				LEFT JOIN client_contacts cc ON j.contact = cc.id
 				LEFT JOIN categories ca ON te.category = ca.id
 				LEFT JOIN branches b ON te.branch = b.id
+				LEFT JOIN work_records wr ON te.work_record_id = wr.id
 				WHERE tsid = {:tsid}
 			`
 			if err := app.DB().NewQuery(entriesQuery).Bind(dbx.Params{

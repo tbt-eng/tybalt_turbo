@@ -1,17 +1,16 @@
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
 import { error } from "@sveltejs/kit";
-import type { WorkRecordEntryRow } from "$lib/svelte-types";
+import type { WorkRecordDetailsResponse } from "$lib/svelte-types";
 
 export const load: PageLoad = async ({ params }) => {
   try {
-    const items = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecord)}`, {
+    const item = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecord)}`, {
       method: "GET",
-    })) as WorkRecordEntryRow[];
+    })) as WorkRecordDetailsResponse;
 
     return {
-      items,
-      workRecord: params.workRecord,
+      item,
     };
   } catch (err) {
     console.error(`loading work record details: ${err}`);

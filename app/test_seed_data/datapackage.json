@@ -2682,6 +2682,11 @@
             "name": "work_record",
             "type": "string",
             "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "work_record_id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
           }
         ],
         "primaryKey": [

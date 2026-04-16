@@ -461,15 +461,28 @@
   enctype="multipart/form-data"
   onsubmit={save}
 >
-  <div class="flex w-full items-center gap-2">
-    <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
-      {#if data.editing}
-        Editing Expense
-      {:else}
-        Create Expense
+  <div class="flex w-full flex-col gap-2">
+    <div class="flex w-full flex-wrap items-center justify-between gap-2">
+      <h1 class="text-xl font-bold text-neutral-800">
+        {#if data.editing}
+          Editing Expense
+        {:else}
+          Create Expense
+        {/if}
+      </h1>
+      {#if !data.editing}
+        <DsActionButton action="/pos/search" color="green">
+          Need a linked expense? Start from Purchase Orders
+        </DsActionButton>
       {/if}
-    </h1>
-    {@render help?.()}
+    </div>
+
+    {#if !data.editing}
+      <div class="w-full rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900">
+        When an expense needs a purchase order, start from the purchase order list so the link is
+        created the right way.
+      </div>
+    {/if}
   </div>
 
   {#if isEditingAnotherUsersExpense}

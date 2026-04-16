@@ -25,7 +25,7 @@
   import { globalStore } from "$lib/stores/global";
   import { authStore } from "$lib/stores/auth";
   import { goto } from "$app/navigation";
-  import type { TimeEntriesPageData } from "$lib/svelte-types";
+  import type { TimeEntriesPageData, WorkRecordOption } from "$lib/svelte-types";
   import type {
     TimeTypesRecord,
     DivisionsRecord,
@@ -119,11 +119,24 @@
   });
 
   const isWorkTime = $derived(hasTimeType(["R", "RT"]));
+  const linkedWorkRecord = $derived.by(() => data.linked_work_record);
+  const linkedWorkRecordLocked = $derived.by(() => (item.work_record_id ?? "") !== "");
+  const isLegacyWorkRecordUpgrade = $derived.by(
+    () => data.editing && (item.work_record ?? "") !== "" && !linkedWorkRecord,
+  );
 
   let errors = $state({} as any);
   // Use untrack to capture initial value for form state (component recreates on navigation)
   let item = $state(untrack(() => data.item));
   const dateInputMax = dateInputMaxMonthsAhead(15);
+  let compatibleWorkRecords = $state([] as WorkRecordOption[]);
+  let loadingCompatibleWorkRecords = $state(false);
+  let compatibleWorkRecordsMessage = $state("");
+  let compatibleWorkRecordsRequestId = 0;
+  const compatibleWorkRecordSelectOptions = $derived.by(() => [
+    { id: "", work_record: "Select a work record" },
+    ...compatibleWorkRecords,
+  ]);
 
   // Track allowed division IDs for the selected job (null = show all divisions, empty Set = job has no allocations)
   let jobDivisionIds = $state<Set<string> | null>(null);
@@ -358,6 +371,53 @@
     syncCategoriesForJob(item.job);
   });
 
+  $effect(() => {
+    const legacyUpgrade = isLegacyWorkRecordUpgrade;
+    const jobId = item.job ?? "";
+    const date = item.date ?? "";
+    const entryId = data.id ?? "";
+
+    if (!legacyUpgrade || jobId === "" || date === "") {
+      compatibleWorkRecordsRequestId++;
+      compatibleWorkRecords = [];
+      compatibleWorkRecordsMessage = "";
+      loadingCompatibleWorkRecords = false;
+      return;
+    }
+
+    const requestId = ++compatibleWorkRecordsRequestId;
+    loadingCompatibleWorkRecords = true;
+    compatibleWorkRecordsMessage = "";
+    const params = new URLSearchParams({ job: jobId, date });
+    if (entryId !== "") {
+      params.set("exclude_entry", entryId);
+    }
+
+    pb.send(`/api/work_records/compatible_for_time_entry?${params.toString()}`, {
+      method: "GET",
+    })
+      .then((rows: WorkRecordOption[]) => {
+        if (requestId !== compatibleWorkRecordsRequestId) return;
+        compatibleWorkRecords = rows;
+        if (rows.length === 0) {
+          compatibleWorkRecordsMessage =
+            "No compatible unlinked work records were found for this job and date.";
+        } else if ((item.work_record_id ?? "") === "" && rows.length === 1) {
+          item.work_record_id = rows[0].id;
+        }
+      })
+      .catch((error) => {
+        if (requestId !== compatibleWorkRecordsRequestId) return;
+        console.error("Error loading compatible work records:", error);
+        compatibleWorkRecords = [];
+        compatibleWorkRecordsMessage = "Failed to load compatible work records.";
+      })
+      .finally(() => {
+        if (requestId !== compatibleWorkRecordsRequestId) return;
+        loadingCompatibleWorkRecords = false;
+      });
+  });
+
   async function save() {
     // set the uid from the authStore We do it here rather than the
     // backend because the
@@ -381,16 +441,26 @@
     if (item.job === "") {
       item.category = "";
       item.work_record = "";
+      item.work_record_id = "";
       item.role = "";
+    }
+
+    const payload: Record<string, unknown> = { ...item };
+    delete payload.expand;
+
+    if ((item.work_record_id ?? "") !== "") {
+      payload.work_record = "";
+    } else if (!isLegacyWorkRecordUpgrade) {
+      payload.work_record = "";
     }
 
     try {
       if (data.editing && data.id !== null) {
         // update the item
-        await pb.collection("time_entries").update(data.id, item);
+        await pb.collection("time_entries").update(data.id, payload);
       } else {
         // create a new item
-        await pb.collection("time_entries").create(item);
+        await pb.collection("time_entries").create(payload);
       }
 
       // submission was successful, clear the errors
@@ -399,7 +469,7 @@
       // redirect to the list page
       goto("/time/entries/list");
     } catch (error: any) {
-      errors = error.data.data;
+      errors = error?.data?.data ?? { global: { message: "Failed to save time entry" } };
     }
   }
 </script>
@@ -410,15 +480,48 @@
 <form
   class="flex w-full flex-col items-center gap-2 p-2 max-lg:[&_button]:text-base max-lg:[&_input]:text-base max-lg:[&_label]:text-base max-lg:[&_select]:text-base max-lg:[&_textarea]:text-base"
 >
-  <div class="flex w-full items-center gap-2">
-    <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
-      {#if data.editing}
-        Editing Time Entry
-      {:else}
-        Create Time Entry
+  <div class="flex w-full flex-col gap-2">
+    <div class="flex w-full flex-wrap items-center justify-between gap-2">
+      <h1 class="text-xl font-bold text-neutral-800">
+        {#if data.editing}
+          Editing Time Entry
+        {:else}
+          Create Time Entry
+        {/if}
+      </h1>
+      {#if !data.editing}
+        <DsActionButton action="/time/work-records" color="green">
+          Need a linked entry? Start from Work Records
+        </DsActionButton>
       {/if}
-    </h1>
-    {@render help?.()}
+    </div>
+
+    {#if !data.editing}
+      <div class="w-full rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900">
+        When a time entry needs a work record, start from the work record list or detail page so
+        the link is created the right way.
+      </div>
+    {/if}
+
+    {#if linkedWorkRecord && linkedWorkRecordLocked}
+      <div class="w-full rounded-sm border border-cyan-300 bg-cyan-50 p-3 text-sm text-cyan-950">
+        <div class="flex flex-wrap items-center gap-2">
+          <DsLabel color="cyan">Linked Work Record {linkedWorkRecord.work_record}</DsLabel>
+          {#if linkedWorkRecord.job_number}
+            <span>{linkedWorkRecord.job_number}</span>
+          {/if}
+          <span>{linkedWorkRecord.hours_on_site + linkedWorkRecord.hours_travel_time} hours</span>
+        </div>
+        <div class="mt-1 opacity-80">{linkedWorkRecord.work_description}</div>
+      </div>
+    {/if}
+
+    {#if isLegacyWorkRecordUpgrade}
+      <div class="w-full rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        This legacy time entry still uses a text work record. Choose an existing first-class work
+        record before saving any changes.
+      </div>
+    {/if}
   </div>
 
   <span class="flex w-full gap-2">
@@ -429,6 +532,7 @@
       min={DATE_INPUT_MIN}
       max={dateInputMax}
       bind:value={item.date}
+      disabled={linkedWorkRecordLocked}
     />
   </span>
   {#snippet optionTemplate(item: TimeTypesRecord | DivisionsRecord)}
@@ -441,6 +545,7 @@
     {optionTemplate}
     fieldName="time_type"
     uiName="Time Type"
+    disabled={linkedWorkRecordLocked}
   />
   {#if trainingTokensInDescriptionWhileRegularHours}
     <span class="flex w-full gap-2 bg-red-200 text-red-600">
@@ -494,6 +599,7 @@
         {errors}
         fieldName="job"
         uiName="Job"
+        disabled={linkedWorkRecordLocked}
       >
         {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
       </DsAutoComplete>
@@ -581,13 +687,49 @@
     </DsSelector>
   {/if}
 
-  {#if item.job && item.job !== "" && item.division && isWorkTime}
+  {#if linkedWorkRecord && linkedWorkRecordLocked}
+    <div class="flex w-full flex-col gap-2">
+      <span class="flex w-full gap-2">
+        <span class="font-medium">Work Record</span>
+        <span>{linkedWorkRecord.work_record}</span>
+      </span>
+      <div class="text-sm text-neutral-600">
+        Job, date, hours, and link ownership come from the work record. Edit the description here
+        if needed.
+      </div>
+    </div>
+  {:else if isLegacyWorkRecordUpgrade}
     <DsTextInput
       bind:value={item.work_record as string}
       {errors}
       fieldName="work_record"
-      uiName="Work Record"
+      uiName="Legacy Work Record"
+      disabled={true}
     />
+    <DsSelector
+      bind:value={item.work_record_id as string}
+      items={compatibleWorkRecordSelectOptions}
+      {errors}
+      fieldName="work_record_id"
+      uiName="Existing Work Record"
+      disabled={loadingCompatibleWorkRecords}
+    >
+      {#snippet optionTemplate(item: WorkRecordOption)}
+        {item.work_record}
+      {/snippet}
+    </DsSelector>
+    {#if loadingCompatibleWorkRecords}
+      <span class="w-full text-sm text-neutral-600">Loading compatible work records...</span>
+    {:else if compatibleWorkRecordsMessage}
+      <div class="w-full rounded-sm border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+        {compatibleWorkRecordsMessage}
+        <div class="mt-2">
+          <DsActionButton action="/time/work-records" color="green">
+            Go to Work Records
+          </DsActionButton>
+        </div>
+      </div>
+    {/if}
   {/if}
 
   <!--------------------------------------------------->
@@ -607,6 +749,7 @@
       step={0.5}
       min={0}
       max={18}
+      disabled={linkedWorkRecordLocked}
     />
   {/if}
 

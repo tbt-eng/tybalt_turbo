@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"tybalt/errs"
 	"tybalt/utilities"
@@ -17,7 +18,6 @@ import (
 	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/list"
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
@@ -66,12 +66,15 @@ func cleanTimeEntry(app core.App, timeEntryRecord *core.Record) ([]string, error
 	// depends on job assignment, not the time_type. The branch field is resolved
 	// below and must survive cleanup.
 	allowedFields = append(allowedFields, "id", "uid", "created", "updated", "role", "branch")
+	if slices.Contains(allowedFields, "work_record") && !slices.Contains(allowedFields, "work_record_id") {
+		allowedFields = append(allowedFields, "work_record_id")
+	}
 
 	// remove any fields from the time_entry record that are not in allowedFields.
 	// I'm not sure if this is the best way to do this but let's try it.
 	// FieldsData() is probably a drop in replacement for ColumnValueMap()
 	for _, key := range timeEntryRecord.Collection().Fields.FieldNames() {
-		if !list.ExistInSlice(key, allowedFields) {
+		if !slices.Contains(allowedFields, key) {
 			//log.Println("Removing field: ", key)
 			timeEntryRecord.Set(key, nil)
 		}
@@ -126,6 +129,122 @@ func cleanTimeEntry(app core.App, timeEntryRecord *core.Record) ([]string, error
 	return requiredFields, nil
 }
 
+func appendValidationMessage(existing error, code string, message string) error {
+	if existing == nil {
+		return validation.NewError(code, message)
+	}
+
+	existingMessage := strings.TrimSpace(existing.Error())
+	if existingMessage == "" {
+		return validation.NewError(code, message)
+	}
+
+	return validation.NewError(code, existingMessage+"; "+message)
+}
+
+func validateLinkedWorkRecord(app core.App, timeEntryRecord *core.Record) validation.Errors {
+	workRecordID := strings.TrimSpace(timeEntryRecord.GetString("work_record_id"))
+	if workRecordID == "" {
+		return nil
+	}
+
+	validations := validation.Errors{}
+
+	var workRecord struct {
+		UID             string  `db:"uid"`
+		Job             string  `db:"job"`
+		Date            string  `db:"date"`
+		HoursOnSite     float64 `db:"hours_on_site"`
+		HoursTravelTime float64 `db:"hours_travel_time"`
+	}
+	err := app.DB().NewQuery(`
+		SELECT
+			uid,
+			COALESCE(job, '') AS job,
+			date,
+			COALESCE(hours_on_site, 0) AS hours_on_site,
+			COALESCE(hours_travel_time, 0) AS hours_travel_time
+		FROM work_records
+		WHERE id = {:workRecordId}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"workRecordId": workRecordID,
+	}).One(&workRecord)
+	if err != nil {
+		validations["work_record_id"] = validation.NewError("not_found", "Referenced work record not found")
+		return validations
+	}
+
+	var duplicate struct {
+		ID string `db:"id"`
+	}
+	err = app.DB().NewQuery(`
+		SELECT id
+		FROM time_entries
+		WHERE work_record_id = {:workRecordId}
+		  AND id != {:id}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"workRecordId": workRecordID,
+		"id":           timeEntryRecord.Id,
+	}).One(&duplicate)
+	if err == nil && duplicate.ID != "" {
+		validations["work_record_id"] = appendValidationMessage(
+			validations["work_record_id"],
+			"work_record_already_linked",
+			"This work record is already linked to another time entry",
+		)
+	}
+
+	if workRecord.UID != timeEntryRecord.GetString("uid") {
+		validations["work_record_id"] = appendValidationMessage(
+			validations["work_record_id"],
+			"work_record_uid_mismatch",
+			"Selected work record belongs to a different user",
+		)
+	}
+
+	if workRecord.Job != timeEntryRecord.GetString("job") {
+		validations["work_record_id"] = appendValidationMessage(
+			validations["work_record_id"],
+			"work_record_job_mismatch",
+			"Selected work record is for a different job",
+		)
+	}
+
+	if workRecord.Date != timeEntryRecord.GetString("date") {
+		validations["work_record_id"] = appendValidationMessage(
+			validations["work_record_id"],
+			"work_record_date_mismatch",
+			"Selected work record is for a different date",
+		)
+	}
+
+	expectedHours := workRecord.HoursOnSite + workRecord.HoursTravelTime
+	if timeEntryRecord.GetFloat("hours") != expectedHours {
+		validations["hours"] = validation.NewError(
+			"work_record_hours_mismatch",
+			"Hours must match the linked work record. Edit the work record or create a separate unlinked time entry.",
+		)
+	}
+
+	return validations
+}
+
+func legacyWorkRecordUpgradeRequired(timeEntryRecord *core.Record) bool {
+	if timeEntryRecord.IsNew() {
+		return false
+	}
+
+	original := timeEntryRecord.Original()
+	if original == nil {
+		return false
+	}
+
+	return strings.TrimSpace(original.GetString("work_record")) != "" &&
+		strings.TrimSpace(original.GetString("work_record_id")) == ""
+}
+
 // cross-field validation is performed in this function. It is expected that the
 // time_entry record has already been cleaned by the cleanTimeEntry function.
 // This ensures that only the fields that are allowed to be set are present in
@@ -135,6 +254,13 @@ func cleanTimeEntry(app core.App, timeEntryRecord *core.Record) ([]string, error
 func validateTimeEntry(app core.App, timeEntryRecord *core.Record, requiredFields []string) error {
 	jobIsPresent := timeEntryRecord.GetString("job") != ""
 	totalHours := timeEntryRecord.GetFloat("hours") + timeEntryRecord.GetFloat("meals_hours")
+	workRecordID := strings.TrimSpace(timeEntryRecord.GetString("work_record_id"))
+	workRecordText := strings.TrimSpace(timeEntryRecord.GetString("work_record"))
+
+	if workRecordID != "" {
+		timeEntryRecord.Set("work_record", "")
+		workRecordText = ""
+	}
 
 	// validation is performed in two passes. The first pass is to validate the
 	// presence of required fields. We do this by using the validation.Required
@@ -158,8 +284,20 @@ func validateTimeEntry(app core.App, timeEntryRecord *core.Record, requiredField
 		"global":                validation.Validate(totalHours, validation.Max(18.0).Error("Total hours must not exceed 18")),
 		"meals_hours":           validation.Validate(timeEntryRecord.Get("meals_hours"), validation.Max(3.0).Error("Meals Hours must not exceed 3")),
 		"description":           validation.Validate(timeEntryRecord.GetString("description"), validation.Length(5, 0).Error("must be at least 5 characters")),
-		"work_record":           validation.Validate(timeEntryRecord.Get("work_record"), validation.When(jobIsPresent, validation.Match(regexp.MustCompile("^[FKQ][0-9]{2}-[0-9]{3,4}(-[0-9]+)?$")).Error("must be in the correct format")).Else(validation.In("").Error("Work Record must be empty when job is not provided"))),
+		"work_record":           validation.Validate(timeEntryRecord.Get("work_record"), validation.When(workRecordID == "" && workRecordText != "" && jobIsPresent, validation.Match(regexp.MustCompile("^[FKQ][0-9]{2}-[0-9]{3,4}(-[0-9]+)?$")).Error("must be in the correct format")).Else(validation.In("").Error("Work Record must be empty when job is not provided"))),
 		"payout_request_amount": validation.Validate(timeEntryRecord.Get("payout_request_amount"), validation.Min(0.0).Exclusive().Error("Amount must be greater than 0"), validation.By(utilities.IsPositiveMultipleOfPointZeroOne())),
+	}
+
+	if workRecordID != "" {
+		for field, err := range validateLinkedWorkRecord(app, timeEntryRecord) {
+			otherValidationsErrors[field] = err
+		}
+		timeEntryRecord.Set("work_record", "")
+	} else if legacyWorkRecordUpgradeRequired(timeEntryRecord) {
+		otherValidationsErrors["work_record_id"] = validation.NewError(
+			"work_record_upgrade_required",
+			"Select an existing work record before saving this legacy time entry",
+		)
 	}
 
 	// If a job is present, verify the referenced job exists and has Active status
@@ -246,6 +384,10 @@ func ProcessTimeEntry(app core.App, e *core.RecordRequestEvent) error {
 	// write the uid property to the record so that we can validate it against the
 	if validationErr := validateTimeEntry(app, record, requiredFields); validationErr != nil {
 		return apis.NewBadRequestError("Validation error", validationErr)
+	}
+
+	if strings.TrimSpace(record.GetString("work_record_id")) != "" {
+		record.Set("work_record", "")
 	}
 
 	return nil

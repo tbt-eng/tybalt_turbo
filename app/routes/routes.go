@@ -392,6 +392,8 @@ func AddRoutes(app core.App) {
 
 		workRecordsGroup := se.Router.Group("/api/work_records")
 		workRecordsGroup.Bind(apis.RequireAuth("users"))
+		workRecordsGroup.GET("/compatible_for_time_entry", createGetCompatibleWorkRecordsHandler(app))
+		workRecordsGroup.POST("/{workRecord}/copy_to_tomorrow", createCopyWorkRecordToTomorrowHandler(app))
 		workRecordsGroup.GET("", createGetWorkRecordsHandler(app))
 		workRecordsGroup.GET("/{workRecord}", createGetWorkRecordDetailsHandler(app))
 

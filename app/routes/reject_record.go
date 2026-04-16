@@ -6,6 +6,7 @@ import (
 	"time"
 	"tybalt/notifications"
 	"tybalt/utilities"
+	"tybalt/workrecords"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -86,6 +87,16 @@ func createRejectRecordHandler(app core.App, collectionName string) func(e *core
 			if err != nil {
 				httpResponseStatusCode = status
 				return err
+			}
+
+			if collectionName == "time_sheets" {
+				if err := workrecords.SyncApprovalForTimeSheet(txApp, record.Id); err != nil {
+					httpResponseStatusCode = http.StatusInternalServerError
+					return &CodeError{
+						Code:    "error_syncing_work_records",
+						Message: fmt.Sprintf("error syncing linked work records: %v", err),
+					}
+				}
 			}
 
 			return nil

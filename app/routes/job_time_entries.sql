@@ -6,7 +6,7 @@
 SELECT te.description,
 	te.hours,
 	te.id,
-	te.work_record,
+	COALESCE(NULLIF(te.work_record, ''), COALESCE(wr.number, '')) AS work_record,
 	te.date,
 	te.week_ending,
 	te.tsid,
@@ -23,6 +23,7 @@ LEFT JOIN time_types tt ON te.time_type = tt.id
 LEFT JOIN profiles p ON te.uid = p.uid
 LEFT JOIN categories c ON te.category = c.id
 LEFT JOIN time_sheets ts ON te.tsid = ts.id
+LEFT JOIN work_records wr ON te.work_record_id = wr.id
 WHERE ts.committed != '' 
 AND te.hours > 0
 AND te.job = {:id}

@@ -47,8 +47,14 @@ func createGetTimeSheetDetailsHandler(app core.App) func(e *core.RequestEvent) e
 			return e.Error(http.StatusInternalServerError, "failed to load time entries", err)
 		}
 
-		if errs := app.ExpandRecords(items, []string{"job", "time_type", "division", "category", "role"}, nil); len(errs) > 0 {
-			return e.Error(http.StatusInternalServerError, "failed to expand time entries", nil)
+		expandFields := []string{"job", "time_type", "division", "category", "role"}
+		if len(items) > 0 && items[0].Collection().Fields.GetByName("work_record_id") != nil {
+			expandFields = append(expandFields, "work_record_id")
+		}
+		if errs := app.ExpandRecords(items, expandFields, nil); len(errs) > 0 {
+			// Keep the custom details route readable even if a fixture DB or
+			// transitional environment lacks one of the optional relations.
+			app.Logger().Warn("failed to expand some time entry relations", "errors", errs)
 		}
 
 		approverInfo, err := getTimesheetApproverInfo(app, id)

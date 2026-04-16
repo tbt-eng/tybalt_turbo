@@ -44,17 +44,24 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 	// Loop through each time entry, summarizing information as we go and
 	// returning errors if any validations fail.
 	for _, entry := range entries {
-		// Return an error immediately if the entry has a work_record value that is
-		// not an empty string and is already in the workRecordsSet. Otherwise, add
-		// the work_record value to the workRecordsSet.
-		if workRecord := entry.GetString("work_record"); workRecord != "" {
-			if _, keyPresent := workRecordsSet[workRecord]; keyPresent {
+		// Prevent duplicate linked work records or duplicate legacy work-record
+		// text values from appearing on the same timesheet bundle.
+		workRecordKey := entry.GetString("work_record")
+		workRecordLabel := workRecordKey
+		if workRecordID := entry.GetString("work_record_id"); workRecordID != "" {
+			workRecordKey = "id:" + workRecordID
+			if workRecordLabel == "" {
+				workRecordLabel = workRecordID
+			}
+		}
+		if workRecordKey != "" {
+			if _, keyPresent := workRecordsSet[workRecordKey]; keyPresent {
 				return &CodeError{
 					Code:    "multiple_work_records",
-					Message: fmt.Sprintf("work record %s appears in multiple entries", workRecord),
+					Message: fmt.Sprintf("work record %s appears in multiple entries", workRecordLabel),
 				}
 			}
-			workRecordsSet[workRecord] = true
+			workRecordsSet[workRecordKey] = true
 		}
 
 		// Access the time_type record from the expanded time_type relation
