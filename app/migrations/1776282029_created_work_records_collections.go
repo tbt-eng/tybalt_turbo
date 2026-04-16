@@ -1,3 +1,18 @@
+// Package migrations registers schema changes for PocketBase collections.
+//
+// This migration exists because work records were promoted from legacy text
+// references embedded in time entries into a first-class data model with their
+// own collections, related child tables, and access rules. The work_record_id
+// work in this branch depends on these collections already existing: time
+// entries can only link relationally once work records, work record types, and
+// their supporting child collections have concrete schema definitions.
+//
+// The migration creates the initial work-record collection family from JSON
+// snapshots rather than constructing every field procedurally. That keeps the
+// PocketBase schema definition explicit, reproducible, and easy to compare with
+// later collection snapshots. The helper at the top exists purely to decode and
+// save those JSON definitions in one place so the init registration stays
+// focused on the set of collections being installed.
 package migrations
 
 import (

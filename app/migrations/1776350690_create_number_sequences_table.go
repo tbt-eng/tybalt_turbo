@@ -1,3 +1,16 @@
+// Package migrations registers schema changes for PocketBase collections.
+//
+// This migration exists because work records and modern purchase orders both
+// need backend-reserved numbers that remain correct under concurrency. Scanning
+// existing records for the current maximum on every create is not enough once
+// multiple writers can race, so the branch introduces a dedicated
+// number_sequences collection to act as the durable counter store.
+//
+// The collection is intentionally minimal: a unique scope identifies which
+// sequence is being reserved and an integer value stores the most recently
+// issued number. The numbering package uses this table transactionally so
+// callers can reserve the next identifier while saving related business records
+// in the same transaction.
 package migrations
 
 import (
