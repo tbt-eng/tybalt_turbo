@@ -17,6 +17,10 @@ func SetupTestApp(t testing.TB) *tests.TestApp {
 	// no need to cleanup since scenario.Test() will do that for us
 	// defer testApp.Cleanup()
 
+	// Keep immediate notification delivery synchronous in tests so background
+	// send goroutines don't race PocketBase's ApiScenario event accounting.
+	notifications.SetSendNotificationAsyncForTest(testApp, false)
+
 	// Add the hooks to the test app
 	hooks.AddHooks(testApp)
 

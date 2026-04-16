@@ -1,0 +1,4 @@
+approved,creator,date,distance_travelled_km,hours_on_site,hours_travel_time,id,job,location,number,type,uid,vehicle_type,work_description
+0,f2j5a8vk006baub,2026-04-03,10,8,1,wr260400000003a,cjf0kt0defhq480,Seeded location,W2604-0003,wrtype000000001,f2j5a8vk006baub,company,Seeded work description
+0,f2j5a8vk006baub,2026-04-10,10,8,1,wr260400000010a,cjf0kt0defhq480,Seeded location,W2604-0010,wrtype000000001,f2j5a8vk006baub,company,Seeded work description
+0,f2j5a8vk006baub,2030-02-05,10,8,1,wr300200000050a,cjf0kt0defhq480,Seeded location,W3002-0050,wrtype000000001,f2j5a8vk006baub,company,Seeded work description
