@@ -1,3 +1,17 @@
+// Package migrations registers schema changes for PocketBase collections.
+//
+// This migration exists to tighten the initial work-record schema after the
+// first collection creation landed. Two follow-up adjustments are bundled here:
+// the work record number field is made optional so backend numbering hooks can
+// assign it during save, and the transient "selected" flag is removed from work
+// record consumable entries because it represented UI state rather than durable
+// domain data.
+//
+// The migration updates the existing collections in place rather than replacing
+// them wholesale. That keeps the change small, preserves collection IDs that
+// other code already references, and provides a clean rollback path that
+// restores the previous number-field requirement and selected flag if the
+// migration is reversed.
 package migrations
 
 import (

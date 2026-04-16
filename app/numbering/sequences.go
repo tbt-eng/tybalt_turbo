@@ -1,3 +1,19 @@
+// Package numbering owns backend-reserved identifier generation for records
+// whose numbers must remain unique, sequential enough for the business rules,
+// and safe under concurrent writers.
+//
+// This file exists because the work-record branch moved number assignment out
+// of ad hoc "scan the table and guess the next value" logic and into a shared,
+// transaction-friendly sequence system. Work records need W-numbers, purchase
+// orders still need monthly parent PO numbers, and both workflows have to stay
+// correct when multiple creates happen at the same time.
+//
+// The implementation uses the number_sequences collection as a durable counter
+// store keyed by scope. On first use for a scope, the code seeds the counter
+// from existing records so legacy data continues the sequence. It then performs
+// an atomic UPDATE ... RETURNING increment, which lets callers reserve numbers
+// safely inside a transaction and commit them together with the record that will
+// consume the number.
 package numbering
 
 import (
@@ -56,6 +72,12 @@ func reserveSequence(app core.App, scope string, initialValueQuery string, param
 	return row.Value, nil
 }
 
+// ReserveWorkRecordNumber reserves the next monthly W-number for a work record.
+//
+// The sequence is scoped by year+month so numbers follow the WYYMM-NNNN format
+// described by the work-record feature. Existing work_records rows seed the
+// initial value for a month, and subsequent reservations advance through the
+// shared number_sequences table to remain safe under concurrency.
 func ReserveWorkRecordNumber(app core.App, now time.Time) (string, error) {
 	prefix := fmt.Sprintf("W%02d%02d-", now.Year()%100, int(now.Month()))
 
@@ -81,6 +103,13 @@ func ReserveWorkRecordNumber(app core.App, now time.Time) (string, error) {
 	return fmt.Sprintf("%s%04d", prefix, value), nil
 }
 
+// ReserveParentPONumber reserves the next monthly parent PO number while
+// remaining compatible with the project’s legacy PO formats.
+//
+// The seeding query defensively parses historical parent numbers, ignores child
+// suffixes when needed, and excludes the manual 5000+ range so automatically
+// assigned values continue in the normal sequence without colliding with manual
+// entries.
 func ReserveParentPONumber(app core.App, now time.Time) (string, error) {
 	prefix := fmt.Sprintf("%02d%02d-", now.Year()%100, int(now.Month()))
 	upperBound := fmt.Sprintf("%s%04d", prefix, 5000)

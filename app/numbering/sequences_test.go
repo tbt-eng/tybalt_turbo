@@ -1,3 +1,17 @@
+// Package numbering tests the shared backend sequence reservation logic used by
+// work records and purchase orders.
+//
+// This file exists because numbering bugs are easy to miss in normal request
+// tests but expensive in production: duplicate numbers, stale seeds after
+// manual inserts, exhaustion handling, or races under concurrent writers can all
+// corrupt user-visible identifiers. The tests here focus on those failure modes
+// directly so the sequence layer can evolve without silently breaking numbering
+// guarantees higher up the stack.
+//
+// The test strategy uses seeded PocketBase apps so reservations run against
+// realistic fixture data, then exercises both single-threaded and concurrent
+// paths. That gives confidence that the number_sequences-backed implementation
+// is correct both for legacy-seeded data and for new transactional reservations.
 package numbering
 
 import (
