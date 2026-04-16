@@ -377,6 +377,29 @@ func AddHooks(app core.App) {
 		return e.Next()
 	}
 	app.OnRecordDeleteRequest("time_amendments").BindFunc(timeAmendmentsGateHook)
+	// hooks for work_records model
+	//
+	// Use CreateExecute rather than CreateRequest so number assignment runs for
+	// any backend create/save path, not only HTTP collection requests.
+	//
+	// We also explicitly rebind e.App to the transactional app so the sequence
+	// reservation and the eventual insert share the same transaction and commit
+	// or roll back together. Keep this hook synchronous while e.App is swapped.
+	app.OnRecordCreateExecute("work_records").BindFunc(func(e *core.RecordEvent) error {
+		originalApp := e.App
+		return e.App.RunInTransaction(func(txApp core.App) error {
+			e.App = txApp
+			defer func() {
+				e.App = originalApp
+			}()
+
+			if err := ProcessWorkRecord(txApp, e); err != nil {
+				return err
+			}
+
+			return e.Next()
+		})
+	})
 	// hooks for purchase_orders model
 	app.OnRecordCreateRequest("purchase_orders").BindFunc(func(e *core.RecordRequestEvent) error {
 		nid, err := ProcessPurchaseOrder(app, e)

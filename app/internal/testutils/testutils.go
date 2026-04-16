@@ -19,6 +19,10 @@ func SetupTestApp(t testing.TB) *tests.TestApp {
 
 	testApp := testseed.NewSeededTestApp(t)
 
+	// Keep immediate notification delivery synchronous in tests so background
+	// send goroutines don't race PocketBase's ApiScenario event accounting.
+	notifications.SetSendNotificationAsyncForTest(testApp, false)
+
 	// Add the hooks to the test app
 	hooks.AddHooks(testApp)
 
