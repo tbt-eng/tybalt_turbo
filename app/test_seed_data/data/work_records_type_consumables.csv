@@ -1,0 +1,5 @@
+active,consumable,id,sort_order,type,unit_label
+1,wrconsmbl000001,wrtc00000000001,1,wrtype000000001,stakes
+1,wrconsmbl000002,wrtc00000000002,2,wrtype000000001,
+1,wrconsmbl000003,wrtc00000000003,1,wrtype000000003,rods
+1,wrconsmbl000002,wrtc00000000004,1,wrtype000000004,

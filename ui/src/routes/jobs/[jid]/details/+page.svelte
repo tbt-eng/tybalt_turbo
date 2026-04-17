@@ -291,6 +291,7 @@
               {page}
               {totalPages}
               jobId={data.job.id}
+              approvedWorkRecordsActive={activeTab === "time" && timeSubTab === "all"}
             />
           {/snippet}
         </JobDetailTab>

@@ -259,6 +259,12 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Payroll", href: "/reports/payroll", buttons: [], requiredClaim: "report" },
       { label: "Weekly", href: "/reports/weekly", buttons: [], requiredClaim: "report" },
+      {
+        label: "Work Records",
+        href: "/reports/work-records",
+        buttons: [],
+        requiredClaim: "report",
+      },
       { label: "Time Off", href: "/time/off/all", buttons: [], requiredClaim: "report" },
       {
         label: "Payables Spreadsheet",

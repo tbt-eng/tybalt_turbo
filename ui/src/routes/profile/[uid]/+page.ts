@@ -15,6 +15,8 @@ export const load: PageLoad = async ({ params }) => {
     alternate_manager: "",
     default_division: "",
     default_expense_payment_type: "",
+    default_work_record_type: "",
+    default_role: "",
     uid: uid,
   };
   let item: ProfilesResponse;
