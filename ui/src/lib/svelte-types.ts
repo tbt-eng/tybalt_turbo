@@ -400,9 +400,6 @@ export interface WorkRecordSaveConsumableRequest {
 
 export interface WorkRecordConsumablesReportResponse {
   items: WorkRecordConsumableReportRow[];
-  limit: number;
-  offset: number;
-  has_more: boolean;
 }
 
 export interface WorkRecordCreateRequest {
@@ -482,8 +479,6 @@ export interface WorkRecordCopyDraftResponse {
 export interface WorkRecordSearchResponse {
   items: WorkRecordListRow[];
   total: number;
-  limit: number;
-  offset: number;
 }
 
 export interface PaginatedJobWorkRecordsResponse {

@@ -14,10 +14,8 @@ import (
 )
 
 type WorkRecordSearchResponse struct {
-	Items  []WorkRecordListRow `json:"items"`
-	Total  int                 `json:"total"`
-	Limit  int                 `json:"limit"`
-	Offset int                 `json:"offset"`
+	Items []WorkRecordListRow `json:"items"`
+	Total int                 `json:"total"`
 }
 
 type PaginatedJobWorkRecordsResponse struct {
@@ -29,10 +27,7 @@ type PaginatedJobWorkRecordsResponse struct {
 }
 
 type WorkRecordConsumablesReportResponse struct {
-	Items   []WorkRecordConsumableReportRow `json:"items"`
-	Limit   int                             `json:"limit"`
-	Offset  int                             `json:"offset"`
-	HasMore bool                            `json:"has_more"`
+	Items []WorkRecordConsumableReportRow `json:"items"`
 }
 
 type WorkRecordConsumableReportRow struct {
@@ -104,7 +99,7 @@ func requireWorkRecordReportViewer(app core.App, auth *core.Record) error {
 	}
 }
 
-func parseWorkRecordSearchFilters(e *core.RequestEvent) (workRecordSearchFilters, int, int, error) {
+func parseWorkRecordSearchFilters(e *core.RequestEvent) (workRecordSearchFilters, error) {
 	query := e.Request.URL.Query()
 	filters := workRecordSearchFilters{
 		UID:      strings.TrimSpace(query.Get("uid")),
@@ -116,12 +111,12 @@ func parseWorkRecordSearchFilters(e *core.RequestEvent) (workRecordSearchFilters
 
 	if filters.DateFrom != "" {
 		if _, err := time.Parse("2006-01-02", filters.DateFrom); err != nil {
-			return filters, 0, 0, workRecordSearchFieldError("date_from", "invalid_date", "date_from must use YYYY-MM-DD")
+			return filters, workRecordSearchFieldError("date_from", "invalid_date", "date_from must use YYYY-MM-DD")
 		}
 	}
 	if filters.DateTo != "" {
 		if _, err := time.Parse("2006-01-02", filters.DateTo); err != nil {
-			return filters, 0, 0, workRecordSearchFieldError("date_to", "invalid_date", "date_to must use YYYY-MM-DD")
+			return filters, workRecordSearchFieldError("date_to", "invalid_date", "date_to must use YYYY-MM-DD")
 		}
 	}
 
@@ -140,35 +135,14 @@ func parseWorkRecordSearchFilters(e *core.RequestEvent) (workRecordSearchFilters
 	var err error
 	filters.Linked, err = parseOptionalBool("linked")
 	if err != nil {
-		return filters, 0, 0, err
+		return filters, err
 	}
 	filters.Approved, err = parseOptionalBool("approved")
 	if err != nil {
-		return filters, 0, 0, err
+		return filters, err
 	}
 
-	limit := 100
-	if raw := strings.TrimSpace(query.Get("limit")); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed <= 0 {
-			return filters, 0, 0, workRecordSearchFieldError("limit", "invalid_limit", "limit must be a positive integer")
-		}
-		if parsed > 500 {
-			parsed = 500
-		}
-		limit = parsed
-	}
-
-	offset := 0
-	if raw := strings.TrimSpace(query.Get("offset")); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 0 {
-			return filters, 0, 0, workRecordSearchFieldError("offset", "invalid_offset", "offset must be a non-negative integer")
-		}
-		offset = parsed
-	}
-
-	return filters, limit, offset, nil
+	return filters, nil
 }
 
 func buildWorkRecordFilterSQL(alias string, filters workRecordSearchFilters) (string, dbx.Params) {
@@ -269,27 +243,71 @@ func loadFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters, l
 	return rows, totalRow.Count, nil
 }
 
+func loadAllFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters) ([]WorkRecordListRow, int, error) {
+	filterSQL, params := buildWorkRecordFilterSQL("wr", filters)
+
+	rows := []WorkRecordListRow{}
+	if err := app.DB().NewQuery(`
+		SELECT
+			wr.id AS id,
+			wr.number AS work_record,
+			wr.date AS date,
+			wr.uid AS uid,
+			COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
+			wr.creator AS creator,
+			COALESCE(wr.job, '') AS job_id,
+			COALESCE(j.number, '') AS job_number,
+			COALESCE(wr.type, '') AS type_id,
+			COALESCE(wrt.name, '') AS type_name,
+			COALESCE(wr.location, '') AS location,
+			COALESCE(wr.work_description, '') AS work_description,
+			COALESCE(wr.approved, 0) AS approved,
+			COALESCE(te.id, '') AS linked_time_entry_id,
+			COALESCE(te.tsid, '') AS linked_timesheet_id,
+			COALESCE(te.date, '') AS linked_time_entry_date,
+			COALESCE(te.description, '') AS linked_time_entry_description
+		FROM work_records wr
+		LEFT JOIN profiles p
+		  ON p.uid = wr.uid
+		LEFT JOIN jobs j
+		  ON j.id = wr.job
+		LEFT JOIN work_records_types wrt
+		  ON wrt.id = wr.type
+		LEFT JOIN time_entries te
+		  ON te.work_record_id = wr.id
+		WHERE ` + filterSQL + `
+		ORDER BY wr.date DESC, wr.number DESC
+	`).Bind(params).All(&rows); err != nil {
+		return nil, 0, err
+	}
+
+	for i := range rows {
+		rows[i].SearchText = buildWorkRecordSearchText(rows[i].WorkRecord + " " + rows[i].OwnerName + " " + rows[i].JobNumber + " " + rows[i].TypeName + " " + rows[i].Location + " " + rows[i].WorkDescription)
+		rows[i].CanCreateTimeEntry = false
+	}
+
+	return rows, len(rows), nil
+}
+
 func createGetWorkRecordSearchHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if err := requireWorkRecordReportViewer(app, e.Auth); err != nil {
 			return writeHookError(e, err)
 		}
 
-		filters, limit, offset, err := parseWorkRecordSearchFilters(e)
+		filters, err := parseWorkRecordSearchFilters(e)
 		if err != nil {
 			return writeHookError(e, err)
 		}
 
-		rows, total, err := loadFilteredWorkRecordRows(app, filters, limit, offset)
+		rows, total, err := loadAllFilteredWorkRecordRows(app, filters)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load work record search results", err)
 		}
 
 		return e.JSON(http.StatusOK, WorkRecordSearchResponse{
-			Items:  rows,
-			Total:  total,
-			Limit:  limit,
-			Offset: offset,
+			Items: rows,
+			Total: total,
 		})
 	}
 }
@@ -361,17 +379,17 @@ func createGetUnlinkedWorkRecordsReportHandler(app core.App) func(e *core.Reques
 		if err := requireWorkRecordReportViewer(app, e.Auth); err != nil {
 			return writeHookError(e, err)
 		}
-		filters, limit, offset, err := parseWorkRecordSearchFilters(e)
+		filters, err := parseWorkRecordSearchFilters(e)
 		if err != nil {
 			return writeHookError(e, err)
 		}
 		linked := false
 		filters.Linked = &linked
-		rows, total, err := loadFilteredWorkRecordRows(app, filters, limit, offset)
+		rows, total, err := loadAllFilteredWorkRecordRows(app, filters)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load unlinked work records", err)
 		}
-		return e.JSON(http.StatusOK, WorkRecordSearchResponse{Items: rows, Total: total, Limit: limit, Offset: offset})
+		return e.JSON(http.StatusOK, WorkRecordSearchResponse{Items: rows, Total: total})
 	}
 }
 
@@ -380,17 +398,17 @@ func createGetPendingApprovalWorkRecordsReportHandler(app core.App) func(e *core
 		if err := requireWorkRecordReportViewer(app, e.Auth); err != nil {
 			return writeHookError(e, err)
 		}
-		filters, limit, offset, err := parseWorkRecordSearchFilters(e)
+		filters, err := parseWorkRecordSearchFilters(e)
 		if err != nil {
 			return writeHookError(e, err)
 		}
 		approved := false
 		filters.Approved = &approved
-		rows, total, err := loadFilteredWorkRecordRows(app, filters, limit, offset)
+		rows, total, err := loadAllFilteredWorkRecordRows(app, filters)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load pending-approval work records", err)
 		}
-		return e.JSON(http.StatusOK, WorkRecordSearchResponse{Items: rows, Total: total, Limit: limit, Offset: offset})
+		return e.JSON(http.StatusOK, WorkRecordSearchResponse{Items: rows, Total: total})
 	}
 }
 
@@ -400,14 +418,12 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 			return writeHookError(e, err)
 		}
 
-		filters, limit, offset, err := parseWorkRecordSearchFilters(e)
+		filters, err := parseWorkRecordSearchFilters(e)
 		if err != nil {
 			return writeHookError(e, err)
 		}
 
 		filterSQL, params := buildWorkRecordFilterSQL("wr", filters)
-		params["queryLimit"] = limit + 1
-		params["offset"] = offset
 
 		rows := []WorkRecordConsumableReportRow{}
 		if err := app.DB().NewQuery(`
@@ -443,21 +459,10 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 			  ON wrt.id = wr.type
 			WHERE ` + filterSQL + `
 			ORDER BY wr.date DESC, wr.number DESC, wrc.name ASC
-				LIMIT {:queryLimit} OFFSET {:offset}
 		`).Bind(params).All(&rows); err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load work record consumables report", err)
 		}
 
-		hasMore := len(rows) > limit
-		if hasMore {
-			rows = rows[:limit]
-		}
-
-		return e.JSON(http.StatusOK, WorkRecordConsumablesReportResponse{
-			Items:   rows,
-			Limit:   limit,
-			Offset:  offset,
-			HasMore: hasMore,
-		})
+		return e.JSON(http.StatusOK, WorkRecordConsumablesReportResponse{Items: rows})
 	}
 }

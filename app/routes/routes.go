@@ -327,6 +327,7 @@ func AddRoutes(app core.App) {
 		reportsGroup.GET("/payables_spreadsheet_monthly/{yymm}", reports.CreatePayablesSpreadsheetMonthlyHandler(app))
 		reportsGroup.GET("/time_entry_branch_mismatches", createTimeEntryBranchMismatchesReportHandler(app))
 		reportsGroup.GET("/active_jobs", createActiveJobsReportHandler(app))
+		reportsGroup.GET("/work_records/search", createGetWorkRecordSearchHandler(app))
 		reportsGroup.GET("/work_records/unlinked", createGetUnlinkedWorkRecordsReportHandler(app))
 		reportsGroup.GET("/work_records/pending_approval", createGetPendingApprovalWorkRecordsReportHandler(app))
 		reportsGroup.GET("/work_records/consumables", createGetWorkRecordConsumablesReportHandler(app))

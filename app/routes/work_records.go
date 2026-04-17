@@ -379,23 +379,12 @@ func parseWorkRecordListScope(e *core.RequestEvent) (string, error) {
 	return scope, nil
 }
 
-func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string, filters workRecordSearchFilters, limit int, offset int) ([]WorkRecordListRow, int, error) {
-	filterSQL, params := buildWorkRecordFilterSQL("wr", filters)
+func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([]WorkRecordListRow, int, error) {
+	filterSQL := "1 = 1"
+	params := dbx.Params{}
 	if scope == "mine" {
 		filterSQL += " AND (wr.uid = {:authId} OR wr.creator = {:authId})"
 		params["authId"] = auth.Id
-	}
-	params["limit"] = limit
-	params["offset"] = offset
-
-	var totalRow struct {
-		Count int `db:"count"`
-	}
-	if err := app.DB().NewQuery(`
-		SELECT COUNT(*) AS count
-		FROM work_records wr
-		WHERE ` + filterSQL).Bind(params).One(&totalRow); err != nil {
-		return nil, 0, err
 	}
 
 	rows := []WorkRecordListRow{}
@@ -429,7 +418,6 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string, fi
 		  ON te.work_record_id = wr.id
 		WHERE ` + filterSQL + `
 		ORDER BY wr.date DESC, wr.number DESC
-		LIMIT {:limit} OFFSET {:offset}
 	`).Bind(params).All(&rows); err != nil {
 		return nil, 0, err
 	}
@@ -439,7 +427,7 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string, fi
 		rows[i].CanCreateTimeEntry = rows[i].UID == auth.Id && rows[i].LinkedTimeEntryID == ""
 	}
 
-	return rows, totalRow.Count, nil
+	return rows, len(rows), nil
 }
 
 func canViewWorkRecord(app core.App, auth *core.Record, record *core.Record) (bool, error) {
@@ -1459,21 +1447,14 @@ func createGetWorkRecordsHandler(app core.App) func(e *core.RequestEvent) error 
 			}
 		}
 
-		filters, limit, offset, err := parseWorkRecordSearchFilters(e)
-		if err != nil {
-			return writeHookError(e, err)
-		}
-
-		rows, total, err := loadVisibleWorkRecordRows(app, auth, scope, filters, limit, offset)
+		rows, total, err := loadVisibleWorkRecordRows(app, auth, scope)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load work records", err)
 		}
 
 		return e.JSON(http.StatusOK, WorkRecordSearchResponse{
-			Items:  rows,
-			Total:  total,
-			Limit:  limit,
-			Offset: offset,
+			Items: rows,
+			Total: total,
 		})
 	}
 }

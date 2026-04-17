@@ -25,10 +25,8 @@ type workRecordListRow struct {
 }
 
 type workRecordSearchResponse struct {
-	Items  []workRecordListRow `json:"items"`
-	Total  int                 `json:"total"`
-	Limit  int                 `json:"limit"`
-	Offset int                 `json:"offset"`
+	Items []workRecordListRow `json:"items"`
+	Total int                 `json:"total"`
 }
 
 type paginatedJobWorkRecordsResponse struct {
@@ -109,10 +107,7 @@ type workRecordConsumableReportRow struct {
 }
 
 type workRecordConsumablesReportResponse struct {
-	Items   []workRecordConsumableReportRow `json:"items"`
-	Limit   int                             `json:"limit"`
-	Offset  int                             `json:"offset"`
-	HasMore bool                            `json:"has_more"`
+	Items []workRecordConsumableReportRow `json:"items"`
 }
 
 type workRecordCopyDraftResponse struct {
@@ -648,46 +643,15 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 		},
 		{
-			Name:   "work record holder can filter their visible work records",
-			Method: http.MethodGet,
-			URL:    "/api/work_records?scope=mine&date_from=2030-01-01&limit=10",
-			Headers: map[string]string{
-				"Authorization": workRecordToken,
-			},
-			ExpectedStatus: http.StatusOK,
-			ExpectedContent: []string{
-				`"total":1`,
-				`"work_record":"W3002-0050"`,
-			},
-			TestAppFactory: testutils.SetupTestApp,
-			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
-				defer res.Body.Close()
-
-				var payload workRecordSearchResponse
-				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
-					t.Fatalf("failed decoding filtered work record response: %v", err)
-				}
-				if payload.Total != 1 || len(payload.Items) != 1 {
-					t.Fatalf("expected 1 filtered work record, got %#v", payload)
-				}
-				if payload.Items[0].WorkRecord != "W3002-0050" {
-					t.Fatalf("unexpected filtered row: %#v", payload.Items[0])
-				}
-				if !payload.Items[0].CanCreateTimeEntry {
-					t.Fatalf("expected owned unlinked row to allow create action: %#v", payload.Items[0])
-				}
-			},
-		},
-		{
 			Name:   "work record creator can see records they created for someone else",
 			Method: http.MethodGet,
-			URL:    "/api/work_records?scope=mine&uid=rzr98oadsp9qc11&limit=10",
+			URL:    "/api/work_records?scope=mine",
 			Headers: map[string]string{
 				"Authorization": workRecordToken,
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":1`,
+				`"total":4`,
 				`"uid":"rzr98oadsp9qc11"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
@@ -749,21 +713,28 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding creator-visible work record response: %v", err)
 				}
-				if payload.Total != 1 || len(payload.Items) != 1 {
-					t.Fatalf("expected 1 creator-visible work record, got %#v", payload)
+				if payload.Total != 4 || len(payload.Items) != 4 {
+					t.Fatalf("expected 4 visible work records including the created-for-another-worker row, got %#v", payload)
 				}
-				if payload.Items[0].UID != "rzr98oadsp9qc11" {
-					t.Fatalf("expected creator-visible row for another worker, got %#v", payload.Items[0])
+				var creatorVisible *workRecordListRow
+				for i := range payload.Items {
+					if payload.Items[i].UID == "rzr98oadsp9qc11" {
+						creatorVisible = &payload.Items[i]
+						break
+					}
 				}
-				if payload.Items[0].CanCreateTimeEntry {
-					t.Fatalf("creator-visible row for another worker should not expose create action: %#v", payload.Items[0])
+				if creatorVisible == nil {
+					t.Fatalf("expected creator-visible row for another worker, got %#v", payload.Items)
+				}
+				if creatorVisible.CanCreateTimeEntry {
+					t.Fatalf("creator-visible row for another worker should not expose create action: %#v", creatorVisible)
 				}
 			},
 		},
 		{
 			Name:   "report holder can view all organization work records through unified endpoint",
 			Method: http.MethodGet,
-			URL:    "/api/work_records?scope=all&job=cjf0kt0defhq480&limit=10",
+			URL:    "/api/work_records?scope=all",
 			Headers: map[string]string{
 				"Authorization": reportToken,
 			},
@@ -781,7 +752,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("failed decoding work record list response: %v", err)
 				}
 				if payload.Total != 3 || len(payload.Items) != 3 {
-					t.Fatalf("expected 3 organization work records, got %#v", payload)
+					t.Fatalf("expected 3 organization work records without endpoint-level filtering, got %#v", payload)
 				}
 				if payload.Items[0].CanCreateTimeEntry {
 					t.Fatalf("report all-scope should not expose create action for another user's row: %#v", payload.Items[0])
@@ -876,18 +847,18 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
-			{
-				Name:   "authenticated non-report user can fetch approved work records for a job",
+		{
+			Name:   "authenticated non-report user can fetch approved work records for a job",
 			Method: http.MethodGet,
 			URL:    "/api/jobs/cjf0kt0defhq480/work-records?limit=10",
 			Headers: map[string]string{
 				"Authorization": regularUserToken,
 			},
-				ExpectedStatus: http.StatusOK,
-				ExpectedContent: []string{
-					`"work_record":"W2604-0010"`,
-					`"total":1`,
-				},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"work_record":"W2604-0010"`,
+				`"total":1`,
+			},
 			TestAppFactory: testutils.SetupTestApp,
 			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
 				if _, err := app.DB().NewQuery(`
@@ -900,21 +871,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("failed to approve seeded work record: %v", err)
 				}
 			},
-				AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
-					defer res.Body.Close()
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
 
-					var payload paginatedJobWorkRecordsResponse
-					if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
-						t.Fatalf("failed decoding job work records response: %v", err)
-					}
-					if payload.Total != 1 || payload.Page != 1 || payload.TotalPages != 1 {
-						t.Fatalf("unexpected pagination metadata: %#v", payload)
-					}
-					if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0010" || !payload.Data[0].Approved {
-						t.Fatalf("expected one approved job work record, got %#v", payload)
-					}
-				},
+				var payload paginatedJobWorkRecordsResponse
+				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed decoding job work records response: %v", err)
+				}
+				if payload.Total != 1 || payload.Page != 1 || payload.TotalPages != 1 {
+					t.Fatalf("unexpected pagination metadata: %#v", payload)
+				}
+				if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0010" || !payload.Data[0].Approved {
+					t.Fatalf("expected one approved job work record, got %#v", payload)
+				}
 			},
+		},
 		{
 			Name:   "report holder can still fetch approved work records for a job",
 			Method: http.MethodGet,
@@ -958,11 +929,11 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Headers: map[string]string{
 				"Authorization": regularUserToken,
 			},
-			ExpectedStatus: http.StatusForbidden,
-				ExpectedContent: []string{
-					`"page":2`,
-					`"total_pages":2`,
-				},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"page":2`,
+				`"total_pages":2`,
+			},
 			TestAppFactory: testutils.SetupTestApp,
 			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
 				if _, err := app.DB().NewQuery(`
@@ -976,23 +947,23 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("failed to approve seeded work records: %v", err)
 				}
 			},
-				AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
-					defer res.Body.Close()
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
 
-					var payload paginatedJobWorkRecordsResponse
-					if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
-						t.Fatalf("failed decoding paginated job work records response: %v", err)
-					}
-					if payload.Page != 2 || payload.Limit != 1 || payload.Total != 2 || payload.TotalPages != 2 {
-						t.Fatalf("unexpected pagination metadata: %#v", payload)
-					}
-					if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0003" {
-						t.Fatalf("expected second page to contain the older approved work record, got %#v", payload)
-					}
-				},
+				var payload paginatedJobWorkRecordsResponse
+				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed decoding paginated job work records response: %v", err)
+				}
+				if payload.Page != 2 || payload.Limit != 1 || payload.Total != 2 || payload.TotalPages != 2 {
+					t.Fatalf("unexpected pagination metadata: %#v", payload)
+				}
+				if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0003" {
+					t.Fatalf("expected second page to contain the older approved work record, got %#v", payload)
+				}
 			},
-			{
-				Name:   "report holder can fetch unlinked work records report",
+		},
+		{
+			Name:   "report holder can fetch unlinked work records report",
 			Method: http.MethodGet,
 			URL:    "/api/reports/work_records/unlinked",
 			Headers: map[string]string{
@@ -1003,6 +974,35 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				`"total":3`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			Name:   "report holder can fetch filtered work records report",
+			Method: http.MethodGet,
+			URL:    "/api/reports/work_records/search?job=cjf0kt0defhq480&type=wrtype000000001&date_from=2026-04-01&date_to=2026-04-30",
+			Headers: map[string]string{
+				"Authorization": reportToken,
+			},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"total":2`,
+				`"work_record":"W2604-0010"`,
+				`"work_record":"W2604-0003"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var payload workRecordSearchResponse
+				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed decoding filtered work record report response: %v", err)
+				}
+				if payload.Total != 2 || len(payload.Items) != 2 {
+					t.Fatalf("expected 2 filtered work records in report response, got %#v", payload)
+				}
+				if payload.Items[0].WorkRecord != "W2604-0010" || payload.Items[1].WorkRecord != "W2604-0003" {
+					t.Fatalf("unexpected filtered report row order: %#v", payload.Items)
+				}
+			},
 		},
 		{
 			Name:   "report holder can fetch pending approval work records report",
@@ -1037,9 +1037,6 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding work record consumables report response: %v", err)
 				}
-				if payload.Limit != 100 || payload.Offset != 0 || payload.HasMore {
-					t.Fatalf("unexpected consumable pagination metadata: %#v", payload)
-				}
 				if len(payload.Items) != 2 {
 					t.Fatalf("expected 2 consumable report rows, got %#v", payload)
 				}
@@ -1049,7 +1046,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "consumables report indicates has_more when more than limit rows exist",
+			Name:   "consumables report still returns the full filtered set when extra paging params are sent",
 			Method: http.MethodGet,
 			URL:    "/api/reports/work_records/consumables?limit=1",
 			Headers: map[string]string{
@@ -1057,7 +1054,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"has_more":true`,
+				`"items":[`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -1067,13 +1064,13 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding limited consumables report response: %v", err)
 				}
-				if !payload.HasMore || payload.Limit != 1 || payload.Offset != 0 || len(payload.Items) != 1 {
-					t.Fatalf("expected has_more on limited consumables response, got %#v", payload)
+				if len(payload.Items) != 2 {
+					t.Fatalf("expected full consumables response when limit is supplied, got %#v", payload)
 				}
 			},
 		},
 		{
-			Name:   "consumables report hides load more when final page is exactly full",
+			Name:   "consumables report still returns the full filtered set when extra offset params are sent",
 			Method: http.MethodGet,
 			URL:    "/api/reports/work_records/consumables?limit=1&offset=1",
 			Headers: map[string]string{
@@ -1081,7 +1078,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"has_more":false`,
+				`"items":[`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -1091,8 +1088,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding final-page consumables report response: %v", err)
 				}
-				if payload.HasMore || payload.Limit != 1 || payload.Offset != 1 || len(payload.Items) != 1 {
-					t.Fatalf("expected final consumables page without has_more, got %#v", payload)
+				if len(payload.Items) != 2 {
+					t.Fatalf("expected full consumables response when offset is supplied, got %#v", payload)
 				}
 			},
 		},
