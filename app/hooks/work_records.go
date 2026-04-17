@@ -17,19 +17,221 @@
 package hooks
 
 import (
+	"database/sql"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
+	"tybalt/errs"
 	"tybalt/numbering"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 // GenerateWorkRecordNumber reserves the next work-record W-number using the
-// shared numbering package.
-func GenerateWorkRecordNumber(app core.App) (string, error) {
-	return numbering.ReserveWorkRecordNumber(app, time.Now())
+// shared numbering package and the work record's saved date.
+func GenerateWorkRecordNumber(app core.App, workDate string) (string, error) {
+	dateValue := time.Now()
+	if strings.TrimSpace(workDate) != "" {
+		parsed, err := time.Parse("2006-01-02", workDate)
+		if err != nil {
+			return "", workRecordFieldError(
+				"date",
+				"invalid_work_record_date",
+				fmt.Sprintf("invalid work record date: %v", err),
+			)
+		}
+		dateValue = parsed
+	}
+
+	return numbering.ReserveWorkRecordNumber(app, dateValue)
+}
+
+func workRecordFieldError(field string, code string, message string) *errs.HookError {
+	return &errs.HookError{
+		Status:  http.StatusBadRequest,
+		Message: "Validation error",
+		Data: map[string]errs.CodeError{
+			field: {
+				Code:    code,
+				Message: message,
+			},
+		},
+	}
+}
+
+func validateWorkRecordVehicleFields(record *core.Record) error {
+	vehicleType := strings.TrimSpace(record.GetString("vehicle_type"))
+	unitNumber := strings.TrimSpace(record.GetString("company_vehicle_unit_number"))
+
+	if vehicleType == "company" && unitNumber == "" {
+		return workRecordFieldError(
+			"company_vehicle_unit_number",
+			"required_for_company_vehicle",
+			"Company vehicle unit number is required when vehicle type is company",
+		)
+	}
+
+	if vehicleType == "personal" && unitNumber != "" {
+		return workRecordFieldError(
+			"company_vehicle_unit_number",
+			"must_be_blank_for_personal_vehicle",
+			"Company vehicle unit number must be empty when vehicle type is personal",
+		)
+	}
+
+	return nil
+}
+
+func validateWorkRecordUniqueDay(app core.App, record *core.Record) error {
+	var duplicate struct {
+		ID string `db:"id"`
+	}
+	err := app.DB().NewQuery(`
+		SELECT id
+		FROM work_records
+		WHERE uid = {:uid}
+		  AND job = {:job}
+		  AND date = {:date}
+		  AND id != {:id}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"uid":  record.GetString("uid"),
+		"job":  record.GetString("job"),
+		"date": record.GetString("date"),
+		"id":   record.Id,
+	}).One(&duplicate)
+	if err == nil && duplicate.ID != "" {
+		return workRecordFieldError(
+			"date",
+			"duplicate_work_record_day",
+			"A work record already exists for this worker, job, and date",
+		)
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	return nil
+}
+
+func validateWorkRecordTypeChange(app core.App, record *core.Record) error {
+	original := record.Original()
+	if original == nil || original.Id == "" || original.GetString("type") == record.GetString("type") || record.Id == "" {
+		return nil
+	}
+
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM work_records_consumable_entries wrce
+		LEFT JOIN work_records_type_consumables wrtc
+		  ON wrtc.type = {:type}
+		 AND wrtc.consumable = wrce.consumable
+		 AND COALESCE(wrtc.active, 0) = 1
+		WHERE wrce.work_record = {:workRecordId}
+		  AND wrtc.id IS NULL
+	`).Bind(dbx.Params{
+		"type":         record.GetString("type"),
+		"workRecordId": record.Id,
+	}).One(&row); err != nil {
+		return err
+	}
+
+	if row.Count > 0 {
+		return workRecordFieldError(
+			"type",
+			"incompatible_consumable_entries",
+			"Remove or adjust incompatible consumable entries before changing the work record type",
+		)
+	}
+
+	return nil
+}
+
+func validateWorkRecordImmutableFields(record *core.Record) error {
+	original := record.Original()
+	if original == nil || original.Id == "" {
+		return nil
+	}
+
+	if original.GetBool("approved") {
+		return workRecordFieldError(
+			"global",
+			"approved_work_record_locked",
+			"Approved work records cannot be edited",
+		)
+	}
+
+	immutableStrings := []struct {
+		Name    string
+		Code    string
+		Message string
+	}{
+		{Name: "uid", Code: "immutable_field", Message: "Work record owner cannot be changed"},
+		{Name: "creator", Code: "immutable_field", Message: "Work record creator cannot be changed"},
+		{Name: "number", Code: "immutable_field", Message: "Work record number cannot be changed"},
+		{Name: "parent_work_record", Code: "immutable_field", Message: "Parent work record cannot be changed"},
+	}
+	for _, field := range immutableStrings {
+		if original.GetString(field.Name) != record.GetString(field.Name) {
+			return workRecordFieldError(field.Name, field.Code, field.Message)
+		}
+	}
+
+	if original.GetBool("approved") != record.GetBool("approved") {
+		return workRecordFieldError(
+			"approved",
+			"immutable_field",
+			"Approved state is managed by timesheet workflow",
+		)
+	}
+
+	return nil
+}
+
+func ValidateWorkRecord(app core.App, record *core.Record) error {
+	if err := validateWorkRecordImmutableFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordVehicleFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordUniqueDay(app, record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordTypeChange(app, record); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ValidateWorkRecordDelete(app core.App, record *core.Record) error {
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM time_entries
+		WHERE work_record_id = {:workRecordId}
+	`).Bind(dbx.Params{
+		"workRecordId": record.Id,
+	}).One(&row); err != nil {
+		return err
+	}
+
+	if row.Count > 0 {
+		return workRecordFieldError(
+			"global",
+			"linked_time_entry_exists",
+			"Work records linked to time entries cannot be deleted",
+		)
+	}
+
+	return nil
 }
 
 // ProcessWorkRecord applies work-record-specific save behavior before the
@@ -38,8 +240,7 @@ func GenerateWorkRecordNumber(app core.App) (string, error) {
 // Today that means assigning a generated number when the caller did not provide
 // one. The hook does not overwrite an existing number because some internal
 // import and repair flows may need to preserve seeded values explicitly.
-func ProcessWorkRecord(app core.App, e *core.RecordEvent) error {
-	record := e.Record
+func EnsureWorkRecordNumber(app core.App, record *core.Record) error {
 	// Status quo:
 	// - the collection createRule already forbids API clients from submitting a
 	//   non-empty number;
@@ -53,17 +254,27 @@ func ProcessWorkRecord(app core.App, e *core.RecordEvent) error {
 		return nil
 	}
 
-	number, err := GenerateWorkRecordNumber(app)
+	number, err := GenerateWorkRecordNumber(app, record.GetString("date"))
 	if err != nil {
-		return validation.Errors{
-			"number": validation.NewError(
-				"error_generating_work_record_number",
-				fmt.Sprintf("error generating work record number: %v", err),
-			),
+		if hookErr, ok := err.(*errs.HookError); ok {
+			return hookErr
 		}
+		return workRecordFieldError(
+			"number",
+			"error_generating_work_record_number",
+			fmt.Sprintf("error generating work record number: %v", err),
+		)
 	}
 
 	record.Set("number", number)
-
 	return nil
+}
+
+func ProcessWorkRecord(app core.App, e *core.RecordEvent) error {
+	record := e.Record
+	if err := ValidateWorkRecord(app, record); err != nil {
+		return err
+	}
+
+	return EnsureWorkRecordNumber(app, record)
 }

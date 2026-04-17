@@ -61,6 +61,12 @@ export enum Collections {
   UserViewGrants = "user_view_grants",
   Users = "users",
   Vendors = "vendors",
+  WorkRecords = "work_records",
+  WorkRecordsConsumableEntries = "work_records_consumable_entries",
+  WorkRecordsConsumables = "work_records_consumables",
+  WorkRecordsNotes = "work_records_notes",
+  WorkRecordsTypeConsumables = "work_records_type_consumables",
+  WorkRecordsTypes = "work_records_types",
   ZipCache = "zip_cache",
 }
 
@@ -685,6 +691,7 @@ export type ProfilesRecord = {
   created: IsoDateString;
   default_division: RecordIdString;
   default_expense_payment_type: ProfilesDefaultExpensePaymentTypeOptions;
+  default_work_record_type: RecordIdString;
   default_role: RecordIdString;
   do_not_accept_submissions: boolean;
   given_name: string;
@@ -935,24 +942,72 @@ export type TimeEntriesRecord = {
 
 export type WorkRecordsRecord = {
   approved: boolean;
+  company_vehicle_unit_number: string;
   created: IsoDateString;
   creator: RecordIdString;
   date: string;
   distance_travelled_km: number;
+  equipment: string;
   field_book_number: string;
   field_book_page_number: number;
   hours_on_site: number;
   hours_travel_time: number;
   id: string;
+  is_passenger: boolean;
   job: RecordIdString;
   location: string;
   number: string;
   parent_work_record: RecordIdString;
   report_to: string;
+  sub_contractor: string;
+  supplies: string;
   type: RecordIdString;
   uid: RecordIdString;
   updated: IsoDateString;
+  vehicle_type: string;
   work_description: string;
+};
+
+export type WorkRecordsConsumableEntriesRecord = {
+  consumable: RecordIdString;
+  created: IsoDateString;
+  id: string;
+  quantity_number: number;
+  updated: IsoDateString;
+  work_record: RecordIdString;
+};
+
+export type WorkRecordsConsumablesRecord = {
+  active: boolean;
+  created: IsoDateString;
+  id: string;
+  input_kind: string;
+  name: string;
+  updated: IsoDateString;
+};
+
+export type WorkRecordsNotesRecord = {
+  created: IsoDateString;
+  id: string;
+  note: string;
+  uid: RecordIdString;
+  work_record: RecordIdString;
+};
+
+export type WorkRecordsTypeConsumablesRecord = {
+  active: boolean;
+  consumable: RecordIdString;
+  id: string;
+  sort_order: number;
+  type: RecordIdString;
+  unit_label: string;
+};
+
+export type WorkRecordsTypesRecord = {
+  active: boolean;
+  id: string;
+  name: string;
+  sort_order: number;
 };
 
 export type TimeOffRecord = {
@@ -1252,6 +1307,16 @@ export type TimeEntriesResponse<Texpand = TimeEntriesRecordExpands> = Required<T
   BaseSystemFields<Texpand>;
 export type WorkRecordsResponse<Texpand = unknown> = Required<WorkRecordsRecord> &
   BaseSystemFields<Texpand>;
+export type WorkRecordsConsumableEntriesResponse<Texpand = unknown> =
+  Required<WorkRecordsConsumableEntriesRecord> & BaseSystemFields<Texpand>;
+export type WorkRecordsConsumablesResponse<Texpand = unknown> =
+  Required<WorkRecordsConsumablesRecord> & BaseSystemFields<Texpand>;
+export type WorkRecordsNotesResponse<Texpand = unknown> = Required<WorkRecordsNotesRecord> &
+  BaseSystemFields<Texpand>;
+export type WorkRecordsTypeConsumablesResponse<Texpand = unknown> =
+  Required<WorkRecordsTypeConsumablesRecord> & BaseSystemFields<Texpand>;
+export type WorkRecordsTypesResponse<Texpand = unknown> = Required<WorkRecordsTypesRecord> &
+  BaseSystemFields<Texpand>;
 export type TimeOffResponse<Texpand = unknown> = Required<TimeOffRecord> &
   BaseSystemFields<Texpand>;
 export type TimeReportWeekEndingsResponse<Texpand = unknown> =
@@ -1342,6 +1407,11 @@ export type CollectionRecords = {
   users: UsersRecord;
   vendors: VendorsRecord;
   work_records: WorkRecordsRecord;
+  work_records_consumable_entries: WorkRecordsConsumableEntriesRecord;
+  work_records_consumables: WorkRecordsConsumablesRecord;
+  work_records_notes: WorkRecordsNotesRecord;
+  work_records_type_consumables: WorkRecordsTypeConsumablesRecord;
+  work_records_types: WorkRecordsTypesRecord;
   zip_cache: ZipCacheRecord;
 };
 
@@ -1403,6 +1473,11 @@ export type CollectionResponses = {
   users: UsersResponse;
   vendors: VendorsResponse;
   work_records: WorkRecordsResponse;
+  work_records_consumable_entries: WorkRecordsConsumableEntriesResponse;
+  work_records_consumables: WorkRecordsConsumablesResponse;
+  work_records_notes: WorkRecordsNotesResponse;
+  work_records_type_consumables: WorkRecordsTypeConsumablesResponse;
+  work_records_types: WorkRecordsTypesResponse;
   zip_cache: ZipCacheResponse;
 };
 
@@ -1469,6 +1544,15 @@ export type TypedPocketBase = PocketBase & {
   collection(idOrName: "users"): RecordService<UsersResponse>;
   collection(idOrName: "vendors"): RecordService<VendorsResponse>;
   collection(idOrName: "work_records"): RecordService<WorkRecordsResponse>;
+  collection(
+    idOrName: "work_records_consumable_entries",
+  ): RecordService<WorkRecordsConsumableEntriesResponse>;
+  collection(idOrName: "work_records_consumables"): RecordService<WorkRecordsConsumablesResponse>;
+  collection(idOrName: "work_records_notes"): RecordService<WorkRecordsNotesResponse>;
+  collection(
+    idOrName: "work_records_type_consumables",
+  ): RecordService<WorkRecordsTypeConsumablesResponse>;
+  collection(idOrName: "work_records_types"): RecordService<WorkRecordsTypesResponse>;
   collection(idOrName: "zip_cache"): RecordService<ZipCacheResponse>;
 };
 

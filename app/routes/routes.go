@@ -268,6 +268,7 @@ func AddRoutes(app core.App) {
 		jobsGroup.GET("/{id}/time/summary", createGetJobTimeSummaryHandler(app))
 		jobsGroup.GET("/{id}/time/full_report", reports.CreateJobTimeReportHandler(app))
 		jobsGroup.GET("/{id}/time/entries", createGetJobTimeEntriesHandler(app))
+		jobsGroup.GET("/{id}/work-records", createGetJobWorkRecordsHandler(app))
 		jobsGroup.GET("/{id}/staff/summary", createGetJobStaffSummaryHandler(app))
 		jobsGroup.GET("/{id}/divisions/summary", createGetJobDivisionsSummaryHandler(app))
 		jobsGroup.GET("/{id}/expenses/summary", createGetJobExpenseSummaryHandler(app))
@@ -313,6 +314,9 @@ func AddRoutes(app core.App) {
 		reportsGroup.GET("/payables_spreadsheet_monthly/{yymm}", reports.CreatePayablesSpreadsheetMonthlyHandler(app))
 		reportsGroup.GET("/time_entry_branch_mismatches", createTimeEntryBranchMismatchesReportHandler(app))
 		reportsGroup.GET("/active_jobs", createActiveJobsReportHandler(app))
+		reportsGroup.GET("/work_records/unlinked", createGetUnlinkedWorkRecordsReportHandler(app))
+		reportsGroup.GET("/work_records/pending_approval", createGetPendingApprovalWorkRecordsReportHandler(app))
+		reportsGroup.GET("/work_records/consumables", createGetWorkRecordConsumablesReportHandler(app))
 
 		kpiReportsGroup := se.Router.Group("/api/kpi/reports")
 		kpiReportsGroup.Bind(apis.RequireAuth("users"))
@@ -380,7 +384,9 @@ func AddRoutes(app core.App) {
 		workRecordsGroup := se.Router.Group("/api/work_records")
 		workRecordsGroup.Bind(apis.RequireAuth("users"))
 		workRecordsGroup.GET("/compatible_for_time_entry", createGetCompatibleWorkRecordsHandler(app))
-		workRecordsGroup.POST("/{workRecord}/copy_to_tomorrow", createCopyWorkRecordToTomorrowHandler(app))
+		workRecordsGroup.POST("/save", createCreateWorkRecordHandler(app))
+		workRecordsGroup.GET("/{workRecord}/copy_to_tomorrow", createGetWorkRecordCopyDraftHandler(app))
+		workRecordsGroup.POST("/{workRecord}/save", createSaveWorkRecordHandler(app))
 		workRecordsGroup.GET("", createGetWorkRecordsHandler(app))
 		workRecordsGroup.GET("/{workRecord}", createGetWorkRecordDetailsHandler(app))
 

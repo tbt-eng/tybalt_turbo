@@ -47,6 +47,7 @@ interface StoreState {
   };
   profile: {
     default_division: string;
+    default_work_record_type: string;
     default_role: string;
     default_branch: string;
     default_expense_payment_type: string;
@@ -70,6 +71,7 @@ interface StoreState {
 const createStore = () => {
   type UserDefaultsResponse = {
     default_division: string;
+    default_work_record_type: string;
     default_role: string;
     default_branch: string;
     default_expense_payment_type: string;
@@ -130,6 +132,7 @@ const createStore = () => {
     },
     profile: {
       default_division: "",
+      default_work_record_type: "",
       default_role: "",
       default_branch: "",
       default_expense_payment_type: "",
@@ -294,6 +297,7 @@ const createStore = () => {
             ...state,
             profile: {
               default_division: defaults.default_division ?? "",
+              default_work_record_type: defaults.default_work_record_type ?? "",
               default_role: defaults.default_role ?? "",
               default_branch: defaults.default_branch ?? "",
               default_expense_payment_type: defaults.default_expense_payment_type ?? "",
@@ -368,6 +372,7 @@ const createStore = () => {
           claimIds: [],
           profile: {
             default_division: "",
+            default_work_record_type: "",
             default_role: "",
             default_branch: "",
             default_expense_payment_type: "",

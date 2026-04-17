@@ -1,2 +1,5 @@
 active,id,name,sort_order
-1,wrtype000000001,Seeded numbering test type,1
+1,wrtype000000001,Survey,1
+1,wrtype000000002,General,2
+1,wrtype000000003,Drilling,3
+1,wrtype000000004,Field Test,4

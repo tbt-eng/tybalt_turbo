@@ -14,6 +14,7 @@
   import { divisions } from "$lib/stores/divisions";
   import { managers } from "$lib/stores/managers";
   import { rateRoles } from "$lib/stores/rateRoles";
+  import { workRecordTypes } from "$lib/stores/workRecordTypes";
   import DsCheck from "$lib/components/DsCheck.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import { untrack } from "svelte";
@@ -23,6 +24,7 @@
   divisions.init();
   managers.init();
   rateRoles.init();
+  workRecordTypes.init();
 
   let { data }: { data: PageData } = $props();
   let errors = $state({} as any);
@@ -146,6 +148,17 @@
       {item.name}
     {/snippet}
   </DsSelector>
+  {#if $workRecordTypes.index !== null}
+    <DSAutoComplete
+      bind:value={item.default_work_record_type as string}
+      index={$workRecordTypes.index}
+      {errors}
+      fieldName="default_work_record_type"
+      uiName="Default Work Record Type"
+    >
+      {#snippet resultTemplate(item)}{item.name}{/snippet}
+    </DSAutoComplete>
+  {/if}
   <DsCheck
     bind:value={item.do_not_accept_submissions as boolean}
     {errors}

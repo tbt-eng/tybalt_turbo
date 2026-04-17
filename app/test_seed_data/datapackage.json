@@ -1994,6 +1994,11 @@
             "x-sqlite-type": "TEXT"
           },
           {
+            "name": "default_work_record_type",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
             "name": "default_role",
             "type": "string",
             "x-sqlite-type": "TEXT"
@@ -3176,6 +3181,167 @@
             "name": "sort_order",
             "type": "number",
             "x-sqlite-type": "NUMERIC"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "work_records_consumables",
+      "path": "data/work_records_consumables.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "active",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "input_kind",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "work_records_type_consumables",
+      "path": "data/work_records_type_consumables.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "active",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
+            "name": "consumable",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "sort_order",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "type",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "unit_label",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "work_records_notes",
+      "path": "data/work_records_notes.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "note",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "uid",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "work_record",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "work_records_consumable_entries",
+      "path": "data/work_records_consumable_entries.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "consumable",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "quantity_number",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "work_record",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
           }
         ],
         "primaryKey": [

@@ -253,9 +253,11 @@ export interface WorkRecordListRow {
   work_record: string;
   date: string;
   uid: string;
+  owner_name: string;
   creator: string;
   job_number: string;
   job_id: string;
+  type_id: string;
   type_name: string;
   location: string;
   work_description: string;
@@ -273,6 +275,7 @@ export interface WorkRecordDetailsResponse {
   work_record: string;
   date: string;
   uid: string;
+  owner_name: string;
   creator: string;
   job_id: string;
   job_number: string;
@@ -280,9 +283,23 @@ export interface WorkRecordDetailsResponse {
   type_name: string;
   location: string;
   work_description: string;
+  report_to: string;
   hours_on_site: number;
   hours_travel_time: number;
+  distance_travelled_km: number;
+  field_book_number: string;
+  field_book_page_number: number;
+  sub_contractor: string;
+  equipment: string;
+  supplies: string;
+  vehicle_type: string;
+  is_passenger: boolean;
+  company_vehicle_unit_number: string;
   approved: boolean;
+  parent_work_record_id: string;
+  parent_work_record: string;
+  root_work_record_id: string;
+  root_work_record: string;
   linked_time_entry_id: string;
   linked_timesheet_id: string;
   linked_time_entry_date: string;
@@ -290,9 +307,154 @@ export interface WorkRecordDetailsResponse {
   linked_time_sheet_week_ending: string;
   can_create_time_entry: boolean;
   can_copy_to_tomorrow: boolean;
+  can_edit: boolean;
+  can_add_note: boolean;
+  notes: WorkRecordNoteResponse[];
+  consumables: WorkRecordConsumableResponse[];
 }
 
 export interface WorkRecordOption {
   id: string;
   work_record: string;
+}
+
+export interface WorkRecordNoteResponse {
+  id: string;
+  uid: string;
+  author_name: string;
+  note: string;
+  created: string;
+}
+
+export interface WorkRecordConsumableResponse {
+  entry_id: string;
+  consumable_id: string;
+  consumable_name: string;
+  input_kind: string;
+  unit_label: string;
+  sort_order: number;
+  quantity_number: number;
+  boolean_selected: boolean;
+}
+
+export interface WorkRecordSaveConsumableRequest {
+  entry_id: string;
+  consumable_id: string;
+  input_kind: string;
+  quantity_number: number;
+  boolean_selected: boolean;
+}
+
+export interface WorkRecordConsumablesReportResponse {
+  items: WorkRecordConsumableReportRow[];
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+export interface WorkRecordCreateRequest {
+  uid: string;
+  date: string;
+  job: string;
+  type: string;
+  location: string;
+  work_description: string;
+  report_to: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  distance_travelled_km: number;
+  field_book_number: string;
+  field_book_page_number: number | "";
+  sub_contractor: string;
+  equipment: string;
+  supplies: string;
+  vehicle_type: string;
+  is_passenger: boolean;
+  company_vehicle_unit_number: string;
+  consumables: WorkRecordSaveConsumableRequest[];
+  copy_from_work_record_id?: string;
+}
+
+export interface WorkRecordSaveRequest {
+  date: string;
+  job: string;
+  type: string;
+  location: string;
+  work_description: string;
+  report_to: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  distance_travelled_km: number;
+  field_book_number: string;
+  field_book_page_number: number | "";
+  sub_contractor: string;
+  equipment: string;
+  supplies: string;
+  vehicle_type: string;
+  is_passenger: boolean;
+  company_vehicle_unit_number: string;
+  consumables: WorkRecordSaveConsumableRequest[];
+}
+
+export interface WorkRecordSaveResponse {
+  id: string;
+}
+
+export interface WorkRecordCopyDraftResponse {
+  uid: string;
+  date: string;
+  job: string;
+  type: string;
+  location: string;
+  work_description: string;
+  report_to: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  distance_travelled_km: number;
+  field_book_number: string;
+  field_book_page_number: number;
+  sub_contractor: string;
+  equipment: string;
+  supplies: string;
+  vehicle_type: string;
+  is_passenger: boolean;
+  company_vehicle_unit_number: string;
+  consumables: WorkRecordConsumableResponse[];
+  copy_from_work_record_id: string;
+  source_work_record: string;
+  root_work_record_id: string;
+  root_work_record: string;
+}
+
+export interface WorkRecordSearchResponse {
+  items: WorkRecordListRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface PaginatedJobWorkRecordsResponse {
+  data: WorkRecordListRow[];
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface WorkRecordConsumableReportRow {
+  work_record_id: string;
+  work_record: string;
+  date: string;
+  uid: string;
+  owner_name: string;
+  job_id: string;
+  job_number: string;
+  type_id: string;
+  type_name: string;
+  consumable_id: string;
+  consumable_name: string;
+  input_kind: string;
+  unit_label: string;
+  quantity_number: number;
+  boolean_selected: boolean;
 }

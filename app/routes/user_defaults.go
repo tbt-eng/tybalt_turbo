@@ -9,6 +9,7 @@ import (
 
 type userDefaultsResponse struct {
 	DefaultDivision            string `json:"default_division" db:"default_division"`
+	DefaultWorkRecordType      string `json:"default_work_record_type" db:"default_work_record_type"`
 	DefaultRole                string `json:"default_role" db:"default_role"`
 	DefaultBranch              string `json:"default_branch" db:"default_branch"`
 	DefaultExpensePaymentType  string `json:"default_expense_payment_type" db:"default_expense_payment_type"`
@@ -23,6 +24,7 @@ func createGetUserDefaultsHandler(app core.App) func(e *core.RequestEvent) error
 		err := app.DB().NewQuery(`
 			SELECT
 				COALESCE(p.default_division, '') AS default_division,
+				COALESCE(p.default_work_record_type, '') AS default_work_record_type,
 				COALESCE(p.default_role, '') AS default_role,
 				COALESCE(p.default_expense_payment_type, '') AS default_expense_payment_type,
 				COALESCE(ap.default_branch, '') AS default_branch,

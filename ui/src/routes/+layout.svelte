@@ -72,6 +72,7 @@
             }
             if (item.href.startsWith("/time/work-records")) {
               return (
+                $globalStore.claims.includes("time") ||
                 $globalStore.claims.includes("report") ||
                 $globalStore.claims.includes("work_record")
               );

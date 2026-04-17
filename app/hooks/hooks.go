@@ -396,6 +396,24 @@ func AddHooks(app core.App) {
 	}
 	app.OnRecordDeleteRequest("time_amendments").BindFunc(timeAmendmentsGateHook)
 	// hooks for work_records model
+	app.OnRecordCreateRequest("work_records").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecord(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordUpdateRequest("work_records").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecord(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordDeleteRequest("work_records").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordDelete(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
 	//
 	// Use CreateExecute rather than CreateRequest so number assignment runs for
 	// any backend create/save path, not only HTTP collection requests.
@@ -417,6 +435,24 @@ func AddHooks(app core.App) {
 
 			return e.Next()
 		})
+	})
+	app.OnRecordCreateRequest("work_records_consumable_entries").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordConsumableEntry(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordUpdateRequest("work_records_consumable_entries").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordConsumableEntry(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordDeleteRequest("work_records_consumable_entries").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordConsumableEntryDelete(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
 	})
 	// hooks for purchase_orders model
 	app.OnRecordCreateRequest("purchase_orders").BindFunc(func(e *core.RecordRequestEvent) error {
