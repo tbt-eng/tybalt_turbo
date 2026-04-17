@@ -24,6 +24,7 @@
   import Icon from "@iconify/svelte";
   import { globalStore } from "$lib/stores/global";
   import { authStore } from "$lib/stores/auth";
+  import { refreshVisibleWorkRecords } from "$lib/stores/workRecords";
   import { goto } from "$app/navigation";
   import type { TimeEntriesPageData, WorkRecordOption } from "$lib/svelte-types";
   import type {
@@ -465,6 +466,8 @@
 
       // submission was successful, clear the errors
       errors = {};
+
+      await refreshVisibleWorkRecords($globalStore.user_claims_summary.claims.includes("report"));
 
       // redirect to the list page
       goto("/time/entries/list");

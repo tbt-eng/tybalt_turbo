@@ -306,9 +306,14 @@
                   {section.title}
                 </p>
                 {#each section.items as item (item.href || item.label)}
+                  {@const visibleButtons = (item.buttons ?? []).filter(
+                    (btn) =>
+                      !btn.claimsAny ||
+                      btn.claimsAny.some((claim) => $globalStore.claims.includes(claim)),
+                  )}
                   <div
                     class="flex h-12 items-center pr-4 lg:h-8 lg:pr-2"
-                    class:justify-between={item.buttons}
+                    class:justify-between={visibleButtons.length > 0}
                   >
                     {#if item.children}
                       <NavFlyout
@@ -344,11 +349,11 @@
                         {item.label}
                       </span>
                     {/if}
-                    {#if item.buttons}
+                    {#if visibleButtons.length > 0}
                       <div
                         class="flex items-center gap-1 [&_svg]:h-8 [&_svg]:w-8 lg:[&_svg]:h-6 lg:[&_svg]:w-6"
                       >
-                        {#each item.buttons as btn (btn.title)}
+                        {#each visibleButtons as btn (btn.title)}
                           <DsActionButton
                             action={btn.action}
                             icon={btn.icon}

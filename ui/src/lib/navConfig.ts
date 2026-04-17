@@ -9,6 +9,7 @@ export interface NavButton {
   icon: string;
   title: string;
   color?: string;
+  claimsAny?: string[];
 }
 
 export interface NavLink {
@@ -49,7 +50,19 @@ export const navSections: NavSection[] = [
       { label: "Approved By Me", href: "/time/sheets/approved", buttons: [] },
       { label: "Shared with Me", href: "/time/sheets/shared", buttons: [] },
       { label: "Tracking", href: "/time/tracking", buttons: [] },
-      { label: "Work Records", href: "/time/work-records", buttons: [] },
+      {
+        label: "Work Records",
+        href: "/time/work-records",
+        buttons: [
+          {
+            action: "/time/work-records/add",
+            icon: "feather:plus-circle",
+            title: "New Work Record",
+            color: "green",
+            claimsAny: ["time", "work_record"],
+          },
+        ],
+      },
       {
         label: "Amendments",
         href: "/time/amendments/pending",

@@ -14,6 +14,7 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
+  import DSToggle from "$lib/components/DSToggle.svelte";
   import type {
     WorkRecordCopyDraftResponse,
     WorkRecordConsumableResponse,
@@ -23,6 +24,7 @@
     WorkRecordSaveRequest,
     WorkRecordSaveResponse,
   } from "$lib/svelte-types";
+  import { refreshVisibleWorkRecords } from "$lib/stores/workRecords";
   import { DATE_INPUT_MIN, dateInputMaxMonthsAhead } from "$lib/utilities";
 
   jobs.init();
@@ -57,15 +59,18 @@
   };
 
   const vehicleTypeOptions = [
-    { id: "", name: "Select a vehicle type" },
-    { id: "company", name: "Company" },
-    { id: "personal", name: "Personal" },
+    { id: "company", label: "Company" },
+    { id: "personal", label: "Personal" },
   ];
 
   const assigneeModeOptions = [
     { id: "you", name: "For you" },
     { id: "someone_else", name: "For someone else" },
   ];
+  const workRecordTypeOptions = $derived([
+    { id: "", name: "Select a work record type" },
+    ...$workRecordTypes.items.map((item) => ({ id: item.id, name: item.name })),
+  ]);
 
   let {
     item,
@@ -95,6 +100,7 @@
   const dateInputMax = dateInputMaxMonthsAhead(15);
   const currentUserId = $derived($authStore?.model?.id ?? "");
   const canAssignOthers = $derived($globalStore.user_claims_summary.claims.includes("work_record"));
+  const canViewAll = $derived($globalStore.user_claims_summary.claims.includes("report"));
   const canEdit = $derived(detail?.can_edit ?? true);
   const isCopyMode = $derived(copyContext !== null);
   const showSaveButton = $derived(!editing || canEdit);
@@ -156,7 +162,9 @@
       });
 
       const blocked = consumables
-        .filter((row) => !nextVisible.some((visible) => visible.consumable_id === row.consumable_id))
+        .filter(
+          (row) => !nextVisible.some((visible) => visible.consumable_id === row.consumable_id),
+        )
         .map((row) => ({ ...row, blocked: true }));
 
       consumables = [...mergedVisible, ...blocked];
@@ -309,6 +317,7 @@
           method: "POST",
           body: buildSaveRequest(),
         })) as WorkRecordSaveResponse;
+        await refreshVisibleWorkRecords(canViewAll);
         await goto(`/time/work-records/${saved.id}`);
         return;
       }
@@ -317,6 +326,7 @@
         method: "POST",
         body: buildCreateRequest(),
       })) as WorkRecordSaveResponse;
+      await refreshVisibleWorkRecords(canViewAll);
       await goto(`/time/work-records/${saved.id}`);
     } catch (error: any) {
       applySaveErrors(error);
@@ -368,7 +378,8 @@
 
   {#if isCopyMode && copyContext}
     <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
-      Copying from {copyContext.source_work_record}. Worker and job stay locked to the source record.
+      Copying from {copyContext.source_work_record}. Worker and job stay locked to the source
+      record.
     </div>
   {/if}
 
@@ -435,18 +446,6 @@
     </DsAutoComplete>
   {/if}
 
-  {#if $workRecordTypes.index !== null}
-    <DsAutoComplete
-      bind:value={form.type}
-      index={$workRecordTypes.index}
-      {errors}
-      fieldName="type"
-      uiName="Work Record Type"
-    >
-      {#snippet resultTemplate(item)}{item.name}{/snippet}
-    </DsAutoComplete>
-  {/if}
-
   <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" />
   <DsTextInput
     bind:value={form.work_description}
@@ -506,17 +505,34 @@
   <DsTextInput bind:value={form.equipment} {errors} fieldName="equipment" uiName="Equipment" />
   <DsTextInput bind:value={form.supplies} {errors} fieldName="supplies" uiName="Supplies" />
 
-  <DsSelector
-    bind:value={form.vehicle_type}
-    items={vehicleTypeOptions}
-    {errors}
-    fieldName="vehicle_type"
-    uiName="Vehicle Type"
-  >
-    {#snippet optionTemplate(item)}{item.name}{/snippet}
-  </DsSelector>
-
-  <DsCheck bind:value={form.is_passenger} {errors} fieldName="is_passenger" uiName="Passenger" />
+  <div class="flex flex-col gap-1">
+    <div class="flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
+      <div class="flex items-center gap-2">
+        <span>Transport to Site</span>
+        <DSToggle
+          bind:value={form.vehicle_type}
+          options={vehicleTypeOptions}
+          ariaLabel="Transport to Site"
+        />
+      </div>
+      <div class="flex items-center gap-2">
+        <input
+          id="is_passenger"
+          type="checkbox"
+          name="is_passenger"
+          bind:checked={form.is_passenger}
+          class="h-4 w-4"
+        />
+        <label for="is_passenger">I was a passenger</label>
+      </div>
+    </div>
+    {#if errors.vehicle_type}
+      <span class="text-red-600">{errors.vehicle_type.message}</span>
+    {/if}
+    {#if errors.is_passenger}
+      <span class="text-red-600">{errors.is_passenger.message}</span>
+    {/if}
+  </div>
 
   <DsTextInput
     bind:value={form.company_vehicle_unit_number}
@@ -536,6 +552,18 @@
     <p class="mt-1 text-sm text-neutral-600">
       If a needed consumable is not listed, record it in the work record notes.
     </p>
+
+    <div class="mt-3">
+      <DsSelector
+        bind:value={form.type}
+        items={workRecordTypeOptions}
+        {errors}
+        fieldName="type"
+        uiName="Work Record Type"
+      >
+        {#snippet optionTemplate(item)}{item.name}{/snippet}
+      </DsSelector>
+    </div>
 
     {#if consumableWarning !== ""}
       <div class="mt-3 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

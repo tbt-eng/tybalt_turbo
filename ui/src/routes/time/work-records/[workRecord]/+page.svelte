@@ -7,7 +7,7 @@
   import { getApiErrorMessage } from "$lib/errors";
   import type { PageData } from "./$types";
   import { shortDate } from "$lib/utilities";
-  import { Icon } from "@iconify/svelte";
+  import Icon from "@iconify/svelte";
 
   let { data }: { data: PageData } = $props();
   let noteText = $state("");
