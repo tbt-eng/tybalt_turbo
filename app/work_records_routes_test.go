@@ -172,6 +172,47 @@ func countWorkRecordsForTest(t testing.TB, app *tests.TestApp) int {
 	return row.Count
 }
 
+func countWorkRecordNotesForTest(t testing.TB, app *tests.TestApp, workRecordID string) int {
+	t.Helper()
+
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM work_records_notes
+		WHERE work_record = {:id}
+	`).Bind(map[string]any{
+		"id": workRecordID,
+	}).One(&row); err != nil {
+		t.Fatalf("failed counting work record notes: %v", err)
+	}
+
+	return row.Count
+}
+
+func loadWorkRecordNoteForTest(t testing.TB, app *tests.TestApp, noteID string) workRecordNoteRow {
+	t.Helper()
+
+	var row workRecordNoteRow
+	if err := app.DB().NewQuery(`
+		SELECT
+			id,
+			COALESCE(uid, '') AS uid,
+			COALESCE(note, '') AS note,
+			COALESCE(created, '') AS created
+		FROM work_records_notes
+		WHERE id = {:id}
+		LIMIT 1
+	`).Bind(map[string]any{
+		"id": noteID,
+	}).One(&row); err != nil {
+		t.Fatalf("failed loading work record note: %v", err)
+	}
+
+	return row
+}
+
 func loadWorkRecordTypeAndLocationForTest(t testing.TB, app *tests.TestApp, workRecordID string) (string, string) {
 	t.Helper()
 
@@ -835,6 +876,111 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
+			Name:   "work record holder can add a note through the custom work record route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wr260400000010a/notes",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"note":"Created from the unified work record note route"
+			}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"note":"Created from the unified work record note route"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var payload workRecordNoteRow
+				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed decoding work record note response: %v", err)
+				}
+				if payload.ID == "" {
+					t.Fatalf("expected created note id, got %#v", payload)
+				}
+				if payload.UID != "f2j5a8vk006baub" {
+					t.Fatalf("expected note uid to match authenticated worker, got %#v", payload)
+				}
+
+				saved := loadWorkRecordNoteForTest(t, app, payload.ID)
+				if saved.Note != "Created from the unified work record note route" {
+					t.Fatalf("unexpected saved note: %#v", saved)
+				}
+				if got := countWorkRecordNotesForTest(t, app, "wr260400000010a"); got != 2 {
+					t.Fatalf("expected note count to increment, got %d", got)
+				}
+			},
+		},
+		{
+			Name:   "work record holder cannot add an empty note through the custom work record route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wr260400000010a/notes",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"note":"   "
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"note"`,
+				`"validation_required"`,
+				`"Note is required"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var payload struct {
+					Message string                    `json:"message"`
+					Data    map[string]map[string]any `json:"data"`
+				}
+				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed decoding empty-note rejection: %v", err)
+				}
+
+				fieldErr, ok := payload.Data["note"]
+				if !ok {
+					t.Fatalf("expected note validation error, got %#v", payload.Data)
+				}
+				if code, _ := fieldErr["code"].(string); code != "validation_required" {
+					t.Fatalf("expected note required code, got %#v", fieldErr)
+				}
+				if message, _ := fieldErr["message"].(string); message != "Note is required" {
+					t.Fatalf("expected note required message, got %#v", fieldErr)
+				}
+				if got := countWorkRecordNotesForTest(t, app, "wr260400000010a"); got != 1 {
+					t.Fatalf("expected empty note rejection to avoid inserts, got %d notes", got)
+				}
+			},
+		},
+		{
+			Name:   "report holder cannot add a note through the custom work record route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wr260400000010a/notes",
+			Headers: map[string]string{
+				"Authorization": reportToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"note":"Unauthorized note attempt"
+			}`),
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"you are not authorized to add a note to this work record"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				if got := countWorkRecordNotesForTest(t, app, "wr260400000010a"); got != 1 {
+					t.Fatalf("expected unauthorized note attempt to avoid inserts, got %d notes", got)
+				}
+			},
+		},
+		{
 			Name:   "regular user cannot fetch another users work record details",
 			Method: http.MethodGet,
 			URL:    "/api/work_records/W2604-0010",
@@ -1222,6 +1368,74 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, row.ID); got != 2 {
 					t.Fatalf("expected copied consumable entries, got %d", got)
+				}
+			},
+		},
+		{
+			Name:   "create rejects schema-required work record fields when payload is otherwise empty",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"f2j5a8vk006baub",
+				"date":"",
+				"job":"",
+				"type":"",
+				"location":"",
+				"work_description":"",
+				"report_to":"",
+				"hours_on_site":0,
+				"hours_travel_time":0,
+				"distance_travelled_km":0,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"code":"required"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var payload struct {
+					Message string                    `json:"message"`
+					Data    map[string]map[string]any `json:"data"`
+				}
+				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+					t.Fatalf("failed decoding empty-create rejection: %v", err)
+				}
+
+				if strings.TrimSpace(payload.Message) == "" {
+					t.Fatalf("expected validation failure message, got %#v", payload)
+				}
+
+				requiredFields := []string{"date", "job", "type", "location", "work_description", "vehicle_type"}
+				for _, field := range requiredFields {
+					fieldErr, ok := payload.Data[field]
+					if !ok {
+						t.Fatalf("expected %q validation error, got %#v", field, payload.Data)
+					}
+					if code, _ := fieldErr["code"].(string); code != "required" {
+						t.Fatalf("expected %q required code, got %#v", field, fieldErr)
+					}
+					if message, _ := fieldErr["message"].(string); strings.TrimSpace(message) == "" {
+						t.Fatalf("expected %q validation message, got %#v", field, fieldErr)
+					}
+				}
+
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed empty create to avoid inserts, got %d work records", got)
 				}
 			},
 		},

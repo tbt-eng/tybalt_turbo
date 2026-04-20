@@ -20,7 +20,6 @@ import (
 
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
-	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 func saveCollectionFromJSON(app core.App, jsonData string) error {
@@ -169,7 +168,7 @@ func init() {
 		}`
 
 		workRecordsJSON := `{
-			"createRule": "@request.auth.id != \"\" &&\n@request.body.creator = @request.auth.id &&\n(@request.body.number:isset = false || @request.body.number = \"\") &&\n(@request.body.parent_work_record:isset = false || @request.body.parent_work_record = \"\") &&\n(@request.body.approved:isset = false || @request.body.approved = false) &&\n(\n  (\n    @request.auth.user_claims_via_uid.cid.name ?= 'time' &&\n    @request.body.uid = @request.auth.id\n  ) ||\n  (\n    @request.auth.user_claims_via_uid.cid.name ?= 'work_record' &&\n    @request.body.uid.user_claims_via_uid.cid.name ?= 'time'\n  )\n)",
+			"createRule": null,
 			"deleteRule": null,
 			"fields": [
 				{
@@ -490,7 +489,7 @@ func init() {
 			"name": "work_records",
 			"system": false,
 			"type": "base",
-			"updateRule": "@request.auth.id != \"\" &&\napproved = false &&\n(\n  uid = @request.auth.id ||\n  creator = @request.auth.id\n) &&\n@request.body.uid:changed = false &&\n@request.body.creator:changed = false &&\n@request.body.number:changed = false &&\n@request.body.approved:changed = false",
+			"updateRule": null,
 			"viewRule": "@request.auth.id != \"\" &&\n(\n  uid = @request.auth.id ||\n  creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)"
 		}`
 
@@ -587,7 +586,7 @@ func init() {
 		}`
 
 		workRecordsNotesJSON := `{
-			"createRule": "@request.auth.id != \"\" &&\n@request.body.uid = @request.auth.id &&\n(\n  @request.body.work_record.uid = @request.auth.id ||\n  @request.body.work_record.creator = @request.auth.id\n)",
+			"createRule": null,
 			"deleteRule": null,
 			"fields": [
 				{
@@ -659,12 +658,12 @@ func init() {
 			"indexes": [
 				"CREATE INDEX idx_work_records_notes_work_record_created ON work_records_notes (work_record, created)"
 			],
-			"listRule": "@request.auth.id != \"\" &&\n(\n  uid = @request.auth.id ||\n  work_record.uid = @request.auth.id ||\n  work_record.creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)",
+			"listRule": null,
 			"name": "work_records_notes",
 			"system": false,
 			"type": "base",
 			"updateRule": null,
-			"viewRule": "@request.auth.id != \"\" &&\n(\n  uid = @request.auth.id ||\n  work_record.uid = @request.auth.id ||\n  work_record.creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)"
+			"viewRule": null
 		}`
 
 		workRecordsConsumableEntriesJSON := `{
@@ -757,12 +756,12 @@ func init() {
 			"indexes": [
 				"CREATE UNIQUE INDEX idx_work_records_consumable_entries_work_record_consumable ON work_records_consumable_entries (work_record, consumable)"
 			],
-			"listRule": "@request.auth.id != \"\" &&\n(\n  work_record.uid = @request.auth.id ||\n  work_record.creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)",
+			"listRule": null,
 			"name": "work_records_consumable_entries",
 			"system": false,
 			"type": "base",
 			"updateRule": null,
-			"viewRule": "@request.auth.id != \"\" &&\n(\n  work_record.uid = @request.auth.id ||\n  work_record.creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)"
+			"viewRule": null
 		}`
 
 		if err := saveCollectionFromJSON(app, workRecordsTypesJSON); err != nil {
@@ -801,7 +800,7 @@ func init() {
 			return err
 		}
 
-		workRecordsCollection.UpdateRule = types.Pointer("@request.auth.id != \"\" &&\napproved = false &&\n(\n  uid = @request.auth.id ||\n  creator = @request.auth.id\n) &&\n@request.body.uid:changed = false &&\n@request.body.creator:changed = false &&\n@request.body.number:changed = false &&\n@request.body.parent_work_record:changed = false &&\n@request.body.approved:changed = false")
+		workRecordsCollection.UpdateRule = nil
 
 		if err := app.Save(workRecordsCollection); err != nil {
 			return err

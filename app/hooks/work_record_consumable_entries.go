@@ -2,9 +2,7 @@ package hooks
 
 import (
 	"database/sql"
-	"net/http"
 	"strings"
-	"tybalt/errs"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -15,19 +13,6 @@ type workRecordConsumableContext struct {
 	WorkRecordType   string `db:"work_record_type"`
 	InputKind        string `db:"input_kind"`
 	ConsumableActive bool   `db:"consumable_active"`
-}
-
-func workRecordConsumableFieldError(field string, code string, message string) *errs.HookError {
-	return &errs.HookError{
-		Status:  http.StatusBadRequest,
-		Message: "Validation error",
-		Data: map[string]errs.CodeError{
-			field: {
-				Code:    code,
-				Message: message,
-			},
-		},
-	}
 }
 
 func loadWorkRecordConsumableContext(app core.App, workRecordID string, consumableID string) (*workRecordConsumableContext, error) {
@@ -69,7 +54,7 @@ func validateWorkRecordConsumableAllowlist(app core.App, workRecordType string, 
 		return err
 	}
 	if row.Count == 0 {
-		return workRecordConsumableFieldError(
+		return validationFieldError(
 			"consumable",
 			"consumable_not_allowed_for_type",
 			"This consumable is not allowed for the selected work record type",
@@ -95,7 +80,7 @@ func validateWorkRecordConsumableUniqueness(app core.App, record *core.Record) e
 		"id":           record.Id,
 	}).One(&row)
 	if err == nil && row.ID != "" {
-		return workRecordConsumableFieldError(
+		return validationFieldError(
 			"consumable",
 			"duplicate_consumable_entry",
 			"This consumable already has an entry for the work record",
@@ -111,14 +96,14 @@ func ValidateWorkRecordConsumableEntry(app core.App, record *core.Record) error 
 	original := record.Original()
 	if original != nil && original.Id != "" {
 		if original.GetString("work_record") != record.GetString("work_record") {
-			return workRecordConsumableFieldError(
+			return validationFieldError(
 				"work_record",
 				"immutable_field",
 				"Work record cannot be changed for an existing consumable entry",
 			)
 		}
 		if original.GetString("consumable") != record.GetString("consumable") {
-			return workRecordConsumableFieldError(
+			return validationFieldError(
 				"consumable",
 				"immutable_field",
 				"Consumable cannot be changed for an existing consumable entry",
@@ -129,15 +114,15 @@ func ValidateWorkRecordConsumableEntry(app core.App, record *core.Record) error 
 	workRecordID := strings.TrimSpace(record.GetString("work_record"))
 	consumableID := strings.TrimSpace(record.GetString("consumable"))
 	if workRecordID == "" {
-		return workRecordConsumableFieldError("work_record", "required", "Work record is required")
+		return validationFieldError("work_record", "required", "Work record is required")
 	}
 	if consumableID == "" {
-		return workRecordConsumableFieldError("consumable", "required", "Consumable is required")
+		return validationFieldError("consumable", "required", "Consumable is required")
 	}
 
 	ctx, err := loadWorkRecordConsumableContext(app, workRecordID, consumableID)
 	if err != nil {
-		return workRecordConsumableFieldError(
+		return validationFieldError(
 			"work_record",
 			"invalid_consumable_context",
 			"Referenced work record or consumable was not found",
@@ -145,20 +130,15 @@ func ValidateWorkRecordConsumableEntry(app core.App, record *core.Record) error 
 	}
 
 	if ctx.Approved {
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "Validation error",
-			Data: map[string]errs.CodeError{
-				"global": {
-					Code:    "approved_work_record_locked",
-					Message: "Consumables cannot be edited on an approved work record",
-				},
-			},
-		}
+		return validationFieldError(
+			"global",
+			"approved_work_record_locked",
+			"Consumables cannot be edited on an approved work record",
+		)
 	}
 
 	if !ctx.ConsumableActive {
-		return workRecordConsumableFieldError(
+		return validationFieldError(
 			"consumable",
 			"inactive_consumable",
 			"Consumable is inactive and cannot be used",
@@ -176,7 +156,7 @@ func ValidateWorkRecordConsumableEntry(app core.App, record *core.Record) error 
 	switch ctx.InputKind {
 	case "number":
 		if record.GetFloat("quantity_number") <= 0 {
-			return workRecordConsumableFieldError(
+			return validationFieldError(
 				"quantity_number",
 				"quantity_required",
 				"Numeric consumables require a quantity greater than 0",
@@ -184,14 +164,14 @@ func ValidateWorkRecordConsumableEntry(app core.App, record *core.Record) error 
 		}
 	case "boolean":
 		if record.GetFloat("quantity_number") != 0 {
-			return workRecordConsumableFieldError(
+			return validationFieldError(
 				"quantity_number",
 				"boolean_consumable_quantity_forbidden",
 				"Boolean consumables must not store a numeric quantity",
 			)
 		}
 	default:
-		return workRecordConsumableFieldError(
+		return validationFieldError(
 			"consumable",
 			"invalid_input_kind",
 			"Consumable input kind is invalid",
@@ -206,23 +186,18 @@ func ValidateWorkRecordConsumableEntryDelete(app core.App, record *core.Record) 
 	consumableID := strings.TrimSpace(record.GetString("consumable"))
 	ctx, err := loadWorkRecordConsumableContext(app, workRecordID, consumableID)
 	if err != nil {
-		return workRecordConsumableFieldError(
+		return validationFieldError(
 			"work_record",
 			"invalid_consumable_context",
 			"Referenced work record or consumable was not found",
 		)
 	}
 	if ctx.Approved {
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "Validation error",
-			Data: map[string]errs.CodeError{
-				"global": {
-					Code:    "approved_work_record_locked",
-					Message: "Consumables cannot be edited on an approved work record",
-				},
-			},
-		}
+		return validationFieldError(
+			"global",
+			"approved_work_record_locked",
+			"Consumables cannot be edited on an approved work record",
+		)
 	}
 	return nil
 }

@@ -11,7 +11,6 @@ import (
 	"tybalt/hooks"
 	"tybalt/utilities"
 
-	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -251,35 +250,6 @@ func normalizeLegacyPurchaseOrderRecord(record *core.Record) error {
 	return nil
 }
 
-func normalizeLegacyPurchaseOrderValidationError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	var validationErrs validation.Errors
-	if errors.As(err, &validationErrs) {
-		fieldErrors := make(map[string]errs.CodeError, len(validationErrs))
-		for field, fieldErr := range validationErrs {
-			code := "validation_error"
-			var validationErr validation.Error
-			if errors.As(fieldErr, &validationErr) && validationErr.Code() != "" {
-				code = validationErr.Code()
-			}
-			fieldErrors[field] = errs.CodeError{
-				Code:    code,
-				Message: fieldErr.Error(),
-			}
-		}
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "validation failed",
-			Data:    fieldErrors,
-		}
-	}
-
-	return err
-}
-
 func ensureLegacyPurchaseOrderForEditView(record *core.Record) error {
 	if record == nil {
 		return &errs.HookError{
@@ -437,14 +407,14 @@ func createCreateLegacyPurchaseOrderHandler(app core.App) func(e *core.RequestEv
 			if err := hooks.EnsureActiveDivision(txApp, record.GetString("division"), "division"); err != nil {
 				return err
 			}
-			if err := normalizeLegacyPurchaseOrderValidationError(
+			if err := normalizeRouteValidationError(
 				hooks.ValidatePurchaseOrder(txApp, record, true),
 			); err != nil {
 				return err
 			}
 			if err := txApp.Save(record); err != nil {
 				httpResponseStatusCode = http.StatusBadRequest
-				return normalizeLegacyPurchaseOrderValidationError(err)
+				return normalizeRouteValidationError(err)
 			}
 
 			responseRecord = record
@@ -524,14 +494,14 @@ func createUpdateLegacyPurchaseOrderHandler(app core.App) func(e *core.RequestEv
 			if err := hooks.EnsureActiveDivision(txApp, record.GetString("division"), "division"); err != nil {
 				return err
 			}
-			if err := normalizeLegacyPurchaseOrderValidationError(
+			if err := normalizeRouteValidationError(
 				hooks.ValidatePurchaseOrder(txApp, record, true),
 			); err != nil {
 				return err
 			}
 			if err := txApp.Save(record); err != nil {
 				httpResponseStatusCode = http.StatusBadRequest
-				return normalizeLegacyPurchaseOrderValidationError(err)
+				return normalizeRouteValidationError(err)
 			}
 
 			responseRecord = record

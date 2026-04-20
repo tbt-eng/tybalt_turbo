@@ -18,6 +18,7 @@ import (
 
 const (
 	workRecordsCollectionIdentifier                 = "work_records"
+	workRecordNotesCollectionIdentifier             = "work_records_notes"
 	workRecordConsumableEntriesCollectionIdentifier = "work_records_consumable_entries"
 )
 
@@ -167,6 +168,10 @@ type WorkRecordSaveRequest struct {
 
 type WorkRecordSaveResponse struct {
 	ID string `json:"id"`
+}
+
+type WorkRecordNoteCreateRequest struct {
+	Note string `json:"note"`
 }
 
 type WorkRecordCopyDraftResponse struct {
@@ -512,6 +517,30 @@ func loadWorkRecordNotes(app core.App, workRecordID string) ([]WorkRecordNoteRes
 	return rows, nil
 }
 
+func loadWorkRecordNote(app core.App, noteID string) (WorkRecordNoteResponse, error) {
+	var row WorkRecordNoteResponse
+	err := app.DB().NewQuery(`
+		SELECT
+			wrn.id AS id,
+			wrn.uid AS uid,
+			COALESCE(p.given_name || ' ' || p.surname, '') AS author_name,
+			COALESCE(wrn.note, '') AS note,
+			COALESCE(wrn.created, '') AS created
+		FROM work_records_notes wrn
+		LEFT JOIN profiles p
+		  ON p.uid = wrn.uid
+		WHERE wrn.id = {:noteId}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"noteId": noteID,
+	}).One(&row)
+	if err != nil {
+		return WorkRecordNoteResponse{}, err
+	}
+
+	return row, nil
+}
+
 func loadWorkRecordConsumables(app core.App, workRecordID string, typeID string) ([]WorkRecordConsumableResponse, error) {
 	rows := []WorkRecordConsumableResponse{}
 	if err := app.DB().NewQuery(`
@@ -828,35 +857,6 @@ func workRecordRouteError(status int, code string, message string) *errs.HookErr
 	}
 }
 
-func normalizeWorkRecordValidationError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	var hookErr *errs.HookError
-	if errors.As(err, &hookErr) {
-		return hookErr
-	}
-
-	var validationErrs validation.Errors
-	if errors.As(err, &validationErrs) {
-		fieldErrors := make(map[string]errs.CodeError, len(validationErrs))
-		for field, fieldErr := range validationErrs {
-			fieldErrors[field] = errs.CodeError{
-				Code:    "validation_error",
-				Message: fieldErr.Error(),
-			}
-		}
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "validation failed",
-			Data:    fieldErrors,
-		}
-	}
-
-	return err
-}
-
 func loadWorkRecordConsumableEntryStates(app core.App, workRecordID string) ([]workRecordConsumableEntryState, error) {
 	rows := []workRecordConsumableEntryState{}
 	if err := app.DB().NewQuery(`
@@ -871,6 +871,23 @@ func loadWorkRecordConsumableEntryStates(app core.App, workRecordID string) ([]w
 		return nil, err
 	}
 	return rows, nil
+}
+
+func canAddWorkRecordNote(auth *core.Record, ownerUID string, creatorUID string) bool {
+	if auth == nil {
+		return false
+	}
+
+	return ownerUID == auth.Id || creatorUID == auth.Id
+}
+
+func validateWorkRecordNoteCreateRequest(req WorkRecordNoteCreateRequest) error {
+	return validation.Errors{
+		"note": validation.Validate(
+			strings.TrimSpace(req.Note),
+			validation.Required.Error("Note is required"),
+		),
+	}.Filter()
 }
 
 func applyWorkRecordSaveRequest(record *core.Record, req WorkRecordSaveRequest) error {
@@ -1113,10 +1130,10 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 		if err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
-		if err := normalizeWorkRecordValidationError(apphooks.ValidateWorkRecordConsumableEntryDelete(txApp, entryRecord)); err != nil {
+		if err := normalizeRouteValidationError(apphooks.ValidateWorkRecordConsumableEntryDelete(txApp, entryRecord)); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
-		if err := normalizeWorkRecordValidationError(txApp.Delete(entryRecord)); err != nil {
+		if err := normalizeRouteValidationError(txApp.Delete(entryRecord)); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
 	}
@@ -1124,10 +1141,10 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 	if err := applyWorkRecordSaveRequest(currentRecord, req); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	if err := normalizeWorkRecordValidationError(apphooks.ValidateWorkRecord(txApp, currentRecord)); err != nil {
+	if err := normalizeRouteValidationError(apphooks.ValidateWorkRecord(txApp, currentRecord)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	if err := normalizeWorkRecordValidationError(txApp.Save(currentRecord)); err != nil {
+	if err := normalizeRouteValidationError(txApp.Save(currentRecord)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
 
@@ -1146,10 +1163,10 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 		entryRecord.Set("consumable", item.ConsumableID)
 		setWorkRecordConsumableQuantity(entryRecord, inputKindsByConsumable[item.ConsumableID], item)
 
-		if err := normalizeWorkRecordValidationError(apphooks.ValidateWorkRecordConsumableEntry(txApp, entryRecord)); err != nil {
+		if err := normalizeRouteValidationError(apphooks.ValidateWorkRecordConsumableEntry(txApp, entryRecord)); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
-		if err := normalizeWorkRecordValidationError(txApp.Save(entryRecord)); err != nil {
+		if err := normalizeRouteValidationError(txApp.Save(entryRecord)); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
 	}
@@ -1225,13 +1242,13 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 	if err := applyWorkRecordSaveRequest(record, toWorkRecordSaveRequest(req)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	if err := normalizeWorkRecordValidationError(apphooks.ValidateWorkRecord(txApp, record)); err != nil {
+	if err := normalizeRouteValidationError(apphooks.ValidateWorkRecord(txApp, record)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	if err := normalizeWorkRecordValidationError(apphooks.EnsureWorkRecordNumber(txApp, record)); err != nil {
+	if err := normalizeRouteValidationError(apphooks.EnsureWorkRecordNumber(txApp, record)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	if err := normalizeWorkRecordValidationError(txApp.Save(record)); err != nil {
+	if err := normalizeRouteValidationError(txApp.Save(record)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
 
@@ -1265,10 +1282,10 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 		entryRecord.Set("consumable", item.ConsumableID)
 		setWorkRecordConsumableQuantity(entryRecord, inputKindsByConsumable[item.ConsumableID], item)
 
-		if err := normalizeWorkRecordValidationError(apphooks.ValidateWorkRecordConsumableEntry(txApp, entryRecord)); err != nil {
+		if err := normalizeRouteValidationError(apphooks.ValidateWorkRecordConsumableEntry(txApp, entryRecord)); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
-		if err := normalizeWorkRecordValidationError(txApp.Save(entryRecord)); err != nil {
+		if err := normalizeRouteValidationError(txApp.Save(entryRecord)); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
 	}
@@ -1342,6 +1359,70 @@ func createSaveWorkRecordHandler(app core.App) func(e *core.RequestEvent) error 
 			var saveErr error
 			response, saveErr = saveWorkRecordEdit(txApp, auth, record, req)
 			return saveErr
+		})
+		if err != nil {
+			return writeHookError(e, err)
+		}
+
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func createCreateWorkRecordNoteHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		requestApp := e.App
+		if err := requireTimeEditing(requestApp); err != nil {
+			return err
+		}
+
+		auth := e.Auth
+		if auth == nil {
+			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
+		}
+
+		workRecordToken := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordToken == "" {
+			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "work_record_required", "workRecord is required"))
+		}
+
+		var req WorkRecordNoteCreateRequest
+		if err := e.BindBody(&req); err != nil {
+			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "invalid_request_body", "invalid request body"))
+		}
+		if err := normalizeRouteValidationError(validateWorkRecordNoteCreateRequest(req)); err != nil {
+			return writeHookError(e, err)
+		}
+
+		workRecord, err := findWorkRecordByToken(requestApp, workRecordToken)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return writeHookError(e, workRecordRouteError(http.StatusNotFound, "work_record_not_found", "work record not found"))
+			}
+			return e.Error(http.StatusInternalServerError, "failed to load work record", err)
+		}
+
+		if !canAddWorkRecordNote(auth, workRecord.GetString("uid"), workRecord.GetString("creator")) {
+			return writeHookError(e, workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to add a note to this work record"))
+		}
+
+		response := WorkRecordNoteResponse{}
+		err = requestApp.RunInTransaction(func(txApp core.App) error {
+			notesCollection, err := txApp.FindCollectionByNameOrId(workRecordNotesCollectionIdentifier)
+			if err != nil {
+				return err
+			}
+
+			record := core.NewRecord(notesCollection)
+			record.Set("work_record", workRecord.Id)
+			record.Set("uid", auth.Id)
+			record.Set("note", strings.TrimSpace(req.Note))
+
+			if err := normalizeRouteValidationError(txApp.Save(record)); err != nil {
+				return err
+			}
+
+			response, err = loadWorkRecordNote(txApp, record.Id)
+			return err
 		})
 		if err != nil {
 			return writeHookError(e, err)
@@ -1601,7 +1682,7 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			CanCreateTimeEntry:         row.UID == auth.Id && linkedEntry.LinkedTimeEntryID == "",
 			CanCopyToTomorrow:          canCopyToTomorrow,
 			CanEdit:                    canMutateRecord,
-			CanAddNote:                 row.UID == auth.Id || row.Creator == auth.Id,
+			CanAddNote:                 canAddWorkRecordNote(auth, row.UID, row.Creator),
 			Notes:                      notes,
 			Consumables:                consumables,
 		})

@@ -15,9 +15,10 @@ func requireHookError(t *testing.T, err error) *errs.HookError {
 		t.Fatal("expected hook error")
 	}
 
-	hookErr, ok := err.(*errs.HookError)
+	normalizedErr, _ := NormalizeValidationError(err)
+	hookErr, ok := normalizedErr.(*errs.HookError)
 	if !ok {
-		t.Fatalf("expected *errs.HookError, got %T", err)
+		t.Fatalf("expected *errs.HookError, got %T", normalizedErr)
 	}
 
 	return hookErr

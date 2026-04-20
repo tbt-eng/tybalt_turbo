@@ -1,5 +1,7 @@
 // Package testseed builds and manages the text-backed fixture database used by
 // tests.
+// Dump is only intended to be used one time when creating the test_seed_data directory.
+// After that, the test_seed_data directory is to be surgically updated with new data.
 //
 // Phase 1 replaces direct per-test dependence on a tracked
 // app/test_pb_data/data.db binary with a workflow that:

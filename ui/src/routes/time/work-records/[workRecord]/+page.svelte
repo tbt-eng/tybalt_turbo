@@ -28,10 +28,14 @@
     if (savingNote || noteText.trim() === "") return;
     savingNote = true;
     try {
-      await pb.collection("work_records_notes").create({
-        work_record: data.item.id,
-        uid: pb.authStore.record?.id ?? "",
-        note: noteText.trim(),
+      await pb.send(`/api/work_records/${encodeURIComponent(data.item.id)}/notes`, {
+        method: "POST",
+        body: JSON.stringify({
+          note: noteText.trim(),
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
       noteText = "";
       await invalidateAll();

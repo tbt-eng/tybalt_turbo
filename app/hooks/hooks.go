@@ -13,16 +13,68 @@ import (
 	"tybalt/workrecords"
 
 	"github.com/pocketbase/dbx"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 func AnnotateHookError(app core.App, e *core.RecordRequestEvent, err error) error {
+	normalizedErr, handled := NormalizeValidationError(err)
+
 	var hookErr *errs.HookError
-	if errors.As(err, &hookErr) {
+	if handled && errors.As(normalizedErr, &hookErr) {
 		e.JSON(hookErr.Status, hookErr)
 	}
-	return err
+	return normalizedErr
+}
+
+type codedValidationError interface {
+	Code() string
+}
+
+func validationFieldError(field string, code string, message string) validation.Errors {
+	return validation.Errors{
+		field: validation.NewError(code, message),
+	}
+}
+
+func NormalizeValidationError(err error) (error, bool) {
+	if err == nil {
+		return nil, false
+	}
+
+	var hookErr *errs.HookError
+	if errors.As(err, &hookErr) {
+		return hookErr, true
+	}
+
+	var validationErrs validation.Errors
+	if !errors.As(err, &validationErrs) {
+		return err, false
+	}
+
+	fieldErrors := make(map[string]errs.CodeError, len(validationErrs))
+	for field, fieldErr := range validationErrs {
+		if fieldErr == nil {
+			continue
+		}
+
+		code := "validation_error"
+		if codedErr, ok := fieldErr.(codedValidationError); ok && strings.TrimSpace(codedErr.Code()) != "" {
+			code = codedErr.Code()
+		}
+
+		fieldErrors[field] = errs.CodeError{
+			Code:    code,
+			Message: fieldErr.Error(),
+		}
+	}
+
+	return &errs.HookError{
+		Status:  http.StatusBadRequest,
+		Message: "validation failed",
+		Data:    fieldErrors,
+	}, true
 }
 
 // sendNotificationAfterSave triggers immediate delivery of a notification that

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"tybalt/constants"
 	"tybalt/helpchat"
+	"tybalt/hooks"
 	"tybalt/reports"
 	"tybalt/utilities"
 
@@ -77,6 +78,13 @@ type CodeError struct {
 
 func (e *CodeError) Error() string {
 	return e.Message
+}
+
+func normalizeRouteValidationError(err error) error {
+	if normalizedErr, ok := hooks.NormalizeValidationError(err); ok {
+		return normalizedErr
+	}
+	return err
 }
 
 // Add custom routes to the app
@@ -401,6 +409,7 @@ func AddRoutes(app core.App) {
 		workRecordsGroup.POST("/save", createCreateWorkRecordHandler(app))
 		workRecordsGroup.GET("/{workRecord}/copy_to_tomorrow", createGetWorkRecordCopyDraftHandler(app))
 		workRecordsGroup.POST("/{workRecord}/save", createSaveWorkRecordHandler(app))
+		workRecordsGroup.POST("/{workRecord}/notes", createCreateWorkRecordNoteHandler(app))
 		workRecordsGroup.GET("", createGetWorkRecordsHandler(app))
 		workRecordsGroup.GET("/{workRecord}", createGetWorkRecordDetailsHandler(app))
 
