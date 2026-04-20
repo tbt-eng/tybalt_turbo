@@ -30,7 +30,7 @@ func TestUserDefaultsRoute(t *testing.T) {
 		},
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
-			`"default_work_record_type":"wrtype000000001"`,
+			`"default_work_record_type":"oask5u50nka0km8"`,
 		},
 		TestAppFactory: testutils.SetupTestApp,
 		AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -40,7 +40,7 @@ func TestUserDefaultsRoute(t *testing.T) {
 			if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 				t.Fatalf("failed decoding user defaults response: %v", err)
 			}
-			if payload.DefaultWorkRecordType != "wrtype000000001" {
+			if payload.DefaultWorkRecordType != "oask5u50nka0km8" {
 				t.Fatalf("expected seeded default work record type, got %#v", payload)
 			}
 		},
