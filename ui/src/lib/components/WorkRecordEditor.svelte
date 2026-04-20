@@ -118,7 +118,7 @@
       consumable_id: row.consumable,
       consumable_name: expandedConsumable?.name ?? "",
       input_kind: expandedConsumable?.input_kind ?? "number",
-      unit_label: row.unit_label ?? "",
+      unit_label: expandedConsumable?.unit_label ?? "",
       sort_order: row.sort_order ?? 0,
       quantity_number: 0,
       boolean_selected: false,

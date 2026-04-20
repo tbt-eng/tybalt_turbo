@@ -527,7 +527,7 @@ func loadWorkRecordConsumables(app core.App, workRecordID string, typeID string)
 			COALESCE(wrc.id, '') AS consumable_id,
 			COALESCE(wrc.name, '') AS consumable_name,
 			COALESCE(wrc.input_kind, '') AS input_kind,
-			COALESCE(wrtc.unit_label, '') AS unit_label,
+			COALESCE(wrc.unit_label, '') AS unit_label,
 			COALESCE(wrtc.sort_order, 0) AS sort_order,
 			COALESCE(wrce.quantity_number, 0) AS quantity_number,
 			CASE WHEN wrce.id != '' THEN 1 ELSE 0 END AS boolean_selected

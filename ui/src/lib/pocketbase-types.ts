@@ -983,6 +983,7 @@ export type WorkRecordsConsumablesRecord = {
   id: string;
   input_kind: string;
   name: string;
+  unit_label: string;
   updated: IsoDateString;
 };
 
@@ -1000,7 +1001,6 @@ export type WorkRecordsTypeConsumablesRecord = {
   id: string;
   sort_order: number;
   type: RecordIdString;
-  unit_label: string;
 };
 
 export type WorkRecordsTypesRecord = {

@@ -1,4 +1,4 @@
-active,id,input_kind,name
-1,wrconsmbl000001,number,Survey Stakes
-1,wrconsmbl000002,boolean,Traffic Control Plan
-1,wrconsmbl000003,number,Drill Rods
+active,id,input_kind,name,unit_label
+1,wrconsmbl000001,number,Survey Stakes,stakes
+1,wrconsmbl000002,boolean,Traffic Control Plan,
+1,wrconsmbl000003,number,Drill Rods,rods
