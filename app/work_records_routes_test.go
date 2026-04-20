@@ -140,6 +140,16 @@ type workRecordSaveResponse struct {
 	ID string `json:"id"`
 }
 
+type workRecordAPIFieldError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type workRecordAPIErrorResponse struct {
+	Message string                             `json:"message"`
+	Data    map[string]workRecordAPIFieldError `json:"data"`
+}
+
 func countWorkRecordConsumableEntriesForTest(t testing.TB, app *tests.TestApp, workRecordID string) int {
 	t.Helper()
 
@@ -255,6 +265,19 @@ func loadWorkRecordConsumableQuantityForTest(t testing.TB, app *tests.TestApp, w
 	}
 
 	return row.QuantityNumber
+}
+
+func decodeWorkRecordAPIErrorResponse(t testing.TB, res *http.Response) workRecordAPIErrorResponse {
+	t.Helper()
+
+	defer res.Body.Close()
+
+	var payload workRecordAPIErrorResponse
+	if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed decoding work record error response: %v", err)
+	}
+
+	return payload
 }
 
 func TestWorkRecordsRoutes(t *testing.T) {
@@ -1436,6 +1459,400 @@ func TestWorkRecordsRoutes(t *testing.T) {
 
 				if got := countWorkRecordsForTest(t, app); got != 3 {
 					t.Fatalf("expected failed empty create to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "create rejects invalid field book number format through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"f2j5a8vk006baub",
+				"date":"2026-04-11",
+				"job":"cjf0kt0defhq480",
+				"type":"wrtype000000001",
+				"location":"Invalid field book number create",
+				"work_description":"Invalid field book number create",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"2026-001",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"field_book_number"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["field_book_number"]; !ok {
+					t.Fatalf("expected field_book_number validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "edit rejects invalid field book number format through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wr260400000010a/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"date":"2026-04-10",
+				"job":"cjf0kt0defhq480",
+				"type":"wrtype000000001",
+				"location":"Seeded location",
+				"work_description":"Seeded work description",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"2026-001",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[
+					{
+						"entry_id":"wrcentry0000001",
+						"consumable_id":"wrconsmbl000001",
+						"input_kind":"number",
+						"quantity_number":12,
+						"boolean_selected":false
+					},
+					{
+						"entry_id":"wrcentry0000002",
+						"consumable_id":"wrconsmbl000002",
+						"input_kind":"boolean",
+						"quantity_number":0,
+						"boolean_selected":true
+					}
+				]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"field_book_number"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["field_book_number"]; !ok {
+					t.Fatalf("expected field_book_number validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "create rejects field book page number below schema minimum through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"f2j5a8vk006baub",
+				"date":"2026-04-11",
+				"job":"cjf0kt0defhq480",
+				"type":"wrtype000000001",
+				"location":"Invalid page number create",
+				"work_description":"Invalid page number create",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":0,
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"field_book_page_number"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["field_book_page_number"]; !ok {
+					t.Fatalf("expected field_book_page_number validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "edit rejects field book page number below schema minimum through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wr260400000010a/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"date":"2026-04-10",
+				"job":"cjf0kt0defhq480",
+				"type":"wrtype000000001",
+				"location":"Seeded location",
+				"work_description":"Seeded work description",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":0,
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[
+					{
+						"entry_id":"wrcentry0000001",
+						"consumable_id":"wrconsmbl000001",
+						"input_kind":"number",
+						"quantity_number":12,
+						"boolean_selected":false
+					},
+					{
+						"entry_id":"wrcentry0000002",
+						"consumable_id":"wrconsmbl000002",
+						"input_kind":"boolean",
+						"quantity_number":0,
+						"boolean_selected":true
+					}
+				]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"field_book_page_number"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["field_book_page_number"]; !ok {
+					t.Fatalf("expected field_book_page_number validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "create rejects company vehicle unit values outside schema pattern through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"f2j5a8vk006baub",
+				"date":"2026-04-11",
+				"job":"cjf0kt0defhq480",
+				"type":"wrtype000000001",
+				"location":"Invalid vehicle unit create",
+				"work_description":"Invalid vehicle unit create",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"1000",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"company_vehicle_unit_number"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["company_vehicle_unit_number"]; !ok {
+					t.Fatalf("expected company_vehicle_unit_number validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "edit rejects company vehicle unit values outside schema pattern through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wr260400000010a/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"date":"2026-04-10",
+				"job":"cjf0kt0defhq480",
+				"type":"wrtype000000001",
+				"location":"Seeded location",
+				"work_description":"Seeded work description",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"1000",
+				"consumables":[
+					{
+						"entry_id":"wrcentry0000001",
+						"consumable_id":"wrconsmbl000001",
+						"input_kind":"number",
+						"quantity_number":12,
+						"boolean_selected":false
+					},
+					{
+						"entry_id":"wrcentry0000002",
+						"consumable_id":"wrconsmbl000002",
+						"input_kind":"boolean",
+						"quantity_number":0,
+						"boolean_selected":true
+					}
+				]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"company_vehicle_unit_number"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["company_vehicle_unit_number"]; !ok {
+					t.Fatalf("expected company_vehicle_unit_number validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "create rejects invalid job relation through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"f2j5a8vk006baub",
+				"date":"2026-04-11",
+				"job":"notarealjobid",
+				"type":"wrtype000000001",
+				"location":"Invalid job create",
+				"work_description":"Invalid job create",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"job"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["job"]; !ok {
+					t.Fatalf("expected job validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "create rejects invalid type relation through custom save route",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"f2j5a8vk006baub",
+				"date":"2026-04-11",
+				"job":"cjf0kt0defhq480",
+				"type":"notarealtypeid",
+				"location":"Invalid type create",
+				"work_description":"Invalid type create",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"type"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				payload := decodeWorkRecordAPIErrorResponse(t, res)
+				if _, ok := payload.Data["type"]; !ok {
+					t.Fatalf("expected type validation error, got %#v", payload)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 3 {
+					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
 		},
