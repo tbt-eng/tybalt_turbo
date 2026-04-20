@@ -88,6 +88,30 @@ func TestBuildSeededDataDirForProfile_RejectsUnknownProfile(t *testing.T) {
 	}
 }
 
+func TestBuildSeededDataDirForProfile_IncludesWorkRecordCollectionsMetadata(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	if err := BuildSeededDataDirForProfile(dir, DefaultSeedDir(), TestFullProfile); err != nil {
+		t.Fatalf("build %s: %v", TestFullProfile, err)
+	}
+
+	db := openTestSQLite(t, filepath.Join(dir, "data.db"))
+
+	for _, collectionName := range []string{
+		"work_records",
+		"work_records_notes",
+	} {
+		var count int
+		if err := db.QueryRow("SELECT COUNT(*) FROM _collections WHERE name = ?", collectionName).Scan(&count); err != nil {
+			t.Fatalf("query _collections for %s: %v", collectionName, err)
+		}
+		if count != 1 {
+			t.Fatalf("_collections should include %s exactly once, got %d rows", collectionName, count)
+		}
+	}
+}
+
 func TestImportBaselineEmptyTablesMatchProductionMap(t *testing.T) {
 	t.Parallel()
 

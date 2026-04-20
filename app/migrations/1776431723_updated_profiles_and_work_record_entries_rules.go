@@ -46,9 +46,9 @@ func init() {
 			return err
 		}
 
-		entriesCollection.CreateRule = types.Pointer(workRecordConsumableEntriesCreateRule)
-		entriesCollection.UpdateRule = types.Pointer(workRecordConsumableEntriesUpdateRule)
-		entriesCollection.DeleteRule = types.Pointer(workRecordConsumableEntriesUpdateRule)
+		entriesCollection.CreateRule = nil
+		entriesCollection.UpdateRule = nil
+		entriesCollection.DeleteRule = nil
 
 		return app.Save(entriesCollection)
 	}, func(app core.App) error {
@@ -65,9 +65,9 @@ func init() {
 		if err != nil {
 			return err
 		}
-		entriesCollection.CreateRule = nil
-		entriesCollection.UpdateRule = nil
-		entriesCollection.DeleteRule = nil
+		entriesCollection.CreateRule = types.Pointer(workRecordConsumableEntriesCreateRule)
+		entriesCollection.UpdateRule = types.Pointer(workRecordConsumableEntriesUpdateRule)
+		entriesCollection.DeleteRule = types.Pointer(workRecordConsumableEntriesUpdateRule)
 
 		return app.Save(entriesCollection)
 	})

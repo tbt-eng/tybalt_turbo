@@ -1,10 +1,13 @@
 package hooks
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
+	"tybalt/errs"
 	"tybalt/internal/testseed"
 	"tybalt/utilities"
 
@@ -187,6 +190,41 @@ func TestValidateTimeAmendment_AllowsSignedHalfHourHours(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNormalizeValidationError_Passthroughs(t *testing.T) {
+	t.Run("returns existing hook error unchanged", func(t *testing.T) {
+		original := &errs.HookError{
+			Status:  http.StatusConflict,
+			Message: "already normalized",
+			Data: map[string]errs.CodeError{
+				"global": {
+					Code:    "already_normalized",
+					Message: "already normalized",
+				},
+			},
+		}
+
+		got, handled := NormalizeValidationError(original)
+		if !handled {
+			t.Fatal("expected hook error to be handled")
+		}
+		if got != original {
+			t.Fatalf("expected same hook error pointer, got %#v", got)
+		}
+	})
+
+	t.Run("returns non validation error unchanged", func(t *testing.T) {
+		original := errors.New("plain error")
+
+		got, handled := NormalizeValidationError(original)
+		if handled {
+			t.Fatal("expected plain error to remain unhandled")
+		}
+		if got != original {
+			t.Fatalf("expected same plain error, got %#v", got)
+		}
+	})
 }
 
 func TestValidateTimeEntry_AggregatesLinkedWorkRecordMismatchErrors(t *testing.T) {

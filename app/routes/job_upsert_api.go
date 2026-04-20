@@ -444,22 +444,8 @@ func createCreateJobHandler(app core.App) func(e *core.RequestEvent) error {
 
 			if err := txApp.Save(jobRec); err != nil {
 				httpResponseStatusCode = http.StatusBadRequest
-				// Check if it's a validation error with field-level details
-				var validationErrs validation.Errors
-				if errors.As(err, &validationErrs) {
-					// Convert to HookError format for consistent frontend handling
-					fieldErrors := make(map[string]errs.CodeError)
-					for field, fieldErr := range validationErrs {
-						fieldErrors[field] = errs.CodeError{
-							Code:    "validation_error",
-							Message: fieldErr.Error(),
-						}
-					}
-					return &errs.HookError{
-						Status:  http.StatusBadRequest,
-						Message: "validation failed",
-						Data:    fieldErrors,
-					}
+				if normalizedErr, ok := hooks.NormalizeValidationError(err); ok {
+					return normalizedErr
 				}
 				return &CodeError{
 					Code:    "error_creating_job",

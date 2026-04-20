@@ -19,13 +19,12 @@ package hooks
 import (
 	"database/sql"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
-	"tybalt/errs"
 	"tybalt/numbering"
 
 	"github.com/pocketbase/dbx"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -36,7 +35,7 @@ func GenerateWorkRecordNumber(app core.App, workDate string) (string, error) {
 	if strings.TrimSpace(workDate) != "" {
 		parsed, err := time.Parse("2006-01-02", workDate)
 		if err != nil {
-			return "", workRecordFieldError(
+			return "", validationFieldError(
 				"date",
 				"invalid_work_record_date",
 				fmt.Sprintf("invalid work record date: %v", err),
@@ -48,16 +47,53 @@ func GenerateWorkRecordNumber(app core.App, workDate string) (string, error) {
 	return numbering.ReserveWorkRecordNumber(app, dateValue)
 }
 
-func workRecordFieldError(field string, code string, message string) *errs.HookError {
-	return &errs.HookError{
-		Status:  http.StatusBadRequest,
-		Message: "Validation error",
-		Data: map[string]errs.CodeError{
-			field: {
-				Code:    code,
-				Message: message,
-			},
-		},
+func validateWorkRecordRequiredFields(record *core.Record) error {
+	requiredStrings := []struct {
+		Name    string
+		Message string
+	}{
+		{Name: "date", Message: "Work record date is required"},
+		{Name: "uid", Message: "Work record owner is required"},
+		{Name: "creator", Message: "Work record creator is required"},
+		{Name: "job", Message: "Job is required"},
+		{Name: "type", Message: "Work record type is required"},
+		{Name: "location", Message: "Location is required"},
+		{Name: "work_description", Message: "Work description is required"},
+		{Name: "vehicle_type", Message: "Vehicle type is required"},
+	}
+
+	fieldErrors := validation.Errors{}
+	for _, field := range requiredStrings {
+		if strings.TrimSpace(record.GetString(field.Name)) == "" {
+			fieldErrors[field.Name] = validation.NewError("required", field.Message)
+		}
+	}
+
+	return fieldErrors.Filter()
+}
+
+func validateWorkRecordCoreFieldFormats(record *core.Record) error {
+	workDate := strings.TrimSpace(record.GetString("date"))
+	if workDate == "" {
+		return nil
+	}
+	if _, err := time.Parse("2006-01-02", workDate); err != nil {
+		return validationFieldError(
+			"date",
+			"invalid_work_record_date",
+			fmt.Sprintf("invalid work record date: %v", err),
+		)
+	}
+
+	switch strings.TrimSpace(record.GetString("vehicle_type")) {
+	case "company", "personal":
+		return nil
+	default:
+		return validationFieldError(
+			"vehicle_type",
+			"invalid_vehicle_type",
+			"Vehicle type must be company or personal",
+		)
 	}
 }
 
@@ -66,7 +102,7 @@ func validateWorkRecordVehicleFields(record *core.Record) error {
 	unitNumber := strings.TrimSpace(record.GetString("company_vehicle_unit_number"))
 
 	if vehicleType == "company" && unitNumber == "" {
-		return workRecordFieldError(
+		return validationFieldError(
 			"company_vehicle_unit_number",
 			"required_for_company_vehicle",
 			"Company vehicle unit number is required when vehicle type is company",
@@ -74,7 +110,7 @@ func validateWorkRecordVehicleFields(record *core.Record) error {
 	}
 
 	if vehicleType == "personal" && unitNumber != "" {
-		return workRecordFieldError(
+		return validationFieldError(
 			"company_vehicle_unit_number",
 			"must_be_blank_for_personal_vehicle",
 			"Company vehicle unit number must be empty when vehicle type is personal",
@@ -103,7 +139,7 @@ func validateWorkRecordUniqueDay(app core.App, record *core.Record) error {
 		"id":   record.Id,
 	}).One(&duplicate)
 	if err == nil && duplicate.ID != "" {
-		return workRecordFieldError(
+		return validationFieldError(
 			"date",
 			"duplicate_work_record_day",
 			"A work record already exists for this worker, job, and date",
@@ -142,7 +178,7 @@ func validateWorkRecordTypeChange(app core.App, record *core.Record) error {
 	}
 
 	if row.Count > 0 {
-		return workRecordFieldError(
+		return validationFieldError(
 			"type",
 			"incompatible_consumable_entries",
 			"Remove or adjust incompatible consumable entries before changing the work record type",
@@ -159,7 +195,7 @@ func validateWorkRecordImmutableFields(record *core.Record) error {
 	}
 
 	if original.GetBool("approved") {
-		return workRecordFieldError(
+		return validationFieldError(
 			"global",
 			"approved_work_record_locked",
 			"Approved work records cannot be edited",
@@ -178,12 +214,12 @@ func validateWorkRecordImmutableFields(record *core.Record) error {
 	}
 	for _, field := range immutableStrings {
 		if original.GetString(field.Name) != record.GetString(field.Name) {
-			return workRecordFieldError(field.Name, field.Code, field.Message)
+			return validationFieldError(field.Name, field.Code, field.Message)
 		}
 	}
 
 	if original.GetBool("approved") != record.GetBool("approved") {
-		return workRecordFieldError(
+		return validationFieldError(
 			"approved",
 			"immutable_field",
 			"Approved state is managed by timesheet workflow",
@@ -195,6 +231,12 @@ func validateWorkRecordImmutableFields(record *core.Record) error {
 
 func ValidateWorkRecord(app core.App, record *core.Record) error {
 	if err := validateWorkRecordImmutableFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordRequiredFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordCoreFieldFormats(record); err != nil {
 		return err
 	}
 	if err := validateWorkRecordVehicleFields(record); err != nil {
@@ -224,7 +266,7 @@ func ValidateWorkRecordDelete(app core.App, record *core.Record) error {
 	}
 
 	if row.Count > 0 {
-		return workRecordFieldError(
+		return validationFieldError(
 			"global",
 			"linked_time_entry_exists",
 			"Work records linked to time entries cannot be deleted",
@@ -242,8 +284,7 @@ func ValidateWorkRecordDelete(app core.App, record *core.Record) error {
 // import and repair flows may need to preserve seeded values explicitly.
 func EnsureWorkRecordNumber(app core.App, record *core.Record) error {
 	// Status quo:
-	// - the collection createRule already forbids API clients from submitting a
-	//   non-empty number;
+	// - route-based callers normally leave number blank and let the hook assign it;
 	// - internal/non-request callers may pre-seed a number and this hook
 	//   preserves it, which leaves room for controlled import/backfill flows.
 	//
@@ -256,10 +297,11 @@ func EnsureWorkRecordNumber(app core.App, record *core.Record) error {
 
 	number, err := GenerateWorkRecordNumber(app, record.GetString("date"))
 	if err != nil {
-		if hookErr, ok := err.(*errs.HookError); ok {
-			return hookErr
+		if validationErrs, ok := err.(validation.Errors); ok {
+			normalizedErr, _ := NormalizeValidationError(validationErrs)
+			return normalizedErr
 		}
-		return workRecordFieldError(
+		return validationFieldError(
 			"number",
 			"error_generating_work_record_number",
 			fmt.Sprintf("error generating work record number: %v", err),
