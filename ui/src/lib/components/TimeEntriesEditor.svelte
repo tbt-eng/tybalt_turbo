@@ -492,19 +492,7 @@
           Create Time Entry
         {/if}
       </h1>
-      {#if !data.editing}
-        <DsActionButton action="/time/work-records" color="green">
-          Need a linked entry? Start from Work Records
-        </DsActionButton>
-      {/if}
     </div>
-
-    {#if !data.editing}
-      <div class="w-full rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900">
-        When a time entry needs a work record, start from the work record list or detail page so
-        the link is created the right way.
-      </div>
-    {/if}
 
     {#if linkedWorkRecord && linkedWorkRecordLocked}
       <div class="w-full rounded-sm border border-cyan-300 bg-cyan-50 p-3 text-sm text-cyan-950">
@@ -606,6 +594,19 @@
       >
         {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
       </DsAutoComplete>
+    {/if}
+    {#if !data.editing && item.job && item.job !== ""}
+      <div
+        class="flex w-full items-center justify-between rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900"
+      >
+        <span>
+          When a time entry needs a work record, start from the work record list or detail page so
+          the link is created the right way.
+        </span>
+        <DsActionButton action="/time/work-records" color="green">
+          start from work records
+        </DsActionButton>
+      </div>
     {/if}
     {#if item.job && item.job !== "" && associatedJobDivisionCodes.length > 0}
       <span class="w-full text-sm text-neutral-600">

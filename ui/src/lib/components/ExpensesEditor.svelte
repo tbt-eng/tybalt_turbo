@@ -470,17 +470,17 @@
           Create Expense
         {/if}
       </h1>
-      {#if !data.editing}
-        <DsActionButton action="/pos/search" color="green">
-          Need a linked expense? Start from Purchase Orders
-        </DsActionButton>
-      {/if}
     </div>
 
     {#if !data.editing}
-      <div class="w-full rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900">
-        When an expense needs a purchase order, start from the purchase order list so the link is
-        created the right way.
+      <div
+        class="flex w-full items-center justify-between rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900"
+      >
+        <span>
+          Need a purchase order? Click the green plus icon next to your purchase order to create an
+          expense linked to it.
+        </span>
+        <DsActionButton action="/pos/list" color="green">Go to POs</DsActionButton>
       </div>
     {/if}
   </div>
