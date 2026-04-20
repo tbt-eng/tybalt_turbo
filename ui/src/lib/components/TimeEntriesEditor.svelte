@@ -21,6 +21,7 @@
   import DsAutoComplete from "./DSAutoComplete.svelte";
   import DsActionButton from "./DSActionButton.svelte";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
+  import DsLabel from "./DsLabel.svelte";
   import Icon from "@iconify/svelte";
   import { globalStore } from "$lib/stores/global";
   import { authStore } from "$lib/stores/auth";
@@ -595,7 +596,7 @@
         {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
       </DsAutoComplete>
     {/if}
-    {#if !data.editing && item.job && item.job !== ""}
+    {#if !data.editing && item.job && item.job !== "" && !linkedWorkRecord}
       <div
         class="flex w-full items-center justify-between rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900"
       >
