@@ -60,7 +60,7 @@ func TestValidateWorkRecord_RejectsDuplicateDay(t *testing.T) {
 		"uid":                         "f2j5a8vk006baub",
 		"creator":                     "f2j5a8vk006baub",
 		"job":                         "cjf0kt0defhq480",
-		"type":                        "wrtype000000001",
+		"type":                        "oask5u50nka0km8",
 		"location":                    "Duplicate day test",
 		"work_description":            "Duplicate day test",
 		"vehicle_type":                "company",
@@ -88,7 +88,7 @@ func TestValidateWorkRecord_EnforcesVehicleRules(t *testing.T) {
 		"uid":              "f2j5a8vk006baub",
 		"creator":          "f2j5a8vk006baub",
 		"job":              "cjf0kt0defhq480",
-		"type":             "wrtype000000001",
+		"type":             "oask5u50nka0km8",
 		"location":         "Vehicle rule test",
 		"work_description": "Vehicle rule test",
 		"vehicle_type":     "company",
@@ -108,7 +108,7 @@ func TestValidateWorkRecord_EnforcesVehicleRules(t *testing.T) {
 		"uid":                         "f2j5a8vk006baub",
 		"creator":                     "f2j5a8vk006baub",
 		"job":                         "cjf0kt0defhq480",
-		"type":                        "wrtype000000001",
+		"type":                        "oask5u50nka0km8",
 		"location":                    "Vehicle rule test",
 		"work_description":            "Vehicle rule test",
 		"vehicle_type":                "personal",
@@ -134,7 +134,7 @@ func TestValidateWorkRecord_RejectsTypeChangeWhenConsumablesBecomeInvalid(t *tes
 		"uid":                         "f2j5a8vk006baub",
 		"creator":                     "f2j5a8vk006baub",
 		"job":                         "cjf0kt0defhq480",
-		"type":                        "wrtype000000001",
+		"type":                        "oask5u50nka0km8",
 		"location":                    "Seeded location",
 		"work_description":            "Seeded work description",
 		"vehicle_type":                "company",
@@ -143,7 +143,7 @@ func TestValidateWorkRecord_RejectsTypeChangeWhenConsumablesBecomeInvalid(t *tes
 	if err := record.PostScan(); err != nil {
 		t.Fatalf("failed to seed original work record state: %v", err)
 	}
-	record.Set("type", "wrtype000000002")
+	record.Set("type", "rqayp9yoz1qe6ui")
 
 	hookErr := requireHookError(t, ValidateWorkRecord(app, record))
 	if hookErr.Data["type"].Code != "incompatible_consumable_entries" {

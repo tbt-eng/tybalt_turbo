@@ -306,7 +306,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000002",
+				"type":"rqayp9yoz1qe6ui",
 				"location":"Updated location",
 				"work_description":"Updated description",
 				"report_to":"",
@@ -355,7 +355,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				}
 
 				typeID, location := loadWorkRecordTypeAndLocationForTest(t, app, "wr260400000010a")
-				if typeID != "wrtype000000002" || location != "Updated location" {
+				if typeID != "rqayp9yoz1qe6ui" || location != "Updated location" {
 					t.Fatalf("expected updated type/location, got type=%q location=%q", typeID, location)
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, "wr260400000010a"); got != 0 {
@@ -374,7 +374,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000002",
+				"type":"rqayp9yoz1qe6ui",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -413,7 +413,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 				typeID, _ := loadWorkRecordTypeAndLocationForTest(t, app, "wr260400000010a")
-				if typeID != "wrtype000000001" {
+				if typeID != "oask5u50nka0km8" {
 					t.Fatalf("expected type to remain unchanged after rejection, got %q", typeID)
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, "wr260400000010a"); got != 2 {
@@ -432,7 +432,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000002",
+				"type":"rqayp9yoz1qe6ui",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -471,7 +471,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 				typeID, _ := loadWorkRecordTypeAndLocationForTest(t, app, "wr260400000010a")
-				if typeID != "wrtype000000001" {
+				if typeID != "oask5u50nka0km8" {
 					t.Fatalf("expected failed save to leave type unchanged, got %q", typeID)
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, "wr260400000010a"); got != 2 {
@@ -490,7 +490,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000002",
+				"type":"rqayp9yoz1qe6ui",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -540,7 +540,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 				typeID, _ := loadWorkRecordTypeAndLocationForTest(t, app, "wr260400000010a")
-				if typeID != "wrtype000000001" {
+				if typeID != "oask5u50nka0km8" {
 					t.Fatalf("expected approved save rejection to leave type unchanged, got %q", typeID)
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, "wr260400000010a"); got != 2 {
@@ -559,7 +559,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Regression location",
 				"work_description":"Regression description",
 				"report_to":"",
@@ -598,7 +598,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
 				typeID, location := loadWorkRecordTypeAndLocationForTest(t, app, "wr260400000010a")
-				if typeID != "wrtype000000001" || location != "Regression location" {
+				if typeID != "oask5u50nka0km8" || location != "Regression location" {
 					t.Fatalf("expected non-type save to update location only, got type=%q location=%q", typeID, location)
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, "wr260400000010a"); got != 2 {
@@ -759,7 +759,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"uid":                 "rzr98oadsp9qc11",
 					"creator":             "f2j5a8vk006baub",
 					"job":                 "cjf0kt0defhq480",
-					"type":                "wrtype000000001",
+					"type":                "oask5u50nka0km8",
 					"location":            "Creator visibility test",
 					"workDescription":     "Created for another worker",
 					"hoursOnSite":         8,
@@ -1147,7 +1147,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 		{
 			Name:   "report holder can fetch filtered work records report",
 			Method: http.MethodGet,
-			URL:    "/api/reports/work_records/search?job=cjf0kt0defhq480&type=wrtype000000001&date_from=2026-04-01&date_to=2026-04-30",
+			URL:    "/api/reports/work_records/search?job=cjf0kt0defhq480&type=oask5u50nka0km8&date_from=2026-04-01&date_to=2026-04-30",
 			Headers: map[string]string{
 				"Authorization": reportToken,
 			},
@@ -1309,7 +1309,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -1474,7 +1474,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Invalid field book number create",
 				"work_description":"Invalid field book number create",
 				"report_to":"",
@@ -1517,7 +1517,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -1576,7 +1576,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Invalid page number create",
 				"work_description":"Invalid page number create",
 				"report_to":"",
@@ -1619,7 +1619,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -1678,7 +1678,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Invalid vehicle unit create",
 				"work_description":"Invalid vehicle unit create",
 				"report_to":"",
@@ -1721,7 +1721,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -1780,7 +1780,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-11",
 				"job":"notarealjobid",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Invalid job create",
 				"work_description":"Invalid job create",
 				"report_to":"",
@@ -1868,7 +1868,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"uid":"f2j5a8vk006baub",
 					"date":"2026-04-11",
 					"job":"cjf0kt0defhq480",
-					"type":"wrtype000000001",
+					"type":"oask5u50nka0km8",
 					"location":"Forged input kind create",
 					"work_description":"Forged input kind create",
 					"report_to":"",
@@ -1922,7 +1922,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"uid":"f2j5a8vk006baub",
 					"date":"2026-04-11",
 					"job":"cjf0kt0defhq480",
-					"type":"wrtype000000001",
+					"type":"oask5u50nka0km8",
 					"location":"Forged boolean quantity",
 					"work_description":"Forged boolean quantity",
 					"report_to":"",
@@ -1975,7 +1975,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Body: strings.NewReader(`{
 					"date":"2026-04-10",
 					"job":"cjf0kt0defhq480",
-					"type":"wrtype000000001",
+					"type":"oask5u50nka0km8",
 					"location":"Seeded location",
 					"work_description":"Seeded work description",
 					"report_to":"",
@@ -2031,7 +2031,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-10",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
@@ -2103,7 +2103,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"uid":                 "f2j5a8vk006baub",
 					"creator":             "f2j5a8vk006baub",
 					"job":                 "cjf0kt0defhq480",
-					"type":                "wrtype000000001",
+					"type":                "oask5u50nka0km8",
 					"location":            "Seeded child location",
 					"workDescription":     "Seeded child work description",
 					"hoursOnSite":         8,
@@ -2148,7 +2148,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-03-01",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"January location",
 				"work_description":"January work description",
 				"report_to":"",
@@ -2191,7 +2191,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"uid":                 "f2j5a8vk006baub",
 					"creator":             "f2j5a8vk006baub",
 					"job":                 "cjf0kt0defhq480",
-					"type":                "wrtype000000001",
+					"type":                "oask5u50nka0km8",
 					"location":            "January location",
 					"workDescription":     "January work description",
 					"hoursOnSite":         8,
@@ -2262,7 +2262,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"uid":"f2j5a8vk006baub",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
-				"type":"wrtype000000001",
+				"type":"oask5u50nka0km8",
 				"location":"Seeded location",
 				"work_description":"Seeded work description",
 				"report_to":"",
