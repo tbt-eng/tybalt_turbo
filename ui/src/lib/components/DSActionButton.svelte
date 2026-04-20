@@ -118,7 +118,7 @@
   // A disabled chip is dimmed and has no hover or press feedback, so it doesn't
   // look clickable. A loading chip keeps its look; the spinner shows it's busy.
   const chipClasses = $derived(
-    `flex items-center rounded-xs ${transparentBackground ? "" : chipColor.bg} px-1 ${
+    `flex items-center whitespace-nowrap rounded-xs ${transparentBackground ? "" : chipColor.bg} px-1 ${
       isIconContent ? "py-1 text-neutral-500" : "py-0 text-black"
     } ${disabled ? "cursor-not-allowed opacity-50" : `${chipColor.interact} active:shadow-inner`}`,
   );
