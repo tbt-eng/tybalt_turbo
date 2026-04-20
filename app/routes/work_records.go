@@ -299,39 +299,12 @@ type workRecordConsumableEntryPersistenceRow struct {
 	QuantityNumber float64 `db:"quantity_number"`
 }
 
-func newWorkRecordPersistenceCollection() *core.Collection {
-	collection := core.NewBaseCollection(workRecordsCollectionIdentifier)
-	collection.Fields.Add(&core.TextField{Name: "number"})
-	collection.Fields.Add(&core.TextField{Name: "date"})
-	collection.Fields.Add(&core.TextField{Name: "uid"})
-	collection.Fields.Add(&core.TextField{Name: "creator"})
-	collection.Fields.Add(&core.TextField{Name: "job"})
-	collection.Fields.Add(&core.TextField{Name: "type"})
-	collection.Fields.Add(&core.TextField{Name: "location"})
-	collection.Fields.Add(&core.TextField{Name: "work_description"})
-	collection.Fields.Add(&core.TextField{Name: "report_to"})
-	collection.Fields.Add(&core.NumberField{Name: "hours_on_site"})
-	collection.Fields.Add(&core.NumberField{Name: "hours_travel_time"})
-	collection.Fields.Add(&core.NumberField{Name: "distance_travelled_km"})
-	collection.Fields.Add(&core.TextField{Name: "field_book_number"})
-	collection.Fields.Add(&core.NumberField{Name: "field_book_page_number"})
-	collection.Fields.Add(&core.TextField{Name: "sub_contractor"})
-	collection.Fields.Add(&core.TextField{Name: "equipment"})
-	collection.Fields.Add(&core.TextField{Name: "supplies"})
-	collection.Fields.Add(&core.TextField{Name: "vehicle_type"})
-	collection.Fields.Add(&core.BoolField{Name: "is_passenger"})
-	collection.Fields.Add(&core.TextField{Name: "company_vehicle_unit_number"})
-	collection.Fields.Add(&core.BoolField{Name: "approved"})
-	collection.Fields.Add(&core.TextField{Name: "parent_work_record"})
-	return collection
+func findWorkRecordCollection(app core.App) (*core.Collection, error) {
+	return app.FindCollectionByNameOrId(workRecordsCollectionIdentifier)
 }
 
-func newWorkRecordConsumableEntryPersistenceCollection() *core.Collection {
-	collection := core.NewBaseCollection(workRecordConsumableEntriesCollectionIdentifier)
-	collection.Fields.Add(&core.TextField{Name: "work_record"})
-	collection.Fields.Add(&core.TextField{Name: "consumable"})
-	collection.Fields.Add(&core.NumberField{Name: "quantity_number"})
-	return collection
+func findWorkRecordConsumableEntriesCollection(app core.App) (*core.Collection, error) {
+	return app.FindCollectionByNameOrId(workRecordConsumableEntriesCollectionIdentifier)
 }
 
 func findWorkRecordConsumableEntryByID(app core.App, entryID string) (*core.Record, error) {
@@ -351,7 +324,12 @@ func findWorkRecordConsumableEntryByID(app core.App, entryID string) (*core.Reco
 		return nil, err
 	}
 
-	record := core.NewRecord(newWorkRecordConsumableEntryPersistenceCollection())
+	collection, err := findWorkRecordConsumableEntriesCollection(app)
+	if err != nil {
+		return nil, err
+	}
+
+	record := core.NewRecord(collection)
 	record.Load(map[string]any{
 		"id":              row.ID,
 		"work_record":     row.WorkRecordID,
@@ -578,7 +556,11 @@ func findWorkRecordByToken(app core.App, token string) (*core.Record, error) {
 		return nil, sql.ErrNoRows
 	}
 
-	collection := newWorkRecordPersistenceCollection()
+	collection, err := findWorkRecordCollection(app)
+	if err != nil {
+		return nil, err
+	}
+
 	row := workRecordSaveStateRow{}
 	if err := app.DB().NewQuery(`
 		SELECT
@@ -945,6 +927,59 @@ func applyWorkRecordSaveRequest(record *core.Record, req WorkRecordSaveRequest) 
 	return nil
 }
 
+func validateOptionalNumberMinimum(collection *core.Collection, fieldName string, raw any) error {
+	numberField, ok := collection.Fields.GetByName(fieldName).(*core.NumberField)
+	if !ok || numberField == nil || numberField.Required || numberField.Min == nil || *numberField.Min <= 0 {
+		return nil
+	}
+
+	switch value := raw.(type) {
+	case nil:
+		return nil
+	case string:
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
+		return nil
+	case float64:
+		if value != 0 {
+			return nil
+		}
+	case float32:
+		if value != 0 {
+			return nil
+		}
+	case int:
+		if value != 0 {
+			return nil
+		}
+	case int32:
+		if value != 0 {
+			return nil
+		}
+	case int64:
+		if value != 0 {
+			return nil
+		}
+	default:
+		return nil
+	}
+
+	// PocketBase treats 0 as "empty" for optional number fields, so a
+	// migrated min constraint like field_book_page_number >= 1 won't fire on
+	// the custom save route unless we patch that gap explicitly.
+	return &errs.HookError{
+		Status:  http.StatusBadRequest,
+		Message: "validation failed",
+		Data: map[string]errs.CodeError{
+			fieldName: {
+				Code:    "validation_min_number_constraint",
+				Message: fmt.Sprintf("Must be larger than %f", *numberField.Min),
+			},
+		},
+	}
+}
+
 func hasRequestedWorkRecordConsumableValue(item WorkRecordSaveConsumableRequest) bool {
 	if item.InputKind == "boolean" {
 		return item.BooleanSelected
@@ -1141,6 +1176,9 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 	if err := applyWorkRecordSaveRequest(currentRecord, req); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
+	if err := validateOptionalNumberMinimum(currentRecord.Collection(), "field_book_page_number", req.FieldBookPageNumber); err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
 	if err := normalizeRouteValidationError(apphooks.ValidateWorkRecord(txApp, currentRecord)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
@@ -1156,7 +1194,11 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 				return WorkRecordSaveResponse{}, err
 			}
 		} else {
-			entryRecord = core.NewRecord(newWorkRecordConsumableEntryPersistenceCollection())
+			entriesCollection, err := findWorkRecordConsumableEntriesCollection(txApp)
+			if err != nil {
+				return WorkRecordSaveResponse{}, err
+			}
+			entryRecord = core.NewRecord(entriesCollection)
 		}
 
 		entryRecord.Set("work_record", currentRecord.Id)
@@ -1234,12 +1276,21 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 		rootParentID, _ = resolveWorkRecordRootParent(source)
 	}
 
-	record := core.NewRecord(newWorkRecordPersistenceCollection())
+	collection, err := findWorkRecordCollection(txApp)
+	if err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
+
+	record := core.NewRecord(collection)
 	record.Set("uid", targetUID)
 	record.Set("creator", auth.Id)
 	record.Set("parent_work_record", rootParentID)
 
-	if err := applyWorkRecordSaveRequest(record, toWorkRecordSaveRequest(req)); err != nil {
+	saveReq := toWorkRecordSaveRequest(req)
+	if err := applyWorkRecordSaveRequest(record, saveReq); err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
+	if err := validateOptionalNumberMinimum(collection, "field_book_page_number", saveReq.FieldBookPageNumber); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
 	if err := normalizeRouteValidationError(apphooks.ValidateWorkRecord(txApp, record)); err != nil {
@@ -1277,7 +1328,12 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 			continue
 		}
 
-		entryRecord := core.NewRecord(newWorkRecordConsumableEntryPersistenceCollection())
+		entriesCollection, err := findWorkRecordConsumableEntriesCollection(txApp)
+		if err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
+
+		entryRecord := core.NewRecord(entriesCollection)
 		entryRecord.Set("work_record", record.Id)
 		entryRecord.Set("consumable", item.ConsumableID)
 		setWorkRecordConsumableQuantity(entryRecord, inputKindsByConsumable[item.ConsumableID], item)
