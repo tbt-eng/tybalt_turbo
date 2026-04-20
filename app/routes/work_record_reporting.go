@@ -440,7 +440,7 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 				COALESCE(wrc.id, '') AS consumable_id,
 				COALESCE(wrc.name, '') AS consumable_name,
 				COALESCE(wrc.input_kind, '') AS input_kind,
-				COALESCE(wrtc.unit_label, '') AS unit_label,
+				COALESCE(wrc.unit_label, '') AS unit_label,
 				COALESCE(wrce.quantity_number, 0) AS quantity_number,
 				CASE WHEN wrce.id != '' THEN 1 ELSE 0 END AS boolean_selected
 			FROM work_records wr
@@ -448,9 +448,6 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 			  ON wrce.work_record = wr.id
 			JOIN work_records_consumables wrc
 			  ON wrc.id = wrce.consumable
-			LEFT JOIN work_records_type_consumables wrtc
-			  ON wrtc.type = wr.type
-			 AND wrtc.consumable = wrce.consumable
 			LEFT JOIN profiles p
 			  ON p.uid = wr.uid
 			LEFT JOIN jobs j

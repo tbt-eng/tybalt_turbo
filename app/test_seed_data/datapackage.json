@@ -3215,6 +3215,11 @@
             "name": "name",
             "type": "string",
             "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "unit_label",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
           }
         ],
         "primaryKey": [
@@ -3252,11 +3257,6 @@
           },
           {
             "name": "type",
-            "type": "string",
-            "x-sqlite-type": "TEXT"
-          },
-          {
-            "name": "unit_label",
             "type": "string",
             "x-sqlite-type": "TEXT"
           }
