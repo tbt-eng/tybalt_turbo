@@ -1173,6 +1173,27 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 		}
 	}
 
+	// When the type changes, the UI only sends consumables valid for the new
+	// type. Delete any existing DB entries not covered by the request so the
+	// hook-level compatibility check passes.
+	if currentRecord.GetString("type") != req.Type {
+		for _, existing := range existingEntries {
+			if _, covered := seenConsumables[existing.ConsumableID]; covered {
+				continue
+			}
+			entryRecord, err := findWorkRecordConsumableEntryByID(txApp, existing.ID)
+			if err != nil {
+				return WorkRecordSaveResponse{}, err
+			}
+			if err := normalizeRouteValidationError(apphooks.ValidateWorkRecordConsumableEntryDelete(txApp, entryRecord)); err != nil {
+				return WorkRecordSaveResponse{}, err
+			}
+			if err := normalizeRouteValidationError(txApp.Delete(entryRecord)); err != nil {
+				return WorkRecordSaveResponse{}, err
+			}
+		}
+	}
+
 	if err := applyWorkRecordSaveRequest(currentRecord, req); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}

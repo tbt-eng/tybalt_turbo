@@ -9,7 +9,6 @@
   import { pb } from "$lib/pocketbase";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
-  import DsCheck from "$lib/components/DsCheck.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
@@ -93,8 +92,8 @@
   let saving = $state(false);
   let loadingConsumables = $state(false);
   let consumables = $state([] as EditorConsumable[]);
+  let consumablesLoadError = $state("");
   let assigneeMode = $state<"you" | "someone_else">("you");
-  let consumableWarning = $state("");
   let consumablesRequestId = 0;
 
   const dateInputMax = dateInputMaxMonthsAhead(15);
@@ -104,9 +103,14 @@
   const canEdit = $derived(detail?.can_edit ?? true);
   const isCopyMode = $derived(copyContext !== null);
   const showSaveButton = $derived(!editing || canEdit);
+  const initialConsumableType = $derived(detail?.type_id ?? copyContext?.type ?? "");
+  const hasSeededConsumables = $derived(detail !== null || copyContext !== null);
+  const saveBlockedByConsumablesError = $derived(
+    consumablesLoadError !== "" && (!hasSeededConsumables || form.type !== initialConsumableType),
+  );
+  const saveDisabled = $derived(loadingConsumables || saveBlockedByConsumablesError);
   const hasDefaultType = $derived(($globalStore.profile.default_work_record_type ?? "") !== "");
   const visibleConsumables = $derived(consumables.filter((item) => !item.blocked));
-  const blockedConsumables = $derived(consumables.filter((item) => item.blocked));
 
   function buildEmptyConsumable(row: any): EditorConsumable {
     const expandedConsumable = Array.isArray(row.expand?.consumable)
@@ -133,12 +137,13 @@
   async function loadTypeConsumables(typeId: string) {
     if (typeId === "") {
       consumables = [];
-      consumableWarning = "";
+      consumablesLoadError = "";
       return;
     }
 
     const requestId = ++consumablesRequestId;
     loadingConsumables = true;
+    consumablesLoadError = "";
     try {
       const rows = await pb.collection("work_records_type_consumables").getFullList<any>({
         filter: pb.filter("type = {:type} && active = true", { type: typeId }),
@@ -168,14 +173,12 @@
         .map((row) => ({ ...row, blocked: true }));
 
       consumables = [...mergedVisible, ...blocked];
-      consumableWarning =
-        blocked.length > 0
-          ? "Some existing consumables are not allowed for the selected type. Clear them before saving."
-          : "";
+      consumablesLoadError = "";
     } catch (error) {
       if (requestId !== consumablesRequestId) return;
       console.error("loading work record consumables", error);
-      consumableWarning = "Failed to load consumables for the selected type.";
+      consumablesLoadError =
+        "Failed to load consumables for the selected type. Reload them before saving.";
     } finally {
       if (requestId !== consumablesRequestId) return;
       loadingConsumables = false;
@@ -221,7 +224,7 @@
   }
 
   function buildSaveConsumables(): WorkRecordSaveConsumableRequest[] {
-    return consumables.map((consumable) => ({
+    return visibleConsumables.map((consumable) => ({
       entry_id: consumable.entry_id,
       consumable_id: consumable.consumable_id,
       input_kind: consumable.input_kind,
@@ -303,6 +306,16 @@
 
   async function save() {
     if (saving) return;
+    if (loadingConsumables) {
+      errors = {
+        global: { message: "Wait for consumables to finish loading before saving this work record." },
+      };
+      return;
+    }
+    if (saveBlockedByConsumablesError) {
+      errors = { global: { message: consumablesLoadError } };
+      return;
+    }
     saving = true;
     errors = {};
 
@@ -344,13 +357,10 @@
 
     if (detail?.consumables?.length) {
       consumables = detail.consumables.map((row) => ({ ...row, blocked: false }));
-      consumableWarning = "";
     } else if (copyContext?.consumables?.length) {
       consumables = copyContext.consumables.map((row) => ({ ...row, blocked: false }));
-      consumableWarning = "";
     } else {
       consumables = [];
-      consumableWarning = "";
     }
   });
 
@@ -371,7 +381,9 @@
     <div class="flex gap-2">
       <DsActionButton action={cancelAction}>Cancel</DsActionButton>
       {#if showSaveButton}
-        <DsActionButton action={save} color="green" loading={saving}>Save</DsActionButton>
+        <DsActionButton action={save} color="green" loading={saving} disabled={saveDisabled}
+          >Save</DsActionButton
+        >
       {/if}
     </div>
   </div>
@@ -446,100 +458,118 @@
     </DsAutoComplete>
   {/if}
 
-  <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" />
-  <DsTextInput
-    bind:value={form.work_description}
-    {errors}
-    fieldName="work_description"
-    uiName="Work Description"
-  />
-  <DsTextInput bind:value={form.report_to} {errors} fieldName="report_to" uiName="Report To" />
-  <DsTextInput
-    bind:value={form.hours_on_site}
-    {errors}
-    fieldName="hours_on_site"
-    uiName="Hours On Site"
-    type="number"
-    min={0}
-    step={0.5}
-  />
-  <DsTextInput
-    bind:value={form.hours_travel_time}
-    {errors}
-    fieldName="hours_travel_time"
-    uiName="Hours Travel Time"
-    type="number"
-    min={0}
-    step={0.5}
-  />
-  <DsTextInput
-    bind:value={form.distance_travelled_km}
-    {errors}
-    fieldName="distance_travelled_km"
-    uiName="Distance Travelled (km)"
-    type="number"
-    min={0}
-    step={0.1}
-  />
-  <DsTextInput
-    bind:value={form.field_book_number}
-    {errors}
-    fieldName="field_book_number"
-    uiName="Field Book Number"
-  />
-  <DsTextInput
-    bind:value={form.field_book_page_number}
-    {errors}
-    fieldName="field_book_page_number"
-    uiName="Field Book Page Number"
-    type="number"
-    min={1}
-    step={1}
-  />
-  <DsTextInput
-    bind:value={form.sub_contractor}
-    {errors}
-    fieldName="sub_contractor"
-    uiName="Sub Contractor"
-  />
-  <DsTextInput bind:value={form.equipment} {errors} fieldName="equipment" uiName="Equipment" />
-  <DsTextInput bind:value={form.supplies} {errors} fieldName="supplies" uiName="Supplies" />
-
-  <div class="flex flex-col gap-1">
-    <div class="flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
-      <div class="flex items-center gap-2">
-        <span>Transport to Site</span>
-        <DSToggle
-          bind:value={form.vehicle_type}
-          options={vehicleTypeOptions}
-          ariaLabel="Transport to Site"
-        />
+  <div
+    class="fields-grid grid auto-cols-fr grid-flow-col gap-3"
+    style="--mobile-rows: repeat(10, auto); --desktop-rows: repeat(5, auto)"
+  >
+    <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" />
+    <DsTextInput bind:value={form.report_to} {errors} fieldName="report_to" uiName="Report To" />
+    <DsTextInput
+      bind:value={form.sub_contractor}
+      {errors}
+      fieldName="sub_contractor"
+      uiName="Sub Contractor"
+    />
+    <DsTextInput
+      bind:value={form.hours_on_site}
+      {errors}
+      fieldName="hours_on_site"
+      uiName="Hours On Site"
+      type="number"
+      min={0}
+      step={0.5}
+    />
+    <DsTextInput
+      bind:value={form.hours_travel_time}
+      {errors}
+      fieldName="hours_travel_time"
+      uiName="Hours Travel Time"
+      type="number"
+      min={0}
+      step={0.5}
+    />
+    <DsTextInput
+      bind:value={form.field_book_number}
+      {errors}
+      fieldName="field_book_number"
+      uiName="Field Book Number"
+    />
+    <DsTextInput
+      bind:value={form.field_book_page_number}
+      {errors}
+      fieldName="field_book_page_number"
+      uiName="Field Book Page Number"
+      type="number"
+      min={1}
+      step={1}
+    />
+    <div class="flex flex-col gap-1">
+      <div class="flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
+        <div class="flex items-center gap-2">
+          <span>Vehicle</span>
+          <DSToggle
+            bind:value={form.vehicle_type}
+            options={vehicleTypeOptions}
+            ariaLabel="Vehicle"
+          />
+        </div>
+        <div class="flex items-center gap-2">
+          <input
+            id="is_passenger"
+            type="checkbox"
+            name="is_passenger"
+            bind:checked={form.is_passenger}
+            class="h-4 w-4"
+          />
+          <label for="is_passenger">I was a passenger</label>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <input
-          id="is_passenger"
-          type="checkbox"
-          name="is_passenger"
-          bind:checked={form.is_passenger}
-          class="h-4 w-4"
-        />
-        <label for="is_passenger">I was a passenger</label>
-      </div>
+      {#if errors.vehicle_type}
+        <span class="text-red-600">{errors.vehicle_type.message}</span>
+      {/if}
+      {#if errors.is_passenger}
+        <span class="text-red-600">{errors.is_passenger.message}</span>
+      {/if}
     </div>
-    {#if errors.vehicle_type}
-      <span class="text-red-600">{errors.vehicle_type.message}</span>
-    {/if}
-    {#if errors.is_passenger}
-      <span class="text-red-600">{errors.is_passenger.message}</span>
+
+    <DsTextInput
+      bind:value={form.company_vehicle_unit_number}
+      {errors}
+      fieldName="company_vehicle_unit_number"
+      uiName="Company Vehicle Unit Number"
+    />
+    <DsTextInput
+      bind:value={form.distance_travelled_km}
+      {errors}
+      fieldName="distance_travelled_km"
+      uiName="Distance Travelled (km)"
+      type="number"
+      min={0}
+      step={0.1}
+    />
+  </div>
+
+  <div
+    class="flex w-full flex-col gap-2 {errors.work_description !== undefined ? 'bg-red-200' : ''}"
+  >
+    <span class="flex w-full gap-2">
+      <label for="work_description">Work Description</label>
+      <textarea
+        id="work_description"
+        name="work_description"
+        rows={2}
+        bind:value={form.work_description}
+        placeholder="Work Description"
+        class="flex-1 rounded border border-neutral-300 px-1"
+      ></textarea>
+    </span>
+    {#if errors.work_description}
+      <span class="text-red-600">{errors.work_description.message}</span>
     {/if}
   </div>
 
-  <DsTextInput
-    bind:value={form.company_vehicle_unit_number}
-    {errors}
-    fieldName="company_vehicle_unit_number"
-    uiName="Company Vehicle Unit Number"
-  />
+  <DsTextInput bind:value={form.equipment} {errors} fieldName="equipment" uiName="Equipment" />
+  <DsTextInput bind:value={form.supplies} {errors} fieldName="supplies" uiName="Supplies" />
 
   <div class="rounded-sm bg-neutral-50 p-4">
     <div class="flex items-center justify-between gap-2">
@@ -565,81 +595,83 @@
       </DsSelector>
     </div>
 
-    {#if consumableWarning !== ""}
-      <div class="mt-3 rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-        {consumableWarning}
+    {#if consumablesLoadError !== ""}
+      <div class="mt-3 rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+        {consumablesLoadError}
       </div>
     {/if}
 
-    {#if visibleConsumables.length === 0 && blockedConsumables.length === 0 && !loadingConsumables}
+    {#if visibleConsumables.length === 0 && !loadingConsumables && consumablesLoadError === ""}
       <div class="mt-3 text-sm text-neutral-600">No consumables for this type.</div>
     {/if}
 
     {#if visibleConsumables.length > 0}
-      <div class="mt-3 grid gap-3">
+      {@const mobileRows = Math.ceil(visibleConsumables.length / 2)}
+      {@const desktopRows = Math.ceil(visibleConsumables.length / 3)}
+      <div
+        class="consumables-grid mt-3 grid auto-cols-fr grid-flow-col gap-3"
+        style="--mobile-rows: repeat({mobileRows}, 1fr); --desktop-rows: repeat({desktopRows}, 1fr)"
+      >
         {#each visibleConsumables as consumable (consumable.consumable_id)}
-          <div class="rounded-sm border border-neutral-200 p-3">
-            <div class="font-medium">
-              {consumable.consumable_name}
-              {#if consumable.unit_label}
-                <span class="text-sm text-neutral-500">({consumable.unit_label})</span>
-              {/if}
-            </div>
-
-            {#if consumable.input_kind === "boolean"}
-              <DsCheck
-                bind:value={consumable.boolean_selected}
-                errors={{}}
-                fieldName={`consumable_${consumable.consumable_id}`}
-                uiName="Selected"
+          {#if consumable.input_kind === "boolean"}
+            <label
+              class="flex cursor-pointer items-center gap-2 rounded-sm border p-3 {consumable.boolean_selected
+                ? 'border-blue-300 bg-blue-50'
+                : 'border-neutral-200'}"
+              for={`consumable_${consumable.consumable_id}`}
+            >
+              <span class="min-w-0 flex-1 text-sm font-medium">
+                {consumable.consumable_name}
+              </span>
+              <input
+                id={`consumable_${consumable.consumable_id}`}
+                type="checkbox"
+                bind:checked={consumable.boolean_selected}
+                class="h-4 w-4 shrink-0"
               />
-            {:else}
-              <DsTextInput
-                bind:value={consumable.quantity_number}
-                errors={{}}
-                fieldName={`consumable_${consumable.consumable_id}`}
-                uiName="Quantity"
+            </label>
+          {:else}
+            <div
+              class="flex items-center gap-2 rounded-sm border p-3 {Number(
+                consumable.quantity_number,
+              ) > 0
+                ? 'border-blue-300 bg-blue-50'
+                : 'border-neutral-200'}"
+            >
+              <label
+                class="min-w-0 flex-1 text-sm font-medium"
+                for={`consumable_${consumable.consumable_id}`}
+              >
+                {consumable.consumable_name}
+                {#if consumable.unit_label}
+                  <span class="text-neutral-500">({consumable.unit_label})</span>
+                {/if}
+              </label>
+              <input
+                id={`consumable_${consumable.consumable_id}`}
                 type="number"
+                bind:value={consumable.quantity_number}
                 min={0}
                 step={0.1}
+                class="w-20 shrink-0 rounded-sm border border-neutral-300 px-2 py-1 text-right text-sm"
               />
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
-
-    {#if blockedConsumables.length > 0}
-      <div class="mt-4 space-y-3">
-        <h3 class="font-semibold text-amber-900">Incompatible Existing Consumables</h3>
-        {#each blockedConsumables as consumable (consumable.consumable_id)}
-          <div class="rounded-sm border border-amber-300 bg-amber-50 p-3">
-            <div class="font-medium text-amber-900">{consumable.consumable_name}</div>
-            <div class="mt-1 text-sm text-amber-800">
-              Clear this value before saving the selected work record type.
             </div>
-
-            {#if consumable.input_kind === "boolean"}
-              <DsCheck
-                bind:value={consumable.boolean_selected}
-                errors={{}}
-                fieldName={`blocked_${consumable.consumable_id}`}
-                uiName="Selected"
-              />
-            {:else}
-              <DsTextInput
-                bind:value={consumable.quantity_number}
-                errors={{}}
-                fieldName={`blocked_${consumable.consumable_id}`}
-                uiName="Quantity"
-                type="number"
-                min={0}
-                step={0.1}
-              />
-            {/if}
-          </div>
+          {/if}
         {/each}
       </div>
     {/if}
   </div>
 </form>
+
+<style>
+  .fields-grid,
+  .consumables-grid {
+    grid-template-rows: var(--mobile-rows);
+  }
+  @media (min-width: 640px) {
+    .fields-grid,
+    .consumables-grid {
+      grid-template-rows: var(--desktop-rows);
+    }
+  }
+</style>
