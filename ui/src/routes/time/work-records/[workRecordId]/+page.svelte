@@ -14,6 +14,12 @@
   let savingNote = $state(false);
   let noteGuidanceOpen = $state(false);
 
+  const activeConsumables = $derived(
+    data.item.consumables.filter((c) =>
+      c.input_kind === "boolean" ? c.boolean_selected : c.quantity_number > 0,
+    ),
+  );
+
   function linkedEntryHref() {
     if (!data.item.linked_time_entry_id) {
       return "/time/work-records";
@@ -78,20 +84,13 @@
           color="green"
         />
       {/if}
-      {#if data.item.can_create_time_entry}
-        <DsActionButton
-          action={`/time/entries/add/${data.item.id}`}
-          icon="mdi:add-bold"
-          title="Create Time Entry"
-          color="green"
-        />
-      {:else if data.item.linked_time_entry_id}
-        <DsActionButton action={linkedEntryHref()} icon="mdi:open-in-new" title="Open Time Entry" />
-      {/if}
     </div>
   </div>
 
-  <div class="grid gap-4 md:grid-cols-2">
+  <div
+    class="summary-grid grid auto-cols-fr grid-flow-col gap-4"
+    style="--mobile-rows: repeat(7, auto); --desktop-rows: repeat(4, auto)"
+  >
     <div class="rounded-lg bg-neutral-100 p-4">
       <h2 class="mb-2 text-lg font-semibold">Summary</h2>
       <div class="space-y-2 text-sm">
@@ -100,13 +99,72 @@
         <div><span class="font-medium">Type:</span> {data.item.type_name || "None"}</div>
         <div><span class="font-medium">Location:</span> {data.item.location || "None"}</div>
         <div><span class="font-medium">Report To:</span> {data.item.report_to || "None"}</div>
-        <div><span class="font-medium">On Site:</span> {data.item.hours_on_site} hours</div>
-        <div><span class="font-medium">Travel:</span> {data.item.hours_travel_time} hours</div>
-        <div><span class="font-medium">Distance:</span> {data.item.distance_travelled_km} km</div>
         <div>
-          <span class="font-medium">Total:</span>
-          {data.item.hours_on_site + data.item.hours_travel_time} hours
+          <span class="font-medium">Sub Contractor:</span>
+          {data.item.sub_contractor || "None"}
         </div>
+      </div>
+    </div>
+
+    <div class="rounded-lg bg-neutral-100 p-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <h2 class="mb-2 text-lg font-semibold">Time</h2>
+          <div class="space-y-2 text-sm">
+            <div><span class="font-medium">On Site:</span> {data.item.hours_on_site} hours</div>
+            <div><span class="font-medium">Travel:</span> {data.item.hours_travel_time} hours</div>
+            <div>
+              <span class="font-medium">Total:</span>
+              {data.item.hours_on_site + data.item.hours_travel_time} hours
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 class="mb-2 text-lg font-semibold">Time Entry</h2>
+          {#if data.item.linked_time_entry_id}
+            <div class="space-y-1 text-sm">
+              <div>
+                <span class="font-medium">Date:</span>
+                <a href={linkedEntryHref()} class="text-blue-600 hover:underline">
+                  {shortDate(data.item.linked_time_entry_date, true)}
+                </a>
+              </div>
+              <div>
+                <span class="font-medium">Description:</span>
+                {data.item.linked_time_entry_description || "None"}
+              </div>
+              {#if data.item.linked_timesheet_id}
+                <div>
+                  <span class="font-medium">Week Ending:</span>
+                  {shortDate(data.item.linked_time_sheet_week_ending, true)}
+                </div>
+              {:else}
+                <div class="text-neutral-600">Standalone time entry</div>
+              {/if}
+              <div class="pt-1">
+                <DsActionButton action={linkedEntryHref()} icon="mdi:open-in-new" title="Open" />
+              </div>
+            </div>
+          {:else}
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm text-neutral-600">No time entry linked.</span>
+              {#if data.item.can_create_time_entry}
+                <DsActionButton
+                  action={`/time/entries/add/${data.item.id}`}
+                  icon="mdi:add-bold"
+                  title="Create"
+                  color="green"
+                />
+              {/if}
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-lg bg-neutral-100 p-4">
+      <h2 class="mb-2 text-lg font-semibold">Transportation</h2>
+      <div class="space-y-2 text-sm">
         <div><span class="font-medium">Vehicle:</span> {data.item.vehicle_type || "None"}</div>
         <div>
           <span class="font-medium">Passenger:</span>
@@ -117,61 +175,47 @@
           {data.item.company_vehicle_unit_number || "None"}
         </div>
         <div>
-          <span class="font-medium">Field Book:</span>
-          {data.item.field_book_number || "None"}
+          <span class="font-medium">Distance:</span>
+          {data.item.distance_travelled_km} km
         </div>
-        <div>
-          <span class="font-medium">Field Book Page:</span>
-          {data.item.field_book_page_number || "None"}
-        </div>
-        <div>
-          <span class="font-medium">Sub Contractor:</span>
-          {data.item.sub_contractor || "None"}
-        </div>
-        <div><span class="font-medium">Equipment:</span> {data.item.equipment || "None"}</div>
-        <div><span class="font-medium">Supplies:</span> {data.item.supplies || "None"}</div>
       </div>
     </div>
 
     <div class="rounded-lg bg-neutral-100 p-4">
-      <h2 class="mb-2 text-lg font-semibold">Linked Time Entry</h2>
-      {#if data.item.linked_time_entry_id}
-        <div class="space-y-2 text-sm">
-          <div>
-            <span class="font-medium">Date:</span>
-            {shortDate(data.item.linked_time_entry_date, true)}
-          </div>
-          <div>
-            <span class="font-medium">Description:</span>
-            {data.item.linked_time_entry_description || "None"}
-          </div>
-          {#if data.item.linked_timesheet_id}
-            <div>
-              <span class="font-medium">Timesheet Week Ending:</span>
-              {shortDate(data.item.linked_time_sheet_week_ending, true)}
-            </div>
-          {:else}
-            <div>Currently a standalone time entry.</div>
-          {/if}
+      <h2 class="mb-2 text-lg font-semibold">Field Book</h2>
+      <div class="space-y-2 text-sm">
+        <div>
+          <span class="font-medium">Number:</span>
+          {data.item.field_book_number || "None"}
         </div>
-      {:else}
-        <div class="text-sm text-neutral-600">
-          No time entry is linked yet. Start the linked entry from this work record.
+        <div>
+          <span class="font-medium">Page:</span>
+          {data.item.field_book_page_number || "None"}
         </div>
-      {/if}
-    </div>
-  </div>
-
-  <div class="mt-4 rounded-lg bg-neutral-100 p-4">
-    <h2 class="mb-2 text-lg font-semibold">Lineage</h2>
-    <div class="space-y-2 text-sm">
-      <div>
-        <span class="font-medium">Root Work Record:</span>
-        {data.item.root_work_record || data.item.work_record}
       </div>
-      <div>
-        <span class="font-medium">Copied From:</span>
-        {data.item.parent_work_record || "This is the root record"}
+    </div>
+
+    <div class="rounded-lg bg-neutral-100 p-4">
+      <h2 class="mb-2 text-lg font-semibold">Equipment</h2>
+      <p class="text-sm">{data.item.equipment || "None"}</p>
+    </div>
+
+    <div class="rounded-lg bg-neutral-100 p-4">
+      <h2 class="mb-2 text-lg font-semibold">Supplies</h2>
+      <p class="text-sm">{data.item.supplies || "None"}</p>
+    </div>
+
+    <div class="rounded-lg bg-neutral-100 p-4">
+      <h2 class="mb-2 text-lg font-semibold">Lineage</h2>
+      <div class="space-y-2 text-sm">
+        <div>
+          <span class="font-medium">Root Work Record:</span>
+          {data.item.root_work_record || data.item.work_record}
+        </div>
+        <div>
+          <span class="font-medium">Copied From:</span>
+          {data.item.parent_work_record || "This is the root record"}
+        </div>
       </div>
     </div>
   </div>
@@ -183,27 +227,24 @@
 
   <div class="mt-4 rounded-lg bg-neutral-100 p-4">
     <h2 class="mb-2 text-lg font-semibold">Consumables</h2>
-    {#if data.item.consumables.length === 0}
-      <p class="text-sm text-neutral-600">No consumables for this work record type.</p>
+    {#if activeConsumables.length === 0}
+      <p class="text-sm text-neutral-600">No consumables recorded.</p>
     {:else}
-      <div class="grid gap-3 md:grid-cols-2">
-        {#each data.item.consumables as consumable (consumable.consumable_id)}
-          <div class="rounded-sm border border-neutral-200 bg-white p-3">
-            <div class="font-medium">
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+        {#each activeConsumables as consumable (consumable.consumable_id)}
+          <div
+            class="flex items-center justify-between gap-2 rounded-sm border border-neutral-200 bg-white p-3"
+          >
+            <span class="min-w-0 text-sm font-medium">
               {consumable.consumable_name}
-              {#if consumable.unit_label}
-                <span class="text-sm text-neutral-500">({consumable.unit_label})</span>
-              {/if}
-            </div>
-            <div class="mt-1 text-sm text-neutral-700">
+            </span>
+            <span class="shrink-0 text-sm text-neutral-700">
               {#if consumable.input_kind === "boolean"}
-                {consumable.boolean_selected ? "Selected" : "Not selected"}
+                <Icon icon="mdi:check" width="16px" class="text-green-600" />
               {:else}
-                {consumable.quantity_number > 0
-                  ? consumable.quantity_number
-                  : "No quantity recorded"}
+                {consumable.quantity_number}{#if consumable.unit_label}&nbsp;{consumable.unit_label}{/if}
               {/if}
-            </div>
+            </span>
           </div>
         {/each}
       </div>
@@ -262,3 +303,14 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .summary-grid {
+    grid-template-rows: var(--mobile-rows);
+  }
+  @media (min-width: 768px) {
+    .summary-grid {
+      grid-template-rows: var(--desktop-rows);
+    }
+  }
+</style>
