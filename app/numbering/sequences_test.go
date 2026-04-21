@@ -90,8 +90,8 @@ func TestReserveWorkRecordNumber_ManualInsertAfterSequenceSeed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error reserving work record number: %v", err)
 	}
-	if got != "W3002-0011" {
-		t.Fatalf("expected W3002-0011 after stale manual insert, got %s", got)
+	if got != "W3002-1052" {
+		t.Fatalf("expected W3002-1052 after stale manual insert, got %s", got)
 	}
 }
 

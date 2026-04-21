@@ -2,3 +2,5 @@ approved,creator,date,distance_travelled_km,hours_on_site,hours_travel_time,id,j
 0,f2j5a8vk006baub,2026-04-03,10,8,1,wr260400000003a,cjf0kt0defhq480,Seeded location,W2604-0003,oask5u50nka0km8,f2j5a8vk006baub,company,Seeded work description
 0,f2j5a8vk006baub,2026-04-10,10,8,1,wr260400000010a,cjf0kt0defhq480,Seeded location,W2604-0010,oask5u50nka0km8,f2j5a8vk006baub,company,Seeded work description
 0,f2j5a8vk006baub,2030-02-05,10,8,1,wr300200000050a,cjf0kt0defhq480,Seeded location,W3002-0050,oask5u50nka0km8,f2j5a8vk006baub,company,Seeded work description
+0,rzr98oadsp9qc11,2030-02-05,10,8,1,wrtimecopy3002a,cjf0kt0defhq480,Time seeded location,W3002-1050,oask5u50nka0km8,rzr98oadsp9qc11,company,Time seeded work description
+0,rzr98oadsp9qc11,2030-02-06,10,8,1,wrtimedup3002a,cjf0kt0defhq480,Time seeded duplicate location,W3002-1051,oask5u50nka0km8,rzr98oadsp9qc11,company,Time seeded duplicate description
