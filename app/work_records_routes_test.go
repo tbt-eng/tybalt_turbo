@@ -669,7 +669,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "regular user gets empty work records list",
+			Name:   "time holder can fetch own work records list",
 			Method: http.MethodGet,
 			URL:    "/api/work_records",
 			Headers: map[string]string{
@@ -677,7 +677,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":0`,
+				`"total":2`,
+				`"work_record":"W3002-1051"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -688,8 +689,14 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("failed decoding work records list response: %v", err)
 				}
 
-				if payload.Total != 0 || len(payload.Items) != 0 {
-					t.Fatalf("expected empty work record list, got %#v", payload)
+				if payload.Total != 2 || len(payload.Items) != 2 {
+					t.Fatalf("expected 2 visible self-owned work records, got %#v", payload)
+				}
+				if payload.Items[0].WorkRecord != "W3002-1051" || payload.Items[1].WorkRecord != "W3002-1050" {
+					t.Fatalf("unexpected self-owned row order: %#v", payload.Items)
+				}
+				if !payload.Items[0].CanCreateTimeEntry || payload.Items[0].LinkedTimeEntryID != "" {
+					t.Fatalf("expected top self-owned row to allow time-entry creation: %#v", payload.Items[0])
 				}
 			},
 		},
@@ -804,8 +811,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":3`,
-				`"work_record":"W3002-0050"`,
+				`"total":5`,
+				`"work_record":"W3002-1051"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -815,8 +822,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding work record list response: %v", err)
 				}
-				if payload.Total != 3 || len(payload.Items) != 3 {
-					t.Fatalf("expected 3 organization work records without endpoint-level filtering, got %#v", payload)
+				if payload.Total != 5 || len(payload.Items) != 5 {
+					t.Fatalf("expected 5 organization work records without endpoint-level filtering, got %#v", payload)
 				}
 				if payload.Items[0].CanCreateTimeEntry {
 					t.Fatalf("report all-scope should not expose create action for another user's row: %#v", payload.Items[0])
@@ -1140,7 +1147,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":3`,
+				`"total":5`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -1182,7 +1189,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":3`,
+				`"total":5`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -1206,8 +1213,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding work record consumables report response: %v", err)
 				}
-				if len(payload.Items) != 2 {
-					t.Fatalf("expected 2 consumable report rows, got %#v", payload)
+				if len(payload.Items) != 4 {
+					t.Fatalf("expected 4 consumable report rows, got %#v", payload)
 				}
 				if payload.Items[0].ConsumableName == "" || payload.Items[0].InputKind == "" {
 					t.Fatalf("expected enriched consumable report rows, got %#v", payload)
@@ -1233,7 +1240,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding limited consumables report response: %v", err)
 				}
-				if len(payload.Items) != 2 {
+				if len(payload.Items) != 4 {
 					t.Fatalf("expected full consumables response when limit is supplied, got %#v", payload)
 				}
 			},
@@ -1257,22 +1264,22 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding final-page consumables report response: %v", err)
 				}
-				if len(payload.Items) != 2 {
+				if len(payload.Items) != 4 {
 					t.Fatalf("expected full consumables response when offset is supplied, got %#v", payload)
 				}
 			},
 		},
 		{
-			Name:   "work record holder can load a copy draft without creating a record",
+			Name:   "time holder can load a self copy draft without creating a record",
 			Method: http.MethodGet,
-			URL:    "/api/work_records/wr260400000010a/copy_to_tomorrow",
+			URL:    "/api/work_records/wrtimecopy3002a/copy_to_tomorrow",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"date":"2026-04-11"`,
-				`"source_work_record":"W2604-0010"`,
+				`"date":"2030-02-06"`,
+				`"source_work_record":"W3002-1050"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
@@ -1283,35 +1290,35 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("failed decoding work record copy draft response: %v", err)
 				}
 
-				if row.CopyFromWorkRecordID != "wr260400000010a" || row.RootWorkRecordID != "wr260400000010a" {
+				if row.CopyFromWorkRecordID != "wrtimecopy3002a" || row.RootWorkRecordID != "wrtimecopy3002a" {
 					t.Fatalf("expected root copy draft metadata, got %#v", row)
 				}
-				if row.RootWorkRecord != "W2604-0010" || row.Date != "2026-04-11" {
+				if row.RootWorkRecord != "W3002-1050" || row.Date != "2030-02-06" {
 					t.Fatalf("unexpected copy draft response: %#v", row)
 				}
 				if len(row.Consumables) != 2 {
 					t.Fatalf("expected copied draft consumables, got %#v", row.Consumables)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected copy draft load to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "saving a copied draft creates one linked work record with copied consumables",
+			Name:   "time holder can save a copied self draft with copied consumables",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
-				"date":"2026-04-11",
+				"uid":"rzr98oadsp9qc11",
+				"date":"2030-02-07",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",
-				"location":"Seeded location",
-				"work_description":"Seeded work description",
+				"location":"Time seeded location",
+				"work_description":"Time seeded work description",
 				"report_to":"",
 				"hours_on_site":8,
 				"hours_travel_time":1,
@@ -1324,7 +1331,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"vehicle_type":"company",
 				"is_passenger":false,
 				"company_vehicle_unit_number":"7",
-				"copy_from_work_record_id":"wr260400000010a",
+				"copy_from_work_record_id":"wrtimecopy3002a",
 				"consumables":[
 					{
 						"entry_id":"",
@@ -1380,14 +1387,14 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("expected copied work record to be saved: %v", err)
 				}
 
-				if record.ParentWorkRecord != "wr260400000010a" || record.Date != "2026-04-11" {
+				if record.ParentWorkRecord != "wrtimecopy3002a" || record.Date != "2030-02-07" {
 					t.Fatalf("unexpected copied work record lineage/date: %#v", record)
 				}
-				if record.UID != "f2j5a8vk006baub" || record.Job != "cjf0kt0defhq480" {
+				if record.UID != "rzr98oadsp9qc11" || record.Job != "cjf0kt0defhq480" {
 					t.Fatalf("expected copied work record to keep source worker/job, got %#v", record)
 				}
-				if len(record.Number) < len("W2604-") || record.Number[:len("W2604-")] != "W2604-" {
-					t.Fatalf("expected April-prefixed work record number, got %q", record.Number)
+				if record.Number != "W3002-1052" {
+					t.Fatalf("expected copied work record number to continue seeded February sequence, got %q", record.Number)
 				}
 				if got := countWorkRecordConsumableEntriesForTest(t, app, row.ID); got != 2 {
 					t.Fatalf("expected copied consumable entries, got %d", got)
@@ -1395,7 +1402,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "create rejects schema-required work record fields when payload is otherwise empty",
+			Name:   "work record holder without time cannot create a self-owned work record",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
@@ -1404,6 +1411,46 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			Body: strings.NewReader(`{
 				"uid":"f2j5a8vk006baub",
+				"date":"2026-04-11",
+				"job":"cjf0kt0defhq480",
+				"type":"oask5u50nka0km8",
+				"location":"Unauthorized self create",
+				"work_description":"Unauthorized self create",
+				"report_to":"",
+				"hours_on_site":8,
+				"hours_travel_time":1,
+				"distance_travelled_km":10,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"vehicle_type":"company",
+				"is_passenger":false,
+				"company_vehicle_unit_number":"7",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"you are not authorized to create this work record"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
+					t.Fatalf("expected unauthorized self create to avoid inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "self create rejects schema-required work record fields when payload is otherwise empty",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+				"Content-Type":  "application/json",
+			},
+			Body: strings.NewReader(`{
+				"uid":"rzr98oadsp9qc11",
 				"date":"",
 				"job":"",
 				"type":"",
@@ -1457,21 +1504,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					}
 				}
 
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed empty create to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "create rejects invalid field book number format through custom save route",
+			Name:   "self create rejects invalid field book number format through custom save route",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"rzr98oadsp9qc11",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",
@@ -1501,7 +1548,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_number"]; !ok {
 					t.Fatalf("expected field_book_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -1559,21 +1606,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_number"]; !ok {
 					t.Fatalf("expected field_book_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "create rejects field book page number below schema minimum through custom save route",
+			Name:   "self create rejects field book page number below schema minimum through custom save route",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"rzr98oadsp9qc11",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",
@@ -1603,7 +1650,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_page_number"]; !ok {
 					t.Fatalf("expected field_book_page_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -1661,21 +1708,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_page_number"]; !ok {
 					t.Fatalf("expected field_book_page_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "create rejects company vehicle unit values outside schema pattern through custom save route",
+			Name:   "self create rejects company vehicle unit values outside schema pattern through custom save route",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"rzr98oadsp9qc11",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",
@@ -1705,7 +1752,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["company_vehicle_unit_number"]; !ok {
 					t.Fatalf("expected company_vehicle_unit_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -1763,21 +1810,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["company_vehicle_unit_number"]; !ok {
 					t.Fatalf("expected company_vehicle_unit_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "create rejects invalid job relation through custom save route",
+			Name:   "self create rejects invalid job relation through custom save route",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"rzr98oadsp9qc11",
 				"date":"2026-04-11",
 				"job":"notarealjobid",
 				"type":"oask5u50nka0km8",
@@ -1807,21 +1854,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["job"]; !ok {
 					t.Fatalf("expected job validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "create rejects invalid type relation through custom save route",
+			Name:   "self create rejects invalid type relation through custom save route",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"rzr98oadsp9qc11",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
 				"type":"notarealtypeid",
@@ -1851,21 +1898,21 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["type"]; !ok {
 					t.Fatalf("expected type validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 3 {
+				if got := countWorkRecordsForTest(t, app); got != 5 {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
 		},
 		{
-			Name:   "create ignores forged boolean input kind when numeric quantity is provided",
+			Name:   "self create ignores forged boolean input kind when numeric quantity is provided",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-					"uid":"f2j5a8vk006baub",
+					"uid":"rzr98oadsp9qc11",
 					"date":"2026-04-11",
 					"job":"cjf0kt0defhq480",
 					"type":"oask5u50nka0km8",
@@ -1911,15 +1958,15 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "create ignores forged numeric input kind for boolean consumables",
+			Name:   "self create ignores forged numeric input kind for boolean consumables",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-					"uid":"f2j5a8vk006baub",
+					"uid":"rzr98oadsp9qc11",
 					"date":"2026-04-11",
 					"job":"cjf0kt0defhq480",
 					"type":"oask5u50nka0km8",
@@ -2020,20 +2067,20 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "copied draft duplicate-date conflicts are raised at save time",
+			Name:   "self copied draft duplicate-date conflicts are raised at save time",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
-				"date":"2026-04-10",
+				"uid":"rzr98oadsp9qc11",
+				"date":"2030-02-06",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",
-				"location":"Seeded location",
-				"work_description":"Seeded work description",
+				"location":"Time seeded location",
+				"work_description":"Time seeded work description",
 				"report_to":"",
 				"hours_on_site":8,
 				"hours_travel_time":1,
@@ -2046,7 +2093,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				"vehicle_type":"company",
 				"is_passenger":false,
 				"company_vehicle_unit_number":"7",
-				"copy_from_work_record_id":"wr260400000010a",
+				"copy_from_work_record_id":"wrtimecopy3002a",
 				"consumables":[
 					{
 						"entry_id":"",
@@ -2075,7 +2122,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Method: http.MethodGet,
 			URL:    "/api/work_records/wrchild0000001a/copy_to_tomorrow",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
@@ -2100,8 +2147,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"id":                  "wrchild0000001a",
 					"number":              "W9901-0001",
 					"date":                "2026-04-04",
-					"uid":                 "f2j5a8vk006baub",
-					"creator":             "f2j5a8vk006baub",
+					"uid":                 "rzr98oadsp9qc11",
+					"creator":             "rzr98oadsp9qc11",
 					"job":                 "cjf0kt0defhq480",
 					"type":                "oask5u50nka0km8",
 					"location":            "Seeded child location",
@@ -2131,7 +2178,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if row.RootWorkRecordID != "wr260400000003a" || row.RootWorkRecord != "W2604-0003" {
 					t.Fatalf("expected child draft to keep root metadata, got %#v", row)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 4 {
+				if got := countWorkRecordsForTest(t, app); got != 6 {
 					t.Fatalf("expected copy draft to avoid inserts after seeding child, got %d work records", got)
 				}
 			},
@@ -2141,11 +2188,11 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": regularUserToken,
 				"Content-Type":  "application/json",
 			},
 			Body: strings.NewReader(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"rzr98oadsp9qc11",
 				"date":"2026-03-01",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",
@@ -2188,8 +2235,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					"id":                  "wrjan310000001a",
 					"number":              "W2601-0001",
 					"date":                "2026-01-31",
-					"uid":                 "f2j5a8vk006baub",
-					"creator":             "f2j5a8vk006baub",
+					"uid":                 "rzr98oadsp9qc11",
+					"creator":             "rzr98oadsp9qc11",
 					"job":                 "cjf0kt0defhq480",
 					"type":                "oask5u50nka0km8",
 					"location":            "January location",

@@ -710,15 +710,7 @@ func canCreateWorkRecordForUID(app core.App, auth *core.Record, targetUID string
 	}
 
 	if targetUID == auth.Id {
-		hasTimeClaim, err := utilities.HasClaim(app, auth, "time")
-		if err != nil {
-			return false, err
-		}
-		if hasTimeClaim {
-			return true, nil
-		}
-
-		return utilities.HasClaim(app, auth, "work_record")
+		return utilities.HasClaim(app, auth, "time")
 	}
 
 	hasWorkRecordClaim, err := utilities.HasClaim(app, auth, "work_record")

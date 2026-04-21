@@ -1,5 +1,5 @@
 id,scope,value
 nseq0000000001a,test:sequence,1
-nseq0000000002a,work_records:monthly:W3002-,10
+nseq0000000002a,work_records:monthly:W3002-,1051
 nseq0000000003a,work_records:monthly:W3003-,9999
 nseq0000000004a,purchase_orders:monthly_parent:3005-,10

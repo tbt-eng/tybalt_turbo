@@ -62,10 +62,6 @@
     { id: "personal", label: "Personal" },
   ];
 
-  const assigneeModeOptions = [
-    { id: "you", name: "For you" },
-    { id: "someone_else", name: "For someone else" },
-  ];
   const workRecordTypeOptions = $derived([
     { id: "", name: "Select a work record type" },
     ...$workRecordTypes.items.map((item) => ({ id: item.id, name: item.name })),
@@ -98,7 +94,16 @@
 
   const dateInputMax = dateInputMaxMonthsAhead(15);
   const currentUserId = $derived($authStore?.model?.id ?? "");
+  const canCreateSelf = $derived($globalStore.user_claims_summary.claims.includes("time"));
   const canAssignOthers = $derived($globalStore.user_claims_summary.claims.includes("work_record"));
+  const assigneeModeOptions = $derived(
+    canCreateSelf
+      ? [
+          { id: "you", name: "For you" },
+          { id: "someone_else", name: "For someone else" },
+        ]
+      : [{ id: "someone_else", name: "For someone else" }],
+  );
   const canViewAll = $derived($globalStore.user_claims_summary.claims.includes("report"));
   const canEdit = $derived(detail?.can_edit ?? true);
   const isCopyMode = $derived(copyContext !== null);
@@ -217,10 +222,10 @@
   }
 
   function resolvedUID() {
-    if (!canAssignOthers || assigneeMode === "you" || form.uid === "") {
+    if (!canAssignOthers || assigneeMode === "you") {
       return currentUserId;
     }
-    return form.uid;
+    return form.uid || "";
   }
 
   function buildSaveConsumables(): WorkRecordSaveConsumableRequest[] {
@@ -350,10 +355,17 @@
 
   $effect(() => {
     form = item;
-    assigneeMode =
-      canAssignOthers && form.uid !== "" && currentUserId !== "" && form.uid !== currentUserId
-        ? "someone_else"
-        : "you";
+    if (!canCreateSelf && canAssignOthers) {
+      assigneeMode = "someone_else";
+      if (!editing && !isCopyMode && form.uid === currentUserId) {
+        form.uid = "";
+      }
+    } else {
+      assigneeMode =
+        canAssignOthers && form.uid !== "" && currentUserId !== "" && form.uid !== currentUserId
+          ? "someone_else"
+          : "you";
+    }
 
     if (detail?.consumables?.length) {
       consumables = detail.consumables.map((row) => ({ ...row, blocked: false }));
@@ -424,10 +436,16 @@
       {errors}
       fieldName="assignee_mode"
       uiName="Who Is This For?"
-      disabled={isCopyMode}
+      disabled={isCopyMode || !canCreateSelf}
     >
       {#snippet optionTemplate(item)}{item.name}{/snippet}
     </DsSelector>
+  {/if}
+
+  {#if canAssignOthers && !canCreateSelf}
+    <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
+      Work record creators without the time claim can only create records for someone else.
+    </div>
   {/if}
 
   {#if canAssignOthers && assigneeMode === "someone_else" && $profiles.index !== null}
