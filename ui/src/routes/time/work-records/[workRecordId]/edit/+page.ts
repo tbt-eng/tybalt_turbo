@@ -5,7 +5,7 @@ import { error } from "@sveltejs/kit";
 
 export const load: PageLoad = async ({ params }) => {
   try {
-    const detail = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecord)}`, {
+    const detail = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecordId)}`, {
       method: "GET",
     })) as WorkRecordDetailsResponse;
 

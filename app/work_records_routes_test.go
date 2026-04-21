@@ -824,9 +824,9 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "report holder can fetch work record details by number",
+			Name:   "report holder can fetch work record details by id",
 			Method: http.MethodGet,
-			URL:    "/api/work_records/W2604-0010",
+			URL:    "/api/work_records/wr260400000010a",
 			Headers: map[string]string{
 				"Authorization": reportToken,
 			},
@@ -1004,9 +1004,9 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
-			Name:   "regular user cannot fetch another users work record details",
+			Name:   "regular user cannot fetch another users work record details by id",
 			Method: http.MethodGet,
-			URL:    "/api/work_records/W2604-0010",
+			URL:    "/api/work_records/wr260400000010a",
 			Headers: map[string]string{
 				"Authorization": regularUserToken,
 			},
