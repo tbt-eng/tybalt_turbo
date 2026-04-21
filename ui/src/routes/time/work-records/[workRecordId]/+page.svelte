@@ -50,7 +50,7 @@
 <div class="mx-auto max-w-4xl p-4">
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h1 class="text-2xl font-bold">Work Record {data.item.work_record}</h1>
+      <h1 class="text-2xl font-bold">{data.item.work_record}</h1>
       <div class="mt-1 flex flex-wrap items-center gap-2">
         <span>{shortDate(data.item.date, true)}</span>
         {#if data.item.approved}
@@ -63,7 +63,12 @@
     <div class="flex flex-wrap gap-2">
       <DsActionButton action="/time/work-records">Back to Work Records</DsActionButton>
       {#if data.item.can_edit}
-        <DsActionButton action={`/time/work-records/${data.item.id}/edit`} icon="mdi:pencil" title="Edit" color="blue" />
+        <DsActionButton
+          action={`/time/work-records/${data.item.id}/edit`}
+          icon="mdi:pencil"
+          title="Edit"
+          color="blue"
+        />
       {/if}
       {#if data.item.can_copy_to_tomorrow}
         <DsActionButton
@@ -103,17 +108,26 @@
           {data.item.hours_on_site + data.item.hours_travel_time} hours
         </div>
         <div><span class="font-medium">Vehicle:</span> {data.item.vehicle_type || "None"}</div>
-        <div><span class="font-medium">Passenger:</span> {data.item.is_passenger ? "Yes" : "No"}</div>
+        <div>
+          <span class="font-medium">Passenger:</span>
+          {data.item.is_passenger ? "Yes" : "No"}
+        </div>
         <div>
           <span class="font-medium">Company Unit:</span>
           {data.item.company_vehicle_unit_number || "None"}
         </div>
-        <div><span class="font-medium">Field Book:</span> {data.item.field_book_number || "None"}</div>
+        <div>
+          <span class="font-medium">Field Book:</span>
+          {data.item.field_book_number || "None"}
+        </div>
         <div>
           <span class="font-medium">Field Book Page:</span>
           {data.item.field_book_page_number || "None"}
         </div>
-        <div><span class="font-medium">Sub Contractor:</span> {data.item.sub_contractor || "None"}</div>
+        <div>
+          <span class="font-medium">Sub Contractor:</span>
+          {data.item.sub_contractor || "None"}
+        </div>
         <div><span class="font-medium">Equipment:</span> {data.item.equipment || "None"}</div>
         <div><span class="font-medium">Supplies:</span> {data.item.supplies || "None"}</div>
       </div>
@@ -123,7 +137,10 @@
       <h2 class="mb-2 text-lg font-semibold">Linked Time Entry</h2>
       {#if data.item.linked_time_entry_id}
         <div class="space-y-2 text-sm">
-          <div><span class="font-medium">Date:</span> {shortDate(data.item.linked_time_entry_date, true)}</div>
+          <div>
+            <span class="font-medium">Date:</span>
+            {shortDate(data.item.linked_time_entry_date, true)}
+          </div>
           <div>
             <span class="font-medium">Description:</span>
             {data.item.linked_time_entry_description || "None"}
@@ -161,7 +178,7 @@
 
   <div class="mt-4 rounded-lg bg-neutral-100 p-4">
     <h2 class="mb-2 text-lg font-semibold">Work Description</h2>
-    <p class="whitespace-pre-wrap text-sm text-neutral-800">{data.item.work_description}</p>
+    <p class="text-sm whitespace-pre-wrap text-neutral-800">{data.item.work_description}</p>
   </div>
 
   <div class="mt-4 rounded-lg bg-neutral-100 p-4">
@@ -182,7 +199,9 @@
               {#if consumable.input_kind === "boolean"}
                 {consumable.boolean_selected ? "Selected" : "Not selected"}
               {:else}
-                {consumable.quantity_number > 0 ? consumable.quantity_number : "No quantity recorded"}
+                {consumable.quantity_number > 0
+                  ? consumable.quantity_number
+                  : "No quantity recorded"}
               {/if}
             </div>
           </div>
@@ -221,7 +240,9 @@
           placeholder="Add a note"
         ></textarea>
         <div>
-          <DsActionButton action={addNote} color="green" loading={savingNote}>Add Note</DsActionButton>
+          <DsActionButton action={addNote} color="green" loading={savingNote}
+            >Add Note</DsActionButton
+          >
         </div>
       </div>
     {/if}
@@ -234,7 +255,7 @@
           <div class="rounded-sm border border-neutral-200 bg-white p-3">
             <div class="text-sm font-medium">{note.author_name || note.uid}</div>
             <div class="text-xs text-neutral-500">{note.created}</div>
-            <p class="mt-2 whitespace-pre-wrap text-sm">{note.note}</p>
+            <p class="mt-2 text-sm whitespace-pre-wrap">{note.note}</p>
           </div>
         {/each}
       </div>

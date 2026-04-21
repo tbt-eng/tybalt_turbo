@@ -22,7 +22,7 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
   };
 
   try {
-    const workRecord = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecord)}`, {
+    const workRecord = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecordId)}`, {
       method: "GET",
     })) as WorkRecordDetailsResponse;
 

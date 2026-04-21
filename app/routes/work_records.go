@@ -550,9 +550,9 @@ func loadWorkRecordConsumables(app core.App, workRecordID string, typeID string)
 	return rows, nil
 }
 
-func findWorkRecordByToken(app core.App, token string) (*core.Record, error) {
-	token = strings.TrimSpace(token)
-	if token == "" {
+func findWorkRecordByID(app core.App, workRecordID string) (*core.Record, error) {
+	workRecordID = strings.TrimSpace(workRecordID)
+	if workRecordID == "" {
 		return nil, sql.ErrNoRows
 	}
 
@@ -588,10 +588,10 @@ func findWorkRecordByToken(app core.App, token string) (*core.Record, error) {
 			COALESCE(wr.approved, 0) AS approved,
 			COALESCE(wr.parent_work_record, '') AS parent_work_record
 		FROM work_records wr
-		WHERE wr.id = {:token} OR wr.number = {:token}
+		WHERE wr.id = {:id}
 		LIMIT 1
 	`).Bind(dbx.Params{
-		"token": token,
+		"id": workRecordID,
 	}).One(&row); err != nil {
 		return nil, err
 	}
@@ -629,9 +629,9 @@ func findWorkRecordByToken(app core.App, token string) (*core.Record, error) {
 	return record, nil
 }
 
-func findWorkRecordCopySourceByToken(app core.App, token string) (workRecordCopySourceRow, error) {
-	token = strings.TrimSpace(token)
-	if token == "" {
+func findWorkRecordCopySourceByID(app core.App, workRecordID string) (workRecordCopySourceRow, error) {
+	workRecordID = strings.TrimSpace(workRecordID)
+	if workRecordID == "" {
 		return workRecordCopySourceRow{}, sql.ErrNoRows
 	}
 
@@ -664,10 +664,10 @@ func findWorkRecordCopySourceByToken(app core.App, token string) (workRecordCopy
 		FROM work_records wr
 		LEFT JOIN work_records parent_wr
 		  ON parent_wr.id = wr.parent_work_record
-		WHERE wr.id = {:token} OR wr.number = {:token}
+		WHERE wr.id = {:id}
 		LIMIT 1
 	`).Bind(dbx.Params{
-		"token": token,
+		"id": workRecordID,
 	}).One(&row)
 	if err != nil {
 		return workRecordCopySourceRow{}, err
@@ -771,8 +771,8 @@ func requireWorkRecordCreateAccess(app core.App, auth *core.Record, targetUID st
 	return nil
 }
 
-func loadWorkRecordCopyDraft(app core.App, auth *core.Record, workRecordToken string) (WorkRecordCopyDraftResponse, error) {
-	source, err := findWorkRecordCopySourceByToken(app, workRecordToken)
+func loadWorkRecordCopyDraft(app core.App, auth *core.Record, workRecordID string) (WorkRecordCopyDraftResponse, error) {
+	source, err := findWorkRecordCopySourceByID(app, workRecordID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return WorkRecordCopyDraftResponse{}, workRecordRouteError(http.StatusNotFound, "work_record_not_found", "work record not found")
@@ -1080,7 +1080,7 @@ func setWorkRecordConsumableQuantity(entryRecord *core.Record, inputKind string,
 }
 
 func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, req WorkRecordSaveRequest) (WorkRecordSaveResponse, error) {
-	currentRecord, err := findWorkRecordByToken(txApp, record.Id)
+	currentRecord, err := findWorkRecordByID(txApp, record.Id)
 	if err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
@@ -1259,7 +1259,7 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 			return WorkRecordSaveResponse{}, err
 		}
 	} else {
-		source, err := findWorkRecordCopySourceByToken(txApp, copyFromWorkRecordID)
+		source, err := findWorkRecordCopySourceByID(txApp, copyFromWorkRecordID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return WorkRecordSaveResponse{}, workRecordRouteError(http.StatusNotFound, "work_record_not_found", "work record not found")
@@ -1413,8 +1413,8 @@ func createSaveWorkRecordHandler(app core.App) func(e *core.RequestEvent) error 
 			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
 		}
 
-		workRecordToken := strings.TrimSpace(e.Request.PathValue("workRecord"))
-		if workRecordToken == "" {
+		workRecordID := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordID == "" {
 			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "work_record_required", "workRecord is required"))
 		}
 
@@ -1423,7 +1423,7 @@ func createSaveWorkRecordHandler(app core.App) func(e *core.RequestEvent) error 
 			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "invalid_request_body", "invalid request body"))
 		}
 
-		record, err := findWorkRecordByToken(requestApp, workRecordToken)
+		record, err := findWorkRecordByID(requestApp, workRecordID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return writeHookError(e, workRecordRouteError(http.StatusNotFound, "work_record_not_found", "work record not found"))
@@ -1457,8 +1457,8 @@ func createCreateWorkRecordNoteHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
 		}
 
-		workRecordToken := strings.TrimSpace(e.Request.PathValue("workRecord"))
-		if workRecordToken == "" {
+		workRecordID := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordID == "" {
 			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "work_record_required", "workRecord is required"))
 		}
 
@@ -1470,7 +1470,7 @@ func createCreateWorkRecordNoteHandler(app core.App) func(e *core.RequestEvent) 
 			return writeHookError(e, err)
 		}
 
-		workRecord, err := findWorkRecordByToken(requestApp, workRecordToken)
+		workRecord, err := findWorkRecordByID(requestApp, workRecordID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return writeHookError(e, workRecordRouteError(http.StatusNotFound, "work_record_not_found", "work record not found"))
@@ -1516,12 +1516,12 @@ func createGetWorkRecordCopyDraftHandler(app core.App) func(e *core.RequestEvent
 			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
 		}
 
-		workRecordToken := strings.TrimSpace(e.Request.PathValue("workRecord"))
-		if workRecordToken == "" {
+		workRecordID := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordID == "" {
 			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "work_record_required", "workRecord is required"))
 		}
 
-		response, err := loadWorkRecordCopyDraft(app, auth, workRecordToken)
+		response, err := loadWorkRecordCopyDraft(app, auth, workRecordID)
 		if err != nil {
 			return writeHookError(e, err)
 		}
@@ -1624,14 +1624,8 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
 		}
 
-		workRecordToken := strings.TrimSpace(e.Request.PathValue("workRecord"))
-		if workRecordToken == "" {
-			pathParts := strings.Split(strings.Trim(e.Request.URL.Path, "/"), "/")
-			if len(pathParts) > 0 {
-				workRecordToken = strings.TrimSpace(pathParts[len(pathParts)-1])
-			}
-		}
-		if workRecordToken == "" {
+		workRecordID := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordID == "" {
 			return e.Error(http.StatusBadRequest, "workRecord is required", nil)
 		}
 
@@ -1674,10 +1668,10 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			  ON wr.type = wrt.id
 			LEFT JOIN work_records parent_wr
 			  ON parent_wr.id = wr.parent_work_record
-			WHERE wr.id = {:token} OR wr.number = {:token}
+			WHERE wr.id = {:id}
 			LIMIT 1
 		`).Bind(dbx.Params{
-			"token": workRecordToken,
+			"id": workRecordID,
 		}).One(&row)
 		if err != nil {
 			return e.Error(http.StatusNotFound, "work record not found", err)

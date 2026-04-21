@@ -5,7 +5,7 @@ import type { WorkRecordDetailsResponse } from "$lib/svelte-types";
 
 export const load: PageLoad = async ({ params }) => {
   try {
-    const item = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecord)}`, {
+    const item = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecordId)}`, {
       method: "GET",
     })) as WorkRecordDetailsResponse;
 

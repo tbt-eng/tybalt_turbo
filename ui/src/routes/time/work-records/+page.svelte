@@ -64,7 +64,7 @@
 
   {#snippet anchor(item: WorkRecordListRow)}
     <a
-      href={resolve(`/time/work-records/${encodeURIComponent(item.work_record)}`)}
+      href={resolve(`/time/work-records/${encodeURIComponent(item.id)}`)}
       class="text-blue-600 hover:underline"
     >
       {shortDate(item.date)}
@@ -73,7 +73,7 @@
 
   {#snippet headline(item: WorkRecordListRow)}
     <a
-      href={resolve(`/time/work-records/${encodeURIComponent(item.work_record)}`)}
+      href={resolve(`/time/work-records/${encodeURIComponent(item.id)}`)}
       class="text-blue-600 hover:underline"
     >
       {item.work_record}
