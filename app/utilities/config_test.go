@@ -309,6 +309,38 @@ func deleteTimeConfig(t *testing.T, app *tests.TestApp) {
 	}
 }
 
+func upsertLinkedWorkRecordsConfig(t *testing.T, app *tests.TestApp, rawValue string) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("app_config")
+	if err != nil {
+		t.Fatalf("failed to find app_config collection: %v", err)
+	}
+
+	record, err := app.FindFirstRecordByData("app_config", "key", "linked_work_records")
+	if err != nil || record == nil {
+		record = core.NewRecord(collection)
+		record.Set("key", "linked_work_records")
+	}
+
+	record.Set("value", rawValue)
+	if err := app.Save(record); err != nil {
+		t.Fatalf("failed to save linked_work_records config: %v", err)
+	}
+}
+
+func deleteLinkedWorkRecordsConfig(t *testing.T, app *tests.TestApp) {
+	t.Helper()
+
+	record, err := app.FindFirstRecordByData("app_config", "key", "linked_work_records")
+	if err != nil || record == nil {
+		return
+	}
+	if err := app.Delete(record); err != nil {
+		t.Fatalf("failed to delete linked_work_records config: %v", err)
+	}
+}
+
 func TestIsTimeEditingEnabled(t *testing.T) {
 	testsTable := []struct {
 		name  string
@@ -358,6 +390,60 @@ func TestIsTimeEditingEnabled(t *testing.T) {
 			}
 			if got != tc.want {
 				t.Fatalf("IsTimeEditingEnabled() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsLinkedWorkRecordsEnabled(t *testing.T) {
+	testsTable := []struct {
+		name  string
+		setup func(t *testing.T, app *tests.TestApp)
+		want  bool
+	}{
+		{
+			name: "returns default false when linked_work_records config is missing",
+			setup: func(t *testing.T, app *tests.TestApp) {
+				deleteLinkedWorkRecordsConfig(t, app)
+			},
+			want: false,
+		},
+		{
+			name: "returns default false when enabled key is missing",
+			setup: func(t *testing.T, app *tests.TestApp) {
+				upsertLinkedWorkRecordsConfig(t, app, `{"some_other_key":true}`)
+			},
+			want: false,
+		},
+		{
+			name: "returns configured true value",
+			setup: func(t *testing.T, app *tests.TestApp) {
+				upsertLinkedWorkRecordsConfig(t, app, `{"enabled":true}`)
+			},
+			want: true,
+		},
+		{
+			name: "returns configured false value",
+			setup: func(t *testing.T, app *tests.TestApp) {
+				upsertLinkedWorkRecordsConfig(t, app, `{"enabled":false}`)
+			},
+			want: false,
+		},
+	}
+
+	for _, tc := range testsTable {
+		t.Run(tc.name, func(t *testing.T) {
+			app := testseed.NewSeededTestApp(t)
+			defer app.Cleanup()
+
+			tc.setup(t, app)
+
+			got, err := IsLinkedWorkRecordsEnabled(app)
+			if err != nil {
+				t.Fatalf("IsLinkedWorkRecordsEnabled() returned error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("IsLinkedWorkRecordsEnabled() = %v, want %v", got, tc.want)
 			}
 		})
 	}

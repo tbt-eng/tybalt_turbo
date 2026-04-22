@@ -8,6 +8,27 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+func resolvedWorkRecordKey(txApp core.App, entry *core.Record) string {
+	workRecordText := entry.GetString("work_record")
+	if workRecordText != "" {
+		return workRecordText
+	}
+
+	workRecordID := entry.GetString("work_record_id")
+	if workRecordID == "" {
+		return ""
+	}
+
+	workRecord, err := txApp.FindRecordById("work_records", workRecordID)
+	if err == nil && workRecord != nil {
+		if number := workRecord.GetString("number"); number != "" {
+			return number
+		}
+	}
+
+	return "id:" + workRecordID
+}
+
 // This function will validate the time entries as a group. If the validation
 // fails, it will return an error. If the validation passes, it will return nil.
 func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYearEndDateAsTime time.Time, entries []*core.Record) error {
@@ -44,16 +65,11 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 	// Loop through each time entry, summarizing information as we go and
 	// returning errors if any validations fail.
 	for _, entry := range entries {
-		// Prevent duplicate linked work records or duplicate legacy work-record
-		// text values from appearing on the same timesheet bundle.
-		workRecordKey := entry.GetString("work_record")
+		// Prevent duplicate visible work-record references from appearing on the
+		// same timesheet bundle, regardless of whether the entry is legacy text
+		// or linked through work_record_id.
+		workRecordKey := resolvedWorkRecordKey(txApp, entry)
 		workRecordLabel := workRecordKey
-		if workRecordID := entry.GetString("work_record_id"); workRecordID != "" {
-			workRecordKey = "id:" + workRecordID
-			if workRecordLabel == "" {
-				workRecordLabel = workRecordID
-			}
-		}
 		if workRecordKey != "" {
 			if _, keyPresent := workRecordsSet[workRecordKey]; keyPresent {
 				return &CodeError{

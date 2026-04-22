@@ -3,6 +3,7 @@
 package hooks
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -231,6 +232,33 @@ func validateLinkedWorkRecord(app core.App, timeEntryRecord *core.Record) valida
 	return validations
 }
 
+func legacyWorkRecordMatchesExistingWorkRecordNumber(app core.App, workRecordText string) (bool, error) {
+	workRecordText = strings.TrimSpace(workRecordText)
+	if workRecordText == "" {
+		return false, nil
+	}
+
+	var match struct {
+		ID string `db:"id"`
+	}
+	err := app.DB().NewQuery(`
+		SELECT id
+		FROM work_records
+		WHERE number = {:workRecord}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"workRecord": workRecordText,
+	}).One(&match)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return match.ID != "", nil
+}
+
 func legacyWorkRecordUpgradeRequired(timeEntryRecord *core.Record) bool {
 	if timeEntryRecord.IsNew() {
 		return false
@@ -256,6 +284,10 @@ func validateTimeEntry(app core.App, timeEntryRecord *core.Record, requiredField
 	totalHours := timeEntryRecord.GetFloat("hours") + timeEntryRecord.GetFloat("meals_hours")
 	workRecordID := strings.TrimSpace(timeEntryRecord.GetString("work_record_id"))
 	workRecordText := strings.TrimSpace(timeEntryRecord.GetString("work_record"))
+	linkedWorkRecordsEnabled, err := utilities.IsLinkedWorkRecordsEnabled(app)
+	if err != nil {
+		return err
+	}
 
 	if workRecordID != "" {
 		timeEntryRecord.Set("work_record", "")
@@ -293,11 +325,40 @@ func validateTimeEntry(app core.App, timeEntryRecord *core.Record, requiredField
 			otherValidationsErrors[field] = err
 		}
 		timeEntryRecord.Set("work_record", "")
-	} else if legacyWorkRecordUpgradeRequired(timeEntryRecord) {
-		otherValidationsErrors["work_record_id"] = validation.NewError(
-			"work_record_upgrade_required",
-			"Select an existing work record before saving this legacy time entry",
-		)
+	} else {
+		legacyUpgradeRequired := linkedWorkRecordsEnabled && legacyWorkRecordUpgradeRequired(timeEntryRecord)
+		if workRecordText != "" {
+			// Today this check is effectively a no-op for standard app-created data:
+			// legacy time entries only accept F/K/Q-prefixed values, while first-class
+			// work records are generated with W-prefixed numbers. The overlap that
+			// would make this branch matter can only happen if import/backfill flows
+			// preserve a non-W work_records.number, or if future changes broaden the
+			// legacy regex / first-class numbering format so both sources can emit the
+			// same visible identifier. If that happens, this validation may start
+			// blocking edits to existing legacy entries in hybrid mode and should be
+			// revisited alongside those format changes.
+			duplicateNumber, duplicateErr := legacyWorkRecordMatchesExistingWorkRecordNumber(app, workRecordText)
+			if duplicateErr != nil {
+				return duplicateErr
+			}
+			if duplicateNumber {
+				otherValidationsErrors["work_record"] = validation.NewError(
+					"work_record_number_reserved",
+					"This work record number already belongs to a linked work record. Start from Work Records instead.",
+				)
+			}
+		}
+		if legacyUpgradeRequired {
+			otherValidationsErrors["work_record_id"] = validation.NewError(
+				"work_record_upgrade_required",
+				"Select an existing work record before saving this legacy time entry",
+			)
+		} else if linkedWorkRecordsEnabled && workRecordText != "" {
+			otherValidationsErrors["work_record"] = validation.NewError(
+				"linked_work_records_required",
+				"Text-only work records are disabled. Start from Work Records to create a linked time entry.",
+			)
+		}
 	}
 
 	// If a job is present, verify the referenced job exists and has Active status

@@ -157,6 +157,14 @@ export const timeEditingEnabled = derived(store, ($store) => {
   return getConfigBool($store.items, "time", "create_edit", true);
 });
 
+// Derived store for linked-only work-record mode on time entries.
+// To enable it, create app_config.key="linked_work_records" with
+// value {"enabled": true}. Missing row/property keeps the application in the
+// default hybrid mode where legacy text work records still work.
+export const linkedWorkRecordsEnabled = derived(store, ($store) => {
+  return getConfigBool($store.items, "linked_work_records", "enabled", false);
+});
+
 // Derived store for hidden legacy PO create/update flow.
 // Reads from app_config where key="purchase_orders", checks
 // value.enable_legacy_po_create_update. Defaults to false (fail-closed).

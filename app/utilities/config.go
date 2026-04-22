@@ -106,6 +106,16 @@ func IsTimeEditingEnabled(app core.App) (bool, error) {
 	return GetConfigBool(app, "time", "create_edit", true)
 }
 
+// IsLinkedWorkRecordsEnabled checks whether time entries must use first-class
+// linked work records instead of the legacy free-text work_record field.
+//
+// To enable linked-only mode, create app_config.key="linked_work_records" with
+// value {"enabled": true}. When the row is missing, malformed, or the property
+// is absent, the application stays in hybrid mode by default.
+func IsLinkedWorkRecordsEnabled(app core.App) (bool, error) {
+	return GetConfigBool(app, "linked_work_records", "enabled", false)
+}
+
 // IsNotificationFeatureEnabled checks whether a notification feature/template is enabled.
 // Reads from app_config where key="notifications", and uses templateCode as the JSON key.
 // Defaults to false (fail-closed) when config is missing.
