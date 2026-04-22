@@ -69,6 +69,15 @@
     </div>
     <div class="flex flex-wrap gap-2">
       <DsActionButton action="/time/work-records">Back to Work Records</DsActionButton>
+      <a
+        href={`/time/work-records/${data.item.id}/print`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 rounded-xs bg-blue-200 px-3 py-1 text-neutral-700 hover:bg-blue-300 hover:text-blue-500 active:text-blue-800 active:shadow-inner"
+      >
+        <Icon icon="mdi:printer-outline" width="20px" />
+        <span>Print</span>
+      </a>
       {#if data.item.can_edit}
         <DsActionButton
           action={`/time/work-records/${data.item.id}/edit`}

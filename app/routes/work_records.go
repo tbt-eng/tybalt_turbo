@@ -82,6 +82,10 @@ type WorkRecordDetailResponse struct {
 	Creator                    string                         `json:"creator"`
 	JobID                      string                         `json:"job_id"`
 	JobNumber                  string                         `json:"job_number"`
+	ClientName                 string                         `json:"client_name"`
+	JobDescription             string                         `json:"job_description"`
+	ClientReferenceNumber      string                         `json:"client_reference_number"`
+	ClientPO                   string                         `json:"client_po"`
 	TypeID                     string                         `json:"type_id"`
 	TypeName                   string                         `json:"type_name"`
 	Location                   string                         `json:"location"`
@@ -222,6 +226,10 @@ type workRecordDetailRow struct {
 	Creator                  string  `db:"creator"`
 	JobID                    string  `db:"job_id"`
 	JobNumber                string  `db:"job_number"`
+	ClientName               string  `db:"client_name"`
+	JobDescription           string  `db:"job_description"`
+	ClientReferenceNumber    string  `db:"client_reference_number"`
+	ClientPO                 string  `db:"client_po"`
 	TypeID                   string  `db:"type_id"`
 	TypeName                 string  `db:"type_name"`
 	Location                 string  `db:"location"`
@@ -1812,6 +1820,10 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 				wr.creator AS creator,
 				COALESCE(wr.job, '') AS job_id,
 				COALESCE(j.number, '') AS job_number,
+				COALESCE(c.name, '') AS client_name,
+				COALESCE(j.description, '') AS job_description,
+				COALESCE(j.client_reference_number, '') AS client_reference_number,
+				COALESCE(j.client_po, '') AS client_po,
 				COALESCE(wr.type, '') AS type_id,
 				COALESCE(wrt.name, '') AS type_name,
 				COALESCE(wr.location, '') AS location,
@@ -1837,6 +1849,8 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			  ON p.uid = wr.uid
 			LEFT JOIN jobs j
 			  ON wr.job = j.id
+			LEFT JOIN clients c
+			  ON j.client = c.id
 			LEFT JOIN work_records_types wrt
 			  ON wr.type = wrt.id
 			LEFT JOIN work_records parent_wr
@@ -1897,6 +1911,10 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			Creator:                    row.Creator,
 			JobID:                      row.JobID,
 			JobNumber:                  row.JobNumber,
+			ClientName:                 row.ClientName,
+			JobDescription:             row.JobDescription,
+			ClientReferenceNumber:      row.ClientReferenceNumber,
+			ClientPO:                   row.ClientPO,
 			TypeID:                     row.TypeID,
 			TypeName:                   row.TypeName,
 			Location:                   row.Location,

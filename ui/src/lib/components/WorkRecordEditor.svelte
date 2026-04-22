@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { authStore } from "$lib/stores/auth";
   import { globalStore } from "$lib/stores/global";
@@ -28,10 +28,6 @@
   import { refreshVisibleWorkRecords } from "$lib/stores/workRecords";
   import { DATE_INPUT_MIN, dateInputMaxMonthsAhead, pocketBaseFileHref } from "$lib/utilities";
 
-  jobs.init();
-  profiles.init();
-  workRecordTypes.init();
-
   type WorkRecordForm = {
     id?: string;
     uid: string;
@@ -59,6 +55,23 @@
     blocked: boolean;
   };
 
+  function seedForm(source: WorkRecordForm): WorkRecordForm {
+    return { ...source };
+  }
+
+  function seedConsumables(
+    detail: WorkRecordDetailsResponse | null,
+    copyContext: WorkRecordCopyDraftResponse | null,
+  ): EditorConsumable[] {
+    if (detail?.consumables?.length) {
+      return detail.consumables.map((row) => ({ ...row, blocked: false }));
+    }
+    if (copyContext?.consumables?.length) {
+      return copyContext.consumables.map((row) => ({ ...row, blocked: false }));
+    }
+    return [];
+  }
+
   const vehicleTypeOptions = [
     { id: "company", label: "Company" },
     { id: "personal", label: "Personal" },
@@ -85,17 +98,17 @@
     cancelAction?: string;
   } = $props();
 
-  let form = $state(untrack(() => item));
+  let form = $state(untrack(() => seedForm(item)));
   let errors = $state({} as Record<string, { message: string }>);
   let saving = $state(false);
   let loadingConsumables = $state(false);
-  let consumables = $state([] as EditorConsumable[]);
+  let consumables = $state(untrack(() => seedConsumables(detail, copyContext)));
   let consumablesLoadError = $state("");
   let assigneeMode = $state<"you" | "someone_else">("you");
   let consumablesRequestId = 0;
   let pendingAttachment = $state<File | null>(null);
   let pendingAttachmentInputKey = $state(0);
-  let currentAttachmentName = $state("");
+  let currentAttachmentName = $state(untrack(() => detail?.attachment ?? ""));
   let attachmentError = $state("");
   let attachmentSaving = $state(false);
   let attachmentAction = $state<"upload" | "remove" | "">("");
@@ -122,12 +135,17 @@
     consumablesLoadError !== "" && (!hasSeededConsumables || form.type !== initialConsumableType),
   );
   const saveDisabled = $derived(loadingConsumables || saveBlockedByConsumablesError);
-  const hasDefaultType = $derived(($globalStore.profile.default_work_record_type ?? "") !== "");
   const visibleConsumables = $derived(consumables.filter((item) => !item.blocked));
   const hasPersistedRecord = $derived(Boolean(editing && id));
   const attachmentHref = $derived.by(() =>
     id && currentAttachmentName !== "" ? pocketBaseFileHref("work_records", id, currentAttachmentName) : "",
   );
+
+  onMount(() => {
+    void jobs.init();
+    void profiles.init();
+    void workRecordTypes.init();
+  });
 
   function buildEmptyConsumable(row: any): EditorConsumable {
     const expandedConsumable = Array.isArray(row.expand?.consumable)
@@ -424,39 +442,27 @@
   }
 
   $effect(() => {
-    form = item;
     if (!canCreateSelf && canAssignOthers) {
       assigneeMode = "someone_else";
-      if (!editing && !isCopyMode && form.uid === currentUserId) {
+      if (!editing && !isCopyMode && item.uid === currentUserId) {
         form.uid = "";
       }
     } else {
       assigneeMode =
-        canAssignOthers && form.uid !== "" && currentUserId !== "" && form.uid !== currentUserId
+        canAssignOthers &&
+        item.uid !== "" &&
+        currentUserId !== "" &&
+        item.uid !== currentUserId
           ? "someone_else"
           : "you";
     }
-
-    if (detail?.consumables?.length) {
-      consumables = detail.consumables.map((row) => ({ ...row, blocked: false }));
-    } else if (copyContext?.consumables?.length) {
-      consumables = copyContext.consumables.map((row) => ({ ...row, blocked: false }));
-    } else {
-      consumables = [];
-    }
-    currentAttachmentName = detail?.attachment ?? "";
-    attachmentError = "";
-    resetPendingAttachment();
   });
 
   $effect(() => {
-    if (!editing && hasDefaultType && form.type === "") {
-      form.type = $globalStore.profile.default_work_record_type;
-    }
-  });
-
-  $effect(() => {
-    void loadTypeConsumables(form.type ?? "");
+    const typeId = form.type ?? "";
+    untrack(() => {
+      void loadTypeConsumables(typeId);
+    });
   });
 </script>
 

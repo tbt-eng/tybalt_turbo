@@ -63,6 +63,10 @@ type workRecordDetailResponse struct {
 	OwnerName                  string                    `json:"owner_name"`
 	JobID                      string                    `json:"job_id"`
 	JobNumber                  string                    `json:"job_number"`
+	ClientName                 string                    `json:"client_name"`
+	JobDescription             string                    `json:"job_description"`
+	ClientReferenceNumber      string                    `json:"client_reference_number"`
+	ClientPO                   string                    `json:"client_po"`
 	TypeID                     string                    `json:"type_id"`
 	TypeName                   string                    `json:"type_name"`
 	Location                   string                    `json:"location"`
@@ -843,6 +847,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			ExpectedContent: []string{
 				`"work_record":"W2604-0010"`,
 				`"job_number":"24-321"`,
+				`"client_name":"Mobilia SA"`,
+				`"job_description":"Clarke St Boiler Replacement"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -858,6 +864,12 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				}
 				if row.JobID == "" || row.UID == "" {
 					t.Fatalf("expected linked identifiers in detail response: %#v", row)
+				}
+				if row.ClientName != "Mobilia SA" || row.JobDescription != "Clarke St Boiler Replacement" {
+					t.Fatalf("expected job-derived client context in detail response: %#v", row)
+				}
+				if row.ClientPO != "" || row.ClientReferenceNumber != "" {
+					t.Fatalf("expected blank optional client fields to serialize as empty strings: %#v", row)
 				}
 				if row.CanCreateTimeEntry {
 					t.Fatalf("report holder should not see create action in detail response: %#v", row)

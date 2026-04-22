@@ -5,11 +5,13 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<WorkRecordEditor
-  item={data.item}
-  editing={data.editing}
-  id={data.id}
-  detail={data.detail}
-  copyContext={data.copyContext}
-  cancelAction={data.cancelAction}
-/>
+{#key data.copyContext?.copy_from_work_record_id ?? "new"}
+  <WorkRecordEditor
+    item={data.item}
+    editing={data.editing}
+    id={data.id}
+    detail={data.detail}
+    copyContext={data.copyContext}
+    cancelAction={data.cancelAction}
+  />
+{/key}
