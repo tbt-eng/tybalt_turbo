@@ -285,6 +285,10 @@ export interface WorkRecordDetailsResponse {
   creator: string;
   job_id: string;
   job_number: string;
+  client_name: string;
+  job_description: string;
+  client_reference_number: string;
+  client_po: string;
   type_id: string;
   type_name: string;
   location: string;
