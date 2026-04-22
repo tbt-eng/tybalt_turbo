@@ -1,16 +1,51 @@
 // Package migrations registers schema changes for PocketBase collections.
 //
-// This migration exists to add the relational link that the work-record branch
-// is built around: time_entries.work_record_id. Historically, time entries only
-// stored a free-text work_record number, which was enough for display but not
-// for enforcing one-to-one linkage, validating ownership/job/date invariants,
-// or deriving approval state through the first-class work_records table.
+// This migration adds the time_entries.work_record_id relation that the work
+// records feature depends on. Before this change, time entries only carried the
+// legacy free-text work_record field. That text value is fine for display, but
+// it cannot enforce that a referenced work record actually exists, cannot
+// guarantee one-to-one linkage, and cannot support relational queries and rules
+// that join time entries back to the first-class work_records collection.
 //
-// The migration adds an optional relation field pointing at work_records and a
-// unique partial index so a work record can be linked to at most one time
-// entry, while still allowing many legacy or otherwise unlinked rows to remain
-// valid. The helper functions in this file keep the migration idempotent by
-// checking whether the index already exists before appending or removing it.
+// Concretely, the forward migration does three things:
+//
+//  1. It loads the existing time_entries collection definition by its stable
+//     PocketBase collection id.
+//  2. It inserts a new optional relation field named work_record_id at field
+//     position 9. The relation targets the work_records collection
+//     (pbc_1776282103), allows at most one selected record, and is intentionally
+//     nullable so legacy rows without a relational match remain valid.
+//  3. It appends a partial unique index:
+//     CREATE UNIQUE INDEX idx_time_entries_work_record_id
+//     ON time_entries (work_record_id) WHERE work_record_id != ''
+//     That index enforces the business rule that a single work record may be
+//     linked to at most one time entry, while still permitting any number of
+//     rows with an empty relation value.
+//
+// The rollback does the exact inverse: it removes the relation field from the
+// collection metadata and removes the partial unique index definition.
+//
+// The migration looks small in Go, but app.Save(collection) is expensive here.
+// PocketBase persists collection changes by reconciling the underlying SQLite
+// table schema and index set. When PocketBase sees a collection schema change
+// that makes the indexes "dirty" (for example a field list change, collection
+// rename, or index list change), it drops all existing indexes for that
+// collection and recreates the full set afterward rather than applying only a
+// narrowly targeted delta. Because this migration modifies the large
+// time_entries collection, SQLite ends up adding the new column and then
+// dropping and recreating the table's existing indexes so the stored schema
+// matches the updated collection definition. In practice, the runtime cost is
+// dominated by rebuilding the pre-existing time_entries indexes rather than by
+// adding work_record_id itself. In local testing captured in
+// app/wr_migration_logs, this migration took about 5.3 seconds end-to-end, and
+// about 5.279 seconds of that time was spent in the block that drops and
+// recreates time_entries indexes. As of PocketBase v0.37.3, the collection
+// schema sync code still appears to use this same drop-all-and-recreate-all
+// index strategy when a collection update dirties the index set.
+//
+// The helper functions in this file keep the migration idempotent with respect
+// to the new index definition so repeated schema loads do not append duplicate
+// CREATE INDEX statements.
 package migrations
 
 import (
