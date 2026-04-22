@@ -37,6 +37,8 @@ func newWorkRecordTestCollection() *core.Collection {
 	collection.Fields.Add(&core.TextField{Name: "vehicle_type"})
 	collection.Fields.Add(&core.TextField{Name: "company_vehicle_unit_number"})
 	collection.Fields.Add(&core.TextField{Name: "parent_work_record"})
+	collection.Fields.Add(&core.TextField{Name: "attachment"})
+	collection.Fields.Add(&core.TextField{Name: "attachment_hash"})
 	collection.Fields.Add(&core.BoolField{Name: "approved"})
 	return collection
 }

@@ -942,6 +942,8 @@ export type TimeEntriesRecord = {
 
 export type WorkRecordsRecord = {
   approved: boolean;
+  attachment: string;
+  attachment_hash: string;
   company_vehicle_unit_number: string;
   created: IsoDateString;
   creator: RecordIdString;

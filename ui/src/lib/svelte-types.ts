@@ -209,6 +209,11 @@ export type ExpenseSettlementRow = {
   age_days: number;
 };
 
+export interface WorkRecordAttachmentResponse {
+  id: string;
+  attachment: string;
+}
+
 // Claims types returned by custom API endpoints
 export interface ClaimListItem {
   id: string;
@@ -263,6 +268,7 @@ export interface WorkRecordListRow {
   type_name: string;
   location: string;
   work_description: string;
+  attachment: string;
   approved: boolean;
   linked_time_entry_id: string;
   linked_timesheet_id: string;
@@ -297,6 +303,7 @@ export interface WorkRecordDetailsResponse {
   vehicle_type: string;
   is_passenger: boolean;
   company_vehicle_unit_number: string;
+  attachment: string;
   approved: boolean;
   parent_work_record_id: string;
   parent_work_record: string;

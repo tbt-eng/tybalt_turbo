@@ -12,10 +12,12 @@
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
+  import DsFileLink from "$lib/components/DsFileLink.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DSToggle from "$lib/components/DSToggle.svelte";
   import type {
     WorkRecordCopyDraftResponse,
+    WorkRecordAttachmentResponse,
     WorkRecordConsumableResponse,
     WorkRecordCreateRequest,
     WorkRecordDetailsResponse,
@@ -24,7 +26,7 @@
     WorkRecordSaveResponse,
   } from "$lib/svelte-types";
   import { refreshVisibleWorkRecords } from "$lib/stores/workRecords";
-  import { DATE_INPUT_MIN, dateInputMaxMonthsAhead } from "$lib/utilities";
+  import { DATE_INPUT_MIN, dateInputMaxMonthsAhead, pocketBaseFileHref } from "$lib/utilities";
 
   jobs.init();
   profiles.init();
@@ -91,6 +93,12 @@
   let consumablesLoadError = $state("");
   let assigneeMode = $state<"you" | "someone_else">("you");
   let consumablesRequestId = 0;
+  let pendingAttachment = $state<File | null>(null);
+  let pendingAttachmentInputKey = $state(0);
+  let currentAttachmentName = $state("");
+  let attachmentError = $state("");
+  let attachmentSaving = $state(false);
+  let attachmentAction = $state<"upload" | "remove" | "">("");
 
   const dateInputMax = dateInputMaxMonthsAhead(15);
   const currentUserId = $derived($authStore?.model?.id ?? "");
@@ -116,6 +124,10 @@
   const saveDisabled = $derived(loadingConsumables || saveBlockedByConsumablesError);
   const hasDefaultType = $derived(($globalStore.profile.default_work_record_type ?? "") !== "");
   const visibleConsumables = $derived(consumables.filter((item) => !item.blocked));
+  const hasPersistedRecord = $derived(Boolean(editing && id));
+  const attachmentHref = $derived.by(() =>
+    id && currentAttachmentName !== "" ? pocketBaseFileHref("work_records", id, currentAttachmentName) : "",
+  );
 
   function buildEmptyConsumable(row: any): EditorConsumable {
     const expandedConsumable = Array.isArray(row.expand?.consumable)
@@ -353,6 +365,64 @@
     }
   }
 
+  function resetPendingAttachment() {
+    pendingAttachment = null;
+    pendingAttachmentInputKey += 1;
+  }
+
+  async function uploadAttachment() {
+    if (!id || !pendingAttachment || attachmentSaving) return;
+    attachmentSaving = true;
+    attachmentAction = "upload";
+    attachmentError = "";
+
+    try {
+      const formData = new FormData();
+      formData.append("attachment", pendingAttachment);
+      const updated = (await pb.send(`/api/work_records/${encodeURIComponent(id)}/attachment`, {
+        method: "POST",
+        body: formData,
+      })) as WorkRecordAttachmentResponse;
+      currentAttachmentName = updated.attachment ?? "";
+      resetPendingAttachment();
+      await refreshVisibleWorkRecords(canViewAll);
+    } catch (error: any) {
+      attachmentError =
+        error?.data?.data?.attachment?.message ??
+        error?.data?.message ??
+        error?.message ??
+        "Failed to upload paper copy PDF";
+    } finally {
+      attachmentSaving = false;
+      attachmentAction = "";
+    }
+  }
+
+  async function removeAttachment() {
+    if (!id || currentAttachmentName === "" || attachmentSaving) return;
+    attachmentSaving = true;
+    attachmentAction = "remove";
+    attachmentError = "";
+
+    try {
+      const updated = (await pb.send(`/api/work_records/${encodeURIComponent(id)}/attachment`, {
+        method: "DELETE",
+      })) as WorkRecordAttachmentResponse;
+      currentAttachmentName = updated.attachment ?? "";
+      resetPendingAttachment();
+      await refreshVisibleWorkRecords(canViewAll);
+    } catch (error: any) {
+      attachmentError =
+        error?.data?.data?.attachment?.message ??
+        error?.data?.message ??
+        error?.message ??
+        "Failed to remove paper copy PDF";
+    } finally {
+      attachmentSaving = false;
+      attachmentAction = "";
+    }
+  }
+
   $effect(() => {
     form = item;
     if (!canCreateSelf && canAssignOthers) {
@@ -374,6 +444,9 @@
     } else {
       consumables = [];
     }
+    currentAttachmentName = detail?.attachment ?? "";
+    attachmentError = "";
+    resetPendingAttachment();
   });
 
   $effect(() => {
@@ -420,6 +493,9 @@
   {:else}
     <div class="rounded-sm bg-neutral-100 p-3 text-sm">
       Number will be assigned after the first successful save.
+    </div>
+    <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
+      Paper copy PDF can be attached after the first successful save.
     </div>
   {/if}
 
@@ -566,6 +642,83 @@
       step={0.1}
     />
   </div>
+
+  {#if hasPersistedRecord}
+    <div class="rounded-sm border border-neutral-200 bg-neutral-50 p-3">
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div class="font-semibold">Paper Copy PDF</div>
+            <div class="text-sm text-neutral-600">
+              Upload or replace a scanned paper copy on this work record.
+            </div>
+          </div>
+          {#if currentAttachmentName !== ""}
+            <a href={attachmentHref} target="_blank" class="text-blue-600 hover:underline">
+              <DsFileLink filename={currentAttachmentName} />
+            </a>
+          {:else}
+            <span class="text-sm text-neutral-600">No paper copy PDF attached.</span>
+          {/if}
+        </div>
+
+        {#if !canEdit}
+          <div class="text-sm text-neutral-600">
+            This work record is read-only, so the paper copy PDF cannot be changed.
+          </div>
+        {:else}
+          <div class="flex flex-col gap-3">
+            {#key pendingAttachmentInputKey}
+              <input
+                type="file"
+                accept="application/pdf"
+                class="file:mr-2 file:rounded-sm file:border file:border-neutral-300 file:bg-transparent file:px-2 file:py-0.5 file:text-sm file:text-neutral-700 hover:file:bg-neutral-100"
+                onchange={(e) => {
+                  const target = e.target as HTMLInputElement;
+                  pendingAttachment = target.files?.[0] ?? null;
+                  attachmentError = "";
+                }}
+              />
+            {/key}
+
+            {#if pendingAttachment}
+              <div class="text-sm text-neutral-700">Selected: {pendingAttachment.name}</div>
+            {/if}
+
+            <div class="flex flex-wrap gap-2">
+              <DsActionButton
+                action={uploadAttachment}
+                color="green"
+                loading={attachmentSaving && attachmentAction === "upload"}
+                disabled={pendingAttachment === null}
+              >
+                {currentAttachmentName !== "" ? "Replace PDF" : "Upload PDF"}
+              </DsActionButton>
+
+              {#if pendingAttachment}
+                <DsActionButton action={resetPendingAttachment}>Clear Selection</DsActionButton>
+              {/if}
+
+              {#if currentAttachmentName !== ""}
+                <DsActionButton
+                  action={removeAttachment}
+                  color="red"
+                  loading={attachmentSaving && attachmentAction === "remove"}
+                  disabled={pendingAttachment !== null}
+                >
+                  Remove PDF
+                </DsActionButton>
+              {/if}
+            </div>
+
+            {#if attachmentError !== ""}
+              <div class="text-sm text-red-600">{attachmentError}</div>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <div
     class="flex w-full flex-col gap-2 {errors.work_description !== undefined ? 'bg-red-200' : ''}"

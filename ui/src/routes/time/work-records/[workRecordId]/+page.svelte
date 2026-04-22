@@ -6,8 +6,9 @@
   import { globalStore } from "$lib/stores/global";
   import { getApiErrorMessage } from "$lib/errors";
   import type { PageData } from "./$types";
-  import { shortDate } from "$lib/utilities";
+  import { pocketBaseFileHref, shortDate } from "$lib/utilities";
   import Icon from "@iconify/svelte";
+  import DsFileLink from "$lib/components/DsFileLink.svelte";
 
   let { data }: { data: PageData } = $props();
   let noteText = $state("");
@@ -223,6 +224,21 @@
   <div class="mt-4 rounded-lg bg-neutral-100 p-4">
     <h2 class="mb-2 text-lg font-semibold">Work Description</h2>
     <p class="text-sm whitespace-pre-wrap text-neutral-800">{data.item.work_description}</p>
+  </div>
+
+  <div class="mt-4 rounded-lg bg-neutral-100 p-4">
+    <h2 class="mb-2 text-lg font-semibold">Paper Copy PDF</h2>
+    {#if data.item.attachment}
+      <a
+        href={pocketBaseFileHref("work_records", data.item.id, data.item.attachment)}
+        target="_blank"
+        class="text-blue-600 hover:underline"
+      >
+        <DsFileLink filename={data.item.attachment} />
+      </a>
+    {:else}
+      <p class="text-sm text-neutral-600">No paper copy PDF attached.</p>
+    {/if}
   </div>
 
   <div class="mt-4 rounded-lg bg-neutral-100 p-4">

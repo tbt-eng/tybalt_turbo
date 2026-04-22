@@ -4,10 +4,11 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsList from "$lib/components/DSList.svelte";
+  import DsFileLink from "$lib/components/DsFileLink.svelte";
   import type { WorkRecordListRow } from "$lib/svelte-types";
   import { globalStore } from "$lib/stores/global";
   import { allWorkRecords, myWorkRecords } from "$lib/stores/workRecords";
-  import { shortDate } from "$lib/utilities";
+  import { pocketBaseFileHref, shortDate } from "$lib/utilities";
 
   const scopeOptions = [
     { id: "mine", label: "Mine / Created" },
@@ -113,16 +114,25 @@
   {/snippet}
 
   {#snippet line3(item: WorkRecordListRow)}
-    {#if item.linked_time_entry_id}
-      <span class="opacity-60">
+    <span class="flex flex-wrap items-center gap-2 opacity-60">
+      {#if item.linked_time_entry_id}
         Linked time entry {item.linked_time_entry_date}
         {#if item.linked_timesheet_id}
           on a bundled timesheet
         {:else}
           as a standalone entry
         {/if}
-      </span>
-    {/if}
+      {/if}
+      {#if item.attachment}
+        <a
+          href={pocketBaseFileHref("work_records", item.id, item.attachment)}
+          target="_blank"
+          class="text-blue-600 hover:underline"
+        >
+          <DsFileLink filename={item.attachment} />
+        </a>
+      {/if}
+    </span>
   {/snippet}
 
   {#snippet actions(item: WorkRecordListRow)}
