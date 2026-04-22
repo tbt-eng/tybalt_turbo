@@ -18,6 +18,7 @@ type workRecordListRow struct {
 	UID                string `json:"uid"`
 	OwnerName          string `json:"owner_name"`
 	JobNumber          string `json:"job_number"`
+	Attachment         string `json:"attachment"`
 	Approved           bool   `json:"approved"`
 	LinkedTimeEntryID  string `json:"linked_time_entry_id"`
 	SearchText         string `json:"search_text"`
@@ -78,6 +79,7 @@ type workRecordDetailResponse struct {
 	VehicleType                string                    `json:"vehicle_type"`
 	IsPassenger                bool                      `json:"is_passenger"`
 	CompanyVehicleUnitNumber   string                    `json:"company_vehicle_unit_number"`
+	Attachment                 string                    `json:"attachment"`
 	Approved                   bool                      `json:"approved"`
 	ParentWorkRecordID         string                    `json:"parent_work_record_id"`
 	ParentWorkRecord           string                    `json:"parent_work_record"`
@@ -1033,7 +1035,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"work_record":"W2604-0010"`,
-				`"total":1`,
+				`"total":2`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
@@ -1054,11 +1056,17 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding job work records response: %v", err)
 				}
-				if payload.Total != 1 || payload.Page != 1 || payload.TotalPages != 1 {
+				if payload.Total != 2 || payload.Page != 1 || payload.TotalPages != 1 {
 					t.Fatalf("unexpected pagination metadata: %#v", payload)
 				}
-				if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0010" || !payload.Data[0].Approved {
-					t.Fatalf("expected one approved job work record, got %#v", payload)
+				if len(payload.Data) != 2 {
+					t.Fatalf("expected two approved job work records, got %#v", payload)
+				}
+				if payload.Data[0].WorkRecord != "W3002-0050" || !payload.Data[0].Approved {
+					t.Fatalf("expected seeded approved work record first, got %#v", payload)
+				}
+				if payload.Data[1].WorkRecord != "W2604-0010" || !payload.Data[1].Approved {
+					t.Fatalf("expected requested approved work record second, got %#v", payload)
 				}
 			},
 		},
@@ -1072,7 +1080,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"work_record":"W2604-0010"`,
-				`"total":1`,
+				`"total":2`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
@@ -1093,8 +1101,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding job work records response: %v", err)
 				}
-				if payload.Total != 1 || len(payload.Data) != 1 {
-					t.Fatalf("expected one approved job work record, got %#v", payload)
+				if payload.Total != 2 || len(payload.Data) != 2 {
+					t.Fatalf("expected two approved job work records, got %#v", payload)
 				}
 			},
 		},
@@ -1108,7 +1116,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"page":2`,
-				`"total_pages":2`,
+				`"total_pages":3`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
@@ -1130,11 +1138,11 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding paginated job work records response: %v", err)
 				}
-				if payload.Page != 2 || payload.Limit != 1 || payload.Total != 2 || payload.TotalPages != 2 {
+				if payload.Page != 2 || payload.Limit != 1 || payload.Total != 3 || payload.TotalPages != 3 {
 					t.Fatalf("unexpected pagination metadata: %#v", payload)
 				}
-				if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0003" {
-					t.Fatalf("expected second page to contain the older approved work record, got %#v", payload)
+				if len(payload.Data) != 1 || payload.Data[0].WorkRecord != "W2604-0010" {
+					t.Fatalf("expected second page to contain the middle approved work record, got %#v", payload)
 				}
 			},
 		},
@@ -1189,7 +1197,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":5`,
+				`"total":4`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},

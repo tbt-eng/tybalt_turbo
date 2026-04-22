@@ -449,13 +449,34 @@ func AddHooks(app core.App) {
 	app.OnRecordDeleteRequest("time_amendments").BindFunc(timeAmendmentsGateHook)
 	// hooks for work_records model
 	app.OnRecordCreateRequest("work_records").BindFunc(func(e *core.RecordRequestEvent) error {
+		// Keep collection-level request hooks focused on validation only.
+		//
+		// Work-record attachments intentionally do not flow through direct
+		// PocketBase collection PATCH requests anymore. Upload/remove now uses a
+		// dedicated custom route under /api/work_records/{id}/attachment so we can
+		// reuse the normal edit access checks without opening a broader collection
+		// update surface.
+		//
+		// The dedicated route still calls SyncWorkRecordAttachmentFields itself, but
+		// we keep the helper here too as an integrity backstop for any writes that
+		// still use PocketBase's collection request pipeline, such as admin/superuser
+		// edits or future internal tooling built on top of collection requests.
 		if err := ValidateWorkRecord(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		if err := SyncWorkRecordAttachmentFields(app, e.Record); err != nil {
 			return AnnotateHookError(app, e, err)
 		}
 		return e.Next()
 	})
 	app.OnRecordUpdateRequest("work_records").BindFunc(func(e *core.RecordRequestEvent) error {
+		// See create hook note above: request hooks remain the attachment-integrity
+		// backstop for collection-based writes, even though the primary user-facing
+		// attachment flow goes through the dedicated custom route.
 		if err := ValidateWorkRecord(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		if err := SyncWorkRecordAttachmentFields(app, e.Record); err != nil {
 			return AnnotateHookError(app, e, err)
 		}
 		return e.Next()

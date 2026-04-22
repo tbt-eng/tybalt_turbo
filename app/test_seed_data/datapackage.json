@@ -3423,7 +3423,22 @@
             "x-sqlite-type": "TEXT"
           },
           {
+            "name": "company_vehicle_unit_number",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
             "name": "work_description",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "attachment",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "attachment_hash",
             "type": "string",
             "x-sqlite-type": "TEXT"
           }

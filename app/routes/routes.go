@@ -395,6 +395,8 @@ func AddRoutes(app core.App) {
 		workRecordsGroup.GET("/compatible_for_time_entry", createGetCompatibleWorkRecordsHandler(app))
 		workRecordsGroup.POST("/save", createCreateWorkRecordHandler(app))
 		workRecordsGroup.GET("/{workRecord}/copy_to_tomorrow", createGetWorkRecordCopyDraftHandler(app))
+		workRecordsGroup.POST("/{workRecord}/attachment", createUploadWorkRecordAttachmentHandler(app))
+		workRecordsGroup.DELETE("/{workRecord}/attachment", createDeleteWorkRecordAttachmentHandler(app))
 		workRecordsGroup.POST("/{workRecord}/save", createSaveWorkRecordHandler(app))
 		workRecordsGroup.POST("/{workRecord}/notes", createCreateWorkRecordNoteHandler(app))
 		workRecordsGroup.GET("", createGetWorkRecordsHandler(app))

@@ -19,8 +19,10 @@ package hooks
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
+	"tybalt/errs"
 	"tybalt/numbering"
 
 	"github.com/pocketbase/dbx"
@@ -271,6 +273,63 @@ func ValidateWorkRecordDelete(app core.App, record *core.Record) error {
 			"linked_time_entry_exists",
 			"Work records linked to time entries cannot be deleted",
 		)
+	}
+
+	return nil
+}
+
+// SyncWorkRecordAttachmentFields keeps the attachment file field and its
+// derived hash in sync before a work record is persisted.
+//
+// This helper is deliberately side-effect-free outside the record being saved:
+// it prepares attachment-related fields, but it does not perform the save
+// itself. That lets custom routes compose it with their own access checks and
+// transaction boundaries.
+//
+// Current responsibilities:
+//   - normalize pending file names so the stored file keys are URL-safe;
+//   - hash newly uploaded PDFs and store the digest in attachment_hash;
+//   - reject duplicates across other work_records rows; and
+//   - clear attachment_hash when the attachment itself is removed.
+//
+// Importantly, the dedicated attachment route calls this helper directly as part
+// of the primary user-facing upload/remove flow, and the work_records request
+// hooks also call it as an integrity backstop for collection-based writes such
+// as admin edits. That split keeps the public write surface narrow while still
+// centralizing attachment storage rules in one place.
+func SyncWorkRecordAttachmentFields(app core.App, record *core.Record) error {
+	NormalizePendingFileNames(record, "attachment")
+
+	attachmentHash, hashErr := CalculateRecordFileFieldHash(record, "attachment")
+	if hashErr != nil {
+		return hashErr
+	}
+
+	if attachmentHash != "" {
+		existingRecord, _ := app.FindFirstRecordByFilter(
+			"work_records",
+			"attachment_hash = {:hash} && id != {:id}",
+			dbx.Params{
+				"hash": attachmentHash,
+				"id":   record.Id,
+			},
+		)
+		if existingRecord != nil {
+			return &errs.HookError{
+				Status:  http.StatusBadRequest,
+				Message: "duplicate attachment detected",
+				Data: map[string]errs.CodeError{
+					"attachment": {
+						Code:    "duplicate_file",
+						Message: "This file has already been uploaded to another work record",
+					},
+				},
+			}
+		}
+
+		record.Set("attachment_hash", attachmentHash)
+	} else if record.GetString("attachment") == "" {
+		record.Set("attachment_hash", "")
 	}
 
 	return nil

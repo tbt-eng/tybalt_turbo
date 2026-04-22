@@ -14,6 +14,7 @@ import (
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
 const (
@@ -35,6 +36,7 @@ type WorkRecordListRow struct {
 	TypeName                   string `db:"type_name" json:"type_name"`
 	Location                   string `db:"location" json:"location"`
 	WorkDescription            string `db:"work_description" json:"work_description"`
+	Attachment                 string `db:"attachment" json:"attachment"`
 	Approved                   bool   `db:"approved" json:"approved"`
 	LinkedTimeEntryID          string `db:"linked_time_entry_id" json:"linked_time_entry_id"`
 	LinkedTimeSheetID          string `db:"linked_timesheet_id" json:"linked_timesheet_id"`
@@ -96,6 +98,7 @@ type WorkRecordDetailResponse struct {
 	VehicleType                string                         `json:"vehicle_type"`
 	IsPassenger                bool                           `json:"is_passenger"`
 	CompanyVehicleUnitNumber   string                         `json:"company_vehicle_unit_number"`
+	Attachment                 string                         `json:"attachment"`
 	Approved                   bool                           `json:"approved"`
 	ParentWorkRecordID         string                         `json:"parent_work_record_id"`
 	ParentWorkRecord           string                         `json:"parent_work_record"`
@@ -170,6 +173,11 @@ type WorkRecordSaveResponse struct {
 	ID string `json:"id"`
 }
 
+type WorkRecordAttachmentResponse struct {
+	ID         string `json:"id"`
+	Attachment string `json:"attachment"`
+}
+
 type WorkRecordNoteCreateRequest struct {
 	Note string `json:"note"`
 }
@@ -230,6 +238,7 @@ type workRecordDetailRow struct {
 	VehicleType              string  `db:"vehicle_type"`
 	IsPassenger              bool    `db:"is_passenger"`
 	CompanyVehicleUnitNumber string  `db:"company_vehicle_unit_number"`
+	Attachment               string  `db:"attachment"`
 	Approved                 bool    `db:"approved"`
 	ParentWorkRecordID       string  `db:"parent_work_record_id"`
 	ParentWorkRecordNumber   string  `db:"parent_work_record_number"`
@@ -385,6 +394,7 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([
 			COALESCE(wrt.name, '') AS type_name,
 			COALESCE(wr.location, '') AS location,
 			COALESCE(wr.work_description, '') AS work_description,
+			COALESCE(wr.attachment, '') AS attachment,
 			COALESCE(wr.approved, 0) AS approved,
 			COALESCE(te.id, '') AS linked_time_entry_id,
 			COALESCE(te.tsid, '') AS linked_timesheet_id,
@@ -831,6 +841,44 @@ func workRecordRouteError(status int, code string, message string) *errs.HookErr
 	}
 }
 
+func workRecordFieldError(field string, code string, message string) *errs.HookError {
+	return &errs.HookError{
+		Status:  http.StatusBadRequest,
+		Message: "validation failed",
+		Data: map[string]errs.CodeError{
+			field: {
+				Code:    code,
+				Message: message,
+			},
+		},
+	}
+}
+
+func findWorkRecordRecordByID(app core.App, workRecordID string) (*core.Record, error) {
+	workRecordID = strings.TrimSpace(workRecordID)
+	if workRecordID == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	return app.FindRecordById(workRecordsCollectionIdentifier, workRecordID)
+}
+
+func requireWorkRecordEditAccess(auth *core.Record, record *core.Record) error {
+	if auth == nil {
+		return workRecordRouteError(http.StatusUnauthorized, "unauthorized", "unauthorized")
+	}
+
+	if record.GetString("uid") != auth.Id && record.GetString("creator") != auth.Id {
+		return workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to edit this work record")
+	}
+
+	if record.GetBool("approved") {
+		return workRecordRouteError(http.StatusBadRequest, "approved_work_record_locked", "Approved work records cannot be edited")
+	}
+
+	return nil
+}
+
 func loadWorkRecordConsumableEntryStates(app core.App, workRecordID string) ([]workRecordConsumableEntryState, error) {
 	rows := []workRecordConsumableEntryState{}
 	if err := app.DB().NewQuery(`
@@ -1077,12 +1125,8 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 		return WorkRecordSaveResponse{}, err
 	}
 
-	if currentRecord.GetString("uid") != auth.Id && currentRecord.GetString("creator") != auth.Id {
-		return WorkRecordSaveResponse{}, workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to edit this work record")
-	}
-
-	if currentRecord.GetBool("approved") {
-		return WorkRecordSaveResponse{}, workRecordRouteError(http.StatusBadRequest, "approved_work_record_locked", "Approved work records cannot be edited")
+	if err := requireWorkRecordEditAccess(auth, currentRecord); err != nil {
+		return WorkRecordSaveResponse{}, err
 	}
 
 	existingEntries, err := loadWorkRecordConsumableEntryStates(txApp, currentRecord.Id)
@@ -1362,6 +1406,61 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 	return WorkRecordSaveResponse{ID: record.Id}, nil
 }
 
+func saveWorkRecordAttachment(
+	txApp core.App,
+	auth *core.Record,
+	workRecordID string,
+	uploadedFiles []*filesystem.File,
+	clearAttachment bool,
+) (WorkRecordAttachmentResponse, error) {
+	// Attachment writes intentionally use a dedicated route instead of enabling a
+	// collection-level updateRule on work_records.
+	//
+	// That narrower route keeps all regular field edits on the existing save
+	// endpoint, preserves the time-editing gate and owner/creator checks in one
+	// place, and avoids exposing direct PATCH /api/collections/work_records/... as
+	// a second general-purpose mutation path.
+	//
+	// The flow here is:
+	//   1. load the real work-record row;
+	//   2. enforce the same edit permissions used by normal work-record saves;
+	//   3. apply the attachment add/replace/remove mutation only;
+	//   4. run standard validation plus attachment-specific hash/dedupe syncing;
+	//   5. persist and return a minimal response for the UI.
+	record, err := findWorkRecordRecordByID(txApp, workRecordID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return WorkRecordAttachmentResponse{}, workRecordRouteError(http.StatusNotFound, "work_record_not_found", "work record not found")
+		}
+		return WorkRecordAttachmentResponse{}, err
+	}
+
+	if err := requireWorkRecordEditAccess(auth, record); err != nil {
+		return WorkRecordAttachmentResponse{}, err
+	}
+
+	if clearAttachment {
+		record.Set("attachment", "")
+	} else {
+		record.Set("attachment", uploadedFiles)
+	}
+
+	if err := normalizeRouteValidationError(apphooks.ValidateWorkRecord(txApp, record)); err != nil {
+		return WorkRecordAttachmentResponse{}, err
+	}
+	if err := normalizeRouteValidationError(apphooks.SyncWorkRecordAttachmentFields(txApp, record)); err != nil {
+		return WorkRecordAttachmentResponse{}, err
+	}
+	if err := normalizeRouteValidationError(txApp.Save(record)); err != nil {
+		return WorkRecordAttachmentResponse{}, err
+	}
+
+	return WorkRecordAttachmentResponse{
+		ID:         record.Id,
+		Attachment: record.GetString("attachment"),
+	}, nil
+}
+
 func createCreateWorkRecordHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		requestApp := e.App
@@ -1427,6 +1526,83 @@ func createSaveWorkRecordHandler(app core.App) func(e *core.RequestEvent) error 
 		err = requestApp.RunInTransaction(func(txApp core.App) error {
 			var saveErr error
 			response, saveErr = saveWorkRecordEdit(txApp, auth, record, req)
+			return saveErr
+		})
+		if err != nil {
+			return writeHookError(e, err)
+		}
+
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func createUploadWorkRecordAttachmentHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		requestApp := e.App
+		if err := requireTimeEditing(requestApp); err != nil {
+			return err
+		}
+
+		auth := e.Auth
+		if auth == nil {
+			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
+		}
+
+		workRecordID := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordID == "" {
+			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "work_record_required", "workRecord is required"))
+		}
+
+		// The attachment route accepts multipart/form-data with a single
+		// "attachment" file field. The file field itself already restricts allowed
+		// MIME types at the collection level, while this route supplies the edit
+		// permissions and narrower mutation scope.
+		uploadedFiles, err := e.FindUploadedFiles("attachment")
+		if errors.Is(err, http.ErrMissingFile) {
+			return writeHookError(e, workRecordFieldError("attachment", "required", "Paper copy PDF is required"))
+		}
+		if err != nil {
+			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "invalid_request_body", "invalid request body"))
+		}
+
+		response := WorkRecordAttachmentResponse{}
+		err = requestApp.RunInTransaction(func(txApp core.App) error {
+			var saveErr error
+			response, saveErr = saveWorkRecordAttachment(txApp, auth, workRecordID, uploadedFiles, false)
+			return saveErr
+		})
+		if err != nil {
+			return writeHookError(e, err)
+		}
+
+		return e.JSON(http.StatusOK, response)
+	}
+}
+
+func createDeleteWorkRecordAttachmentHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		requestApp := e.App
+		if err := requireTimeEditing(requestApp); err != nil {
+			return err
+		}
+
+		auth := e.Auth
+		if auth == nil {
+			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
+		}
+
+		workRecordID := strings.TrimSpace(e.Request.PathValue("workRecord"))
+		if workRecordID == "" {
+			return writeHookError(e, workRecordRouteError(http.StatusBadRequest, "work_record_required", "workRecord is required"))
+		}
+
+		// Removal is its own endpoint so the UI does not need to send a synthetic
+		// empty file payload and so the backend can explicitly clear both the file
+		// field and its derived attachment_hash.
+		response := WorkRecordAttachmentResponse{}
+		err := requestApp.RunInTransaction(func(txApp core.App) error {
+			var saveErr error
+			response, saveErr = saveWorkRecordAttachment(txApp, auth, workRecordID, nil, true)
 			return saveErr
 		})
 		if err != nil {
@@ -1622,6 +1798,10 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 		}
 
 		var row workRecordDetailRow
+		// Keep detail responses attachment-aware for the same reason as the list
+		// response: the editor and details page read record state from this custom
+		// route, while the paper-copy PDF itself is created or removed through the
+		// dedicated /api/work_records/{id}/attachment endpoints.
 		err := app.DB().NewQuery(`
 			SELECT
 				wr.id AS id,
@@ -1648,6 +1828,7 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 				COALESCE(wr.vehicle_type, '') AS vehicle_type,
 				COALESCE(wr.is_passenger, 0) AS is_passenger,
 				COALESCE(wr.company_vehicle_unit_number, '') AS company_vehicle_unit_number,
+				COALESCE(wr.attachment, '') AS attachment,
 				COALESCE(wr.approved, 0) AS approved,
 				COALESCE(wr.parent_work_record, '') AS parent_work_record_id,
 				COALESCE(parent_wr.number, '') AS parent_work_record_number
@@ -1732,6 +1913,7 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			VehicleType:                row.VehicleType,
 			IsPassenger:                row.IsPassenger,
 			CompanyVehicleUnitNumber:   row.CompanyVehicleUnitNumber,
+			Attachment:                 row.Attachment,
 			Approved:                   row.Approved,
 			ParentWorkRecordID:         row.ParentWorkRecordID,
 			ParentWorkRecord:           row.ParentWorkRecordNumber,

@@ -32,12 +32,23 @@ func NormalizePendingFileNames(record *core.Record, field string) {
 	}
 }
 
-// CalculateFileFieldHash computes the SHA256 hash of a file uploaded to a record field.
-// Returns empty string if no file was uploaded for the field.
-// Returns error if multiple files were uploaded or if there was an error reading the file.
-func CalculateFileFieldHash(e *core.RecordRequestEvent, field string) (string, error) {
+// CalculateRecordFileFieldHash computes the SHA256 hash of a file uploaded to a
+// record field.
+//
+// Why this helper is record-based instead of request-based:
+// attachment writes for work records now happen through a custom route that
+// loads a record, assigns uploaded files, and then saves it through txApp.Save.
+// That path does not rely on PocketBase's collection request hooks, so the file
+// hashing logic needs to work with an in-memory record directly.
+//
+// Behavior:
+//   - returns an empty hash when no new file was uploaded for the field in the
+//     current save attempt;
+//   - rejects multi-file uploads for single-file fields; and
+//   - reads the pending uploaded file stream and returns its SHA256 digest.
+func CalculateRecordFileFieldHash(record *core.Record, field string) (string, error) {
 	// Get any files that have been uploaded for the field.
-	files := e.Record.GetUnsavedFiles(field)
+	files := record.GetUnsavedFiles(field)
 
 	// If the field is not present in the multipart form, or if it is present
 	// but no actual files were uploaded for it (e.g., an empty file list).
@@ -100,6 +111,12 @@ func CalculateFileFieldHash(e *core.RecordRequestEvent, field string) (string, e
 
 	// return the hash as a hex string
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// CalculateFileFieldHash preserves the older request-hook call shape for
+// collections that still operate directly on RecordRequestEvent.
+func CalculateFileFieldHash(e *core.RecordRequestEvent, field string) (string, error) {
+	return CalculateRecordFileFieldHash(e.Record, field)
 }
 
 // EnsureActiveDivision verifies that the provided division id references an active
