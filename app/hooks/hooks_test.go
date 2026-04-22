@@ -13,6 +13,7 @@ import (
 
 	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 )
 
 // We need to instantiate a Collection object to be part of the Record object
@@ -39,6 +40,118 @@ func buildRecordFromMap(collection *core.Collection, m map[string]any) *core.Rec
 	record := core.NewRecord(collection)
 	record.Load(m)
 	return record
+}
+
+func upsertLinkedWorkRecordsConfigForHooksTest(t *testing.T, app *tests.TestApp, enabled bool) {
+	t.Helper()
+
+	collection, err := app.FindCollectionByNameOrId("app_config")
+	if err != nil {
+		t.Fatalf("failed to find app_config collection: %v", err)
+	}
+
+	record, err := app.FindFirstRecordByData("app_config", "key", "linked_work_records")
+	if err != nil || record == nil {
+		record = core.NewRecord(collection)
+		record.Set("key", "linked_work_records")
+	}
+
+	record.Set("value", fmt.Sprintf(`{"enabled":%t}`, enabled))
+	if err := app.Save(record); err != nil {
+		t.Fatalf("failed to save linked_work_records config: %v", err)
+	}
+}
+
+func insertWorkRecordNumberForHooksTest(t *testing.T, app *tests.TestApp, id string, number string) {
+	t.Helper()
+
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO work_records (
+			id,
+			approved,
+			creator,
+			date,
+			distance_travelled_km,
+			hours_on_site,
+			hours_travel_time,
+			job,
+			location,
+			number,
+			type,
+			uid,
+			vehicle_type,
+			work_description
+		) VALUES (
+			{:id},
+			0,
+			'f2j5a8vk006baub',
+			'2026-12-31',
+			0,
+			8,
+			0,
+			'mg0sp9iyjzo4zw9',
+			'Test Location',
+			{:number},
+			'oask5u50nka0km8',
+			'f2j5a8vk006baub',
+			'Truck',
+			'Collision coverage'
+		)
+	`).Bind(map[string]any{
+		"id":     id,
+		"number": number,
+	}).Execute(); err != nil {
+		t.Fatalf("failed to insert collision work record: %v", err)
+	}
+}
+
+func insertLegacyTimeEntryForHooksTest(t *testing.T, app *tests.TestApp, id string, workRecord string) {
+	t.Helper()
+
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO time_entries (
+			id,
+			uid,
+			date,
+			time_type,
+			division,
+			description,
+			job,
+			work_record,
+			work_record_id,
+			hours,
+			meals_hours,
+			payout_request_amount,
+			category,
+			week_ending,
+			role,
+			tsid,
+			branch
+		) VALUES (
+			{:id},
+			'f2j5a8vk006baub',
+			'2024-01-22',
+			'sdyfl3q7j7ap849',
+			'fy4i9poneukvq9u',
+			'Legacy edit coverage',
+			'mg0sp9iyjzo4zw9',
+			{:workRecord},
+			'',
+			5,
+			0,
+			0,
+			'',
+			'2024-01-27',
+			'tbgoiwwwfj8cvju',
+			'',
+			''
+		)
+	`).Bind(map[string]any{
+		"id":         id,
+		"workRecord": workRecord,
+	}).Execute(); err != nil {
+		t.Fatalf("failed to insert legacy time entry: %v", err)
+	}
 }
 
 func extractArbitraryKey(err error) (string, error) {
@@ -270,6 +383,120 @@ func TestValidateTimeEntry_AggregatesLinkedWorkRecordMismatchErrors(t *testing.T
 		if !strings.Contains(message, expected) {
 			t.Fatalf("expected aggregated work record error to contain %q, got %q", expected, message)
 		}
+	}
+}
+
+func TestValidateTimeEntry_HybridModeAllowsEditingLegacyTextOnlyEntry(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	insertLegacyTimeEntryForHooksTest(t, app, "legacyhybrid001", "F34-142")
+
+	record, err := app.FindRecordById("time_entries", "legacyhybrid001")
+	if err != nil {
+		t.Fatalf("failed to load legacy time entry: %v", err)
+	}
+
+	record.Set("description", "Updated legacy work record entry")
+
+	if err := validateTimeEntry(app, record, []string{"date", "time_type", "division", "hours", "description"}); err != nil {
+		t.Fatalf("expected hybrid mode to allow editing legacy text-only entry, got: %v", err)
+	}
+}
+
+func TestValidateTimeEntry_LinkedOnlyModeForcesLegacyUpgrade(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	upsertLinkedWorkRecordsConfigForHooksTest(t, app, true)
+	insertLegacyTimeEntryForHooksTest(t, app, "legacylinked001", "F34-142")
+
+	record, err := app.FindRecordById("time_entries", "legacylinked001")
+	if err != nil {
+		t.Fatalf("failed to load legacy time entry: %v", err)
+	}
+
+	record.Set("description", "Updated legacy work record entry")
+
+	err = validateTimeEntry(app, record, []string{"date", "time_type", "division", "hours", "description"})
+	if err == nil {
+		t.Fatal("expected linked-only mode to require upgrading legacy entry")
+	}
+
+	errs, ok := err.(validation.Errors)
+	if !ok {
+		t.Fatalf("expected validation.Errors, got %T", err)
+	}
+	if errs["work_record_id"] == nil {
+		t.Fatalf("expected work_record_id error, got %#v", errs)
+	}
+}
+
+func TestValidateTimeEntry_LinkedOnlyModeRejectsNewTextOnlyWorkRecord(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	upsertLinkedWorkRecordsConfigForHooksTest(t, app, true)
+
+	record := buildRecordFromMap(timeEntriesCollection, map[string]any{
+		"time_type":             "dummy",
+		"uid":                   "f2j5a8vk006baub",
+		"date":                  "2024-01-22",
+		"division":              "fy4i9poneukvq9u",
+		"hours":                 5.0,
+		"job":                   "mg0sp9iyjzo4zw9",
+		"description":           "Linked-only rejection coverage",
+		"role":                  "tbgoiwwwfj8cvju",
+		"work_record":           "F23-137",
+		"meals_hours":           0.0,
+		"payout_request_amount": 0.0,
+	})
+
+	err := validateTimeEntry(app, record, []string{"date", "time_type", "division", "hours", "description"})
+	if err == nil {
+		t.Fatal("expected linked-only mode to reject new text-only work record")
+	}
+
+	errs, ok := err.(validation.Errors)
+	if !ok {
+		t.Fatalf("expected validation.Errors, got %T", err)
+	}
+	if errs["work_record"] == nil {
+		t.Fatalf("expected work_record error, got %#v", errs)
+	}
+}
+
+func TestValidateTimeEntry_RejectsLegacyTextThatMatchesLinkedWorkRecordNumber(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	insertWorkRecordNumberForHooksTest(t, app, "wrlegacyclash001", "F23-137")
+
+	record := buildRecordFromMap(timeEntriesCollection, map[string]any{
+		"time_type":             "dummy",
+		"uid":                   "f2j5a8vk006baub",
+		"date":                  "2024-01-22",
+		"division":              "fy4i9poneukvq9u",
+		"hours":                 5.0,
+		"job":                   "mg0sp9iyjzo4zw9",
+		"description":           "Legacy collision coverage",
+		"role":                  "tbgoiwwwfj8cvju",
+		"work_record":           "F23-137",
+		"meals_hours":           0.0,
+		"payout_request_amount": 0.0,
+	})
+
+	err := validateTimeEntry(app, record, []string{"date", "time_type", "division", "hours", "description"})
+	if err == nil {
+		t.Fatal("expected legacy collision with linked work record number to fail")
+	}
+
+	errs, ok := err.(validation.Errors)
+	if !ok {
+		t.Fatalf("expected validation.Errors, got %T", err)
+	}
+	if errs["work_record"] == nil {
+		t.Fatalf("expected work_record error, got %#v", errs)
 	}
 }
 

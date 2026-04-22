@@ -13,7 +13,11 @@
   import { rateRoles } from "$lib/stores/rateRoles";
   import { timeTypes } from "$lib/stores/time_types";
   import { branchesAllowedFor, branches as branchesStore } from "$lib/stores/branches";
-  import { timeEditingDisabledMessage, timeEditingEnabled } from "$lib/stores/appConfig";
+  import {
+    linkedWorkRecordsEnabled,
+    timeEditingDisabledMessage,
+    timeEditingEnabled,
+  } from "$lib/stores/appConfig";
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
@@ -124,7 +128,11 @@
   const linkedWorkRecord = $derived.by(() => data.linked_work_record);
   const linkedWorkRecordLocked = $derived.by(() => (item.work_record_id ?? "") !== "");
   const isLegacyWorkRecordUpgrade = $derived.by(
-    () => data.editing && (item.work_record ?? "") !== "" && !linkedWorkRecord,
+    () =>
+      $linkedWorkRecordsEnabled &&
+      data.editing &&
+      (item.work_record ?? "") !== "" &&
+      !linkedWorkRecord,
   );
 
   let errors = $state({} as any);
@@ -452,7 +460,7 @@
 
     if ((item.work_record_id ?? "") !== "") {
       payload.work_record = "";
-    } else if (!isLegacyWorkRecordUpgrade) {
+    } else if ($linkedWorkRecordsEnabled && !isLegacyWorkRecordUpgrade) {
       payload.work_record = "";
     }
 
@@ -596,7 +604,7 @@
         {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
       </DsAutoComplete>
     {/if}
-    {#if !data.editing && item.job && item.job !== "" && !linkedWorkRecord}
+    {#if $linkedWorkRecordsEnabled && !data.editing && item.job && item.job !== "" && !linkedWorkRecord}
       <div
         class="flex w-full items-center justify-between rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900"
       >
@@ -703,6 +711,13 @@
         if needed.
       </div>
     </div>
+  {:else if !$linkedWorkRecordsEnabled && item.job && item.job !== "" && item.division && isWorkTime}
+    <DsTextInput
+      bind:value={item.work_record as string}
+      {errors}
+      fieldName="work_record"
+      uiName="Work Record"
+    />
   {:else if isLegacyWorkRecordUpgrade}
     <DsTextInput
       bind:value={item.work_record as string}

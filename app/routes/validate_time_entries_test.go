@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"testing"
 	"time"
 	"tybalt/internal/testseed"
@@ -16,6 +17,49 @@ func getTimeTypeId(t *testing.T, app core.App, code string) string {
 		t.Fatalf("failed to load time_type %s: %v", code, err)
 	}
 	return record.Id
+}
+
+func insertWorkRecordNumberForValidateTimeEntriesTest(t *testing.T, app core.App, id string, number string) {
+	t.Helper()
+
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO work_records (
+			id,
+			approved,
+			creator,
+			date,
+			distance_travelled_km,
+			hours_on_site,
+			hours_travel_time,
+			job,
+			location,
+			number,
+			type,
+			uid,
+			vehicle_type,
+			work_description
+		) VALUES (
+			{:id},
+			0,
+			'f2j5a8vk006baub',
+			'2026-12-31',
+			0,
+			8,
+			0,
+			'mg0sp9iyjzo4zw9',
+			'Test Location',
+			{:number},
+			'oask5u50nka0km8',
+			'f2j5a8vk006baub',
+			'Truck',
+			'Duplicate label coverage'
+		)
+	`).Bind(dbx.Params{
+		"id":     id,
+		"number": number,
+	}).Execute(); err != nil {
+		t.Fatalf("failed to insert work record: %v", err)
+	}
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -246,5 +290,55 @@ func TestValidateTimeEntries_UntrackedTimeOffRejectsRestrictedLeaveTypes(t *test
 		if codeErr.Code != "untracked_time_off_restricted" {
 			t.Fatalf("expected error code untracked_time_off_restricted for %s, got %s", code, codeErr.Code)
 		}
+	}
+}
+
+func TestValidateTimeEntries_RejectsDuplicateVisibleWorkRecordAcrossLegacyAndLinkedEntries(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	insertWorkRecordNumberForValidateTimeEntriesTest(t, app, "wrduplabel00001", "F23-137")
+
+	uid := "f2j5a8vk006baub"
+	weekEnding := "2024-01-13"
+	rID := getTimeTypeId(t, app, "R")
+	payrollYearEndDate, _ := time.Parse("2006-01-02", "2024-01-06")
+
+	adminProfile, err := app.FindFirstRecordByFilter("admin_profiles", "uid={:uid}", dbx.Params{"uid": uid})
+	if err != nil {
+		t.Fatalf("failed to fetch admin_profile: %v", err)
+	}
+
+	timeEntriesCollection, _ := app.FindCollectionByNameOrId("time_entries")
+	legacyEntry := core.NewRecord(timeEntriesCollection)
+	legacyEntry.Set("uid", uid)
+	legacyEntry.Set("time_type", rID)
+	legacyEntry.Set("hours", 4.0)
+	legacyEntry.Set("date", "2024-01-08")
+	legacyEntry.Set("week_ending", weekEnding)
+	legacyEntry.Set("work_record", "F23-137")
+
+	linkedEntry := core.NewRecord(timeEntriesCollection)
+	linkedEntry.Set("uid", uid)
+	linkedEntry.Set("time_type", rID)
+	linkedEntry.Set("hours", 4.0)
+	linkedEntry.Set("date", "2024-01-09")
+	linkedEntry.Set("week_ending", weekEnding)
+	linkedEntry.Set("work_record_id", "wrduplabel00001")
+
+	err = validateTimeEntries(app, adminProfile, payrollYearEndDate, []*core.Record{legacyEntry, linkedEntry})
+	if err == nil {
+		t.Fatal("expected duplicate visible work record labels to fail validation")
+	}
+
+	codeErr, ok := err.(*CodeError)
+	if !ok {
+		t.Fatalf("expected CodeError, got %T", err)
+	}
+	if codeErr.Code != "multiple_work_records" {
+		t.Fatalf("expected multiple_work_records, got %s", codeErr.Code)
+	}
+	if got := codeErr.Message; got != fmt.Sprintf("work record %s appears in multiple entries", "F23-137") {
+		t.Fatalf("unexpected error message: %q", got)
 	}
 }

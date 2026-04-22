@@ -6,7 +6,9 @@
 
   let { data }: { data: PageData } = $props();
 
-  const workRecordNumber = $derived.by(() => data.item.expand?.work_record_id?.number || "");
+  const workRecordNumber = $derived.by(
+    () => data.item.work_record || data.item.expand?.work_record_id?.number || "",
+  );
 </script>
 
 <div class="mx-auto max-w-4xl p-4">
@@ -30,7 +32,7 @@
           Open Timesheet
         </DsActionButton>
       {/if}
-      {#if workRecordNumber}
+      {#if data.item.work_record_id}
         <DsActionButton action={`/time/work-records/${data.item.work_record_id}`}>Open Work Record</DsActionButton>
       {/if}
     </div>
