@@ -5,6 +5,7 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
+  import Icon from "@iconify/svelte";
   import type { WorkRecordListRow, WorkRecordSubjectResponse } from "$lib/svelte-types";
   import { authStore } from "$lib/stores/auth";
   import { globalStore } from "$lib/stores/global";
@@ -101,28 +102,18 @@
       <DsLabel color="purple">Creator</DsLabel>
     {/if}
     {#if item.approved}
-      <DsLabel color="green">Approved</DsLabel>
-    {:else}
-      <DsLabel color="orange">Open</DsLabel>
+      <Icon icon="mdi:lock" width="16" class="text-neutral-500" aria-label="Locked" />
     {/if}
   {/snippet}
 
   {#snippet line1(item: WorkRecordListRow)}
-    <span class="flex flex-wrap items-center gap-1">
+    <span class="flex flex-wrap items-center gap-2">
       {#if item.job_number}
         <span>{item.job_number}</span>
-      {/if}
-      {#if item.type_name}
-        <DsLabel color="teal">{item.type_name}</DsLabel>
       {/if}
       {#if item.location}
         <span class="opacity-60">{item.location}</span>
       {/if}
-    </span>
-  {/snippet}
-
-  {#snippet line2(item: WorkRecordListRow)}
-    <span class="flex flex-wrap items-center gap-2">
       <span class="opacity-70">{item.work_description}</span>
       {#if item.attachment}
         <a
@@ -136,21 +127,22 @@
     </span>
   {/snippet}
 
+  {#snippet line2(item: WorkRecordListRow)}
+    {#if item.type_name}
+      <DsLabel color="teal">{item.type_name}</DsLabel>
+    {/if}
+  {/snippet}
+
   {#snippet line3(item: WorkRecordListRow)}
     <span class="flex flex-wrap items-center gap-2">
       {#each item.subjects ?? [] as subject (subject.id)}
         <span class="inline-flex flex-wrap items-center gap-1 rounded-sm border border-neutral-300 bg-white/60 px-2 py-1 text-sm">
           <span class:font-semibold={subject.uid === currentUserId}>{subjectName(subject)}</span>
           <span class="text-neutral-600">{subjectHours(subject)}h</span>
-          {#if subject.uid === currentUserId}
-            <DsLabel color="cyan">You</DsLabel>
-          {/if}
           {#if subject.approved}
-            <DsLabel color="green">Approved</DsLabel>
+            <Icon icon="mdi:lock" width="14" class="text-neutral-500" aria-label="Locked" />
           {:else if subject.linked_time_entry_id}
             <DsLabel color="blue">Linked</DsLabel>
-          {:else}
-            <DsLabel color="orange">Open</DsLabel>
           {/if}
         </span>
       {/each}

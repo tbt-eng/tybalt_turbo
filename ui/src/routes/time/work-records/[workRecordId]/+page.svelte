@@ -1,6 +1,5 @@
 <script lang="ts">
   import DsActionButton from "$lib/components/DSActionButton.svelte";
-  import DsLabel from "$lib/components/DsLabel.svelte";
   import { pb } from "$lib/pocketbase";
   import { invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
@@ -72,9 +71,7 @@
       <div class="mt-1 flex flex-wrap items-center gap-2">
         <span>{shortDate(data.item.date, true)}</span>
         {#if data.item.approved}
-          <DsLabel color="green">Approved</DsLabel>
-        {:else}
-          <DsLabel color="orange">Open</DsLabel>
+          <Icon icon="mdi:lock" width="18" class="text-neutral-500" aria-label="Locked" />
         {/if}
       </div>
     </div>
@@ -143,7 +140,7 @@
               </div>
               <div class="flex shrink-0 flex-wrap items-center gap-2">
                 {#if worker.approved}
-                  <DsLabel color="green">Approved</DsLabel>
+                  <Icon icon="mdi:lock" width="16" class="text-neutral-500" aria-label="Locked" />
                 {/if}
                 {#if worker.linked_time_entry_id}
                   <DsActionButton
