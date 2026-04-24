@@ -12,12 +12,6 @@ It covers:
 - migration impact on existing `time_entries`
 - a revised phased plan
 
-**Not built.** Turbo has none of the first-class work record collections,
-routes or screens that this document proposes. Today a work record is only the
-`work_record` text on a time entry or time amendment. `/time/work-records` is a
-read-only search of the values on time entries, for holders of the `report` or
-`work_record` claim (see `work_record_reconciliation.md`).
-
 ## Executive Summary
 
 Work records are currently a required field-work artifact managed through a
@@ -35,12 +29,16 @@ the business does not always operate as "one work record per person per
 day per job." Crews may share one work record number for one job/day/work
 context while still recording person-specific hours and travel details.
 
-**Not built.** The revised direction is:
+The revised direction is:
 
 - add a first-class `work_records` collection for shared crew-day work
 - generate all new work record numbers on the backend with a `W` prefix
 - keep `creator` on `work_records`, but remove `uid` from that table
+<<<<<<< HEAD
 - add `work_records_subjects` as the participant / worker child collection
+=======
+- add `work_records_subjects` as the participant / subject child collection
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - move `uid`, `hours_on_site`, and `hours_travel_time` onto
   `work_records_subjects`
 - also move other person-specific travel fields onto `work_records_subjects`,
@@ -48,7 +46,11 @@ context while still recording person-specific hours and travel details.
   `company_vehicle_unit_number`, because stakeholder discussion strongly
   suggests those are per-person rather than shared crew fields
 - keep work record type on the shared `work_records` parent
+<<<<<<< HEAD
 - use `work_records_types.max_subjects` to limit how many worker rows a work
+=======
+- use `work_records_types.max_subjects` to limit how many subject rows a work
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   record of that type may have
 - add optional `work_records.lane_kms` for billing support, with availability
   controlled by the selected work record type
@@ -60,8 +62,13 @@ context while still recording person-specific hours and travel details.
 - replace the planned `time_entries.work_record_id` relation with
   `time_entries.work_record_subject_id`, so each time entry links to one
   participant row rather than ambiguously linking to a shared parent
+<<<<<<< HEAD
 - enforce that a time entry referencing a work record worker row has
   `hours = hours_on_site + hours_travel_time` for that worker row
+=======
+- enforce that a time entry referencing a work record subject has
+  `hours = hours_on_site + hours_travel_time` for that subject row
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - preserve legacy `time_entries.work_record` text for existing historical data
 - store notes as append-only records
 - allow a scanned paper-copy PDF to be attached to a saved work record for
@@ -70,9 +77,14 @@ context while still recording person-specific hours and travel details.
   workflow, with each copied parent record receiving its own independent number
 - redesign approval locking so participant rows lock per person while shared
   parent fields lock once any linked participant is approved
+<<<<<<< HEAD
 - add a print-friendly work-record route similar to purchase orders; the print
   view is the same for every authorized viewer and includes all worker rows
   with their separate hours and vehicle usage in a compact summary
+=======
+- defer work-record-generated printing/export work for now; future work should
+  add a print-friendly work-record route similar to purchase orders
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 
 ## Findings From Discovery
 
@@ -103,10 +115,13 @@ context while still recording person-specific hours and travel details.
   day.
 - If two people on the same job/day are doing materially different work, they
   should use different work record numbers.
+<<<<<<< HEAD
 - The same worker should not appear on more than one work record for the same
   job/date.
 - The same worker may appear on work records for different jobs on the same
   date.
+=======
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - Daily separation still matters because some charges, such as meals and
   vehicles, are billable per day.
 - Shared across a crew work record are things like job, date, location, work
@@ -150,8 +165,6 @@ context while still recording person-specific hours and travel details.
 
 ### Numbering
 
-**Not built.**
-
 - All new first-class work records will use backend-generated numbers beginning
   with `W`.
 - Number generation should follow the same general pattern as purchase order
@@ -164,8 +177,6 @@ context while still recording person-specific hours and travel details.
 - Users will not manually enter or reserve work record numbers in the new flow.
 
 ### Work Record Identity On Time Entries
-
-**Not built.**
 
 - Existing `time_entries.work_record` text values stay in place for historical
   records.
@@ -185,10 +196,6 @@ context while still recording person-specific hours and travel details.
 
 ### Rollout Modes For Time Entries
 
-**Not built.** Turbo has no hybrid mode and no linked-only mode, and it reads no
-`linked_work_records` setting. Only the current `main` branch behavior below
-is true today.
-
 The bullets above describe the intended end state once participant-linked work
 records are fully rolled out. The implementation may pass through an explicit
 hybrid phase first, and that phase should be documented separately from both
@@ -199,7 +206,11 @@ the current `main` branch and the final linked-only state.
   - the existing `/time/work-records` surface is read-only audit/search based
     on legacy text values pulled from time entries
   - there is no requirement yet to upgrade legacy time entries to a
+<<<<<<< HEAD
     first-class worker relation before editing
+=======
+    first-class subject relation before editing
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - Hybrid rollout mode:
   - first-class `work_records`, `work_records_subjects`, and
     `time_entries.work_record_subject_id` exist and new work-record-aware
@@ -226,8 +237,6 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Type Ownership
 
-**Not built.**
-
 - Work record type lives on the shared `work_records` parent.
 - Notes do not carry type.
 - Type should remain data-driven rather than hard-coded around the earlier
@@ -235,15 +244,19 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Granularity
 
-**Not built.**
-
 - The business distinction is no longer "one work record per person per day per
   job."
 - The shared parent record is one work record per crew-day per job when the
   crew is doing the same work.
+<<<<<<< HEAD
 - Each shared parent work record contains one or more worker rows in
   `work_records_subjects`.
 - Each worker row represents one participant employee on that shared work
+=======
+- Each shared parent work record contains one or more subject rows in
+  `work_records_subjects`.
+- Each subject row represents one participant employee on that shared work
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   record.
 - Multi-day records are still represented as a group of related shared parent
   work records linked through `parent_work_record`.
@@ -252,8 +265,6 @@ to the linked-only mode above, not the hybrid transition phase.
   `WYYMM-NNNN` number.
 
 ### Export Scope
-
-**Not built.**
 
 - Uploading and viewing a scanned paper-copy PDF attachment is in scope for the
   current implementation.
@@ -269,29 +280,36 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Main Entity Rules
 
-**Not built.**
-
 - A work record is a first-class shared parent record, not just a string on a
   time entry.
 - A work record belongs to one job and one calendar day.
+<<<<<<< HEAD
 - A work record has one or more worker rows in `work_records_subjects`.
 - Each worker row belongs to exactly one employee (`uid`) and exactly one
+=======
+- A work record has one or more subject rows in `work_records_subjects`.
+- Each subject row belongs to exactly one employee (`uid`) and exactly one
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   parent work record.
 - A work record may optionally reference a parent work record (via
   `parent_work_record`) when created from `Copy To Tomorrow`, for lineage
   tracking only; numbering is independent.
 - A parent work record may be referenced indirectly by zero or more time
+<<<<<<< HEAD
   entries through its worker rows.
 - A worker row may be referenced by zero or one time entry through
+=======
+  entries through its subject rows.
+- A subject row may be referenced by zero or one time entry through
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   `time_entries.work_record_subject_id`.
 - A work record can exist before, during, or after field work.
 
 ### Approval Model
 
-**Not built.**
-
 - The old single boolean `work_records.approved` does not fit the shared-parent
   model by itself.
+<<<<<<< HEAD
 - Approval should become person-specific at the worker level:
   `work_records_subjects.approved` is a system-managed boolean.
 - A worker row becomes approved only when the manager approves the
@@ -310,6 +328,26 @@ to the linked-only mode above, not the hybrid transition phase.
 - If a related timesheet becomes unapproved, recalled, or rejected, the
   corresponding worker row's `approved` field should be set back to `false`.
 - Shared parent fields should unlock again only when no linked worker rows are
+=======
+- Approval should become person-specific at the subject level:
+  `work_records_subjects.approved` is a system-managed boolean.
+- A subject row becomes approved only when the manager approves the
+  `time_sheets` record that contains the `time_entries` row referencing that
+  subject.
+- When a subject row is approved, that subject row becomes locked for normal
+  editing.
+- Shared parent fields and shared consumables should lock as soon as any linked
+  subject row is approved, because those shared values are now part of an
+  approved accounting artifact.
+- The subject roster is part of the shared parent state for locking purposes:
+  after any subject row is approved, subject rows cannot be added, removed, or
+  reassigned.
+- Subject rows that are not yet individually approved may still have their
+  per-person values edited by their own subject user.
+- If a related timesheet becomes unapproved, recalled, or rejected, the
+  corresponding subject row's `approved` field should be set back to `false`.
+- Shared parent fields should unlock again only when no linked subject rows are
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   still approved.
 - Append-only notes remain allowed regardless of approval state.
 - The UI may show a derived parent status such as `Draft`, `Partially
@@ -318,24 +356,28 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Delete Rules
 
-**Not built.**
-
 - Deletion of work records is out of scope for the UI in this phase.
+<<<<<<< HEAD
 - A parent work record may only be deleted if no worker row is referenced by a
   time entry.
 - A worker row may only be deleted if no time entry references it via
+=======
+- A parent work record may only be deleted if no subject row is referenced by a
+  time entry.
+- A subject row may only be deleted if no time entry references it via
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   `work_record_subject_id`.
 - Deletion is restricted to superusers in the PocketBase backend.
 
 ### Permissions
 
-**Not built.** Today the `work_record` claim only lets a user open the
-read-only `/time/work-records` search, as the `report` claim also does. That
-search covers the work record values of all time entries.
-
 - A user must hold the `time` claim to create a work record for a crew that
   includes themselves. In the simple self-create case, `creator` is the current
+<<<<<<< HEAD
   user and the first worker row `uid` is also the current user.
+=======
+  user and the first subject row `uid` is also the current user.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - Holders of the `work_record` claim can create work records on behalf of other
   users who hold the `time` claim.
 - Users without the `work_record` claim cannot create work records solely for
@@ -348,31 +390,40 @@ search covers the work record values of all time entries.
   `work_records_type_consumables`.
 - Read access to first-class work record data should be limited to the relevant
   participants plus reporting access:
+<<<<<<< HEAD
   - `time` holders may read work records where they are a worker-row `uid`
+=======
+  - `time` holders may read work records where they are a subject-row `uid`
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   - work record `creator` visibility is independent of participation;
     creators may read work records they created
   - holders of the `report` claim may read all work records
   - `work_record` claim alone does not grant broad organization-wide read
     access beyond records the user created
 - `creator` is immutable after parent creation.
+<<<<<<< HEAD
 - Worker-row `uid` should be immutable after creation; replace the row instead
   of reassigning it.
 - Updates to shared parent fields are allowed to the `creator` and any worker
   row `uid` while no linked worker rows are approved.
 - Worker rows are created by the parent creator.
 - Updates to an unapproved worker row are restricted to that worker-row
+=======
+- Subject-row `uid` should be immutable after creation; replace the row instead
+  of reassigning it.
+- Updates to shared parent fields are allowed to the `creator` and any subject
+  row `uid` while no linked subject rows are approved.
+- Subject rows are created by the parent creator.
+- Updates to an unapproved subject row are restricted to that subject-row
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   `uid`.
 
 ## Phase 2 Data Model
-
-**Not built.**
 
 Phase 2 should introduce first-class collections plus the new time-entry
 relation.
 
 ### `work_records`
-
-**Not built.**
 
 Purpose:
 
@@ -442,12 +493,21 @@ Rules:
 - Duplicate attachments should be rejected by comparing `attachment_hash`
   against other work records.
 - Removing the attachment must also clear `attachment_hash`.
+<<<<<<< HEAD
 - Shared-parent edits are blocked when any linked worker row is approved.
 - Adding, removing, or reassigning worker rows is blocked when any linked
   worker row is approved.
 - Linked `work_records_consumable_entries` cannot be added, changed, or deleted
   when any linked worker row is approved.
 - Append-only notes remain allowed when some or all linked worker rows are
+=======
+- Shared-parent edits are blocked when any linked subject row is approved.
+- Adding, removing, or reassigning subject rows is blocked when any linked
+  subject row is approved.
+- Linked `work_records_consumable_entries` cannot be added, changed, or deleted
+  when any linked subject row is approved.
+- Append-only notes remain allowed when some or all linked subject rows are
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   approved.
 
 Indexes and constraints:
@@ -457,8 +517,6 @@ Indexes and constraints:
 - partial unique index on `attachment_hash` where the hash is non-empty
 
 ### `work_records_subjects`
-
-**Not built.**
 
 Purpose:
 
@@ -487,11 +545,16 @@ Rules:
 - `distance_travelled_km`, `vehicle_type`, `is_passenger`, and
   `company_vehicle_unit_number` should also live here unless follow-up
   stakeholder review identifies a truly shared crew-level exception.
+<<<<<<< HEAD
 - The number of worker rows for a parent must be greater than or equal to `1`
+=======
+- The number of subject rows for a parent must be greater than or equal to `1`
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   and less than or equal to the parent type's `max_subjects` value.
 - `uid` is immutable after creation.
 - The collection should enforce at most one row per `(work_record, uid)` so the
   same employee is not duplicated within the same shared parent.
+<<<<<<< HEAD
 - New worker rows may be created only by the parent work record `creator` and
   only while no worker row under the same parent is approved.
 - Worker rows may be deleted or replaced only by the parent work record
@@ -503,11 +566,27 @@ Rules:
   `hours_on_site + hours_travel_time`, a validation error must tell the user to
   either edit the work record worker row to match or create a separate time
   entry.
+=======
+- New subject rows may be created only by the parent work record `creator` and
+  only while no subject row under the same parent is approved.
+- Subject rows may be deleted or replaced only by the parent work record
+  `creator` and only while no subject row under the same parent is approved.
+- A subject row may be referenced by zero or one `time_entries` row through
+  `time_entries.work_record_subject_id`.
+- If a time entry references the subject row and the user edits that time
+  entry's hours so they no longer equal
+  `hours_on_site + hours_travel_time`, a validation error must tell the user to
+  either edit the work record subject to match or create a separate time entry.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - `company_vehicle_unit_number` is required when `vehicle_type = company`.
 - `company_vehicle_unit_number` must be empty when `vehicle_type = personal`.
 - Normal edits are blocked when `approved = true`.
 - `approved` is synchronized from the approval state of the related timesheet,
+<<<<<<< HEAD
   not directly edited on the worker row.
+=======
+  not directly edited on the subject row.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 
 Implementation note:
 
@@ -521,8 +600,6 @@ Indexes and constraints:
 - index on `(uid, created)`
 
 ### `work_records_notes`
-
-**Not built.**
 
 Purpose:
 
@@ -542,7 +619,11 @@ Rules:
 - Notes are append-only.
 - Notes cannot be edited or deleted.
 - Notes remain creatable after approval.
+<<<<<<< HEAD
 - Notes are readable by the note author, all worker-row `uid` users on the
+=======
+- Notes are readable by the note author, all subject-row `uid` users on the
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   parent work record, the parent work record `creator`, and holders of the
   `report` claim.
 - UI should remind users that notes may be visible to clients or used in client
@@ -559,8 +640,6 @@ Indexes:
 - index on `(work_record, created)`
 
 ### `work_records_types`
-
-**Not built.**
 
 Purpose:
 
@@ -582,6 +661,7 @@ Rules:
   work record of this type
 - `allow_lane_kms` controls whether `work_records.lane_kms` may be set for
   work records of this type
+<<<<<<< HEAD
 - `max_subjects` applies to new work records and future roster edits;
   decreasing it does not invalidate historical work records that already have
   more worker rows, but those records cannot add workers beyond the current
@@ -590,12 +670,16 @@ Rules:
   disabling it does not clear or invalidate historical `lane_kms` values, but
   future saves may not add or change `lane_kms` while the selected type
   disallows it
+=======
+- decreasing `max_subjects` should be blocked when existing work records of
+  that type already have more subject rows than the proposed value
+- disabling `allow_lane_kms` should be blocked when existing work records of
+  that type still have a `lane_kms` value
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - the implementation should not assume the earlier four-type list is complete
 - seeded / admin-managed records should set `active` explicitly
 
 ### `work_records_consumables`
-
-**Not built.**
 
 Purpose:
 
@@ -625,8 +709,6 @@ Notes:
 
 ### `work_records_type_consumables`
 
-**Not built.**
-
 Purpose:
 
 - defines which consumables are allowed for each work record type
@@ -653,8 +735,6 @@ Rules:
 - seeded / admin-managed records should set `active` explicitly
 
 ### `work_records_consumable_entries`
-
-**Not built.**
 
 Purpose:
 
@@ -693,7 +773,11 @@ Rules:
   referenced `work_record.type` by checking for a matching
   `work_records_type_consumables` row
 - create, update, and delete operations on this collection must fail when any
+<<<<<<< HEAD
   linked worker row on the parent work record is approved
+=======
+  linked subject row on the parent work record is approved
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - direct list / view access should follow the same visibility rules as the
   parent `work_records` record; normal mutations may be mediated through a
   backend endpoint rather than through unrestricted raw collection updates
@@ -719,8 +803,6 @@ Implementation note:
 
 ### Related `time_entries` Change
 
-**Not built.**
-
 Phase 2 also requires a schema change on `time_entries`.
 
 New field:
@@ -733,10 +815,17 @@ Behavior:
 - new work-record-aware flows should write and read
   `work_record_subject_id`
 - `time_entries.work_record_subject_id` should have a unique index so one
+<<<<<<< HEAD
   worker row cannot be linked to more than one time entry
 - validation should move from regex-only string validation toward relational
   validation against `work_records_subjects` plus its parent `work_records`
 - when linked, `time_entries.uid` must equal the worker row `uid`
+=======
+  subject row cannot be linked to more than one time entry
+- validation should move from regex-only string validation toward relational
+  validation against `work_records_subjects` plus its parent `work_records`
+- when linked, `time_entries.uid` must equal the subject row `uid`
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - the legacy `work_record` text field can remain searchable for historical
   audit/report compatibility during migration
 
@@ -744,12 +833,11 @@ Behavior:
 
 ### Create
 
-**Not built.**
-
 - User opens `Work Records` and creates a new shared parent record.
 - Default type comes from a user preference that each worker can view and
   update in their own profile settings. If no preference is set, no default is
   applied and the user must select a type manually.
+<<<<<<< HEAD
 - The create flow also creates at least one worker row.
 - The create flow must prevent the worker count from exceeding the selected
   type's `max_subjects`.
@@ -758,15 +846,18 @@ Behavior:
   lower `max_subjects` in the same save, omitted worker rows are pruned inside
   the transaction before the submitted roster is validated. If any later
   validation fails, the parent changes and pruned worker rows roll back together.
+=======
+- The create flow also creates at least one subject row.
+- The create flow must prevent the subject count from exceeding the selected
+  type's `max_subjects`.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - On first successful save, the backend assigns the next `W` number.
 - The user will first see the generated number after save succeeds.
 - After creation, the number is read-only and can never be edited.
 
 ### Copy To Tomorrow
 
-**Not built.** This is a plan for work records. It is not the time entry
-`copy_to_tomorrow` route, which exists.
-
+<<<<<<< HEAD
 - `Copy To Tomorrow` uses an existing work record as an editable template for
   the next related record.
 - It may be run from any work record in a lineage group.
@@ -788,12 +879,32 @@ Behavior:
 - The paper-copy PDF attachment is not copied.
 - If the source record already has a `parent_work_record`, the new record
   points at the same root parent, not at the source record.
+=======
+- `Copy To Tomorrow` pre-populates the editor with an existing shared parent
+  work record.
+- It may be run from any work record in a lineage group.
+- The copied record gets:
+  - a new independent backend-generated `WYYMM-NNNN` number
+  - tomorrow's date by default, but the date is editable before save
+  - `parent_work_record` set to the root parent record for the group
+  - `lane_kms` copied when the selected or inherited type allows lane
+    kilometres
+  - the same subject roster copied into new `work_records_subjects` rows,
+    including existing hours, travel, and vehicle/travel values
+- If the source record already has a `parent_work_record`, the new record
+  points at the same root parent, not at the source record.
+- If the selected or inherited type's `max_subjects` is lower than the source
+  roster size, the copy must be blocked with a clear validation error.
+- If the selected or inherited type does not allow lane kilometres, copied
+  records must leave `lane_kms` empty.
+- The unique `(work_record, uid)` constraint on subject rows still applies
+  within the copied parent.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - This is the only UI path that creates a linked work record lineage group.
 
 ### Complete
 
-**Not built.**
-
+<<<<<<< HEAD
 - The creator and any worker can fill shared fields, consumables, and notes
   until the first worker row is approved.
 - The creator creates the worker rows and may add or remove workers only
@@ -809,6 +920,15 @@ Behavior:
   but read-only.
 - After the first worker row is approved, the shared parent fields,
   consumables, and worker roster are locked.
+=======
+- The creator and any subject can fill shared fields, consumables, and notes
+  until the first subject row is approved.
+- The creator creates the subject rows.
+- Each subject can edit only their own subject row, and only until that row is
+  approved.
+- After the first subject row is approved, the shared parent fields,
+  consumables, and subject roster are locked.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - After the first successful save, the user may upload or replace a scanned
   paper-copy PDF attachment on the work record.
 - The detail and list views may expose the stored attachment as a direct file
@@ -818,13 +938,12 @@ Behavior:
 
 ### Time Entry Integration
 
-**Not built.**
-
 - The expected workflow is to complete the work record first, then create time
   entries from it.
 - A work record can exist independently before any time entries are created,
   and there is no dependency that requires a time entry to exist first.
 - The work record details page should expose `Create Time Entry` or
+<<<<<<< HEAD
   `Create Missing Time Entries` per worker when:
   - the current user is the worker-row `uid`
   - no time entry exists yet with `work_record_subject_id` equal to that
@@ -839,6 +958,17 @@ Behavior:
   - the parent `job`
   - the parent `date`
   - `hours = hours_on_site + hours_travel_time` from the worker row
+=======
+  `Create Missing Time Entries` per subject when:
+  - the current user is the subject-row `uid` or the work record `creator`
+  - no time entry exists yet with `work_record_subject_id` equal to that
+    subject row id
+- Clicking the action for one subject creates one time entry using:
+  - the subject-row `uid`
+  - the parent `job`
+  - the parent `date`
+  - `hours = hours_on_site + hours_travel_time` from the subject row
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   - `work_record_subject_id = work_records_subjects.id`
   - `description` derived from parent work record content
 - The legacy `time_entries.work_record` text should not be the primary link for
@@ -846,11 +976,19 @@ Behavior:
 
 Hours validation:
 
+<<<<<<< HEAD
 - if a time entry references a work record worker row via
   `work_record_subject_id`, its hours must equal that worker row's
   `hours_on_site + hours_travel_time`
 - if the user edits the time entry so the hours no longer match, a validation
   error must tell the user to either edit the work record worker row to correct
+=======
+- if a time entry references a work record subject via
+  `work_record_subject_id`, its hours must equal that subject row's
+  `hours_on_site + hours_travel_time`
+- if the user edits the time entry so the hours no longer match, a validation
+  error must tell the user to either edit the work record subject to correct
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   the hours or create a separate time entry that is not linked to the work
   record
 
@@ -861,8 +999,7 @@ Recommendation:
 
 ### Approval And Reopen
 
-**Not built.**
-
+<<<<<<< HEAD
 - When a time entry referencing a worker row becomes part of an approved
   timesheet, mark that worker row approved and prevent normal edits to that
   worker row.
@@ -872,12 +1009,21 @@ Recommendation:
 - If a timesheet is unapproved, recalled, or rejected, clear approval on the
   linked worker row.
 - Shared fields and the worker roster unlock only when no worker rows under
+=======
+- When a time entry referencing a subject row becomes part of an approved
+  timesheet, mark that subject row approved and prevent normal edits to that
+  subject row.
+- While any subject row under a parent is approved, the system must also block
+  create, update, and delete operations on the shared parent fields, subject
+  roster, and linked `work_records_consumable_entries`.
+- If a timesheet is unapproved, recalled, or rejected, clear approval on the
+  linked subject row.
+- Shared fields and the subject roster unlock only when no subject rows under
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   that parent remain approved.
 - Notes remain append-only regardless of approval state.
 
 ## UI
-
-**Not built.**
 
 Recommended navigation under `Time Management`:
 
@@ -903,6 +1049,7 @@ Editor requirements:
 
 - shared parent section for date/job/type/location/work description and other
   crew-level fields
+<<<<<<< HEAD
 - worker rows section that supports one or more participants and is visible to
   every authorized editor
 - non-creator worker users can edit only their own worker-row fields while
@@ -916,6 +1063,12 @@ Editor requirements:
   input whenever possible; custom route errors for `work_records_subjects`
   should use indexed keys such as `subjects_0_hours_on_site` so multi-worker
   forms do not hide per-worker failures
+=======
+- subject rows section that supports one or more participants
+- subject row count limited by the selected work record type's `max_subjects`
+- lane kilometres input shown only when the selected work record type has
+  `allow_lane_kms = true`
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - consumables section driven by `work_records_type_consumables`
 - numeric inputs for `input_kind = number`
 - checkbox inputs for `input_kind = boolean`
@@ -954,18 +1107,20 @@ Print route:
 
 Job details page:
 
+<<<<<<< HEAD
 - surface all work records for that job with at least one worker row linked to
+=======
+- surface all work records for that job with at least one subject row linked to
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   an approved timesheet
 - paginate the approved work-record list when the job has many work records
 - move this job-scoped approved-record surface onto a first-class job tab
-  beside `POs`
-
-**Not built.** Today `/time/work-records` is the read-only search of work
-record text.
+  beside `Active POs`
 
 Main list behavior:
 
 - `/time/work-records` is the single navigation entry point for work records
+<<<<<<< HEAD
 - by default, it shows records where the caller is either a worker-row `uid`
   or the `creator`
 - each visible work record appears once, even when the caller is both creator
@@ -978,6 +1133,10 @@ Main list behavior:
 - list-level create/open time-entry actions should be scoped only to the
   caller's own worker row; record-level management happens by opening the
   detail page and then editing the work record
+=======
+- by default, it shows records where the caller is either a subject-row `uid`
+  or the `creator`
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - holders of the `report` claim get a top-right scope toggle:
   `Mine/Created` vs `All`
 - the default scope for report holders is `Mine/Created`
@@ -990,13 +1149,12 @@ Main list behavior:
 
 ## Reporting
 
-**Not built.** Turbo has no `/reports/work-records` page.
-
 Reporting should cover operations and billing readiness, but not PDF/export in
 this phase.
 
 Minimum useful reports:
 
+<<<<<<< HEAD
 - work records with no worker time entries
 - work record workers with no referencing time entry
 - work record workers not referenced by an approved timesheet
@@ -1005,7 +1163,13 @@ Minimum useful reports:
   time entry, and the pending approval report includes a parent when any worker
   row is not approved, even if other worker rows on the same parent are already
   linked or approved
+=======
+- work records with no subject time entries
+- work record subjects with no referencing time entry
+- work record subjects not referenced by an approved timesheet
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - work records by job, employee, date range, and type
+- lane kilometre usage by job, date range, and type for billing support
 - consumable usage by consumable across work records, without requiring
   reporting queries to join through the type-allowlist table just to resolve
   the consumable identity
@@ -1018,8 +1182,6 @@ Future reporting work:
 ## Migration And Compatibility
 
 ### Existing Behavior To Preserve Initially
-
-**Not built.**
 
 - existing `time_entries.work_record` values must remain valid for historical
   data
@@ -1035,13 +1197,15 @@ Future reporting work:
 
 ### Uniqueness Constraint Change
 
-**Not built.** Only the first bullet describes Turbo today.
-
 - The existing system enforces work record string uniqueness per timesheet
   only; the same string cannot appear on two time entries in the same
   timesheet.
 - The revised model does not enforce one time entry per shared work record.
+<<<<<<< HEAD
 - Instead, it enforces one time entry per worker row: each
+=======
+- Instead, it enforces one time entry per subject row: each
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   `work_records_subjects` record can be referenced by at most one time entry
   via `time_entries.work_record_subject_id`.
 - This is a better match for the real crew workflow and avoids over-tightening
@@ -1049,10 +1213,9 @@ Future reporting work:
 
 ### Approval Hook Integration
 
-**Not built.**
-
 - The existing timesheet approval/unapproval hooks must be extended to fan out
   to `work_records_subjects`.
+<<<<<<< HEAD
 - When a timesheet is approved, all worker rows referenced by that timesheet's
   time entries (via `work_record_subject_id`) must have their `approved` field
   set to `true`.
@@ -1062,11 +1225,20 @@ Future reporting work:
   row under that parent remains approved.
 - Worker roster locking should use the same derived parent lock state, so
   worker rows cannot be added, removed, or reassigned while any child worker
+=======
+- When a timesheet is approved, all subject rows referenced by that timesheet's
+  time entries (via `work_record_subject_id`) must have their `approved` field
+  set to `true`.
+- When a timesheet is unapproved, recalled, or rejected, the corresponding
+  subject rows must have `approved` set back to `false`.
+- Shared parent edit locking should be derived from whether any child subject
+  row under that parent remains approved.
+- Subject roster locking should use the same derived parent lock state, so
+  subject rows cannot be added, removed, or reassigned while any child subject
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   row remains approved.
 
 ### Recommended Transition Strategy
-
-**Not built.**
 
 Rollout should avoid breaking historical reporting:
 
@@ -1087,8 +1259,6 @@ become the required editing and operational workflow.
 
 ## Remaining Open Questions
 
-**Not built.** These questions are still open.
-
 - Should `sub_contractor` stay freeform in v1, or should it reference a vendor
   list?
 - Should users be allowed to create records after the work date without special
@@ -1107,11 +1277,13 @@ become the required editing and operational workflow.
 
 ### Phase 1: Completed Decisions
 
-**Not built.** These are decisions only. No code implements them.
-
 - new work records use backend-generated `W` numbers
 - work records are shared parent records with child `work_records_subjects`
+<<<<<<< HEAD
 - `creator` stays on `work_records`; `uid` moves to worker rows
+=======
+- `creator` stays on `work_records`; `uid` moves to subject rows
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - `uid`, `hours_on_site`, and `hours_travel_time` move to
   `work_records_subjects`
 - per-person travel / vehicle fields should also move to
@@ -1119,7 +1291,11 @@ become the required editing and operational workflow.
 - `time_entries.work_record_subject_id` becomes the new relational link
 - `time_entries.work_record` stays for historical compatibility
 - work record type lives on `work_records`
+<<<<<<< HEAD
 - `work_records_types.max_subjects` limits the number of worker rows per work
+=======
+- `work_records_types.max_subjects` limits the number of subject rows per work
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   record and must be at least `1`
 - `work_records.lane_kms` supports invoicing for selected work record types,
   controlled by `work_records_types.allow_lane_kms`
@@ -1128,14 +1304,16 @@ become the required editing and operational workflow.
   remain the type-specific allowlist and ordering source
 - related work records come only from `Copy To Tomorrow`, each with its own
   independent number
+<<<<<<< HEAD
 - worker approval is system-managed and driven by timesheet approval state
+=======
+- subject approval is system-managed and driven by timesheet approval state
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - scanned paper-copy PDF attachment support is in scope
 - Turbo-generated browser printing is in scope through a print-friendly route
   that shows the complete worker roster
 
 ### Phase 2: Data Model And Backend
-
-**Not built.**
 
 - add `work_records`
 - add `work_records_subjects`
@@ -1151,6 +1329,7 @@ become the required editing and operational workflow.
 - add consumable validation based on direct `consumable` references, type
   allowlists, and input kind
 - add approval-aware hooks so `work_records_consumable_entries` cannot be
+<<<<<<< HEAD
   created, updated, or deleted while any child worker row is approved
 - add validation enforcing `work_records_types.max_subjects` when creating or
   updating worker rows and when changing a work record's type, without making
@@ -1165,6 +1344,20 @@ become the required editing and operational workflow.
   existing timesheet approval hooks to fan out to referenced worker rows
 - add unique index on `time_entries.work_record_subject_id` to enforce the
   one-time-entry-per-worker relationship, with a hook to surface constraint
+=======
+  created, updated, or deleted while any child subject row is approved
+- add validation enforcing `work_records_types.max_subjects` when creating or
+  updating subject rows and when changing a work record's type
+- add validation enforcing `work_records_types.allow_lane_kms` when setting
+  `work_records.lane_kms` and when changing a work record's type
+- add validation on `work_records.type` updates so incompatible existing
+  consumable entries, excessive subject counts, or invalid `lane_kms` values
+  block save until resolved
+- add approval/unapproval synchronization with timesheet workflow by extending
+  existing timesheet approval hooks to fan out to referenced subject rows
+- add unique index on `time_entries.work_record_subject_id` to enforce the
+  one-time-entry-per-subject relationship, with a hook to surface constraint
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
   violations to the user
 - update time-entry validation to support participant-linked work records
 - add optional paper-copy PDF attachment support on `work_records`, including
@@ -1172,12 +1365,11 @@ become the required editing and operational workflow.
 
 ### Phase 3: UI
 
-**Not built.**
-
 - replace the current read-only audit/search work-record surface with the
   first-class work records list, with contents filtered according to the
   caller's visibility, plus real work record create/edit/detail flows
 - add list, create, edit, detail, and copy-to-tomorrow flows
+<<<<<<< HEAD
 - add multi-worker editor UI
 - add `max_subjects` handling to the type-driven worker row editor
 - add type-driven `lane_kms` input visibility and validation
@@ -1187,14 +1379,25 @@ become the required editing and operational workflow.
 - add paper-copy PDF attachment UI on the edit/detail/list surfaces
 - add a print-friendly work-record route and detail-page `Print` action with
   all worker rows included
+=======
+- add multi-subject editor UI
+- add `max_subjects` handling to the type-driven subject row editor
+- add type-driven `lane_kms` input visibility and validation
+- add consumables UI driven by selected type
+- add per-subject create-time-entry action
+- add note guidance disclosure UI
+- add paper-copy PDF attachment UI on the edit/detail/list surfaces
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - move job-level approved work records into a first-class job tab
 
 ### Phase 4: Reporting
 
-**Not built.**
-
 - add incomplete/unlinked work-record reports
+<<<<<<< HEAD
 - add worker-level "missing time entry" and "not yet approved" reports
+=======
+- add subject-level "missing time entry" and "not yet approved" reports
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
 - add job-level visibility
 - keep historical reporting surfaces working with legacy
   `time_entries.work_record` text until each report is migrated to the new
@@ -1205,8 +1408,6 @@ become the required editing and operational workflow.
 
 ### Phase 5: Print-Friendly Output
 
-**Not built.**
-
 - add a dedicated `/time/work-records/{id}/print` route
 - add a `Print` action from the work-record detail page
 - follow the existing purchase-order print pattern: open a print-friendly page
@@ -1216,8 +1417,6 @@ become the required editing and operational workflow.
   format used in the field and office workflow
 
 ### Phase 6: Migration Cleanup
-
-**Not built.**
 
 - review whether legacy `time_entries.work_record` can eventually become
   historical-only
@@ -1230,5 +1429,10 @@ become the required editing and operational workflow.
 
 The next concrete step is to turn the revised Phase 2 into an implementation
 checklist: PocketBase collections, migration order, validation changes on
+<<<<<<< HEAD
 `time_entries`, parent-vs-worker approval hooks, and `Copy To Tomorrow`
 behavior for worker-row cloning.
+=======
+`time_entries`, parent-vs-subject approval hooks, and `Copy To Tomorrow`
+behavior for subject-row cloning.
+>>>>>>> d65506a8 (Revise work records spec after stakeholder consultation)
