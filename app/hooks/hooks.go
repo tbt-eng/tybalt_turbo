@@ -396,21 +396,21 @@ func AddHooks(app core.App) {
 		return e.Next()
 	})
 	syncTimeEntryWorkRecordApproval := func(e *core.RecordEvent) error {
-		var originalWorkRecordID string
+		var originalWorkRecordSubjectID string
 		if original := e.Record.Original(); original != nil {
-			originalWorkRecordID = original.GetString("work_record_id")
+			originalWorkRecordSubjectID = original.GetString("work_record_subject_id")
 		}
 
-		return workrecords.SyncApprovalForWorkRecordIDs(
+		return workrecords.SyncApprovalForWorkRecordSubjectIDs(
 			e.App,
-			originalWorkRecordID,
-			e.Record.GetString("work_record_id"),
+			originalWorkRecordSubjectID,
+			e.Record.GetString("work_record_subject_id"),
 		)
 	}
 	app.OnRecordAfterCreateSuccess("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
 	app.OnRecordAfterUpdateSuccess("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
 	app.OnRecordAfterDeleteSuccess("time_entries").BindFunc(func(e *core.RecordEvent) error {
-		return workrecords.SyncApprovalForWorkRecordIDs(e.App, e.Record.GetString("work_record_id"))
+		return workrecords.SyncApprovalForWorkRecordSubjectIDs(e.App, e.Record.GetString("work_record_subject_id"))
 	})
 	timeEntriesGateHook := func(e *core.RecordRequestEvent) error {
 		enabled, err := utilities.IsTimeEditingEnabled(app)
@@ -483,6 +483,24 @@ func AddHooks(app core.App) {
 	})
 	app.OnRecordDeleteRequest("work_records").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ValidateWorkRecordDelete(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordCreateRequest("work_records_subjects").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordSubject(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordUpdateRequest("work_records_subjects").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordSubject(app, e.Record); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordDeleteRequest("work_records_subjects").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ValidateWorkRecordSubjectDelete(app, e.Record); err != nil {
 			return AnnotateHookError(app, e, err)
 		}
 		return e.Next()

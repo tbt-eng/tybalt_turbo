@@ -82,6 +82,8 @@ func init() {
 			record := core.NewRecord(collection)
 			record.Set("id", seed.id)
 			record.Set("name", seed.name)
+			record.Set("max_subjects", 1)
+			record.Set("allow_lane_kms", false)
 			record.Set("sort_order", seed.sortOrder)
 			record.Set("active", true)
 

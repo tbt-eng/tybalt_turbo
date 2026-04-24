@@ -48,8 +48,8 @@ func createGetTimeSheetDetailsHandler(app core.App) func(e *core.RequestEvent) e
 		}
 
 		expandFields := []string{"job", "time_type", "division", "category", "role"}
-		if len(items) > 0 && items[0].Collection().Fields.GetByName("work_record_id") != nil {
-			expandFields = append(expandFields, "work_record_id")
+		if len(items) > 0 && items[0].Collection().Fields.GetByName("work_record_subject_id") != nil {
+			expandFields = append(expandFields, "work_record_subject_id", "work_record_subject_id.work_record")
 		}
 		if errs := app.ExpandRecords(items, expandFields, nil); len(errs) > 0 {
 			// Keep the custom details route readable even if a fixture DB or

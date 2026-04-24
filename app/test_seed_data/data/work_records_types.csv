@@ -1,5 +1,6 @@
-active,id,name,sort_order
-1,oask5u50nka0km8,Survey,30
-1,rqayp9yoz1qe6ui,General,10
-1,4k4nxilem8k10cu,Drilling & Field Services,20
-1,up9ndzdnyzv8snx,Environmental,40
+active,id,name,sort_order,allow_lane_kms,max_subjects
+1,oask5u50nka0km8,Survey,30,0,1
+1,rqayp9yoz1qe6ui,General,10,0,2
+1,4k4nxilem8k10cu,Drilling & Field Services,20,0,3
+1,up9ndzdnyzv8snx,Environmental,40,0,1
+1,lanekmstype0001,Lane Kms Test,50,1,2

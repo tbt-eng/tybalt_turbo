@@ -1,13 +1,10 @@
 // Package workrecords contains work-record-specific domain logic that does not
 // fit cleanly inside a single route, hook, or migration.
 //
-// This file exists to keep the derived work_records.approved flag synchronized
+// This file exists to keep the work_records_subjects.approved flag synchronized
 // with the real approval state of the linked time-entry/timesheet workflow.
-// The feature added in this branch makes time_entries.work_record_id the
-// canonical one-to-one link between a time entry and a work record, but a work
-// record's "approved" state is still determined indirectly: a linked time entry
-// must belong to a timesheet, that timesheet must be approved, and it must not
-// be rejected.
+// The feature added in this branch makes time_entries.work_record_subject_id the
+// canonical one-to-one link between a time entry and a work record subject.
 //
 // Multiple code paths can change that derived truth:
 // creating or editing a linked time entry, bundling and unbundling a timesheet,
@@ -19,7 +16,7 @@
 // The implementation intentionally re-queries the database rather than trusting
 // route-local assumptions. That keeps the behavior correct across standalone and
 // bundled entries, avoids stale in-memory decisions, and lets callers stay
-// small: they only need to identify which work record IDs or timesheet ID may
+// small: they only need to identify which subject IDs or timesheet ID may
 // have changed, then delegate the recomputation here.
 package workrecords
 
@@ -53,7 +50,7 @@ func uniqueNonEmptyIDs(ids ...string) []string {
 	return result
 }
 
-func shouldApproveWorkRecord(app core.App, workRecordID string) (bool, error) {
+func shouldApproveWorkRecordSubject(app core.App, subjectID string) (bool, error) {
 	var row approvalStateRow
 	err := app.DB().NewQuery(`
 		SELECT EXISTS(
@@ -61,13 +58,13 @@ func shouldApproveWorkRecord(app core.App, workRecordID string) (bool, error) {
 			FROM time_entries te
 			JOIN time_sheets ts
 			  ON ts.id = te.tsid
-			WHERE te.work_record_id = {:workRecordId}
+			WHERE te.work_record_subject_id = {:subjectId}
 			  AND te.tsid != ''
 			  AND ts.approved != ''
 			  AND ts.rejected = ''
 		) AS approved
 	`).Bind(dbx.Params{
-		"workRecordId": workRecordID,
+		"subjectId": subjectID,
 	}).One(&row)
 	if err != nil {
 		return false, err
@@ -76,24 +73,24 @@ func shouldApproveWorkRecord(app core.App, workRecordID string) (bool, error) {
 	return row.Approved, nil
 }
 
-// SyncApprovalForWorkRecordIDs recomputes and persists the approved flag for
-// each referenced work record.
+// SyncApprovalForWorkRecordSubjectIDs recomputes and persists the approved flag
+// for each referenced work record subject.
 //
-// Callers pass the set of work record IDs whose linkage or approval context may
+// Callers pass the set of subject IDs whose linkage or approval context may
 // have changed. The function deduplicates IDs, ignores blanks, skips missing
-// records defensively, and then asks shouldApproveWorkRecord whether each record
+// records defensively, and then asks shouldApproveWorkRecordSubject whether each row
 // currently has at least one linked time entry on an approved, non-rejected
 // timesheet. The stored approved flag is only updated when the derived state
 // actually differs, which keeps no-op transitions cheap.
-func SyncApprovalForWorkRecordIDs(app core.App, ids ...string) error {
+func SyncApprovalForWorkRecordSubjectIDs(app core.App, ids ...string) error {
 	for _, id := range uniqueNonEmptyIDs(ids...) {
-		approved, err := shouldApproveWorkRecord(app, id)
+		approved, err := shouldApproveWorkRecordSubject(app, id)
 		if err != nil {
 			return err
 		}
 
 		if _, err := app.DB().NewQuery(`
-			UPDATE work_records
+			UPDATE work_records_subjects
 			SET approved = {:approved}
 			WHERE id = {:id}
 		`).Bind(dbx.Params{
@@ -107,12 +104,13 @@ func SyncApprovalForWorkRecordIDs(app core.App, ids ...string) error {
 	return nil
 }
 
-// SyncApprovalForTimeSheet finds every work record linked through the specified
-// timesheet and then delegates to SyncApprovalForWorkRecordIDs.
+// SyncApprovalForTimeSheet finds every work record subject linked through the
+// specified timesheet and then delegates to SyncApprovalForWorkRecordSubjectIDs.
 //
 // This helper exists so routes that mutate a whole timesheet do not need to
-// manually discover every distinct linked work record themselves. It treats the
-// timesheet as the unit of change, queries the current linked work_record_id
+// manually discover every distinct linked subject themselves. It treats the
+// timesheet as the unit of change, queries the current linked
+// work_record_subject_id
 // values, and recomputes approval from that fresh database state.
 func SyncApprovalForTimeSheet(app core.App, timeSheetID string) error {
 	timeSheetID = strings.TrimSpace(timeSheetID)
@@ -121,15 +119,15 @@ func SyncApprovalForTimeSheet(app core.App, timeSheetID string) error {
 	}
 
 	type row struct {
-		WorkRecordID string `db:"work_record_id"`
+		SubjectID string `db:"work_record_subject_id"`
 	}
 
 	var rows []row
 	if err := app.DB().NewQuery(`
-		SELECT DISTINCT te.work_record_id
+		SELECT DISTINCT te.work_record_subject_id
 		FROM time_entries te
 		WHERE te.tsid = {:timeSheetId}
-		  AND te.work_record_id != ''
+		  AND te.work_record_subject_id != ''
 	`).Bind(dbx.Params{
 		"timeSheetId": timeSheetID,
 	}).All(&rows); err != nil {
@@ -138,8 +136,8 @@ func SyncApprovalForTimeSheet(app core.App, timeSheetID string) error {
 
 	ids := make([]string, 0, len(rows))
 	for _, row := range rows {
-		ids = append(ids, row.WorkRecordID)
+		ids = append(ids, row.SubjectID)
 	}
 
-	return SyncApprovalForWorkRecordIDs(app, ids...)
+	return SyncApprovalForWorkRecordSubjectIDs(app, ids...)
 }

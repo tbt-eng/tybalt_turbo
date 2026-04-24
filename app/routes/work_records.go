@@ -24,34 +24,29 @@ const (
 )
 
 type WorkRecordListRow struct {
-	ID                         string `db:"id" json:"id"`
-	WorkRecord                 string `db:"work_record" json:"work_record"`
-	Date                       string `db:"date" json:"date"`
-	UID                        string `db:"uid" json:"uid"`
-	OwnerName                  string `db:"owner_name" json:"owner_name"`
-	Creator                    string `db:"creator" json:"creator"`
-	JobID                      string `db:"job_id" json:"job_id"`
-	JobNumber                  string `db:"job_number" json:"job_number"`
-	TypeID                     string `db:"type_id" json:"type_id"`
-	TypeName                   string `db:"type_name" json:"type_name"`
-	Location                   string `db:"location" json:"location"`
-	WorkDescription            string `db:"work_description" json:"work_description"`
-	Attachment                 string `db:"attachment" json:"attachment"`
-	Approved                   bool   `db:"approved" json:"approved"`
-	LinkedTimeEntryID          string `db:"linked_time_entry_id" json:"linked_time_entry_id"`
-	LinkedTimeSheetID          string `db:"linked_timesheet_id" json:"linked_timesheet_id"`
-	LinkedTimeEntryDate        string `db:"linked_time_entry_date" json:"linked_time_entry_date"`
-	LinkedTimeEntryDescription string `db:"linked_time_entry_description" json:"linked_time_entry_description"`
-	SearchText                 string `json:"search_text"`
-	CanCreateTimeEntry         bool   `json:"can_create_time_entry"`
-}
-
-type linkedWorkRecordEntryRow struct {
-	LinkedTimeEntryID          string `db:"linked_time_entry_id" json:"linked_time_entry_id"`
-	LinkedTimeSheetID          string `db:"linked_timesheet_id" json:"linked_timesheet_id"`
-	LinkedTimeEntryDate        string `db:"linked_time_entry_date" json:"linked_time_entry_date"`
-	LinkedTimeEntryDescription string `db:"linked_time_entry_description" json:"linked_time_entry_description"`
-	LinkedTimeSheetWeekEnding  string `db:"linked_timesheet_week_ending" json:"linked_timesheet_week_ending"`
+	ID                         string                      `db:"id" json:"id"`
+	WorkRecord                 string                      `db:"work_record" json:"work_record"`
+	Date                       string                      `db:"date" json:"date"`
+	UID                        string                      `db:"uid" json:"uid"`
+	OwnerName                  string                      `db:"owner_name" json:"owner_name"`
+	Creator                    string                      `db:"creator" json:"creator"`
+	JobID                      string                      `db:"job_id" json:"job_id"`
+	JobNumber                  string                      `db:"job_number" json:"job_number"`
+	TypeID                     string                      `db:"type_id" json:"type_id"`
+	TypeName                   string                      `db:"type_name" json:"type_name"`
+	Location                   string                      `db:"location" json:"location"`
+	WorkDescription            string                      `db:"work_description" json:"work_description"`
+	Attachment                 string                      `db:"attachment" json:"attachment"`
+	Approved                   bool                        `db:"approved" json:"approved"`
+	LinkedTimeEntryID          string                      `db:"linked_time_entry_id" json:"linked_time_entry_id"`
+	LinkedTimeSheetID          string                      `db:"linked_timesheet_id" json:"linked_timesheet_id"`
+	LinkedTimeEntryDate        string                      `db:"linked_time_entry_date" json:"linked_time_entry_date"`
+	LinkedTimeEntryDescription string                      `db:"linked_time_entry_description" json:"linked_time_entry_description"`
+	SearchText                 string                      `json:"search_text"`
+	CanCreateTimeEntry         bool                        `json:"can_create_time_entry"`
+	SubjectCount               int                         `db:"subject_count" json:"subject_count"`
+	ApprovedSubjectCount       int                         `db:"approved_subject_count" json:"approved_subject_count"`
+	Subjects                   []WorkRecordSubjectResponse `json:"subjects"`
 }
 
 type WorkRecordNoteResponse struct {
@@ -73,6 +68,27 @@ type WorkRecordConsumableResponse struct {
 	BooleanSelected bool    `db:"boolean_selected" json:"boolean_selected"`
 }
 
+type WorkRecordSubjectResponse struct {
+	ID                         string  `db:"id" json:"id"`
+	WorkRecordID               string  `db:"work_record" json:"work_record_id"`
+	UID                        string  `db:"uid" json:"uid"`
+	OwnerName                  string  `db:"owner_name" json:"owner_name"`
+	HoursOnSite                float64 `db:"hours_on_site" json:"hours_on_site"`
+	HoursTravelTime            float64 `db:"hours_travel_time" json:"hours_travel_time"`
+	DistanceTravelledKM        float64 `db:"distance_travelled_km" json:"distance_travelled_km"`
+	VehicleType                string  `db:"vehicle_type" json:"vehicle_type"`
+	IsPassenger                bool    `db:"is_passenger" json:"is_passenger"`
+	CompanyVehicleUnitNumber   string  `db:"company_vehicle_unit_number" json:"company_vehicle_unit_number"`
+	Approved                   bool    `db:"approved" json:"approved"`
+	LinkedTimeEntryID          string  `db:"linked_time_entry_id" json:"linked_time_entry_id"`
+	LinkedTimeSheetID          string  `db:"linked_timesheet_id" json:"linked_timesheet_id"`
+	LinkedTimeEntryDate        string  `db:"linked_time_entry_date" json:"linked_time_entry_date"`
+	LinkedTimeEntryDescription string  `db:"linked_time_entry_description" json:"linked_time_entry_description"`
+	LinkedTimeSheetWeekEnding  string  `db:"linked_timesheet_week_ending" json:"linked_timesheet_week_ending"`
+	CanCreateTimeEntry         bool    `json:"can_create_time_entry"`
+	CanEdit                    bool    `json:"can_edit"`
+}
+
 type WorkRecordDetailResponse struct {
 	ID                         string                         `json:"id"`
 	WorkRecord                 string                         `json:"work_record"`
@@ -91,6 +107,7 @@ type WorkRecordDetailResponse struct {
 	Location                   string                         `json:"location"`
 	WorkDescription            string                         `json:"work_description"`
 	ReportTo                   string                         `json:"report_to"`
+	LaneKms                    float64                        `json:"lane_kms"`
 	HoursOnSite                float64                        `json:"hours_on_site"`
 	HoursTravelTime            float64                        `json:"hours_travel_time"`
 	DistanceTravelledKM        float64                        `json:"distance_travelled_km"`
@@ -117,6 +134,7 @@ type WorkRecordDetailResponse struct {
 	CanCopyToTomorrow          bool                           `json:"can_copy_to_tomorrow"`
 	CanEdit                    bool                           `json:"can_edit"`
 	CanAddNote                 bool                           `json:"can_add_note"`
+	Subjects                   []WorkRecordSubjectResponse    `json:"subjects"`
 	Notes                      []WorkRecordNoteResponse       `json:"notes"`
 	Consumables                []WorkRecordConsumableResponse `json:"consumables"`
 }
@@ -129,48 +147,50 @@ type WorkRecordSaveConsumableRequest struct {
 	BooleanSelected bool    `json:"boolean_selected"`
 }
 
+type WorkRecordSubjectSaveRequest struct {
+	ID                       string  `json:"id"`
+	UID                      string  `json:"uid"`
+	HoursOnSite              float64 `json:"hours_on_site"`
+	HoursTravelTime          float64 `json:"hours_travel_time"`
+	DistanceTravelledKM      float64 `json:"distance_travelled_km"`
+	VehicleType              string  `json:"vehicle_type"`
+	IsPassenger              bool    `json:"is_passenger"`
+	CompanyVehicleUnitNumber string  `json:"company_vehicle_unit_number"`
+}
+
 type WorkRecordCreateRequest struct {
-	UID                      string                            `json:"uid"`
-	Date                     string                            `json:"date"`
-	Job                      string                            `json:"job"`
-	Type                     string                            `json:"type"`
-	Location                 string                            `json:"location"`
-	WorkDescription          string                            `json:"work_description"`
-	ReportTo                 string                            `json:"report_to"`
-	HoursOnSite              float64                           `json:"hours_on_site"`
-	HoursTravelTime          float64                           `json:"hours_travel_time"`
-	DistanceTravelledKM      float64                           `json:"distance_travelled_km"`
-	FieldBookNumber          string                            `json:"field_book_number"`
-	FieldBookPageNumber      any                               `json:"field_book_page_number"`
-	SubContractor            string                            `json:"sub_contractor"`
-	Equipment                string                            `json:"equipment"`
-	Supplies                 string                            `json:"supplies"`
-	VehicleType              string                            `json:"vehicle_type"`
-	IsPassenger              bool                              `json:"is_passenger"`
-	CompanyVehicleUnitNumber string                            `json:"company_vehicle_unit_number"`
-	Consumables              []WorkRecordSaveConsumableRequest `json:"consumables"`
-	CopyFromWorkRecordID     string                            `json:"copy_from_work_record_id"`
+	Date                 string                            `json:"date"`
+	Job                  string                            `json:"job"`
+	Type                 string                            `json:"type"`
+	Location             string                            `json:"location"`
+	WorkDescription      string                            `json:"work_description"`
+	ReportTo             string                            `json:"report_to"`
+	LaneKms              float64                           `json:"lane_kms"`
+	FieldBookNumber      string                            `json:"field_book_number"`
+	FieldBookPageNumber  any                               `json:"field_book_page_number"`
+	SubContractor        string                            `json:"sub_contractor"`
+	Equipment            string                            `json:"equipment"`
+	Supplies             string                            `json:"supplies"`
+	Subjects             []WorkRecordSubjectSaveRequest    `json:"subjects"`
+	Consumables          []WorkRecordSaveConsumableRequest `json:"consumables"`
+	CopyFromWorkRecordID string                            `json:"copy_from_work_record_id"`
 }
 
 type WorkRecordSaveRequest struct {
-	Date                     string                            `json:"date"`
-	Job                      string                            `json:"job"`
-	Type                     string                            `json:"type"`
-	Location                 string                            `json:"location"`
-	WorkDescription          string                            `json:"work_description"`
-	ReportTo                 string                            `json:"report_to"`
-	HoursOnSite              float64                           `json:"hours_on_site"`
-	HoursTravelTime          float64                           `json:"hours_travel_time"`
-	DistanceTravelledKM      float64                           `json:"distance_travelled_km"`
-	FieldBookNumber          string                            `json:"field_book_number"`
-	FieldBookPageNumber      any                               `json:"field_book_page_number"`
-	SubContractor            string                            `json:"sub_contractor"`
-	Equipment                string                            `json:"equipment"`
-	Supplies                 string                            `json:"supplies"`
-	VehicleType              string                            `json:"vehicle_type"`
-	IsPassenger              bool                              `json:"is_passenger"`
-	CompanyVehicleUnitNumber string                            `json:"company_vehicle_unit_number"`
-	Consumables              []WorkRecordSaveConsumableRequest `json:"consumables"`
+	Date                string                            `json:"date"`
+	Job                 string                            `json:"job"`
+	Type                string                            `json:"type"`
+	Location            string                            `json:"location"`
+	WorkDescription     string                            `json:"work_description"`
+	ReportTo            string                            `json:"report_to"`
+	LaneKms             float64                           `json:"lane_kms"`
+	FieldBookNumber     string                            `json:"field_book_number"`
+	FieldBookPageNumber any                               `json:"field_book_page_number"`
+	SubContractor       string                            `json:"sub_contractor"`
+	Equipment           string                            `json:"equipment"`
+	Supplies            string                            `json:"supplies"`
+	Subjects            []WorkRecordSubjectSaveRequest    `json:"subjects"`
+	Consumables         []WorkRecordSaveConsumableRequest `json:"consumables"`
 }
 
 type WorkRecordSaveResponse struct {
@@ -194,6 +214,7 @@ type WorkRecordCopyDraftResponse struct {
 	Location                 string                         `json:"location"`
 	WorkDescription          string                         `json:"work_description"`
 	ReportTo                 string                         `json:"report_to"`
+	LaneKms                  float64                        `json:"lane_kms"`
 	HoursOnSite              float64                        `json:"hours_on_site"`
 	HoursTravelTime          float64                        `json:"hours_travel_time"`
 	DistanceTravelledKM      float64                        `json:"distance_travelled_km"`
@@ -205,6 +226,7 @@ type WorkRecordCopyDraftResponse struct {
 	VehicleType              string                         `json:"vehicle_type"`
 	IsPassenger              bool                           `json:"is_passenger"`
 	CompanyVehicleUnitNumber string                         `json:"company_vehicle_unit_number"`
+	Subjects                 []WorkRecordSubjectResponse    `json:"subjects"`
 	Consumables              []WorkRecordConsumableResponse `json:"consumables"`
 	CopyFromWorkRecordID     string                         `json:"copy_from_work_record_id"`
 	SourceWorkRecord         string                         `json:"source_work_record"`
@@ -235,6 +257,7 @@ type workRecordDetailRow struct {
 	Location                 string  `db:"location"`
 	WorkDescription          string  `db:"work_description"`
 	ReportTo                 string  `db:"report_to"`
+	LaneKms                  float64 `db:"lane_kms"`
 	HoursOnSite              float64 `db:"hours_on_site"`
 	HoursTravelTime          float64 `db:"hours_travel_time"`
 	DistanceTravelledKM      float64 `db:"distance_travelled_km"`
@@ -263,6 +286,7 @@ type workRecordCopySourceRow struct {
 	Location                 string  `db:"location"`
 	WorkDescription          string  `db:"work_description"`
 	ReportTo                 string  `db:"report_to"`
+	LaneKms                  float64 `db:"lane_kms"`
 	HoursOnSite              float64 `db:"hours_on_site"`
 	HoursTravelTime          float64 `db:"hours_travel_time"`
 	DistanceTravelledKM      float64 `db:"distance_travelled_km"`
@@ -284,29 +308,22 @@ type workRecordConsumableEntryState struct {
 }
 
 type workRecordSaveStateRow struct {
-	ID                       string  `db:"id"`
-	Number                   string  `db:"number"`
-	Date                     string  `db:"date"`
-	UID                      string  `db:"uid"`
-	Creator                  string  `db:"creator"`
-	Job                      string  `db:"job"`
-	Type                     string  `db:"type"`
-	Location                 string  `db:"location"`
-	WorkDescription          string  `db:"work_description"`
-	ReportTo                 string  `db:"report_to"`
-	HoursOnSite              float64 `db:"hours_on_site"`
-	HoursTravelTime          float64 `db:"hours_travel_time"`
-	DistanceTravelledKM      float64 `db:"distance_travelled_km"`
-	FieldBookNumber          string  `db:"field_book_number"`
-	FieldBookPageNumber      int     `db:"field_book_page_number"`
-	SubContractor            string  `db:"sub_contractor"`
-	Equipment                string  `db:"equipment"`
-	Supplies                 string  `db:"supplies"`
-	VehicleType              string  `db:"vehicle_type"`
-	IsPassenger              bool    `db:"is_passenger"`
-	CompanyVehicleUnitNumber string  `db:"company_vehicle_unit_number"`
-	Approved                 bool    `db:"approved"`
-	ParentWorkRecord         string  `db:"parent_work_record"`
+	ID                  string  `db:"id"`
+	Number              string  `db:"number"`
+	Date                string  `db:"date"`
+	Creator             string  `db:"creator"`
+	Job                 string  `db:"job"`
+	Type                string  `db:"type"`
+	Location            string  `db:"location"`
+	WorkDescription     string  `db:"work_description"`
+	ReportTo            string  `db:"report_to"`
+	LaneKms             float64 `db:"lane_kms"`
+	FieldBookNumber     string  `db:"field_book_number"`
+	FieldBookPageNumber int     `db:"field_book_page_number"`
+	SubContractor       string  `db:"sub_contractor"`
+	Equipment           string  `db:"equipment"`
+	Supplies            string  `db:"supplies"`
+	ParentWorkRecord    string  `db:"parent_work_record"`
 }
 
 type workRecordConsumableEntryPersistenceRow struct {
@@ -322,6 +339,61 @@ func findWorkRecordCollection(app core.App) (*core.Collection, error) {
 
 func findWorkRecordConsumableEntriesCollection(app core.App) (*core.Collection, error) {
 	return app.FindCollectionByNameOrId(workRecordConsumableEntriesCollectionIdentifier)
+}
+
+func findWorkRecordSubjectsCollection(app core.App) (*core.Collection, error) {
+	return app.FindCollectionByNameOrId("work_records_subjects")
+}
+
+func findWorkRecordSubjectByID(app core.App, subjectID string) (*core.Record, error) {
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	row := WorkRecordSubjectResponse{}
+	if err := app.DB().NewQuery(`
+		SELECT
+			id,
+			COALESCE(work_record, '') AS work_record,
+			COALESCE(uid, '') AS uid,
+			COALESCE(hours_on_site, 0) AS hours_on_site,
+			COALESCE(hours_travel_time, 0) AS hours_travel_time,
+			COALESCE(distance_travelled_km, 0) AS distance_travelled_km,
+			COALESCE(vehicle_type, '') AS vehicle_type,
+			COALESCE(is_passenger, 0) AS is_passenger,
+			COALESCE(company_vehicle_unit_number, '') AS company_vehicle_unit_number,
+			COALESCE(approved, 0) AS approved
+		FROM work_records_subjects
+		WHERE id = {:id}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"id": subjectID,
+	}).One(&row); err != nil {
+		return nil, err
+	}
+
+	collection, err := findWorkRecordSubjectsCollection(app)
+	if err != nil {
+		return nil, err
+	}
+	record := core.NewRecord(collection)
+	record.Load(map[string]any{
+		"id":                          row.ID,
+		"work_record":                 row.WorkRecordID,
+		"uid":                         row.UID,
+		"hours_on_site":               row.HoursOnSite,
+		"hours_travel_time":           row.HoursTravelTime,
+		"distance_travelled_km":       row.DistanceTravelledKM,
+		"vehicle_type":                row.VehicleType,
+		"is_passenger":                row.IsPassenger,
+		"company_vehicle_unit_number": row.CompanyVehicleUnitNumber,
+		"approved":                    row.Approved,
+	})
+	if err := record.PostScan(); err != nil {
+		return nil, err
+	}
+	return record, nil
 }
 
 func findWorkRecordConsumableEntryByID(app core.App, entryID string) (*core.Record, error) {
@@ -383,7 +455,7 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([
 	filterSQL := "1 = 1"
 	params := dbx.Params{}
 	if scope == "mine" {
-		filterSQL += " AND (wr.uid = {:authId} OR wr.creator = {:authId})"
+		filterSQL += " AND (wr.creator = {:authId} OR EXISTS (SELECT 1 FROM work_records_subjects wrs_visible WHERE wrs_visible.work_record = wr.id AND wrs_visible.uid = {:authId}))"
 		params["authId"] = auth.Id
 	}
 
@@ -393,7 +465,7 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([
 			wr.id AS id,
 			wr.number AS work_record,
 			wr.date AS date,
-			wr.uid AS uid,
+			COALESCE(first_subject.uid, '') AS uid,
 			COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
 			wr.creator AS creator,
 			COALESCE(wr.job, '') AS job_id,
@@ -403,20 +475,39 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([
 			COALESCE(wr.location, '') AS location,
 			COALESCE(wr.work_description, '') AS work_description,
 			COALESCE(wr.attachment, '') AS attachment,
-			COALESCE(wr.approved, 0) AS approved,
+			CASE WHEN COALESCE(subject_counts.approved_subject_count, 0) > 0 THEN 1 ELSE 0 END AS approved,
 			COALESCE(te.id, '') AS linked_time_entry_id,
 			COALESCE(te.tsid, '') AS linked_timesheet_id,
 			COALESCE(te.date, '') AS linked_time_entry_date,
-			COALESCE(te.description, '') AS linked_time_entry_description
+			COALESCE(te.description, '') AS linked_time_entry_description,
+			COALESCE(subject_counts.subject_count, 0) AS subject_count,
+			COALESCE(subject_counts.approved_subject_count, 0) AS approved_subject_count
 		FROM work_records wr
+		LEFT JOIN (
+			SELECT work_record, MIN(id) AS subject_id
+			FROM work_records_subjects
+			GROUP BY work_record
+		) first_subject_id
+		  ON first_subject_id.work_record = wr.id
+		LEFT JOIN work_records_subjects first_subject
+		  ON first_subject.id = first_subject_id.subject_id
 		LEFT JOIN profiles p
-		  ON p.uid = wr.uid
+		  ON p.uid = first_subject.uid
+		LEFT JOIN (
+			SELECT
+				work_record,
+				COUNT(*) AS subject_count,
+				SUM(CASE WHEN COALESCE(approved, 0) = 1 THEN 1 ELSE 0 END) AS approved_subject_count
+			FROM work_records_subjects
+			GROUP BY work_record
+		) subject_counts
+		  ON subject_counts.work_record = wr.id
 		LEFT JOIN jobs j
 		  ON j.id = wr.job
 		LEFT JOIN work_records_types wrt
 		  ON wrt.id = wr.type
 		LEFT JOIN time_entries te
-		  ON te.work_record_id = wr.id
+		  ON te.work_record_subject_id = first_subject.id
 		WHERE ` + filterSQL + `
 		ORDER BY wr.date DESC, wr.number DESC
 	`).Bind(params).All(&rows); err != nil {
@@ -424,8 +515,22 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([
 	}
 
 	for i := range rows {
-		rows[i].SearchText = buildWorkRecordSearchText(rows[i].WorkRecord + " " + rows[i].OwnerName + " " + rows[i].JobNumber + " " + rows[i].TypeName + " " + rows[i].Location + " " + rows[i].WorkDescription)
-		rows[i].CanCreateTimeEntry = rows[i].UID == auth.Id && rows[i].LinkedTimeEntryID == ""
+		subjects, err := loadWorkRecordSubjects(app, rows[i].ID, auth)
+		if err != nil {
+			return nil, 0, err
+		}
+		rows[i].Subjects = subjects
+
+		subjectSearchText := strings.Builder{}
+		for _, subject := range subjects {
+			subjectSearchText.WriteString(" ")
+			subjectSearchText.WriteString(subject.OwnerName)
+			if subject.UID == auth.Id {
+				rows[i].CanCreateTimeEntry = subject.CanCreateTimeEntry
+			}
+		}
+
+		rows[i].SearchText = buildWorkRecordSearchText(rows[i].WorkRecord + " " + rows[i].OwnerName + " " + rows[i].JobNumber + " " + rows[i].TypeName + " " + rows[i].Location + " " + rows[i].WorkDescription + subjectSearchText.String())
 	}
 
 	return rows, len(rows), nil
@@ -436,7 +541,25 @@ func canViewWorkRecord(app core.App, auth *core.Record, record *core.Record) (bo
 		return false, nil
 	}
 
-	if record.GetString("uid") == auth.Id || record.GetString("creator") == auth.Id {
+	if record.GetString("creator") == auth.Id {
+		return true, nil
+	}
+
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM work_records_subjects
+		WHERE work_record = {:workRecordId}
+		  AND uid = {:uid}
+	`).Bind(dbx.Params{
+		"workRecordId": record.Id,
+		"uid":          auth.Id,
+	}).One(&row); err != nil {
+		return false, err
+	}
+	if row.Count > 0 {
 		return true, nil
 	}
 
@@ -464,33 +587,6 @@ func requireWorkRecordDetailViewer(app core.App, auth *core.Record, record *core
 	}
 }
 
-func loadLinkedTimeEntry(app core.App, workRecordID string) (linkedWorkRecordEntryRow, error) {
-	var row linkedWorkRecordEntryRow
-	err := app.DB().NewQuery(`
-		SELECT
-			COALESCE(te.id, '') AS linked_time_entry_id,
-			COALESCE(te.tsid, '') AS linked_timesheet_id,
-			COALESCE(te.date, '') AS linked_time_entry_date,
-			COALESCE(te.description, '') AS linked_time_entry_description,
-			COALESCE(ts.week_ending, '') AS linked_timesheet_week_ending
-		FROM time_entries te
-		LEFT JOIN time_sheets ts
-		  ON ts.id = te.tsid
-		WHERE te.work_record_id = {:workRecordId}
-		LIMIT 1
-	`).Bind(dbx.Params{
-		"workRecordId": workRecordID,
-	}).One(&row)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return linkedWorkRecordEntryRow{}, nil
-		}
-		return linkedWorkRecordEntryRow{}, err
-	}
-
-	return row, nil
-}
-
 func loadWorkRecordNotes(app core.App, workRecordID string) ([]WorkRecordNoteResponse, error) {
 	rows := []WorkRecordNoteResponse{}
 	if err := app.DB().NewQuery(`
@@ -509,6 +605,50 @@ func loadWorkRecordNotes(app core.App, workRecordID string) ([]WorkRecordNoteRes
 		"workRecordId": workRecordID,
 	}).All(&rows); err != nil {
 		return nil, err
+	}
+	return rows, nil
+}
+
+func loadWorkRecordSubjects(app core.App, workRecordID string, auth *core.Record) ([]WorkRecordSubjectResponse, error) {
+	rows := []WorkRecordSubjectResponse{}
+	if err := app.DB().NewQuery(`
+		SELECT
+			wrs.id AS id,
+			wrs.uid AS uid,
+			COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
+			COALESCE(wrs.hours_on_site, 0) AS hours_on_site,
+			COALESCE(wrs.hours_travel_time, 0) AS hours_travel_time,
+			COALESCE(wrs.distance_travelled_km, 0) AS distance_travelled_km,
+			COALESCE(wrs.vehicle_type, '') AS vehicle_type,
+			COALESCE(wrs.is_passenger, 0) AS is_passenger,
+			COALESCE(wrs.company_vehicle_unit_number, '') AS company_vehicle_unit_number,
+			COALESCE(wrs.approved, 0) AS approved,
+			COALESCE(te.id, '') AS linked_time_entry_id,
+			COALESCE(te.tsid, '') AS linked_timesheet_id,
+			COALESCE(te.date, '') AS linked_time_entry_date,
+			COALESCE(te.description, '') AS linked_time_entry_description,
+			COALESCE(ts.week_ending, '') AS linked_timesheet_week_ending
+		FROM work_records_subjects wrs
+		LEFT JOIN profiles p
+		  ON p.uid = wrs.uid
+		LEFT JOIN time_entries te
+		  ON te.work_record_subject_id = wrs.id
+		LEFT JOIN time_sheets ts
+		  ON ts.id = te.tsid
+		WHERE wrs.work_record = {:workRecordId}
+		ORDER BY p.surname, p.given_name, wrs.created, wrs.id
+	`).Bind(dbx.Params{
+		"workRecordId": workRecordID,
+	}).All(&rows); err != nil {
+		return nil, err
+	}
+	authID := ""
+	if auth != nil {
+		authID = auth.Id
+	}
+	for i := range rows {
+		rows[i].CanCreateTimeEntry = rows[i].UID == authID && rows[i].LinkedTimeEntryID == ""
+		rows[i].CanEdit = rows[i].UID == authID && !rows[i].Approved
 	}
 	return rows, nil
 }
@@ -585,25 +725,18 @@ func findWorkRecordByID(app core.App, workRecordID string) (*core.Record, error)
 			wr.id AS id,
 			COALESCE(wr.number, '') AS number,
 			COALESCE(wr.date, '') AS date,
-			COALESCE(wr.uid, '') AS uid,
 			COALESCE(wr.creator, '') AS creator,
 			COALESCE(wr.job, '') AS job,
 			COALESCE(wr.type, '') AS type,
 			COALESCE(wr.location, '') AS location,
 			COALESCE(wr.work_description, '') AS work_description,
 			COALESCE(wr.report_to, '') AS report_to,
-			COALESCE(wr.hours_on_site, 0) AS hours_on_site,
-			COALESCE(wr.hours_travel_time, 0) AS hours_travel_time,
-			COALESCE(wr.distance_travelled_km, 0) AS distance_travelled_km,
+			COALESCE(wr.lane_kms, 0) AS lane_kms,
 			COALESCE(wr.field_book_number, '') AS field_book_number,
 			COALESCE(wr.field_book_page_number, 0) AS field_book_page_number,
 			COALESCE(wr.sub_contractor, '') AS sub_contractor,
 			COALESCE(wr.equipment, '') AS equipment,
 			COALESCE(wr.supplies, '') AS supplies,
-			COALESCE(wr.vehicle_type, '') AS vehicle_type,
-			COALESCE(wr.is_passenger, 0) AS is_passenger,
-			COALESCE(wr.company_vehicle_unit_number, '') AS company_vehicle_unit_number,
-			COALESCE(wr.approved, 0) AS approved,
 			COALESCE(wr.parent_work_record, '') AS parent_work_record
 		FROM work_records wr
 		WHERE wr.id = {:id}
@@ -616,29 +749,22 @@ func findWorkRecordByID(app core.App, workRecordID string) (*core.Record, error)
 
 	record := core.NewRecord(collection)
 	record.Load(map[string]any{
-		"id":                          row.ID,
-		"number":                      row.Number,
-		"date":                        row.Date,
-		"uid":                         row.UID,
-		"creator":                     row.Creator,
-		"job":                         row.Job,
-		"type":                        row.Type,
-		"location":                    row.Location,
-		"work_description":            row.WorkDescription,
-		"report_to":                   row.ReportTo,
-		"hours_on_site":               row.HoursOnSite,
-		"hours_travel_time":           row.HoursTravelTime,
-		"distance_travelled_km":       row.DistanceTravelledKM,
-		"field_book_number":           row.FieldBookNumber,
-		"field_book_page_number":      row.FieldBookPageNumber,
-		"sub_contractor":              row.SubContractor,
-		"equipment":                   row.Equipment,
-		"supplies":                    row.Supplies,
-		"vehicle_type":                row.VehicleType,
-		"is_passenger":                row.IsPassenger,
-		"company_vehicle_unit_number": row.CompanyVehicleUnitNumber,
-		"approved":                    row.Approved,
-		"parent_work_record":          row.ParentWorkRecord,
+		"id":                     row.ID,
+		"number":                 row.Number,
+		"date":                   row.Date,
+		"creator":                row.Creator,
+		"job":                    row.Job,
+		"type":                   row.Type,
+		"location":               row.Location,
+		"work_description":       row.WorkDescription,
+		"report_to":              row.ReportTo,
+		"lane_kms":               row.LaneKms,
+		"field_book_number":      row.FieldBookNumber,
+		"field_book_page_number": row.FieldBookPageNumber,
+		"sub_contractor":         row.SubContractor,
+		"equipment":              row.Equipment,
+		"supplies":               row.Supplies,
+		"parent_work_record":     row.ParentWorkRecord,
 	})
 	if err := record.PostScan(); err != nil {
 		return nil, err
@@ -658,7 +784,6 @@ func findWorkRecordCopySourceByID(app core.App, workRecordID string) (workRecord
 		SELECT
 			wr.id AS id,
 			wr.number AS work_record,
-			wr.uid AS uid,
 			wr.creator AS creator,
 			wr.date AS date,
 			COALESCE(wr.job, '') AS job,
@@ -666,17 +791,12 @@ func findWorkRecordCopySourceByID(app core.App, workRecordID string) (workRecord
 			COALESCE(wr.location, '') AS location,
 			COALESCE(wr.work_description, '') AS work_description,
 			COALESCE(wr.report_to, '') AS report_to,
-			COALESCE(wr.hours_on_site, 0) AS hours_on_site,
-			COALESCE(wr.hours_travel_time, 0) AS hours_travel_time,
-			COALESCE(wr.distance_travelled_km, 0) AS distance_travelled_km,
+			COALESCE(wr.lane_kms, 0) AS lane_kms,
 			COALESCE(wr.field_book_number, '') AS field_book_number,
 			COALESCE(wr.field_book_page_number, 0) AS field_book_page_number,
 			COALESCE(wr.sub_contractor, '') AS sub_contractor,
 			COALESCE(wr.equipment, '') AS equipment,
 			COALESCE(wr.supplies, '') AS supplies,
-			COALESCE(wr.vehicle_type, '') AS vehicle_type,
-			COALESCE(wr.is_passenger, 0) AS is_passenger,
-			COALESCE(wr.company_vehicle_unit_number, '') AS company_vehicle_unit_number,
 			COALESCE(wr.parent_work_record, '') AS parent_work_record_id,
 			COALESCE(parent_wr.number, '') AS parent_work_record
 		FROM work_records wr
@@ -696,24 +816,20 @@ func findWorkRecordCopySourceByID(app core.App, workRecordID string) (workRecord
 
 func toWorkRecordSaveRequest(req WorkRecordCreateRequest) WorkRecordSaveRequest {
 	return WorkRecordSaveRequest{
-		Date:                     req.Date,
-		Job:                      req.Job,
-		Type:                     req.Type,
-		Location:                 req.Location,
-		WorkDescription:          req.WorkDescription,
-		ReportTo:                 req.ReportTo,
-		HoursOnSite:              req.HoursOnSite,
-		HoursTravelTime:          req.HoursTravelTime,
-		DistanceTravelledKM:      req.DistanceTravelledKM,
-		FieldBookNumber:          req.FieldBookNumber,
-		FieldBookPageNumber:      req.FieldBookPageNumber,
-		SubContractor:            req.SubContractor,
-		Equipment:                req.Equipment,
-		Supplies:                 req.Supplies,
-		VehicleType:              req.VehicleType,
-		IsPassenger:              req.IsPassenger,
-		CompanyVehicleUnitNumber: req.CompanyVehicleUnitNumber,
-		Consumables:              req.Consumables,
+		Date:                req.Date,
+		Job:                 req.Job,
+		Type:                req.Type,
+		Location:            req.Location,
+		WorkDescription:     req.WorkDescription,
+		ReportTo:            req.ReportTo,
+		LaneKms:             req.LaneKms,
+		FieldBookNumber:     req.FieldBookNumber,
+		FieldBookPageNumber: req.FieldBookPageNumber,
+		SubContractor:       req.SubContractor,
+		Equipment:           req.Equipment,
+		Supplies:            req.Supplies,
+		Subjects:            req.Subjects,
+		Consumables:         req.Consumables,
 	}
 }
 
@@ -744,6 +860,20 @@ func canCreateWorkRecordForUID(app core.App, auth *core.Record, targetUID string
 	return utilities.HasClaim(app, targetUser, "time")
 }
 
+func canBeWorkRecordWorker(app core.App, targetUID string) (bool, error) {
+	targetUID = strings.TrimSpace(targetUID)
+	if targetUID == "" {
+		return false, nil
+	}
+
+	targetUser, err := app.FindRecordById("users", targetUID)
+	if err != nil {
+		return false, err
+	}
+
+	return utilities.HasClaim(app, targetUser, "time")
+}
+
 func resolveWorkRecordRootParent(source workRecordCopySourceRow) (string, string) {
 	return firstNonEmpty(source.ParentWorkRecordID, source.ID), firstNonEmpty(source.ParentWorkRecord, source.WorkRecord)
 }
@@ -753,7 +883,19 @@ func requireCopySourceAccess(app core.App, auth *core.Record, source workRecordC
 		return workRecordRouteError(http.StatusUnauthorized, "unauthorized", "unauthorized")
 	}
 
-	if source.UID != auth.Id && source.Creator != auth.Id {
+	subjects, err := loadWorkRecordSubjects(app, source.ID, auth)
+	if err != nil {
+		return err
+	}
+	isSubject := false
+	for _, subject := range subjects {
+		if subject.UID == auth.Id {
+			isSubject = true
+			break
+		}
+	}
+
+	if !isSubject && source.Creator != auth.Id {
 		canViewAll, err := canViewAllWorkRecords(app, auth)
 		if err != nil {
 			return err
@@ -763,8 +905,10 @@ func requireCopySourceAccess(app core.App, auth *core.Record, source workRecordC
 		}
 	}
 
-	if err := requireWorkRecordCreateAccess(app, auth, source.UID, "copy this work record"); err != nil {
-		return err
+	for _, subject := range subjects {
+		if err := requireWorkRecordCreateAccess(app, auth, subject.UID, "copy this work record"); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -776,6 +920,17 @@ func requireWorkRecordCreateAccess(app core.App, auth *core.Record, targetUID st
 		return err
 	}
 	if !canCreate {
+		return workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to "+action)
+	}
+	return nil
+}
+
+func requireWorkRecordWorkerEligibility(app core.App, targetUID string, action string) error {
+	canBeWorker, err := canBeWorkRecordWorker(app, targetUID)
+	if err != nil {
+		return err
+	}
+	if !canBeWorker {
 		return workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to "+action)
 	}
 	return nil
@@ -806,33 +961,41 @@ func loadWorkRecordCopyDraft(app core.App, auth *core.Record, workRecordID strin
 	for i := range consumables {
 		consumables[i].EntryID = ""
 	}
+	subjects, err := loadWorkRecordSubjects(app, source.ID, auth)
+	if err != nil {
+		return WorkRecordCopyDraftResponse{}, err
+	}
+	for i := range subjects {
+		subjects[i].ID = ""
+		subjects[i].Approved = false
+		subjects[i].LinkedTimeEntryID = ""
+		subjects[i].LinkedTimeSheetID = ""
+		subjects[i].LinkedTimeEntryDate = ""
+		subjects[i].LinkedTimeEntryDescription = ""
+		subjects[i].LinkedTimeSheetWeekEnding = ""
+	}
 
 	rootWorkRecordID, rootWorkRecord := resolveWorkRecordRootParent(source)
 
 	return WorkRecordCopyDraftResponse{
-		UID:                      source.UID,
-		Date:                     sourceDate.AddDate(0, 0, 1).Format("2006-01-02"),
-		Job:                      source.Job,
-		Type:                     source.Type,
-		Location:                 source.Location,
-		WorkDescription:          source.WorkDescription,
-		ReportTo:                 source.ReportTo,
-		HoursOnSite:              source.HoursOnSite,
-		HoursTravelTime:          source.HoursTravelTime,
-		DistanceTravelledKM:      source.DistanceTravelledKM,
-		FieldBookNumber:          source.FieldBookNumber,
-		FieldBookPageNumber:      source.FieldBookPageNumber,
-		SubContractor:            source.SubContractor,
-		Equipment:                source.Equipment,
-		Supplies:                 source.Supplies,
-		VehicleType:              source.VehicleType,
-		IsPassenger:              source.IsPassenger,
-		CompanyVehicleUnitNumber: source.CompanyVehicleUnitNumber,
-		Consumables:              consumables,
-		CopyFromWorkRecordID:     source.ID,
-		SourceWorkRecord:         source.WorkRecord,
-		RootWorkRecordID:         rootWorkRecordID,
-		RootWorkRecord:           rootWorkRecord,
+		Date:                 sourceDate.AddDate(0, 0, 1).Format("2006-01-02"),
+		Job:                  source.Job,
+		Type:                 source.Type,
+		Location:             source.Location,
+		WorkDescription:      source.WorkDescription,
+		ReportTo:             source.ReportTo,
+		LaneKms:              source.LaneKms,
+		FieldBookNumber:      source.FieldBookNumber,
+		FieldBookPageNumber:  source.FieldBookPageNumber,
+		SubContractor:        source.SubContractor,
+		Equipment:            source.Equipment,
+		Supplies:             source.Supplies,
+		Subjects:             subjects,
+		Consumables:          consumables,
+		CopyFromWorkRecordID: source.ID,
+		SourceWorkRecord:     source.WorkRecord,
+		RootWorkRecordID:     rootWorkRecordID,
+		RootWorkRecord:       rootWorkRecord,
 	}, nil
 }
 
@@ -871,16 +1034,49 @@ func findWorkRecordRecordByID(app core.App, workRecordID string) (*core.Record, 
 	return app.FindRecordById(workRecordsCollectionIdentifier, workRecordID)
 }
 
-func requireWorkRecordEditAccess(auth *core.Record, record *core.Record) error {
+func requireWorkRecordEditAccess(app core.App, auth *core.Record, record *core.Record) error {
 	if auth == nil {
 		return workRecordRouteError(http.StatusUnauthorized, "unauthorized", "unauthorized")
 	}
 
-	if record.GetString("uid") != auth.Id && record.GetString("creator") != auth.Id {
+	allowed := record.GetString("creator") == auth.Id
+	if !allowed {
+		var row struct {
+			Count int `db:"count"`
+		}
+		if err := app.DB().NewQuery(`
+			SELECT COUNT(*) AS count
+			FROM work_records_subjects
+			WHERE work_record = {:workRecordId}
+			  AND uid = {:uid}
+		`).Bind(dbx.Params{
+			"workRecordId": record.Id,
+			"uid":          auth.Id,
+		}).One(&row); err != nil {
+			return err
+		}
+		allowed = row.Count > 0
+	}
+	if !allowed {
 		return workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to edit this work record")
 	}
 
-	if record.GetBool("approved") {
+	var lockRow struct {
+		Approved bool `db:"approved"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT EXISTS(
+			SELECT 1
+			FROM work_records_subjects
+			WHERE work_record = {:workRecordId}
+			  AND COALESCE(approved, 0) = 1
+		) AS approved
+	`).Bind(dbx.Params{
+		"workRecordId": record.Id,
+	}).One(&lockRow); err != nil {
+		return err
+	}
+	if lockRow.Approved {
 		return workRecordRouteError(http.StatusBadRequest, "approved_work_record_locked", "Approved work records cannot be edited")
 	}
 
@@ -903,12 +1099,29 @@ func loadWorkRecordConsumableEntryStates(app core.App, workRecordID string) ([]w
 	return rows, nil
 }
 
-func canAddWorkRecordNote(auth *core.Record, ownerUID string, creatorUID string) bool {
+func canAddWorkRecordNote(app core.App, auth *core.Record, workRecordID string, creatorUID string) bool {
 	if auth == nil {
 		return false
 	}
 
-	return ownerUID == auth.Id || creatorUID == auth.Id
+	if creatorUID == auth.Id {
+		return true
+	}
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM work_records_subjects
+		WHERE work_record = {:workRecordId}
+		  AND uid = {:uid}
+	`).Bind(dbx.Params{
+		"workRecordId": workRecordID,
+		"uid":          auth.Id,
+	}).One(&row); err != nil {
+		return false
+	}
+	return row.Count > 0
 }
 
 func validateWorkRecordNoteCreateRequest(req WorkRecordNoteCreateRequest) error {
@@ -927,9 +1140,7 @@ func applyWorkRecordSaveRequest(record *core.Record, req WorkRecordSaveRequest) 
 	record.Set("location", req.Location)
 	record.Set("work_description", req.WorkDescription)
 	record.Set("report_to", req.ReportTo)
-	record.Set("hours_on_site", req.HoursOnSite)
-	record.Set("hours_travel_time", req.HoursTravelTime)
-	record.Set("distance_travelled_km", req.DistanceTravelledKM)
+	record.Set("lane_kms", req.LaneKms)
 	record.Set("field_book_number", req.FieldBookNumber)
 
 	switch value := req.FieldBookPageNumber.(type) {
@@ -968,9 +1179,192 @@ func applyWorkRecordSaveRequest(record *core.Record, req WorkRecordSaveRequest) 
 	record.Set("sub_contractor", req.SubContractor)
 	record.Set("equipment", req.Equipment)
 	record.Set("supplies", req.Supplies)
+
+	return nil
+}
+
+func subjectsFromSaveRequest(req WorkRecordSaveRequest) ([]WorkRecordSubjectSaveRequest, error) {
+	if req.Subjects != nil {
+		return req.Subjects, nil
+	}
+	return nil, workRecordFieldError("subjects", "required", "At least one worker is required")
+}
+
+func validateSubjectPayload(subjects []WorkRecordSubjectSaveRequest) error {
+	if len(subjects) == 0 {
+		return &errs.HookError{
+			Status:  http.StatusBadRequest,
+			Message: "validation failed",
+			Data: map[string]errs.CodeError{
+				"subjects": {Code: "required", Message: "At least one worker is required"},
+			},
+		}
+	}
+	seen := map[string]struct{}{}
+	for _, subject := range subjects {
+		uid := strings.TrimSpace(subject.UID)
+		if uid == "" {
+			return workRecordFieldError("subjects", "subject_required", "Every worker must include a user")
+		}
+		if _, exists := seen[uid]; exists {
+			return workRecordFieldError("subjects", "duplicate_subject", "Each worker may appear only once")
+		}
+		seen[uid] = struct{}{}
+	}
+	return nil
+}
+
+func applyWorkRecordSubjectSaveRequest(record *core.Record, workRecordID string, req WorkRecordSubjectSaveRequest) {
+	record.Set("work_record", workRecordID)
+	record.Set("uid", strings.TrimSpace(req.UID))
+	record.Set("hours_on_site", req.HoursOnSite)
+	record.Set("hours_travel_time", req.HoursTravelTime)
+	record.Set("distance_travelled_km", req.DistanceTravelledKM)
 	record.Set("vehicle_type", req.VehicleType)
 	record.Set("is_passenger", req.IsPassenger)
 	record.Set("company_vehicle_unit_number", req.CompanyVehicleUnitNumber)
+}
+
+func workRecordSubjectErrorField(field string) (string, bool) {
+	switch field {
+	case "uid":
+		return "uid", true
+	case "hours_on_site", "hours_on_site_min":
+		return "hours_on_site", true
+	case "hours_travel_time", "travel_time_min":
+		return "hours_travel_time", true
+	case "distance_travelled_km", "distance_km_min":
+		return "distance_travelled_km", true
+	case "vehicle_type":
+		return "vehicle_type", true
+	case "company_vehicle_unit_number":
+		return "company_vehicle_unit_number", true
+	default:
+		return "", false
+	}
+}
+
+func scopeWorkRecordSubjectValidationError(err error, index int) error {
+	var hookErr *errs.HookError
+	if !errors.As(err, &hookErr) || len(hookErr.Data) == 0 {
+		return err
+	}
+
+	scoped := &errs.HookError{
+		Status:  hookErr.Status,
+		Message: hookErr.Message,
+		Data:    make(map[string]errs.CodeError, len(hookErr.Data)+1),
+	}
+	for field, codeErr := range hookErr.Data {
+		scoped.Data[field] = codeErr
+		if subjectField, ok := workRecordSubjectErrorField(field); ok {
+			scoped.Data[fmt.Sprintf("subjects_%d_%s", index, subjectField)] = codeErr
+		}
+	}
+	return scoped
+}
+
+func loadExistingSubjectRecords(app core.App, workRecordID string) (map[string]*core.Record, map[string]*core.Record, error) {
+	subjects, err := loadWorkRecordSubjects(app, workRecordID, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	byID := map[string]*core.Record{}
+	byUID := map[string]*core.Record{}
+	for _, subject := range subjects {
+		record, err := findWorkRecordSubjectByID(app, subject.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		record.Set("work_record", workRecordID)
+		byID[subject.ID] = record
+		byUID[subject.UID] = record
+	}
+	return byID, byUID, nil
+}
+
+func saveWorkRecordSubjects(txApp core.App, auth *core.Record, workRecordID string, creatorID string, subjects []WorkRecordSubjectSaveRequest, allowRosterChanges bool) error {
+	if err := validateSubjectPayload(subjects); err != nil {
+		return err
+	}
+
+	collection, err := findWorkRecordSubjectsCollection(txApp)
+	if err != nil {
+		return err
+	}
+	existingByID, existingByUID, err := loadExistingSubjectRecords(txApp, workRecordID)
+	if err != nil {
+		return err
+	}
+
+	seenExistingIDs := map[string]struct{}{}
+	if allowRosterChanges && auth != nil && auth.Id == creatorID {
+		for _, subject := range subjects {
+			subject.ID = strings.TrimSpace(subject.ID)
+			subject.UID = strings.TrimSpace(subject.UID)
+			if subject.ID != "" {
+				if existingByID[subject.ID] != nil {
+					seenExistingIDs[subject.ID] = struct{}{}
+				}
+				continue
+			}
+			if existing := existingByUID[subject.UID]; existing != nil {
+				seenExistingIDs[existing.Id] = struct{}{}
+			}
+		}
+		for id, record := range existingByID {
+			if _, seen := seenExistingIDs[id]; seen {
+				continue
+			}
+			if err := normalizeRouteValidationError(apphooks.ValidateWorkRecordSubjectDelete(txApp, record)); err != nil {
+				return err
+			}
+			if err := normalizeRouteValidationError(txApp.Delete(record)); err != nil {
+				return err
+			}
+		}
+	}
+
+	seenExistingIDs = map[string]struct{}{}
+	for index, subject := range subjects {
+		subject.ID = strings.TrimSpace(subject.ID)
+		subject.UID = strings.TrimSpace(subject.UID)
+
+		var record *core.Record
+		if subject.ID != "" {
+			existing, ok := existingByID[subject.ID]
+			if !ok {
+				return workRecordFieldError("subjects", "invalid_subject", "Worker was not found for this work record")
+			}
+			record = existing
+		} else if existing := existingByUID[subject.UID]; existing != nil {
+			record = existing
+		} else {
+			if !allowRosterChanges || auth == nil || auth.Id != creatorID {
+				return workRecordFieldError("subjects", "creator_required", "Only the work record creator can add workers")
+			}
+			if err := requireWorkRecordWorkerEligibility(txApp, subject.UID, "add this worker"); err != nil {
+				return err
+			}
+			record = core.NewRecord(collection)
+		}
+
+		if auth == nil {
+			return workRecordRouteError(http.StatusUnauthorized, "unauthorized", "unauthorized")
+		}
+		if auth.Id != creatorID && record.GetString("uid") != auth.Id {
+			return workRecordFieldError("subjects", "unauthorized", "You may only edit your own worker row")
+		}
+
+		applyWorkRecordSubjectSaveRequest(record, workRecordID, subject)
+		if err := normalizeRouteValidationError(apphooks.ValidateWorkRecordSubject(txApp, record)); err != nil {
+			return scopeWorkRecordSubjectValidationError(err, index)
+		}
+		if err := normalizeRouteValidationError(txApp.Save(record)); err != nil {
+			return scopeWorkRecordSubjectValidationError(err, index)
+		}
+		seenExistingIDs[record.Id] = struct{}{}
+	}
 
 	return nil
 }
@@ -1133,8 +1527,19 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 		return WorkRecordSaveResponse{}, err
 	}
 
-	if err := requireWorkRecordEditAccess(auth, currentRecord); err != nil {
+	if err := requireWorkRecordEditAccess(txApp, auth, currentRecord); err != nil {
 		return WorkRecordSaveResponse{}, err
+	}
+
+	if auth == nil || auth.Id != currentRecord.GetString("creator") {
+		subjects, err := subjectsFromSaveRequest(req)
+		if err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
+		if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, false); err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
+		return WorkRecordSaveResponse{ID: currentRecord.Id}, nil
 	}
 
 	existingEntries, err := loadWorkRecordConsumableEntryStates(txApp, currentRecord.Id)
@@ -1250,6 +1655,13 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 	if err := normalizeRouteValidationError(txApp.Save(currentRecord)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
+	subjects, err := subjectsFromSaveRequest(req)
+	if err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
+	if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, auth != nil && auth.Id == currentRecord.GetString("creator")); err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
 
 	for _, item := range upserts {
 		var entryRecord *core.Record
@@ -1282,27 +1694,14 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 }
 
 func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateRequest) (WorkRecordSaveResponse, error) {
-	targetUID := strings.TrimSpace(req.UID)
-	if targetUID == "" {
-		return WorkRecordSaveResponse{}, &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "validation failed",
-			Data: map[string]errs.CodeError{
-				"uid": {
-					Code:    "required",
-					Message: "Work record owner is required",
-				},
-			},
-		}
+	subjects := req.Subjects
+	if err := validateSubjectPayload(subjects); err != nil {
+		return WorkRecordSaveResponse{}, err
 	}
 
 	rootParentID := ""
 	copyFromWorkRecordID := strings.TrimSpace(req.CopyFromWorkRecordID)
-	if copyFromWorkRecordID == "" {
-		if err := requireWorkRecordCreateAccess(txApp, auth, targetUID, "create this work record"); err != nil {
-			return WorkRecordSaveResponse{}, err
-		}
-	} else {
+	if copyFromWorkRecordID != "" {
 		source, err := findWorkRecordCopySourceByID(txApp, copyFromWorkRecordID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -1312,18 +1711,6 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 		}
 		if err := requireCopySourceAccess(txApp, auth, source); err != nil {
 			return WorkRecordSaveResponse{}, err
-		}
-		if targetUID != source.UID {
-			return WorkRecordSaveResponse{}, &errs.HookError{
-				Status:  http.StatusBadRequest,
-				Message: "validation failed",
-				Data: map[string]errs.CodeError{
-					"uid": {
-						Code:    "copy_uid_mismatch",
-						Message: "Copied work records must keep the same worker as the source record",
-					},
-				},
-			}
 		}
 		if strings.TrimSpace(req.Job) != source.Job {
 			return WorkRecordSaveResponse{}, &errs.HookError{
@@ -1340,6 +1727,11 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 
 		rootParentID, _ = resolveWorkRecordRootParent(source)
 	}
+	for _, subject := range subjects {
+		if err := requireWorkRecordCreateAccess(txApp, auth, subject.UID, "create this work record"); err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
+	}
 
 	collection, err := findWorkRecordCollection(txApp)
 	if err != nil {
@@ -1347,7 +1739,6 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 	}
 
 	record := core.NewRecord(collection)
-	record.Set("uid", targetUID)
 	record.Set("creator", auth.Id)
 	record.Set("parent_work_record", rootParentID)
 
@@ -1365,6 +1756,9 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 		return WorkRecordSaveResponse{}, err
 	}
 	if err := normalizeRouteValidationError(txApp.Save(record)); err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
+	if err := saveWorkRecordSubjects(txApp, auth, record.Id, auth.Id, subjects, true); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
 
@@ -1443,7 +1837,7 @@ func saveWorkRecordAttachment(
 		return WorkRecordAttachmentResponse{}, err
 	}
 
-	if err := requireWorkRecordEditAccess(auth, record); err != nil {
+	if err := requireWorkRecordEditAccess(txApp, auth, record); err != nil {
 		return WorkRecordAttachmentResponse{}, err
 	}
 
@@ -1654,7 +2048,7 @@ func createCreateWorkRecordNoteHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusInternalServerError, "failed to load work record", err)
 		}
 
-		if !canAddWorkRecordNote(auth, workRecord.GetString("uid"), workRecord.GetString("creator")) {
+		if !canAddWorkRecordNote(requestApp, auth, workRecord.Id, workRecord.GetString("creator")) {
 			return writeHookError(e, workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to add a note to this work record"))
 		}
 
@@ -1723,16 +2117,20 @@ func createGetCompatibleWorkRecordsHandler(app core.App) func(e *core.RequestEve
 		var rows []WorkRecordOption
 		if err := app.DB().NewQuery(`
 			SELECT
-				wr.id AS id,
-				wr.number AS work_record
+				wrs.id AS id,
+				wr.number || ' - ' || COALESCE(p.given_name || ' ' || p.surname, wrs.uid) AS work_record
 			FROM work_records wr
-			WHERE wr.uid = {:uid}
+			JOIN work_records_subjects wrs
+			  ON wrs.work_record = wr.id
+			LEFT JOIN profiles p
+			  ON p.uid = wrs.uid
+			WHERE wrs.uid = {:uid}
 			  AND wr.job = {:job}
 			  AND wr.date = {:date}
 			  AND NOT EXISTS (
 					SELECT 1
 					FROM time_entries te
-					WHERE te.work_record_id = wr.id
+					WHERE te.work_record_subject_id = wrs.id
 					  AND ({:excludeEntryId} = '' OR te.id != {:excludeEntryId})
 			  )
 			ORDER BY wr.number ASC
@@ -1815,8 +2213,6 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 				wr.id AS id,
 				wr.number AS work_record,
 				wr.date AS date,
-				wr.uid AS uid,
-				COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
 				wr.creator AS creator,
 				COALESCE(wr.job, '') AS job_id,
 				COALESCE(j.number, '') AS job_number,
@@ -1829,24 +2225,22 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 				COALESCE(wr.location, '') AS location,
 				COALESCE(wr.work_description, '') AS work_description,
 				COALESCE(wr.report_to, '') AS report_to,
-				COALESCE(wr.hours_on_site, 0) AS hours_on_site,
-				COALESCE(wr.hours_travel_time, 0) AS hours_travel_time,
-				COALESCE(wr.distance_travelled_km, 0) AS distance_travelled_km,
+				COALESCE(wr.lane_kms, 0) AS lane_kms,
 				COALESCE(wr.field_book_number, '') AS field_book_number,
 				COALESCE(wr.field_book_page_number, 0) AS field_book_page_number,
 				COALESCE(wr.sub_contractor, '') AS sub_contractor,
 				COALESCE(wr.equipment, '') AS equipment,
 				COALESCE(wr.supplies, '') AS supplies,
-				COALESCE(wr.vehicle_type, '') AS vehicle_type,
-				COALESCE(wr.is_passenger, 0) AS is_passenger,
-				COALESCE(wr.company_vehicle_unit_number, '') AS company_vehicle_unit_number,
 				COALESCE(wr.attachment, '') AS attachment,
-				COALESCE(wr.approved, 0) AS approved,
+				EXISTS(
+					SELECT 1
+					FROM work_records_subjects wrs_lock
+					WHERE wrs_lock.work_record = wr.id
+					  AND COALESCE(wrs_lock.approved, 0) = 1
+				) AS approved,
 				COALESCE(wr.parent_work_record, '') AS parent_work_record_id,
 				COALESCE(parent_wr.number, '') AS parent_work_record_number
 			FROM work_records wr
-			LEFT JOIN profiles p
-			  ON p.uid = wr.uid
 			LEFT JOIN jobs j
 			  ON wr.job = j.id
 			LEFT JOIN clients c
@@ -1864,7 +2258,19 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusNotFound, "work record not found", err)
 		}
 
-		if row.UID != auth.Id && row.Creator != auth.Id {
+		subjects, err := loadWorkRecordSubjects(app, row.ID, auth)
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to load work record workers", err)
+		}
+		isSubject := false
+		for _, subject := range subjects {
+			if subject.UID == auth.Id {
+				isSubject = true
+				break
+			}
+		}
+
+		if !isSubject && row.Creator != auth.Id {
 			canViewAll, err := canViewAllWorkRecords(app, auth)
 			if err != nil {
 				return e.Error(http.StatusInternalServerError, "failed to check work record permissions", err)
@@ -1883,10 +2289,6 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			}
 		}
 
-		linkedEntry, err := loadLinkedTimeEntry(app, row.ID)
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to load linked time entry", err)
-		}
 		notes, err := loadWorkRecordNotes(app, row.ID)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load work record notes", err)
@@ -1896,18 +2298,38 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusInternalServerError, "failed to load work record consumables", err)
 		}
 
-		canCopyToTomorrow, err := canCreateWorkRecordForUID(app, auth, row.UID)
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to check copy permissions", err)
+		canCopyToTomorrow := row.Creator == auth.Id
+		if !canCopyToTomorrow {
+			canCopyToTomorrow = true
+			for _, subject := range subjects {
+				ok, err := canCreateWorkRecordForUID(app, auth, subject.UID)
+				if err != nil {
+					return e.Error(http.StatusInternalServerError, "failed to check copy permissions", err)
+				}
+				if !ok {
+					canCopyToTomorrow = false
+					break
+				}
+			}
 		}
-		canMutateRecord := (row.UID == auth.Id || row.Creator == auth.Id) && !row.Approved
+		canMutateRecord := (isSubject || row.Creator == auth.Id) && !row.Approved
+		var primarySubject WorkRecordSubjectResponse
+		for _, subject := range subjects {
+			if subject.UID == auth.Id {
+				primarySubject = subject
+				break
+			}
+		}
+		if primarySubject.ID == "" && len(subjects) > 0 {
+			primarySubject = subjects[0]
+		}
 
 		return e.JSON(http.StatusOK, WorkRecordDetailResponse{
 			ID:                         row.ID,
 			WorkRecord:                 row.WorkRecord,
 			Date:                       row.Date,
-			UID:                        row.UID,
-			OwnerName:                  row.OwnerName,
+			UID:                        primarySubject.UID,
+			OwnerName:                  primarySubject.OwnerName,
 			Creator:                    row.Creator,
 			JobID:                      row.JobID,
 			JobNumber:                  row.JobNumber,
@@ -1920,32 +2342,34 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			Location:                   row.Location,
 			WorkDescription:            row.WorkDescription,
 			ReportTo:                   row.ReportTo,
-			HoursOnSite:                row.HoursOnSite,
-			HoursTravelTime:            row.HoursTravelTime,
-			DistanceTravelledKM:        row.DistanceTravelledKM,
+			LaneKms:                    row.LaneKms,
+			HoursOnSite:                primarySubject.HoursOnSite,
+			HoursTravelTime:            primarySubject.HoursTravelTime,
+			DistanceTravelledKM:        primarySubject.DistanceTravelledKM,
 			FieldBookNumber:            row.FieldBookNumber,
 			FieldBookPageNumber:        row.FieldBookPageNumber,
 			SubContractor:              row.SubContractor,
 			Equipment:                  row.Equipment,
 			Supplies:                   row.Supplies,
-			VehicleType:                row.VehicleType,
-			IsPassenger:                row.IsPassenger,
-			CompanyVehicleUnitNumber:   row.CompanyVehicleUnitNumber,
+			VehicleType:                primarySubject.VehicleType,
+			IsPassenger:                primarySubject.IsPassenger,
+			CompanyVehicleUnitNumber:   primarySubject.CompanyVehicleUnitNumber,
 			Attachment:                 row.Attachment,
 			Approved:                   row.Approved,
 			ParentWorkRecordID:         row.ParentWorkRecordID,
 			ParentWorkRecord:           row.ParentWorkRecordNumber,
 			RootWorkRecordID:           firstNonEmpty(row.ParentWorkRecordID, row.ID),
 			RootWorkRecord:             firstNonEmpty(row.ParentWorkRecordNumber, row.WorkRecord),
-			LinkedTimeEntryID:          linkedEntry.LinkedTimeEntryID,
-			LinkedTimeSheetID:          linkedEntry.LinkedTimeSheetID,
-			LinkedTimeEntryDate:        linkedEntry.LinkedTimeEntryDate,
-			LinkedTimeEntryDescription: linkedEntry.LinkedTimeEntryDescription,
-			LinkedTimeSheetWeekEnding:  linkedEntry.LinkedTimeSheetWeekEnding,
-			CanCreateTimeEntry:         row.UID == auth.Id && linkedEntry.LinkedTimeEntryID == "",
+			LinkedTimeEntryID:          primarySubject.LinkedTimeEntryID,
+			LinkedTimeSheetID:          primarySubject.LinkedTimeSheetID,
+			LinkedTimeEntryDate:        primarySubject.LinkedTimeEntryDate,
+			LinkedTimeEntryDescription: primarySubject.LinkedTimeEntryDescription,
+			LinkedTimeSheetWeekEnding:  primarySubject.LinkedTimeSheetWeekEnding,
+			CanCreateTimeEntry:         primarySubject.CanCreateTimeEntry,
 			CanCopyToTomorrow:          canCopyToTomorrow,
 			CanEdit:                    canMutateRecord,
-			CanAddNote:                 canAddWorkRecordNote(auth, row.UID, row.Creator),
+			CanAddNote:                 canAddWorkRecordNote(app, auth, row.ID, row.Creator),
+			Subjects:                   subjects,
 			Notes:                      notes,
 			Consumables:                consumables,
 		})

@@ -140,6 +140,7 @@
       <DsAutoComplete
         bind:value={filters.uid}
         index={$profiles.index}
+        idField="uid"
         errors={{}}
         fieldName="uid"
         uiName="Employee"

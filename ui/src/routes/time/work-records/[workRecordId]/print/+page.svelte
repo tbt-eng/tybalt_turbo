@@ -6,7 +6,9 @@
   let { data }: { data: PageData } = $props();
 
   const item = $derived(data.item);
-  const totalHours = $derived(item.hours_on_site + item.hours_travel_time);
+  const totalWorkerHours = $derived(
+    item.subjects.reduce((total, worker) => total + worker.hours_on_site + worker.hours_travel_time, 0),
+  );
   const activeConsumables = $derived(
     item.consumables.filter((c) =>
       c.input_kind === "boolean" ? c.boolean_selected : c.quantity_number > 0,
@@ -33,9 +35,21 @@
   }
 
   function consumableValue(c: (typeof activeConsumables)[number]): string {
-    if (c.input_kind === "boolean") return "✓";
+    if (c.input_kind === "boolean") return "Yes";
     const unit = trimmedOrEmpty(c.unit_label);
     return unit ? `${c.quantity_number} ${unit}` : String(c.quantity_number);
+  }
+
+  function workerVehicle(worker: (typeof item.subjects)[number]): string {
+    const bits = [
+      displayValue(worker.vehicle_type),
+      worker.is_passenger ? "passenger" : "",
+      displayValue(worker.company_vehicle_unit_number)
+        ? `unit ${worker.company_vehicle_unit_number}`
+        : "",
+      worker.distance_travelled_km ? `${worker.distance_travelled_km} km` : "",
+    ].filter(Boolean);
+    return bits.join(" / ");
   }
 
   onMount(() => {
@@ -60,7 +74,6 @@
 </div>
 
 <article class="print-page mx-auto my-4 max-w-5xl bg-white p-8 text-black">
-  <!-- Header -->
   <div style="overflow: hidden; border-bottom: 2px solid black; padding-bottom: 0.75rem;">
     <table style="border-collapse: collapse;">
       <tbody>
@@ -76,12 +89,11 @@
       </tbody>
     </table>
     <div style="overflow: hidden; margin-top: 0.5rem;">
-      <div style="float: left; font-size: 1.6rem; font-weight: 700;">{displayValue(item.work_record, "—")}</div>
+      <div style="float: left; font-size: 1.6rem; font-weight: 700;">{displayValue(item.work_record, "-")}</div>
       <div style="float: right; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; padding-top: 0.4rem;">Work Record</div>
     </div>
   </div>
 
-  <!-- Form Fields Table -->
   <table style="width: 100%; border-collapse: collapse; margin-top: 0.75rem;">
     <colgroup>
       <col style="width: 14%;" />
@@ -99,8 +111,8 @@
       <tr>
         <td class="label-cell">Client</td>
         <td class="value-cell">{displayValue(item.client_name)}</td>
-        <td class="label-cell">Worker(s)</td>
-        <td class="value-cell">{displayValue(item.owner_name)}</td>
+        <td class="label-cell">Workers</td>
+        <td class="value-cell">{item.subjects.map((worker) => worker.owner_name || worker.uid).join(", ")}</td>
       </tr>
       <tr>
         <td class="label-cell">Client Project No</td>
@@ -119,40 +131,56 @@
       <tr>
         <td class="label-cell">Report To</td>
         <td class="value-cell">{displayValue(item.report_to)}</td>
-        <td class="label-cell">Total hours on site</td>
-        <td class="value-cell">{displayValue(item.hours_on_site)}</td>
+        <td class="label-cell">Total Worker Hours</td>
+        <td class="value-cell">{totalWorkerHours ? `${totalWorkerHours} hrs` : ""}</td>
       </tr>
       <tr>
         <td class="label-cell">Sub Contractor</td>
         <td class="value-cell">{displayValue(item.sub_contractor)}</td>
-        <td class="label-cell">Travel Time</td>
-        <td class="value-cell">{item.hours_travel_time ? `${item.hours_travel_time} hrs` : ""}</td>
+        <td class="label-cell">Lane km</td>
+        <td class="value-cell">{item.lane_kms ? `${item.lane_kms} km` : ""}</td>
       </tr>
       <tr>
         <td class="label-cell">Client PO</td>
         <td class="value-cell">{displayValue(item.client_po)}</td>
-        <td class="label-cell">Mileage</td>
-        <td class="value-cell">{item.distance_travelled_km ? `${item.distance_travelled_km} km` : ""}</td>
-      </tr>
-      <tr>
-        <td class="label-cell">Vehicle</td>
-        <td class="value-cell">{displayValue(item.vehicle_type)}</td>
-        <td class="label-cell">Company Unit</td>
-        <td class="value-cell">{displayValue(item.company_vehicle_unit_number)}</td>
-      </tr>
-      <tr>
-        <td class="label-cell">Field Book #</td>
-        <td class="value-cell">{displayValue(item.field_book_number)}</td>
-        <td class="label-cell">Page #</td>
-        <td class="value-cell">{displayValue(item.field_book_page_number)}</td>
-      </tr>
-      <tr>
-        <td class="label-cell" colspan="2"></td>
-        <td class="label-cell">Total Time</td>
-        <td class="value-cell">{totalHours ? `${totalHours} hrs` : ""}</td>
+        <td class="label-cell">Field Book</td>
+        <td class="value-cell">
+          {displayValue(item.field_book_number)}
+          {#if item.field_book_page_number}
+            / page {item.field_book_page_number}
+          {/if}
+        </td>
       </tr>
     </tbody>
   </table>
+
+  <div class="print-section">
+    <div class="section-label">Workers</div>
+    <table style="width: 100%; border-collapse: collapse; margin-top: 0.4rem;">
+      <thead>
+        <tr>
+          <th class="worker-heading">Worker</th>
+          <th class="worker-heading numeric">On Site</th>
+          <th class="worker-heading numeric">Travel</th>
+          <th class="worker-heading numeric">Total</th>
+          <th class="worker-heading">Vehicle Usage</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each item.subjects as worker (worker.id)}
+          <tr>
+            <td class="worker-cell">{displayValue(worker.owner_name || worker.uid)}</td>
+            <td class="worker-cell numeric">{worker.hours_on_site || ""}</td>
+            <td class="worker-cell numeric">{worker.hours_travel_time || ""}</td>
+            <td class="worker-cell numeric">
+              {worker.hours_on_site + worker.hours_travel_time || ""}
+            </td>
+            <td class="worker-cell">{workerVehicle(worker)}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
 
   <div class="print-section">
     <div class="section-label">Details</div>
@@ -162,6 +190,11 @@
   <div class="print-section">
     <div class="section-label">Equipment</div>
     <div class="body-text" style="min-height: 1rem;">{displayValue(item.equipment)}</div>
+  </div>
+
+  <div class="print-section">
+    <div class="section-label">Supplies</div>
+    <div class="body-text" style="min-height: 1rem;">{displayValue(item.supplies)}</div>
   </div>
 
   {#if activeConsumables.length > 0}
@@ -203,10 +236,9 @@
     </div>
   {/if}
 
-  <!-- Footer -->
   <div style="margin-top: 1.5rem; padding-top: 0.75rem; border-top: 2px solid black; overflow: hidden;">
     <div style="float: right; font-size: 0.85rem;">
-      <span style="font-weight: 700;">Work Record Number:</span> {displayValue(item.work_record, "—")}
+      <span style="font-weight: 700;">Work Record Number:</span> {displayValue(item.work_record, "-")}
     </div>
     <div style="font-size: 0.7rem; color: #525252;">
       TBT Engineering Limited &nbsp; 1918 Yonge Street, Thunder Bay, ON &nbsp; P7E 6T9 &nbsp; (807) 624-5100
@@ -263,18 +295,28 @@
     font-size: 0.85rem;
   }
 
-  .consumable-name {
+  .worker-heading,
+  .worker-cell,
+  .consumable-name,
+  .consumable-value {
     padding: 0.3rem 0.5rem;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.78rem;
     border-bottom: 1px solid #e5e5e5;
   }
 
+  .worker-heading {
+    text-align: left;
+    font-weight: 700;
+    color: #525252;
+  }
+
+  .numeric,
   .consumable-value {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.8rem;
-    border-bottom: 1px solid #e5e5e5;
     text-align: right;
+  }
+
+  .consumable-name {
+    font-weight: 600;
   }
 
   .note-item {

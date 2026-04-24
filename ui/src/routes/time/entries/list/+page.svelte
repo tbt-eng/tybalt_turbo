@@ -51,7 +51,8 @@
       },
       {
         filter: pb.filter("tsid='' && uid={:userId}", { userId }),
-        expand: "job,time_type,division,category,role,work_record_id",
+        expand:
+          "job,time_type,division,category,role,work_record_subject_id,work_record_subject_id.work_record",
       },
     );
   });
@@ -67,7 +68,11 @@
   }
 
   function resolvedWorkRecord(item: TimeEntriesResponse) {
-    return item.work_record || item.expand?.work_record_id?.number || "";
+    return item.work_record || (item.expand?.work_record_subject_id as any)?.expand?.work_record?.number || "";
+  }
+
+  function linkedWorkRecordId(item: TimeEntriesResponse) {
+    return (item.expand?.work_record_subject_id as any)?.work_record || "";
   }
 
   async function del(id: string): Promise<void> {
@@ -160,9 +165,9 @@
     title="Edit"
     color="blue"
   />
-  {#if item.work_record_id}
+  {#if item.work_record_subject_id && linkedWorkRecordId(item)}
     <DsActionButton
-      action={`/time/work-records/${item.work_record_id}`}
+      action={`/time/work-records/${linkedWorkRecordId(item)}`}
       icon="mdi:file-document-outline"
       title="Open Work Record"
       color="green"

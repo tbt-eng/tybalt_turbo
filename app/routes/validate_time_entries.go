@@ -14,19 +14,32 @@ func resolvedWorkRecordKey(txApp core.App, entry *core.Record) string {
 		return workRecordText
 	}
 
-	workRecordID := entry.GetString("work_record_id")
-	if workRecordID == "" {
+	subjectID := entry.GetString("work_record_subject_id")
+	if subjectID == "" {
 		return ""
 	}
 
-	workRecord, err := txApp.FindRecordById("work_records", workRecordID)
-	if err == nil && workRecord != nil {
-		if number := workRecord.GetString("number"); number != "" {
-			return number
+	type row struct {
+		Number string `db:"number"`
+	}
+	var match row
+	err := txApp.DB().NewQuery(`
+		SELECT COALESCE(wr.number, '') AS number
+		FROM work_records_subjects wrs
+		JOIN work_records wr
+		  ON wr.id = wrs.work_record
+		WHERE wrs.id = {:subjectId}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"subjectId": subjectID,
+	}).One(&match)
+	if err == nil {
+		if match.Number != "" {
+			return match.Number
 		}
 	}
 
-	return "id:" + workRecordID
+	return "subject:" + subjectID
 }
 
 // This function will validate the time entries as a group. If the validation
@@ -67,7 +80,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 	for _, entry := range entries {
 		// Prevent duplicate visible work-record references from appearing on the
 		// same timesheet bundle, regardless of whether the entry is legacy text
-		// or linked through work_record_id.
+		// or linked through work_record_subject_id.
 		workRecordKey := resolvedWorkRecordKey(txApp, entry)
 		workRecordLabel := workRecordKey
 		if workRecordKey != "" {

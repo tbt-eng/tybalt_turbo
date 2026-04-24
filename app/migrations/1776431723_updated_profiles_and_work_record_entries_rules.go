@@ -3,13 +3,10 @@ package migrations
 import (
 	"github.com/pocketbase/pocketbase/core"
 	m "github.com/pocketbase/pocketbase/migrations"
-	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 const (
-	profilesDefaultWorkRecordTypeFieldID  = "eycTZv1vG5C5MqH"
-	workRecordConsumableEntriesCreateRule = "@request.auth.id != \"\" &&\n@request.body.work_record.approved = false &&\n(\n  @request.body.work_record.uid = @request.auth.id ||\n  @request.body.work_record.creator = @request.auth.id\n)"
-	workRecordConsumableEntriesUpdateRule = "@request.auth.id != \"\" &&\nwork_record.approved = false &&\n(\n  work_record.uid = @request.auth.id ||\n  work_record.creator = @request.auth.id\n)"
+	profilesDefaultWorkRecordTypeFieldID = "eycTZv1vG5C5MqH"
 )
 
 func init() {
@@ -65,9 +62,9 @@ func init() {
 		if err != nil {
 			return err
 		}
-		entriesCollection.CreateRule = types.Pointer(workRecordConsumableEntriesCreateRule)
-		entriesCollection.UpdateRule = types.Pointer(workRecordConsumableEntriesUpdateRule)
-		entriesCollection.DeleteRule = types.Pointer(workRecordConsumableEntriesUpdateRule)
+		entriesCollection.CreateRule = nil
+		entriesCollection.UpdateRule = nil
+		entriesCollection.DeleteRule = nil
 
 		return app.Save(entriesCollection)
 	})

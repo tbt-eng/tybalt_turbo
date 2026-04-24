@@ -282,7 +282,8 @@ func createTimesheetExportLegacyHandler(app core.App) func(e *core.RequestEvent)
 				LEFT JOIN client_contacts cc ON j.contact = cc.id
 				LEFT JOIN categories ca ON te.category = ca.id
 				LEFT JOIN branches b ON te.branch = b.id
-				LEFT JOIN work_records wr ON te.work_record_id = wr.id
+				LEFT JOIN work_records_subjects wrs ON te.work_record_subject_id = wrs.id
+				LEFT JOIN work_records wr ON wrs.work_record = wr.id
 				WHERE tsid = {:tsid}
 			`
 			if err := app.DB().NewQuery(entriesQuery).Bind(dbx.Params{

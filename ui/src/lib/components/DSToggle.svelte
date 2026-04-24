@@ -20,12 +20,14 @@
         options: ToggleOption[];
         showOptionDescriptions?: false;
         fullWidth?: boolean;
+        disabled?: boolean;
       })
     | (AccessibleName & {
         value: string;
         options: ToggleOptionWithDescription[];
         showOptionDescriptions: true;
         fullWidth?: boolean;
+        disabled?: boolean;
       });
 
   let {
@@ -36,6 +38,7 @@
     label,
     ariaLabel,
     ariaLabelledBy,
+    disabled = false,
   }: ToggleProps = $props();
 
   const hasDescription = (
@@ -86,6 +89,7 @@
   // Radio-like keyboard behavior:
   // arrows cycle, Home/End jump, then focus follows selection.
   function handleOptionKeydown(event: KeyboardEvent, optionIndex: number): void {
+    if (disabled) return;
     if (options.length === 0) return;
     let nextIndex = optionIndex;
 
@@ -140,11 +144,14 @@
     {#each options as option, index}
       <button
         type="button"
-        onclick={() => (value = option.id)}
+        onclick={() => {
+          if (!disabled) value = option.id;
+        }}
         onkeydown={(event) => handleOptionKeydown(event, index)}
         role="radio"
         aria-checked={value === option.id}
         tabindex={value === option.id || (selectedIndex === -1 && index === 0) ? 0 : -1}
+        {disabled}
         class="min-w-0 px-3 py-1 text-sm leading-tight max-lg:text-base {fullWidth
           ? useResponsiveGrid
             ? 'lg:flex-1'
@@ -155,7 +162,9 @@
             : 'border-l border-neutral-300'
           : ''} text-center whitespace-nowrap {value === option.id
           ? 'bg-blue-500 text-white'
-          : 'bg-white text-gray-700 hover:bg-neutral-100'}"
+          : 'bg-white text-gray-700 hover:bg-neutral-100'} {disabled
+          ? 'cursor-not-allowed opacity-60'
+          : ''}"
       >
         <span class="block whitespace-nowrap">{option.label}</span>
       </button>

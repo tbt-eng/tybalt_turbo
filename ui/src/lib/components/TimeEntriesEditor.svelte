@@ -126,7 +126,7 @@
 
   const isWorkTime = $derived(hasTimeType(["R", "RT"]));
   const linkedWorkRecord = $derived.by(() => data.linked_work_record);
-  const linkedWorkRecordLocked = $derived.by(() => (item.work_record_id ?? "") !== "");
+  const linkedWorkRecordLocked = $derived.by(() => (item.work_record_subject_id ?? "") !== "");
   const isLegacyWorkRecordUpgrade = $derived.by(
     () =>
       $linkedWorkRecordsEnabled &&
@@ -412,8 +412,8 @@
         if (rows.length === 0) {
           compatibleWorkRecordsMessage =
             "No compatible unlinked work records were found for this job and date.";
-        } else if ((item.work_record_id ?? "") === "" && rows.length === 1) {
-          item.work_record_id = rows[0].id;
+        } else if ((item.work_record_subject_id ?? "") === "" && rows.length === 1) {
+          item.work_record_subject_id = rows[0].id;
         }
       })
       .catch((error) => {
@@ -451,14 +451,14 @@
     if (item.job === "") {
       item.category = "";
       item.work_record = "";
-      item.work_record_id = "";
+      item.work_record_subject_id = "";
       item.role = "";
     }
 
     const payload: Record<string, unknown> = { ...item };
     delete payload.expand;
 
-    if ((item.work_record_id ?? "") !== "") {
+    if ((item.work_record_subject_id ?? "") !== "") {
       payload.work_record = "";
     } else if ($linkedWorkRecordsEnabled && !isLegacyWorkRecordUpgrade) {
       payload.work_record = "";
@@ -727,10 +727,10 @@
       disabled={true}
     />
     <DsSelector
-      bind:value={item.work_record_id as string}
+      bind:value={item.work_record_subject_id as string}
       items={compatibleWorkRecordSelectOptions}
       {errors}
-      fieldName="work_record_id"
+      fieldName="work_record_subject_id"
       uiName="Existing Work Record"
       disabled={loadingCompatibleWorkRecords}
     >

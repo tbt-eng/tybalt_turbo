@@ -55,13 +55,11 @@ func validateWorkRecordRequiredFields(record *core.Record) error {
 		Message string
 	}{
 		{Name: "date", Message: "Work record date is required"},
-		{Name: "uid", Message: "Work record owner is required"},
 		{Name: "creator", Message: "Work record creator is required"},
 		{Name: "job", Message: "Job is required"},
 		{Name: "type", Message: "Work record type is required"},
 		{Name: "location", Message: "Location is required"},
 		{Name: "work_description", Message: "Work description is required"},
-		{Name: "vehicle_type", Message: "Vehicle type is required"},
 	}
 
 	fieldErrors := validation.Errors{}
@@ -85,70 +83,6 @@ func validateWorkRecordCoreFieldFormats(record *core.Record) error {
 			"invalid_work_record_date",
 			fmt.Sprintf("invalid work record date: %v", err),
 		)
-	}
-
-	switch strings.TrimSpace(record.GetString("vehicle_type")) {
-	case "company", "personal":
-		return nil
-	default:
-		return validationFieldError(
-			"vehicle_type",
-			"invalid_vehicle_type",
-			"Vehicle type must be company or personal",
-		)
-	}
-}
-
-func validateWorkRecordVehicleFields(record *core.Record) error {
-	vehicleType := strings.TrimSpace(record.GetString("vehicle_type"))
-	unitNumber := strings.TrimSpace(record.GetString("company_vehicle_unit_number"))
-
-	if vehicleType == "company" && unitNumber == "" {
-		return validationFieldError(
-			"company_vehicle_unit_number",
-			"required_for_company_vehicle",
-			"Company vehicle unit number is required when vehicle type is company",
-		)
-	}
-
-	if vehicleType == "personal" && unitNumber != "" {
-		return validationFieldError(
-			"company_vehicle_unit_number",
-			"must_be_blank_for_personal_vehicle",
-			"Company vehicle unit number must be empty when vehicle type is personal",
-		)
-	}
-
-	return nil
-}
-
-func validateWorkRecordUniqueDay(app core.App, record *core.Record) error {
-	var duplicate struct {
-		ID string `db:"id"`
-	}
-	err := app.DB().NewQuery(`
-		SELECT id
-		FROM work_records
-		WHERE uid = {:uid}
-		  AND job = {:job}
-		  AND date = {:date}
-		  AND id != {:id}
-		LIMIT 1
-	`).Bind(dbx.Params{
-		"uid":  record.GetString("uid"),
-		"job":  record.GetString("job"),
-		"date": record.GetString("date"),
-		"id":   record.Id,
-	}).One(&duplicate)
-	if err == nil && duplicate.ID != "" {
-		return validationFieldError(
-			"date",
-			"duplicate_work_record_day",
-			"A work record already exists for this worker, job, and date",
-		)
-	}
-	if err != nil && err != sql.ErrNoRows {
-		return err
 	}
 
 	return nil
@@ -190,18 +124,68 @@ func validateWorkRecordTypeChange(app core.App, record *core.Record) error {
 	return nil
 }
 
+func workRecordHasApprovedSubject(app core.App, workRecordID string) (bool, error) {
+	var row struct {
+		Approved bool `db:"approved"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT EXISTS(
+			SELECT 1
+			FROM work_records_subjects
+			WHERE work_record = {:workRecordId}
+			  AND COALESCE(approved, 0) = 1
+		) AS approved
+	`).Bind(dbx.Params{
+		"workRecordId": workRecordID,
+	}).One(&row); err != nil {
+		return false, err
+	}
+	return row.Approved, nil
+}
+
+func validateWorkRecordLaneKms(app core.App, record *core.Record) error {
+	if record.Get("lane_kms") == nil || record.GetFloat("lane_kms") == 0 {
+		return nil
+	}
+	if record.GetFloat("lane_kms") < 0 {
+		return validationFieldError(
+			"lane_kms",
+			"lane_kms_min",
+			"Lane kilometres cannot be negative",
+		)
+	}
+
+	var row struct {
+		AllowLaneKms bool `db:"allow_lane_kms"`
+	}
+	err := app.DB().NewQuery(`
+		SELECT COALESCE(allow_lane_kms, 0) AS allow_lane_kms
+		FROM work_records_types
+		WHERE id = {:type}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"type": record.GetString("type"),
+	}).One(&row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return validationFieldError("type", "not_found", "Work record type was not found")
+		}
+		return err
+	}
+	if !row.AllowLaneKms {
+		return validationFieldError(
+			"lane_kms",
+			"lane_kms_not_allowed",
+			"Lane kilometres are not allowed for this work record type",
+		)
+	}
+	return nil
+}
+
 func validateWorkRecordImmutableFields(record *core.Record) error {
 	original := record.Original()
 	if original == nil || original.Id == "" {
 		return nil
-	}
-
-	if original.GetBool("approved") {
-		return validationFieldError(
-			"global",
-			"approved_work_record_locked",
-			"Approved work records cannot be edited",
-		)
 	}
 
 	immutableStrings := []struct {
@@ -209,7 +193,6 @@ func validateWorkRecordImmutableFields(record *core.Record) error {
 		Code    string
 		Message string
 	}{
-		{Name: "uid", Code: "immutable_field", Message: "Work record owner cannot be changed"},
 		{Name: "creator", Code: "immutable_field", Message: "Work record creator cannot be changed"},
 		{Name: "number", Code: "immutable_field", Message: "Work record number cannot be changed"},
 		{Name: "parent_work_record", Code: "immutable_field", Message: "Parent work record cannot be changed"},
@@ -218,14 +201,6 @@ func validateWorkRecordImmutableFields(record *core.Record) error {
 		if original.GetString(field.Name) != record.GetString(field.Name) {
 			return validationFieldError(field.Name, field.Code, field.Message)
 		}
-	}
-
-	if original.GetBool("approved") != record.GetBool("approved") {
-		return validationFieldError(
-			"approved",
-			"immutable_field",
-			"Approved state is managed by timesheet workflow",
-		)
 	}
 
 	return nil
@@ -241,14 +216,24 @@ func ValidateWorkRecord(app core.App, record *core.Record) error {
 	if err := validateWorkRecordCoreFieldFormats(record); err != nil {
 		return err
 	}
-	if err := validateWorkRecordVehicleFields(record); err != nil {
-		return err
-	}
-	if err := validateWorkRecordUniqueDay(app, record); err != nil {
+	if err := validateWorkRecordLaneKms(app, record); err != nil {
 		return err
 	}
 	if err := validateWorkRecordTypeChange(app, record); err != nil {
 		return err
+	}
+	if record.Original() != nil && record.Original().Id != "" {
+		locked, err := workRecordHasApprovedSubject(app, record.Id)
+		if err != nil {
+			return err
+		}
+		if locked {
+			return validationFieldError(
+				"global",
+				"approved_work_record_locked",
+				"Work records with approved workers cannot be edited",
+			)
+		}
 	}
 	return nil
 }
@@ -259,8 +244,10 @@ func ValidateWorkRecordDelete(app core.App, record *core.Record) error {
 	}
 	if err := app.DB().NewQuery(`
 		SELECT COUNT(*) AS count
-		FROM time_entries
-		WHERE work_record_id = {:workRecordId}
+		FROM work_records_subjects wrs
+		JOIN time_entries te
+		  ON te.work_record_subject_id = wrs.id
+		WHERE wrs.work_record = {:workRecordId}
 	`).Bind(dbx.Params{
 		"workRecordId": record.Id,
 	}).One(&row); err != nil {
@@ -275,6 +262,196 @@ func ValidateWorkRecordDelete(app core.App, record *core.Record) error {
 		)
 	}
 
+	return nil
+}
+
+func validateWorkRecordSubjectRequiredFields(record *core.Record) error {
+	return validation.Errors{
+		"work_record":       validation.Validate(record.GetString("work_record"), validation.Required.Error("Work record is required")),
+		"uid":               validation.Validate(record.GetString("uid"), validation.Required.Error("Worker is required")),
+		"hours_on_site":     validation.Validate(record.Get("hours_on_site"), validation.Required.Error("Hours on site is required")),
+		"hours_travel_time": validation.Validate(record.Get("hours_travel_time"), validation.Required.Error("Travel time is required")),
+		"vehicle_type":      validation.Validate(record.GetString("vehicle_type"), validation.In("", "company", "personal").Error("Vehicle type must be company or personal")),
+		"hours_on_site_min": validation.Validate(record.GetFloat("hours_on_site"), validation.Min(0.0).Error("Hours on site must be at least 0")),
+		"travel_time_min":   validation.Validate(record.GetFloat("hours_travel_time"), validation.Min(0.0).Error("Travel time must be at least 0")),
+		"distance_km_min":   validation.Validate(record.GetFloat("distance_travelled_km"), validation.Min(0.0).Error("Distance travelled must be at least 0")),
+	}.Filter()
+}
+
+func validateWorkRecordSubjectVehicleFields(record *core.Record) error {
+	vehicleType := strings.TrimSpace(record.GetString("vehicle_type"))
+	unitNumber := strings.TrimSpace(record.GetString("company_vehicle_unit_number"))
+
+	if vehicleType == "company" && unitNumber == "" {
+		return validationFieldError(
+			"company_vehicle_unit_number",
+			"required_for_company_vehicle",
+			"Company vehicle unit number is required when vehicle type is company",
+		)
+	}
+
+	if vehicleType == "personal" && unitNumber != "" {
+		return validationFieldError(
+			"company_vehicle_unit_number",
+			"must_be_blank_for_personal_vehicle",
+			"Company vehicle unit number must be empty when vehicle type is personal",
+		)
+	}
+
+	return nil
+}
+
+func countSubjectsForWorkRecord(app core.App, workRecordID string, excludeSubjectID string) (int, error) {
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM work_records_subjects
+		WHERE work_record = {:workRecordId}
+		  AND id != {:excludeSubjectId}
+	`).Bind(dbx.Params{
+		"workRecordId":     workRecordID,
+		"excludeSubjectId": excludeSubjectID,
+	}).One(&row); err != nil {
+		return 0, err
+	}
+	return row.Count, nil
+}
+
+func validateWorkRecordSubjectMax(app core.App, record *core.Record) error {
+	var row struct {
+		MaxSubjects int `db:"max_subjects"`
+	}
+	err := app.DB().NewQuery(`
+		SELECT COALESCE(wrt.max_subjects, 1) AS max_subjects
+		FROM work_records wr
+		JOIN work_records_types wrt
+		  ON wrt.id = wr.type
+		WHERE wr.id = {:workRecordId}
+		LIMIT 1
+	`).Bind(dbx.Params{
+		"workRecordId": record.GetString("work_record"),
+	}).One(&row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return validationFieldError("work_record", "not_found", "Work record was not found")
+		}
+		return err
+	}
+	count, err := countSubjectsForWorkRecord(app, record.GetString("work_record"), record.Id)
+	if err != nil {
+		return err
+	}
+	if count+1 > row.MaxSubjects {
+		return validationFieldError(
+			"uid",
+			"max_subjects_exceeded",
+			fmt.Sprintf("This work record type allows at most %d workers", row.MaxSubjects),
+		)
+	}
+	return nil
+}
+
+func validateWorkRecordSubjectDuplicateDay(app core.App, record *core.Record) error {
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM work_records_subjects wrs
+		JOIN work_records wr
+		  ON wr.id = wrs.work_record
+		JOIN work_records current_wr
+		  ON current_wr.id = {:workRecordId}
+		WHERE wrs.uid = {:uid}
+		  AND wrs.id != {:subjectId}
+		  AND wr.job = current_wr.job
+		  AND wr.date = current_wr.date
+	`).Bind(dbx.Params{
+		"workRecordId": record.GetString("work_record"),
+		"uid":          record.GetString("uid"),
+		"subjectId":    record.Id,
+	}).One(&row); err != nil {
+		return err
+	}
+	if row.Count > 0 {
+		return validationFieldError(
+			"date",
+			"duplicate_work_record_day",
+			"A worker already has a work record for this job and date",
+		)
+	}
+	return nil
+}
+
+func validateWorkRecordSubjectImmutableFields(record *core.Record) error {
+	original := record.Original()
+	if original == nil || original.Id == "" {
+		return nil
+	}
+
+	if original.GetString("work_record") != record.GetString("work_record") {
+		return validationFieldError("work_record", "immutable_field", "Work record cannot be changed")
+	}
+	if original.GetString("uid") != record.GetString("uid") {
+		return validationFieldError("uid", "immutable_field", "Worker cannot be reassigned")
+	}
+	if original.GetBool("approved") {
+		return validationFieldError("global", "approved_subject_locked", "Approved work record workers cannot be edited")
+	}
+	return nil
+}
+
+func ValidateWorkRecordSubject(app core.App, record *core.Record) error {
+	if err := validateWorkRecordSubjectImmutableFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordSubjectRequiredFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordSubjectVehicleFields(record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordSubjectMax(app, record); err != nil {
+		return err
+	}
+	if err := validateWorkRecordSubjectDuplicateDay(app, record); err != nil {
+		return err
+	}
+	locked, err := workRecordHasApprovedSubject(app, record.GetString("work_record"))
+	if err != nil {
+		return err
+	}
+	if locked && (record.IsNew() || record.GetString("uid") != record.Original().GetString("uid")) {
+		return validationFieldError("global", "approved_roster_locked", "Workers cannot be added or reassigned after approval")
+	}
+	return nil
+}
+
+func ValidateWorkRecordSubjectDelete(app core.App, record *core.Record) error {
+	locked, err := workRecordHasApprovedSubject(app, record.GetString("work_record"))
+	if err != nil {
+		return err
+	}
+	if locked {
+		return validationFieldError("global", "approved_roster_locked", "Workers cannot be removed after approval")
+	}
+	var row struct {
+		Count int `db:"count"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) AS count
+		FROM time_entries
+		WHERE work_record_subject_id = {:subjectId}
+	`).Bind(dbx.Params{
+		"subjectId": record.Id,
+	}).One(&row); err != nil {
+		return err
+	}
+	if row.Count > 0 {
+		return validationFieldError("global", "linked_time_entry_exists", "Workers linked to time entries cannot be deleted")
+	}
 	return nil
 }
 

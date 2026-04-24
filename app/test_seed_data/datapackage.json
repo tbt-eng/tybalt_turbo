@@ -2689,7 +2689,7 @@
             "x-sqlite-type": "TEXT"
           },
           {
-            "name": "work_record_id",
+            "name": "work_record_subject_id",
             "type": "string",
             "x-sqlite-type": "TEXT"
           }
@@ -3168,9 +3168,19 @@
             "x-sqlite-type": "BOOLEAN"
           },
           {
+            "name": "allow_lane_kms",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
             "name": "id",
             "type": "string",
             "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "max_subjects",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
           },
           {
             "name": "name",
@@ -3358,9 +3368,14 @@
       "schema": {
         "fields": [
           {
-            "name": "approved",
-            "type": "boolean",
-            "x-sqlite-type": "BOOLEAN"
+            "name": "attachment",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "attachment_hash",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
           },
           {
             "name": "creator",
@@ -3371,21 +3386,6 @@
             "name": "date",
             "type": "string",
             "x-sqlite-type": "TEXT"
-          },
-          {
-            "name": "distance_travelled_km",
-            "type": "number",
-            "x-sqlite-type": "NUMERIC"
-          },
-          {
-            "name": "hours_on_site",
-            "type": "number",
-            "x-sqlite-type": "NUMERIC"
-          },
-          {
-            "name": "hours_travel_time",
-            "type": "number",
-            "x-sqlite-type": "NUMERIC"
           },
           {
             "name": "id",
@@ -3413,6 +3413,60 @@
             "x-sqlite-type": "TEXT"
           },
           {
+            "name": "work_description",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "work_records_subjects",
+      "path": "data/work_records_subjects.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "approved",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
+            "name": "company_vehicle_unit_number",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "distance_travelled_km",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "hours_on_site",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "hours_travel_time",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "is_passenger",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
             "name": "uid",
             "type": "string",
             "x-sqlite-type": "TEXT"
@@ -3423,22 +3477,7 @@
             "x-sqlite-type": "TEXT"
           },
           {
-            "name": "company_vehicle_unit_number",
-            "type": "string",
-            "x-sqlite-type": "TEXT"
-          },
-          {
-            "name": "work_description",
-            "type": "string",
-            "x-sqlite-type": "TEXT"
-          },
-          {
-            "name": "attachment",
-            "type": "string",
-            "x-sqlite-type": "TEXT"
-          },
-          {
-            "name": "attachment_hash",
+            "name": "work_record",
             "type": "string",
             "x-sqlite-type": "TEXT"
           }

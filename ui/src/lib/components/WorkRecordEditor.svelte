@@ -24,13 +24,14 @@
     WorkRecordSaveConsumableRequest,
     WorkRecordSaveRequest,
     WorkRecordSaveResponse,
+    WorkRecordSubjectResponse,
+    WorkRecordSubjectSaveRequest,
   } from "$lib/svelte-types";
   import { refreshVisibleWorkRecords } from "$lib/stores/workRecords";
   import { DATE_INPUT_MIN, dateInputMaxMonthsAhead, pocketBaseFileHref } from "$lib/utilities";
 
   type WorkRecordForm = {
     id?: string;
-    uid: string;
     creator: string;
     date: string;
     job: string;
@@ -38,21 +39,31 @@
     location: string;
     work_description: string;
     report_to: string;
-    hours_on_site: string | number;
-    hours_travel_time: string | number;
-    distance_travelled_km: string | number;
+    lane_kms: string | number;
     field_book_number: string;
     field_book_page_number: string | number;
     sub_contractor: string;
     equipment: string;
     supplies: string;
-    vehicle_type: string;
-    is_passenger: boolean;
-    company_vehicle_unit_number: string;
   };
 
   type EditorConsumable = WorkRecordConsumableResponse & {
     blocked: boolean;
+  };
+
+  type WorkerForm = {
+    id: string;
+    uid: string;
+    owner_name: string;
+    hours_on_site: string | number;
+    hours_travel_time: string | number;
+    distance_travelled_km: string | number;
+    vehicle_type: string;
+    is_passenger: boolean;
+    company_vehicle_unit_number: string;
+    approved: boolean;
+    linked_time_entry_id: string;
+    can_edit: boolean;
   };
 
   function seedForm(source: WorkRecordForm): WorkRecordForm {
@@ -70,6 +81,68 @@
       return copyContext.consumables.map((row) => ({ ...row, blocked: false }));
     }
     return [];
+  }
+
+  function workerFromResponse(worker: WorkRecordSubjectResponse): WorkerForm {
+    return {
+      id: worker.id,
+      uid: worker.uid,
+      owner_name: worker.owner_name,
+      hours_on_site: worker.hours_on_site,
+      hours_travel_time: worker.hours_travel_time,
+      distance_travelled_km: worker.distance_travelled_km,
+      vehicle_type: worker.vehicle_type,
+      is_passenger: worker.is_passenger,
+      company_vehicle_unit_number: worker.company_vehicle_unit_number,
+      approved: worker.approved,
+      linked_time_entry_id: worker.linked_time_entry_id,
+      can_edit: worker.can_edit,
+    };
+  }
+
+  function emptyWorker(uid = ""): WorkerForm {
+    return {
+      id: "",
+      uid,
+      owner_name: "",
+      hours_on_site: 0,
+      hours_travel_time: 0,
+      distance_travelled_km: 0,
+      vehicle_type: "",
+      is_passenger: false,
+      company_vehicle_unit_number: "",
+      approved: false,
+      linked_time_entry_id: "",
+      can_edit: true,
+    };
+  }
+
+  function newWorkerFromExisting(existing: WorkerForm | undefined): WorkerForm {
+    if (!existing) return emptyWorker();
+
+    return {
+      ...emptyWorker(),
+      hours_on_site: existing.hours_on_site,
+      hours_travel_time: existing.hours_travel_time,
+      distance_travelled_km: existing.distance_travelled_km,
+      vehicle_type: existing.vehicle_type,
+      is_passenger: existing.is_passenger,
+      company_vehicle_unit_number: existing.company_vehicle_unit_number,
+    };
+  }
+
+  function seedWorkers(
+    _source: WorkRecordForm,
+    detail: WorkRecordDetailsResponse | null,
+    copyContext: WorkRecordCopyDraftResponse | null,
+  ): WorkerForm[] {
+    if (detail?.subjects?.length) {
+      return detail.subjects.map(workerFromResponse);
+    }
+    if (copyContext?.subjects?.length) {
+      return copyContext.subjects.map(workerFromResponse);
+    }
+    return [emptyWorker()];
   }
 
   const vehicleTypeOptions = [
@@ -103,8 +176,8 @@
   let saving = $state(false);
   let loadingConsumables = $state(false);
   let consumables = $state(untrack(() => seedConsumables(detail, copyContext)));
+  let workerForms = $state(untrack(() => seedWorkers(item, detail, copyContext)));
   let consumablesLoadError = $state("");
-  let assigneeMode = $state<"you" | "someone_else">("you");
   let consumablesRequestId = 0;
   let pendingAttachment = $state<File | null>(null);
   let pendingAttachmentInputKey = $state(0);
@@ -116,15 +189,7 @@
   const dateInputMax = dateInputMaxMonthsAhead(15);
   const currentUserId = $derived($authStore?.model?.id ?? "");
   const canCreateSelf = $derived($globalStore.user_claims_summary.claims.includes("time"));
-  const canAssignOthers = $derived($globalStore.user_claims_summary.claims.includes("work_record"));
-  const assigneeModeOptions = $derived(
-    canCreateSelf
-      ? [
-          { id: "you", name: "For you" },
-          { id: "someone_else", name: "For someone else" },
-        ]
-      : [{ id: "someone_else", name: "For someone else" }],
-  );
+  const canCreateForOthers = $derived($globalStore.user_claims_summary.claims.includes("work_record"));
   const canViewAll = $derived($globalStore.user_claims_summary.claims.includes("report"));
   const canEdit = $derived(detail?.can_edit ?? true);
   const isCopyMode = $derived(copyContext !== null);
@@ -136,7 +201,20 @@
   );
   const saveDisabled = $derived(loadingConsumables || saveBlockedByConsumablesError);
   const visibleConsumables = $derived(consumables.filter((item) => !item.blocked));
+  const selectedWorkRecordType = $derived(
+    $workRecordTypes.items.find((item) => item.id === form.type) ?? null,
+  );
+  const maxWorkers = $derived(selectedWorkRecordType?.max_subjects ?? 1);
+  const showLaneKms = $derived(Boolean(selectedWorkRecordType?.allow_lane_kms));
   const hasPersistedRecord = $derived(Boolean(editing && id));
+  const isCreator = $derived(!editing || detail?.creator === currentUserId || form.creator === currentUserId);
+  const canManageWorkers = $derived(
+    isCreator &&
+      showSaveButton &&
+      !detail?.approved &&
+      workerForms.length < maxWorkers &&
+      (editing || canCreateForOthers),
+  );
   const attachmentHref = $derived.by(() =>
     id && currentAttachmentName !== "" ? pocketBaseFileHref("work_records", id, currentAttachmentName) : "",
   );
@@ -222,7 +300,6 @@
 
   function buildPayload() {
     return {
-      uid: resolvedUID(),
       creator: resolvedCreator(),
       date: form.date,
       job: form.job,
@@ -230,9 +307,7 @@
       location: form.location,
       work_description: form.work_description,
       report_to: form.report_to,
-      hours_on_site: Number(form.hours_on_site || 0),
-      hours_travel_time: Number(form.hours_travel_time || 0),
-      distance_travelled_km: Number(form.distance_travelled_km || 0),
+      lane_kms: showLaneKms ? Number(form.lane_kms || 0) : 0,
       field_book_number: form.field_book_number || "",
       field_book_page_number:
         `${form.field_book_page_number ?? ""}`.trim() === ""
@@ -241,21 +316,11 @@
       sub_contractor: form.sub_contractor || "",
       equipment: form.equipment || "",
       supplies: form.supplies || "",
-      vehicle_type: form.vehicle_type,
-      is_passenger: Boolean(form.is_passenger),
-      company_vehicle_unit_number: form.company_vehicle_unit_number || "",
     };
   }
 
   function resolvedCreator() {
     return currentUserId;
-  }
-
-  function resolvedUID() {
-    if (!canAssignOthers || assigneeMode === "you") {
-      return currentUserId;
-    }
-    return form.uid || "";
   }
 
   function buildSaveConsumables(): WorkRecordSaveConsumableRequest[] {
@@ -268,6 +333,62 @@
     }));
   }
 
+  function workerToPayload(worker: WorkerForm): WorkRecordSubjectSaveRequest {
+    return {
+      id: worker.id || undefined,
+      uid: worker.uid || "",
+      hours_on_site: Number(worker.hours_on_site || 0),
+      hours_travel_time: Number(worker.hours_travel_time || 0),
+      distance_travelled_km: Number(worker.distance_travelled_km || 0),
+      vehicle_type: worker.vehicle_type,
+      is_passenger: Boolean(worker.is_passenger),
+      company_vehicle_unit_number: worker.company_vehicle_unit_number || "",
+    };
+  }
+
+  function buildSaveWorkers() {
+    if (isCreator) {
+      return workerForms.map(workerToPayload);
+    }
+    return workerForms
+      .filter((worker) => worker.uid === currentUserId)
+      .map(workerToPayload);
+  }
+
+  function workerCanEdit(worker: WorkerForm) {
+    if (!showSaveButton || worker.approved) return false;
+    if (!editing) return isCreator || worker.uid === currentUserId || worker.uid === "";
+    return isCreator || worker.uid === currentUserId;
+  }
+
+  function workerUIDLocked(worker: WorkerForm) {
+    return worker.id !== "" || !isCreator;
+  }
+
+  function addWorker() {
+    if (!canManageWorkers) return;
+    workerForms = [...workerForms, newWorkerFromExisting(workerForms[0])];
+  }
+
+  function removeWorker(index: number) {
+    if (!isCreator || detail?.approved) return;
+    const worker = workerForms[index];
+    if (!worker || worker.approved || worker.linked_time_entry_id || workerForms.length <= 1) return;
+    workerForms = workerForms.filter((_, i) => i !== index);
+  }
+
+  function workerDisplayName(worker: WorkerForm) {
+    const profile = worker.uid ? $profiles.index?.getStoredFields(worker.uid) : null;
+    const profileName =
+      profile && `${profile.given_name ?? ""} ${profile.surname ?? ""}`.trim();
+    return worker.owner_name || profileName || worker.uid || "Unassigned worker";
+  }
+
+  function workerTitle(worker: WorkerForm) {
+    if (worker.id === "" && worker.uid === "") return "New Worker";
+    return workerDisplayName(worker);
+  }
+
   function buildSaveRequest(): WorkRecordSaveRequest {
     const payload = buildPayload();
     return {
@@ -277,17 +398,13 @@
       location: payload.location,
       work_description: payload.work_description,
       report_to: payload.report_to,
-      hours_on_site: payload.hours_on_site,
-      hours_travel_time: payload.hours_travel_time,
-      distance_travelled_km: payload.distance_travelled_km,
+      lane_kms: payload.lane_kms,
       field_book_number: payload.field_book_number,
       field_book_page_number: payload.field_book_page_number as number | "",
       sub_contractor: payload.sub_contractor,
       equipment: payload.equipment,
       supplies: payload.supplies,
-      vehicle_type: payload.vehicle_type,
-      is_passenger: payload.is_passenger,
-      company_vehicle_unit_number: payload.company_vehicle_unit_number,
+      subjects: buildSaveWorkers(),
       consumables: buildSaveConsumables(),
     };
   }
@@ -295,30 +412,68 @@
   function buildCreateRequest(): WorkRecordCreateRequest {
     const payload = buildPayload();
     return {
-      uid: payload.uid,
       date: payload.date,
       job: payload.job,
       type: payload.type,
       location: payload.location,
       work_description: payload.work_description,
       report_to: payload.report_to,
-      hours_on_site: payload.hours_on_site,
-      hours_travel_time: payload.hours_travel_time,
-      distance_travelled_km: payload.distance_travelled_km,
+      lane_kms: payload.lane_kms,
       field_book_number: payload.field_book_number,
       field_book_page_number: payload.field_book_page_number as number | "",
       sub_contractor: payload.sub_contractor,
       equipment: payload.equipment,
       supplies: payload.supplies,
-      vehicle_type: payload.vehicle_type,
-      is_passenger: payload.is_passenger,
-      company_vehicle_unit_number: payload.company_vehicle_unit_number,
+      subjects: workerForms.map(workerToPayload),
       consumables: buildSaveConsumables().map((consumable) => ({
         ...consumable,
         entry_id: "",
       })),
       copy_from_work_record_id: copyContext?.copy_from_work_record_id,
     };
+  }
+
+  const workerErrorFields = new Map([
+    ["uid", "uid"],
+    ["hours_on_site", "hours_on_site"],
+    ["hours_on_site_min", "hours_on_site"],
+    ["hours_travel_time", "hours_travel_time"],
+    ["travel_time_min", "hours_travel_time"],
+    ["distance_travelled_km", "distance_travelled_km"],
+    ["distance_km_min", "distance_travelled_km"],
+    ["vehicle_type", "vehicle_type"],
+    ["company_vehicle_unit_number", "company_vehicle_unit_number"],
+  ]);
+
+  function normalizeWorkerSaveErrors(
+    rawErrors: Record<string, { message: string; code?: string }>,
+  ) {
+    const normalized = { ...rawErrors };
+    let addedScopedWorkerError = false;
+
+    for (const [field, error] of Object.entries(rawErrors)) {
+      if (field.startsWith("subjects_")) {
+        addedScopedWorkerError = true;
+        continue;
+      }
+      const workerField = workerErrorFields.get(field);
+      if (!workerField) continue;
+
+      const targetIndex = workerForms.length === 1 ? 0 : workerForms.findIndex((worker) => workerCanEdit(worker));
+      if (targetIndex >= 0) {
+        normalized[`subjects_${targetIndex}_${workerField}`] = error;
+        addedScopedWorkerError = true;
+      }
+    }
+
+    if (!normalized.global && !addedScopedWorkerError) {
+      const firstError = Object.values(rawErrors)[0];
+      if (firstError?.message) {
+        normalized.global = { message: firstError.message };
+      }
+    }
+
+    return normalized;
   }
 
   function applySaveErrors(error: any) {
@@ -336,7 +491,7 @@
       nextErrors.global = { message: nextErrors.type.message };
     }
 
-    errors = nextErrors;
+    errors = normalizeWorkerSaveErrors(nextErrors);
   }
 
   async function save() {
@@ -442,19 +597,10 @@
   }
 
   $effect(() => {
-    if (!canCreateSelf && canAssignOthers) {
-      assigneeMode = "someone_else";
-      if (!editing && !isCopyMode && item.uid === currentUserId) {
-        form.uid = "";
+    if (!editing && !isCopyMode && workerForms.length === 1 && workerForms[0].id === "") {
+      if (canCreateSelf && currentUserId !== "" && workerForms[0].uid === "") {
+        workerForms[0].uid = currentUserId;
       }
-    } else {
-      assigneeMode =
-        canAssignOthers &&
-        item.uid !== "" &&
-        currentUserId !== "" &&
-        item.uid !== currentUserId
-          ? "someone_else"
-          : "you";
     }
   });
 
@@ -481,8 +627,7 @@
 
   {#if isCopyMode && copyContext}
     <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
-      Copying from {copyContext.source_work_record}. Worker and job stay locked to the source
-      record.
+      Copying from {copyContext.source_work_record}. Job stays locked to the source record.
     </div>
   {/if}
 
@@ -511,36 +656,10 @@
     </div>
   {/if}
 
-  {#if canAssignOthers}
-    <DsSelector
-      bind:value={assigneeMode}
-      items={assigneeModeOptions}
-      {errors}
-      fieldName="assignee_mode"
-      uiName="Who Is This For?"
-      disabled={isCopyMode || !canCreateSelf}
-    >
-      {#snippet optionTemplate(item)}{item.name}{/snippet}
-    </DsSelector>
-  {/if}
-
-  {#if canAssignOthers && !canCreateSelf}
+  {#if !canCreateSelf && !editing}
     <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
       Work record creators without the time claim can only create records for someone else.
     </div>
-  {/if}
-
-  {#if canAssignOthers && assigneeMode === "someone_else" && $profiles.index !== null}
-    <DsAutoComplete
-      bind:value={form.uid}
-      index={$profiles.index}
-      {errors}
-      fieldName="uid"
-      uiName="Assignee"
-      disabled={isCopyMode}
-    >
-      {#snippet resultTemplate(item)}{item.surname}, {item.given_name}{/snippet}
-    </DsAutoComplete>
   {/if}
 
   <DsDateInput bind:value={form.date} min={DATE_INPUT_MIN} max={dateInputMax} />
@@ -564,29 +683,22 @@
   >
     <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" />
     <DsTextInput bind:value={form.report_to} {errors} fieldName="report_to" uiName="Report To" />
+    {#if showLaneKms}
+      <DsTextInput
+        bind:value={form.lane_kms}
+        {errors}
+        fieldName="lane_kms"
+        uiName="Lane Kilometres"
+        type="number"
+        min={0}
+        step={0.1}
+      />
+    {/if}
     <DsTextInput
       bind:value={form.sub_contractor}
       {errors}
       fieldName="sub_contractor"
       uiName="Sub Contractor"
-    />
-    <DsTextInput
-      bind:value={form.hours_on_site}
-      {errors}
-      fieldName="hours_on_site"
-      uiName="Hours On Site"
-      type="number"
-      min={0}
-      step={0.5}
-    />
-    <DsTextInput
-      bind:value={form.hours_travel_time}
-      {errors}
-      fieldName="hours_travel_time"
-      uiName="Hours Travel Time"
-      type="number"
-      min={0}
-      step={0.5}
     />
     <DsTextInput
       bind:value={form.field_book_number}
@@ -603,50 +715,131 @@
       min={1}
       step={1}
     />
-    <div class="flex flex-col gap-1">
-      <div class="flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
-        <div class="flex items-center gap-2">
-          <span>Vehicle</span>
-          <DSToggle
-            bind:value={form.vehicle_type}
-            options={vehicleTypeOptions}
-            ariaLabel="Vehicle"
-          />
-        </div>
-        <div class="flex items-center gap-2">
-          <input
-            id="is_passenger"
-            type="checkbox"
-            name="is_passenger"
-            bind:checked={form.is_passenger}
-            class="h-4 w-4"
-          />
-          <label for="is_passenger">I was a passenger</label>
-        </div>
+  </div>
+
+  <div class="rounded-sm bg-neutral-50 p-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h2 class="text-lg font-semibold">Workers</h2>
+        <p class="text-sm text-neutral-600">
+          Each worker has separate hours and vehicle usage.
+        </p>
       </div>
-      {#if errors.vehicle_type}
-        <span class="text-red-600">{errors.vehicle_type.message}</span>
-      {/if}
-      {#if errors.is_passenger}
-        <span class="text-red-600">{errors.is_passenger.message}</span>
+      {#if canManageWorkers}
+        <DsActionButton action={addWorker} color="green" icon="mdi:add-bold" title="Add Worker" />
       {/if}
     </div>
 
-    <DsTextInput
-      bind:value={form.company_vehicle_unit_number}
-      {errors}
-      fieldName="company_vehicle_unit_number"
-      uiName="Company Vehicle Unit Number"
-    />
-    <DsTextInput
-      bind:value={form.distance_travelled_km}
-      {errors}
-      fieldName="distance_travelled_km"
-      uiName="Distance Travelled (km)"
-      type="number"
-      min={0}
-      step={0.1}
-    />
+    {#if errors.subjects}
+      <div class="mt-3 rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+        {errors.subjects.message}
+      </div>
+    {/if}
+
+    <div class="mt-3 space-y-3">
+      {#each workerForms as worker, index (worker.id || index)}
+        {@const editableWorker = workerCanEdit(worker)}
+        <div class="rounded-sm border border-neutral-200 bg-white p-3">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="font-semibold">{workerTitle(worker)}</div>
+            <div class="flex flex-wrap items-center gap-2">
+              {#if worker.approved}
+                <DsLabel color="green">Approved</DsLabel>
+              {/if}
+              {#if worker.linked_time_entry_id}
+                <DsLabel color="blue">Time Entry Linked</DsLabel>
+              {/if}
+              {#if isCreator && !detail?.approved && !worker.approved && !worker.linked_time_entry_id && workerForms.length > 1}
+                <DsActionButton
+                  action={() => removeWorker(index)}
+                  color="red"
+                  icon="mdi:trash-can-outline"
+                  title="Remove Worker"
+                />
+              {/if}
+            </div>
+          </div>
+
+          {#if $profiles.index !== null && !workerUIDLocked(worker) && worker.uid === ""}
+            <div class="mb-3">
+              <DsAutoComplete
+                bind:value={worker.uid}
+                index={$profiles.index}
+                idField="uid"
+                {errors}
+                fieldName={`subjects_${index}_uid`}
+                uiName="Worker"
+                disabled={!editableWorker}
+              >
+                {#snippet resultTemplate(item)}{item.surname}, {item.given_name}{/snippet}
+              </DsAutoComplete>
+            </div>
+          {/if}
+
+          <div class="worker-grid grid auto-cols-fr grid-flow-col gap-3">
+            <DsTextInput
+              bind:value={worker.hours_on_site}
+              {errors}
+              fieldName={`subjects_${index}_hours_on_site`}
+              uiName="Hours On Site"
+              type="number"
+              min={0}
+              step={0.5}
+              disabled={!editableWorker}
+            />
+            <DsTextInput
+              bind:value={worker.hours_travel_time}
+              {errors}
+              fieldName={`subjects_${index}_hours_travel_time`}
+              uiName="Hours Travel Time"
+              type="number"
+              min={0}
+              step={0.5}
+              disabled={!editableWorker}
+            />
+            <DsTextInput
+              bind:value={worker.distance_travelled_km}
+              {errors}
+              fieldName={`subjects_${index}_distance_travelled_km`}
+              uiName="Distance Travelled (km)"
+              type="number"
+              min={0}
+              step={0.1}
+              disabled={!editableWorker}
+            />
+            <DsTextInput
+              bind:value={worker.company_vehicle_unit_number}
+              {errors}
+              fieldName={`subjects_${index}_company_vehicle_unit_number`}
+              uiName="Company Vehicle Unit Number"
+              disabled={!editableWorker}
+            />
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
+            <div class="flex items-center gap-2">
+              <span>Vehicle</span>
+              <DSToggle
+                bind:value={worker.vehicle_type}
+                options={vehicleTypeOptions}
+                ariaLabel={`Vehicle for ${workerDisplayName(worker)}`}
+                disabled={!editableWorker}
+              />
+            </div>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name={`subjects_${index}_is_passenger`}
+                bind:checked={worker.is_passenger}
+                disabled={!editableWorker}
+                class="h-4 w-4"
+              />
+              Passenger
+            </label>
+          </div>
+        </div>
+      {/each}
+    </div>
   </div>
 
   {#if hasPersistedRecord}
@@ -842,13 +1035,20 @@
 
 <style>
   .fields-grid,
+  .worker-grid,
   .consumables-grid {
     grid-template-rows: var(--mobile-rows);
   }
   @media (min-width: 640px) {
     .fields-grid,
+    .worker-grid,
     .consumables-grid {
       grid-template-rows: var(--desktop-rows);
     }
+  }
+
+  .worker-grid {
+    --mobile-rows: repeat(4, auto);
+    --desktop-rows: repeat(2, auto);
   }
 </style>

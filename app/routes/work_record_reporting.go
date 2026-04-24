@@ -150,7 +150,7 @@ func buildWorkRecordFilterSQL(alias string, filters workRecordSearchFilters) (st
 	params := dbx.Params{}
 
 	if filters.UID != "" {
-		conditions = append(conditions, alias+".uid = {:uid}")
+		conditions = append(conditions, "EXISTS (SELECT 1 FROM work_records_subjects wrs_uid WHERE wrs_uid.work_record = "+alias+".id AND wrs_uid.uid = {:uid})")
 		params["uid"] = filters.UID
 	}
 	if filters.JobID != "" {
@@ -171,14 +171,17 @@ func buildWorkRecordFilterSQL(alias string, filters workRecordSearchFilters) (st
 	}
 	if filters.Linked != nil {
 		if *filters.Linked {
-			conditions = append(conditions, "EXISTS (SELECT 1 FROM time_entries te_filter WHERE te_filter.work_record_id = "+alias+".id)")
+			conditions = append(conditions, "EXISTS (SELECT 1 FROM work_records_subjects wrs_filter JOIN time_entries te_filter ON te_filter.work_record_subject_id = wrs_filter.id WHERE wrs_filter.work_record = "+alias+".id)")
 		} else {
-			conditions = append(conditions, "NOT EXISTS (SELECT 1 FROM time_entries te_filter WHERE te_filter.work_record_id = "+alias+".id)")
+			conditions = append(conditions, "EXISTS (SELECT 1 FROM work_records_subjects wrs_filter WHERE wrs_filter.work_record = "+alias+".id AND NOT EXISTS (SELECT 1 FROM time_entries te_filter WHERE te_filter.work_record_subject_id = wrs_filter.id))")
 		}
 	}
 	if filters.Approved != nil {
-		conditions = append(conditions, alias+".approved = {:approved}")
-		params["approved"] = boolToSQLInt(*filters.Approved)
+		if *filters.Approved {
+			conditions = append(conditions, "EXISTS (SELECT 1 FROM work_records_subjects wrs_approved WHERE wrs_approved.work_record = "+alias+".id AND COALESCE(wrs_approved.approved, 0) = 1)")
+		} else {
+			conditions = append(conditions, "EXISTS (SELECT 1 FROM work_records_subjects wrs_approved WHERE wrs_approved.work_record = "+alias+".id AND COALESCE(wrs_approved.approved, 0) = 0)")
+		}
 	}
 
 	return strings.Join(conditions, " AND "), params
@@ -198,6 +201,7 @@ func loadFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters, l
 		WHERE ` + filterSQL).Bind(params).One(&totalRow); err != nil {
 		return nil, 0, err
 	}
+	params["displayUid"] = filters.UID
 
 	rows := []WorkRecordListRow{}
 	if err := app.DB().NewQuery(`
@@ -205,7 +209,7 @@ func loadFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters, l
 			wr.id AS id,
 			wr.number AS work_record,
 			wr.date AS date,
-			wr.uid AS uid,
+			COALESCE(display_subject.uid, '') AS uid,
 			COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
 			wr.creator AS creator,
 			COALESCE(wr.job, '') AS job_id,
@@ -214,20 +218,40 @@ func loadFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters, l
 			COALESCE(wrt.name, '') AS type_name,
 			COALESCE(wr.location, '') AS location,
 			COALESCE(wr.work_description, '') AS work_description,
-			COALESCE(wr.approved, 0) AS approved,
+			CASE WHEN COALESCE(subject_counts.approved_subject_count, 0) > 0 THEN 1 ELSE 0 END AS approved,
 			COALESCE(te.id, '') AS linked_time_entry_id,
 			COALESCE(te.tsid, '') AS linked_timesheet_id,
 			COALESCE(te.date, '') AS linked_time_entry_date,
-			COALESCE(te.description, '') AS linked_time_entry_description
+			COALESCE(te.description, '') AS linked_time_entry_description,
+			COALESCE(subject_counts.subject_count, 0) AS subject_count,
+			COALESCE(subject_counts.approved_subject_count, 0) AS approved_subject_count
 		FROM work_records wr
+		LEFT JOIN (
+			SELECT work_record, MIN(id) AS subject_id
+			FROM work_records_subjects
+			WHERE {:displayUid} = '' OR uid = {:displayUid}
+			GROUP BY work_record
+		) display_subject_id
+		  ON display_subject_id.work_record = wr.id
+		LEFT JOIN work_records_subjects display_subject
+		  ON display_subject.id = display_subject_id.subject_id
 		LEFT JOIN profiles p
-		  ON p.uid = wr.uid
+		  ON p.uid = display_subject.uid
+		LEFT JOIN (
+			SELECT
+				work_record,
+				COUNT(*) AS subject_count,
+				SUM(CASE WHEN COALESCE(approved, 0) = 1 THEN 1 ELSE 0 END) AS approved_subject_count
+			FROM work_records_subjects
+			GROUP BY work_record
+		) subject_counts
+		  ON subject_counts.work_record = wr.id
 		LEFT JOIN jobs j
 		  ON j.id = wr.job
 		LEFT JOIN work_records_types wrt
 		  ON wrt.id = wr.type
 		LEFT JOIN time_entries te
-		  ON te.work_record_id = wr.id
+		  ON te.work_record_subject_id = display_subject.id
 		WHERE ` + filterSQL + `
 		ORDER BY wr.date DESC, wr.number DESC
 		LIMIT {:limit} OFFSET {:offset}
@@ -245,6 +269,7 @@ func loadFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters, l
 
 func loadAllFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters) ([]WorkRecordListRow, int, error) {
 	filterSQL, params := buildWorkRecordFilterSQL("wr", filters)
+	params["displayUid"] = filters.UID
 
 	rows := []WorkRecordListRow{}
 	if err := app.DB().NewQuery(`
@@ -252,7 +277,7 @@ func loadAllFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters
 			wr.id AS id,
 			wr.number AS work_record,
 			wr.date AS date,
-			wr.uid AS uid,
+			COALESCE(display_subject.uid, '') AS uid,
 			COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
 			wr.creator AS creator,
 			COALESCE(wr.job, '') AS job_id,
@@ -261,20 +286,40 @@ func loadAllFilteredWorkRecordRows(app core.App, filters workRecordSearchFilters
 			COALESCE(wrt.name, '') AS type_name,
 			COALESCE(wr.location, '') AS location,
 			COALESCE(wr.work_description, '') AS work_description,
-			COALESCE(wr.approved, 0) AS approved,
+			CASE WHEN COALESCE(subject_counts.approved_subject_count, 0) > 0 THEN 1 ELSE 0 END AS approved,
 			COALESCE(te.id, '') AS linked_time_entry_id,
 			COALESCE(te.tsid, '') AS linked_timesheet_id,
 			COALESCE(te.date, '') AS linked_time_entry_date,
-			COALESCE(te.description, '') AS linked_time_entry_description
+			COALESCE(te.description, '') AS linked_time_entry_description,
+			COALESCE(subject_counts.subject_count, 0) AS subject_count,
+			COALESCE(subject_counts.approved_subject_count, 0) AS approved_subject_count
 		FROM work_records wr
+		LEFT JOIN (
+			SELECT work_record, MIN(id) AS subject_id
+			FROM work_records_subjects
+			WHERE {:displayUid} = '' OR uid = {:displayUid}
+			GROUP BY work_record
+		) display_subject_id
+		  ON display_subject_id.work_record = wr.id
+		LEFT JOIN work_records_subjects display_subject
+		  ON display_subject.id = display_subject_id.subject_id
 		LEFT JOIN profiles p
-		  ON p.uid = wr.uid
+		  ON p.uid = display_subject.uid
+		LEFT JOIN (
+			SELECT
+				work_record,
+				COUNT(*) AS subject_count,
+				SUM(CASE WHEN COALESCE(approved, 0) = 1 THEN 1 ELSE 0 END) AS approved_subject_count
+			FROM work_records_subjects
+			GROUP BY work_record
+		) subject_counts
+		  ON subject_counts.work_record = wr.id
 		LEFT JOIN jobs j
 		  ON j.id = wr.job
 		LEFT JOIN work_records_types wrt
 		  ON wrt.id = wr.type
 		LEFT JOIN time_entries te
-		  ON te.work_record_id = wr.id
+		  ON te.work_record_subject_id = display_subject.id
 		WHERE ` + filterSQL + `
 		ORDER BY wr.date DESC, wr.number DESC
 	`).Bind(params).All(&rows); err != nil {
@@ -424,6 +469,7 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 		}
 
 		filterSQL, params := buildWorkRecordFilterSQL("wr", filters)
+		params["displayUid"] = filters.UID
 
 		rows := []WorkRecordConsumableReportRow{}
 		if err := app.DB().NewQuery(`
@@ -431,7 +477,7 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 				wr.id AS work_record_id,
 				wr.number AS work_record,
 				wr.date AS date,
-				wr.uid AS uid,
+				COALESCE(display_subject.uid, '') AS uid,
 				COALESCE(p.given_name || ' ' || p.surname, '') AS owner_name,
 				COALESCE(wr.job, '') AS job_id,
 				COALESCE(j.number, '') AS job_number,
@@ -448,8 +494,17 @@ func createGetWorkRecordConsumablesReportHandler(app core.App) func(e *core.Requ
 			  ON wrce.work_record = wr.id
 			JOIN work_records_consumables wrc
 			  ON wrc.id = wrce.consumable
+			LEFT JOIN (
+				SELECT work_record, MIN(id) AS subject_id
+				FROM work_records_subjects
+				WHERE {:displayUid} = '' OR uid = {:displayUid}
+				GROUP BY work_record
+			) display_subject_id
+			  ON display_subject_id.work_record = wr.id
+			LEFT JOIN work_records_subjects display_subject
+			  ON display_subject.id = display_subject_id.subject_id
 			LEFT JOIN profiles p
-			  ON p.uid = wr.uid
+			  ON p.uid = display_subject.uid
 			LEFT JOIN jobs j
 			  ON j.id = wr.job
 			LEFT JOIN work_records_types wrt

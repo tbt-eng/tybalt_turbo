@@ -38,7 +38,8 @@ FROM (
   '' amended
   FROM time_entries te_int
   LEFT JOIN time_sheets ts ON te_int.tsid = ts.id
-  LEFT JOIN work_records wr ON te_int.work_record_id = wr.id
+  LEFT JOIN work_records_subjects wrs ON te_int.work_record_subject_id = wrs.id
+  LEFT JOIN work_records wr ON wrs.work_record = wr.id
   WHERE tsid != ''
     AND ts.committed != ''
     AND te_int.job = {:job_id}
@@ -65,4 +66,3 @@ LEFT JOIN profiles p ON te.uid = p.uid
 )
 SELECT * FROM base
 ORDER BY date, timetype, job, division, qty, nc, surname, givenName
-
