@@ -19,7 +19,12 @@ func loadWorkRecordConsumableContext(app core.App, workRecordID string, consumab
 	var row workRecordConsumableContext
 	if err := app.DB().NewQuery(`
 		SELECT
-			COALESCE(wr.approved, 0) AS approved,
+			EXISTS(
+				SELECT 1
+				FROM work_records_subjects wrs
+				WHERE wrs.work_record = wr.id
+				  AND COALESCE(wrs.approved, 0) = 1
+			) AS approved,
 			COALESCE(wr.type, '') AS work_record_type,
 			COALESCE(wrc.input_kind, '') AS input_kind,
 			COALESCE(wrc.active, 0) AS consumable_active

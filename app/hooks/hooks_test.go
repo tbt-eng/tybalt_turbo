@@ -68,33 +68,21 @@ func insertWorkRecordNumberForHooksTest(t *testing.T, app *tests.TestApp, id str
 	if _, err := app.DB().NewQuery(`
 		INSERT INTO work_records (
 			id,
-			approved,
 			creator,
 			date,
-			distance_travelled_km,
-			hours_on_site,
-			hours_travel_time,
 			job,
 			location,
 			number,
 			type,
-			uid,
-			vehicle_type,
 			work_description
 		) VALUES (
 			{:id},
-			0,
 			'f2j5a8vk006baub',
 			'2026-12-31',
-			0,
-			8,
-			0,
 			'mg0sp9iyjzo4zw9',
 			'Test Location',
 			{:number},
 			'oask5u50nka0km8',
-			'f2j5a8vk006baub',
-			'Truck',
 			'Collision coverage'
 		)
 	`).Bind(map[string]any{
@@ -102,6 +90,34 @@ func insertWorkRecordNumberForHooksTest(t *testing.T, app *tests.TestApp, id str
 		"number": number,
 	}).Execute(); err != nil {
 		t.Fatalf("failed to insert collision work record: %v", err)
+	}
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO work_records_subjects (
+			id,
+			work_record,
+			uid,
+			hours_on_site,
+			hours_travel_time,
+			distance_travelled_km,
+			vehicle_type,
+			company_vehicle_unit_number,
+			approved
+		) VALUES (
+			{:subjectId},
+			{:id},
+			'f2j5a8vk006baub',
+			8,
+			0,
+			0,
+			'company',
+			'7',
+			0
+		)
+	`).Bind(map[string]any{
+		"id":        id,
+		"subjectId": strings.TrimSuffix(id, "1") + "s",
+	}).Execute(); err != nil {
+		t.Fatalf("failed to insert collision work record subject: %v", err)
 	}
 }
 
@@ -118,7 +134,7 @@ func insertLegacyTimeEntryForHooksTest(t *testing.T, app *tests.TestApp, id stri
 			description,
 			job,
 			work_record,
-			work_record_id,
+			work_record_subject_id,
 			hours,
 			meals_hours,
 			payout_request_amount,
@@ -348,15 +364,15 @@ func TestValidateTimeEntry_AggregatesLinkedWorkRecordMismatchErrors(t *testing.T
 	}
 
 	record := buildRecordFromMap(timeEntriesCollection, map[string]any{
-		"time_type":      "dummy",
-		"uid":            "rzr98oadsp9qc11",
-		"date":           "2026-04-09",
-		"division":       "fy4i9poneukvq9u",
-		"hours":          9.0,
-		"job":            "mg0sp9iyjzo4zw9",
-		"description":    "Linked work record mismatch coverage",
-		"role":           "tbgoiwwwfj8cvju",
-		"work_record_id": "wr260400000010a",
+		"time_type":              "dummy",
+		"uid":                    "rzr98oadsp9qc11",
+		"date":                   "2026-04-09",
+		"division":               "fy4i9poneukvq9u",
+		"hours":                  9.0,
+		"job":                    "mg0sp9iyjzo4zw9",
+		"description":            "Linked work record mismatch coverage",
+		"role":                   "tbgoiwwwfj8cvju",
+		"work_record_subject_id": "wrsub260400010",
 	})
 
 	err := validateTimeEntry(app, record, nil)
@@ -369,14 +385,14 @@ func TestValidateTimeEntry_AggregatesLinkedWorkRecordMismatchErrors(t *testing.T
 		t.Fatalf("expected validation.Errors, got %T", err)
 	}
 
-	workRecordErr := errs["work_record_id"]
+	workRecordErr := errs["work_record_subject_id"]
 	if workRecordErr == nil {
-		t.Fatalf("expected work_record_id error, got %#v", errs)
+		t.Fatalf("expected work_record_subject_id error, got %#v", errs)
 	}
 
 	message := workRecordErr.Error()
 	for _, expected := range []string{
-		"Selected work record belongs to a different user",
+		"Selected work record subject belongs to a different user",
 		"Selected work record is for a different job",
 		"Selected work record is for a different date",
 	} {
@@ -427,8 +443,8 @@ func TestValidateTimeEntry_LinkedOnlyModeForcesLegacyUpgrade(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected validation.Errors, got %T", err)
 	}
-	if errs["work_record_id"] == nil {
-		t.Fatalf("expected work_record_id error, got %#v", errs)
+	if errs["work_record_subject_id"] == nil {
+		t.Fatalf("expected work_record_subject_id error, got %#v", errs)
 	}
 }
 

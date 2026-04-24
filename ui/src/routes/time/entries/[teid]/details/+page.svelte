@@ -6,9 +6,10 @@
 
   let { data }: { data: PageData } = $props();
 
-  const workRecordNumber = $derived.by(
-    () => data.item.work_record || data.item.expand?.work_record_id?.number || "",
+  const linkedWorkRecord = $derived.by(
+    () => (data.item.expand?.work_record_subject_id as any)?.expand?.work_record,
   );
+  const workRecordNumber = $derived.by(() => data.item.work_record || linkedWorkRecord?.number || "");
 </script>
 
 <div class="mx-auto max-w-4xl p-4">
@@ -32,8 +33,8 @@
           Open Timesheet
         </DsActionButton>
       {/if}
-      {#if data.item.work_record_id}
-        <DsActionButton action={`/time/work-records/${data.item.work_record_id}`}>Open Work Record</DsActionButton>
+      {#if data.item.work_record_subject_id && linkedWorkRecord?.id}
+        <DsActionButton action={`/time/work-records/${linkedWorkRecord.id}`}>Open Work Record</DsActionButton>
       {/if}
     </div>
   </div>

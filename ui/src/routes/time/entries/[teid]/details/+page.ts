@@ -6,7 +6,7 @@ import { error } from "@sveltejs/kit";
 export const load: PageLoad = async ({ params }) => {
   try {
     const item = await pb.collection("time_entries").getOne<TimeEntriesResponse>(params.teid, {
-      expand: "job,time_type,division,category,role,work_record_id",
+      expand: "job,time_type,division,category,role,work_record_subject_id,work_record_subject_id.work_record",
     });
 
     return { item };

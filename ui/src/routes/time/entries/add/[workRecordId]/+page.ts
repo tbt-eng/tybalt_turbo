@@ -4,7 +4,7 @@ import type { PageLoad } from "./$types";
 import type { TimeEntriesPageData, WorkRecordDetailsResponse } from "$lib/svelte-types";
 import { error, redirect } from "@sveltejs/kit";
 
-export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
+export const load: PageLoad<TimeEntriesPageData> = async ({ params, url }) => {
   const defaultItem = {
     uid: "",
     date: new Date().toISOString().split("T")[0],
@@ -12,7 +12,7 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
     division: "",
     description: "",
     job: "",
-    work_record_id: "",
+    work_record_subject_id: "",
     work_record: "",
     hours: 0,
     meals_hours: 0,
@@ -25,31 +25,43 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
     const workRecord = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecordId)}`, {
       method: "GET",
     })) as WorkRecordDetailsResponse;
+    const requestedWorkerId = url.searchParams.get("worker") ?? "";
+    const worker =
+      (requestedWorkerId !== ""
+        ? workRecord.subjects?.find((item) => item.id === requestedWorkerId)
+        : workRecord.subjects?.find((item) => item.can_create_time_entry)) ?? workRecord.subjects?.[0];
+    if (!worker) {
+      throw error(404, "Work record worker not found");
+    }
+    if (requestedWorkerId !== "" && worker.id !== requestedWorkerId) {
+      throw error(404, "Work record worker not found");
+    }
 
-    if (!workRecord.can_create_time_entry && workRecord.linked_time_entry_id) {
-      if (workRecord.linked_timesheet_id) {
+    if (!worker.can_create_time_entry && worker.linked_time_entry_id) {
+      if (worker.linked_timesheet_id) {
         throw redirect(
           303,
-          `/time/sheets/${workRecord.linked_timesheet_id}/details?entry=${workRecord.linked_time_entry_id}`,
+          `/time/sheets/${worker.linked_timesheet_id}/details?entry=${worker.linked_time_entry_id}`,
         );
       }
-      throw redirect(303, `/time/entries/${workRecord.linked_time_entry_id}/details`);
+      throw redirect(303, `/time/entries/${worker.linked_time_entry_id}/details`);
     }
 
     return {
       item: {
         ...defaultItem,
-        uid: workRecord.uid,
+        uid: worker.uid,
         date: workRecord.date,
         description: workRecord.work_description,
         job: workRecord.job_id,
-        work_record_id: workRecord.id,
-        hours: workRecord.hours_on_site + workRecord.hours_travel_time,
+        work_record_subject_id: worker.id,
+        hours: worker.hours_on_site + worker.hours_travel_time,
       } as TimeEntriesRecord,
       editing: false,
       id: null,
       linked_work_record: {
         id: workRecord.id,
+        subject_id: worker.id,
         work_record: workRecord.work_record,
         date: workRecord.date,
         job_id: workRecord.job_id,
@@ -58,15 +70,15 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
         type_name: workRecord.type_name,
         location: workRecord.location,
         work_description: workRecord.work_description,
-        hours_on_site: workRecord.hours_on_site,
-        hours_travel_time: workRecord.hours_travel_time,
-        approved: workRecord.approved,
-        linked_time_entry_id: workRecord.linked_time_entry_id,
-        linked_timesheet_id: workRecord.linked_timesheet_id,
-        linked_time_entry_date: workRecord.linked_time_entry_date,
-        linked_time_entry_description: workRecord.linked_time_entry_description,
-        linked_time_sheet_week_ending: workRecord.linked_time_sheet_week_ending,
-        can_create_time_entry: workRecord.can_create_time_entry,
+        hours_on_site: worker.hours_on_site,
+        hours_travel_time: worker.hours_travel_time,
+        approved: worker.approved,
+        linked_time_entry_id: worker.linked_time_entry_id,
+        linked_timesheet_id: worker.linked_timesheet_id,
+        linked_time_entry_date: worker.linked_time_entry_date,
+        linked_time_entry_description: worker.linked_time_entry_description,
+        linked_time_sheet_week_ending: worker.linked_timesheet_week_ending,
+        can_create_time_entry: worker.can_create_time_entry,
       },
     };
   } catch (err) {

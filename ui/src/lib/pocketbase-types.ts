@@ -65,6 +65,7 @@ export enum Collections {
   WorkRecordsConsumableEntries = "work_records_consumable_entries",
   WorkRecordsConsumables = "work_records_consumables",
   WorkRecordsNotes = "work_records_notes",
+  WorkRecordsSubjects = "work_records_subjects",
   WorkRecordsTypeConsumables = "work_records_type_consumables",
   WorkRecordsTypes = "work_records_types",
   ZipCache = "zip_cache",
@@ -936,27 +937,22 @@ export type TimeEntriesRecord = {
   uid: RecordIdString;
   updated: IsoDateString;
   week_ending: string;
-  work_record_id: RecordIdString;
+  work_record_subject_id: RecordIdString;
   work_record: string;
 };
 
 export type WorkRecordsRecord = {
-  approved: boolean;
   attachment: string;
   attachment_hash: string;
-  company_vehicle_unit_number: string;
   created: IsoDateString;
   creator: RecordIdString;
   date: string;
-  distance_travelled_km: number;
   equipment: string;
   field_book_number: string;
   field_book_page_number: number;
-  hours_on_site: number;
-  hours_travel_time: number;
   id: string;
-  is_passenger: boolean;
   job: RecordIdString;
+  lane_kms: number;
   location: string;
   number: string;
   parent_work_record: RecordIdString;
@@ -964,10 +960,23 @@ export type WorkRecordsRecord = {
   sub_contractor: string;
   supplies: string;
   type: RecordIdString;
+  updated: IsoDateString;
+  work_description: string;
+};
+
+export type WorkRecordsSubjectsRecord = {
+  approved: boolean;
+  company_vehicle_unit_number: string;
+  created: IsoDateString;
+  distance_travelled_km: number;
+  hours_on_site: number;
+  hours_travel_time: number;
+  id: string;
+  is_passenger: boolean;
   uid: RecordIdString;
   updated: IsoDateString;
   vehicle_type: string;
-  work_description: string;
+  work_record: RecordIdString;
 };
 
 export type WorkRecordsConsumableEntriesRecord = {
@@ -1007,7 +1016,9 @@ export type WorkRecordsTypeConsumablesRecord = {
 
 export type WorkRecordsTypesRecord = {
   active: boolean;
+  allow_lane_kms: boolean;
   id: string;
+  max_subjects: number;
   name: string;
   sort_order: number;
 };
@@ -1160,7 +1171,12 @@ type TimeEntriesRecordExpands = {
   job: JobsRecord;
   role: RateRolesRecord;
   time_type: TimeTypesRecord;
-  work_record_id: WorkRecordsRecord;
+  work_record_subject_id: WorkRecordsSubjectsResponse;
+};
+
+type WorkRecordsSubjectsRecordExpands = {
+  uid: UsersRecord;
+  work_record: WorkRecordsRecord;
 };
 
 type TimeAmendmentsRecordExpands = {
@@ -1315,6 +1331,8 @@ export type WorkRecordsConsumablesResponse<Texpand = unknown> =
   Required<WorkRecordsConsumablesRecord> & BaseSystemFields<Texpand>;
 export type WorkRecordsNotesResponse<Texpand = unknown> = Required<WorkRecordsNotesRecord> &
   BaseSystemFields<Texpand>;
+export type WorkRecordsSubjectsResponse<Texpand = WorkRecordsSubjectsRecordExpands> =
+  Required<WorkRecordsSubjectsRecord> & BaseSystemFields<Texpand>;
 export type WorkRecordsTypeConsumablesResponse<Texpand = unknown> =
   Required<WorkRecordsTypeConsumablesRecord> & BaseSystemFields<Texpand>;
 export type WorkRecordsTypesResponse<Texpand = unknown> = Required<WorkRecordsTypesRecord> &
@@ -1412,6 +1430,7 @@ export type CollectionRecords = {
   work_records_consumable_entries: WorkRecordsConsumableEntriesRecord;
   work_records_consumables: WorkRecordsConsumablesRecord;
   work_records_notes: WorkRecordsNotesRecord;
+  work_records_subjects: WorkRecordsSubjectsRecord;
   work_records_type_consumables: WorkRecordsTypeConsumablesRecord;
   work_records_types: WorkRecordsTypesRecord;
   zip_cache: ZipCacheRecord;
@@ -1478,6 +1497,7 @@ export type CollectionResponses = {
   work_records_consumable_entries: WorkRecordsConsumableEntriesResponse;
   work_records_consumables: WorkRecordsConsumablesResponse;
   work_records_notes: WorkRecordsNotesResponse;
+  work_records_subjects: WorkRecordsSubjectsResponse;
   work_records_type_consumables: WorkRecordsTypeConsumablesResponse;
   work_records_types: WorkRecordsTypesResponse;
   zip_cache: ZipCacheResponse;
@@ -1551,6 +1571,7 @@ export type TypedPocketBase = PocketBase & {
   ): RecordService<WorkRecordsConsumableEntriesResponse>;
   collection(idOrName: "work_records_consumables"): RecordService<WorkRecordsConsumablesResponse>;
   collection(idOrName: "work_records_notes"): RecordService<WorkRecordsNotesResponse>;
+  collection(idOrName: "work_records_subjects"): RecordService<WorkRecordsSubjectsResponse>;
   collection(
     idOrName: "work_records_type_consumables",
   ): RecordService<WorkRecordsTypeConsumablesResponse>;

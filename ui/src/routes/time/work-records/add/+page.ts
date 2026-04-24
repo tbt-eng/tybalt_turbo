@@ -27,7 +27,6 @@ export const load: PageLoad = async ({ url }) => {
 
       return {
         item: {
-          uid: draft.uid,
           creator: currentUserId,
           date: draft.date,
           job: draft.job,
@@ -35,17 +34,12 @@ export const load: PageLoad = async ({ url }) => {
           location: draft.location,
           work_description: draft.work_description,
           report_to: draft.report_to,
-          hours_on_site: draft.hours_on_site,
-          hours_travel_time: draft.hours_travel_time,
-          distance_travelled_km: draft.distance_travelled_km,
+          lane_kms: draft.lane_kms,
           field_book_number: draft.field_book_number,
           field_book_page_number: draft.field_book_page_number === 0 ? "" : draft.field_book_page_number,
           sub_contractor: draft.sub_contractor,
           equipment: draft.equipment,
           supplies: draft.supplies,
-          vehicle_type: draft.vehicle_type,
-          is_passenger: draft.is_passenger,
-          company_vehicle_unit_number: draft.company_vehicle_unit_number,
         },
         editing: false,
         id: null,
@@ -73,7 +67,6 @@ export const load: PageLoad = async ({ url }) => {
 
   return {
     item: {
-      uid: currentUserId,
       creator: currentUserId,
       date: localToday(),
       job: "",
@@ -81,17 +74,12 @@ export const load: PageLoad = async ({ url }) => {
       location: "",
       work_description: "",
       report_to: "",
-      hours_on_site: 0,
-      hours_travel_time: 0,
-      distance_travelled_km: 0,
+      lane_kms: 0,
       field_book_number: "",
       field_book_page_number: "",
       sub_contractor: "",
       equipment: "",
       supplies: "",
-      vehicle_type: "",
-      is_passenger: false,
-      company_vehicle_unit_number: "",
     },
     editing: false,
     id: null,

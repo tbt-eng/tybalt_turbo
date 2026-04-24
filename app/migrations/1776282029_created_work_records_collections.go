@@ -67,6 +67,27 @@ func init() {
 				},
 				{
 					"hidden": false,
+					"id": "number1776282115",
+					"max": null,
+					"min": 1,
+					"name": "max_subjects",
+					"onlyInt": true,
+					"presentable": false,
+					"required": true,
+					"system": false,
+					"type": "number"
+				},
+				{
+					"hidden": false,
+					"id": "bool1776282115",
+					"name": "allow_lane_kms",
+					"presentable": false,
+					"required": false,
+					"system": false,
+					"type": "bool"
+				},
+				{
+					"hidden": false,
 					"id": "bool1776282101",
 					"name": "active",
 					"presentable": false,
@@ -493,6 +514,166 @@ func init() {
 			"viewRule": "@request.auth.id != \"\" &&\n(\n  uid = @request.auth.id ||\n  creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)"
 		}`
 
+		workRecordsSubjectsJSON := `{
+			"createRule": null,
+			"deleteRule": null,
+			"fields": [
+				{
+					"autogeneratePattern": "[a-z0-9]{15}",
+					"hidden": false,
+					"id": "text3208210256",
+					"max": 15,
+					"min": 15,
+					"name": "id",
+					"pattern": "^[a-z0-9]+$",
+					"presentable": false,
+					"primaryKey": true,
+					"required": true,
+					"system": true,
+					"type": "text"
+				},
+				{
+					"cascadeDelete": true,
+					"collectionId": "pbc_1776282103",
+					"hidden": false,
+					"id": "relation1776282114",
+					"maxSelect": 1,
+					"minSelect": 0,
+					"name": "work_record",
+					"presentable": false,
+					"required": true,
+					"system": false,
+					"type": "relation"
+				},
+				{
+					"cascadeDelete": false,
+					"collectionId": "_pb_users_auth_",
+					"hidden": false,
+					"id": "relation1776282115",
+					"maxSelect": 1,
+					"minSelect": 0,
+					"name": "uid",
+					"presentable": false,
+					"required": true,
+					"system": false,
+					"type": "relation"
+				},
+				{
+					"hidden": false,
+					"id": "number1776282116",
+					"max": null,
+					"min": null,
+					"name": "hours_on_site",
+					"onlyInt": false,
+					"presentable": false,
+					"required": true,
+					"system": false,
+					"type": "number"
+				},
+				{
+					"hidden": false,
+					"id": "number1776282117",
+					"max": null,
+					"min": null,
+					"name": "hours_travel_time",
+					"onlyInt": false,
+					"presentable": false,
+					"required": true,
+					"system": false,
+					"type": "number"
+				},
+				{
+					"hidden": false,
+					"id": "number1776282118",
+					"max": null,
+					"min": null,
+					"name": "distance_travelled_km",
+					"onlyInt": false,
+					"presentable": false,
+					"required": false,
+					"system": false,
+					"type": "number"
+				},
+				{
+					"hidden": false,
+					"id": "select1776282114",
+					"maxSelect": 1,
+					"name": "vehicle_type",
+					"presentable": false,
+					"required": false,
+					"system": false,
+					"type": "select",
+					"values": [
+						"company",
+						"personal"
+					]
+				},
+				{
+					"hidden": false,
+					"id": "bool1776282116",
+					"name": "is_passenger",
+					"presentable": false,
+					"required": false,
+					"system": false,
+					"type": "bool"
+				},
+				{
+					"autogeneratePattern": "",
+					"hidden": false,
+					"id": "text1776282115",
+					"max": 0,
+					"min": 0,
+					"name": "company_vehicle_unit_number",
+					"pattern": "^(00[1-9]|0[1-9][0-9]|[1-9][0-9]{0,2})$",
+					"presentable": false,
+					"primaryKey": false,
+					"required": false,
+					"system": false,
+					"type": "text"
+				},
+				{
+					"hidden": false,
+					"id": "bool1776282117",
+					"name": "approved",
+					"presentable": false,
+					"required": false,
+					"system": false,
+					"type": "bool"
+				},
+				{
+					"hidden": false,
+					"id": "autodate2990389176",
+					"name": "created",
+					"onCreate": true,
+					"onUpdate": false,
+					"presentable": false,
+					"system": false,
+					"type": "autodate"
+				},
+				{
+					"hidden": false,
+					"id": "autodate3332085495",
+					"name": "updated",
+					"onCreate": true,
+					"onUpdate": true,
+					"presentable": false,
+					"system": false,
+					"type": "autodate"
+				}
+			],
+			"id": "pbc_1776282107",
+			"indexes": [
+				"CREATE UNIQUE INDEX idx_work_records_subjects_work_record_uid ON work_records_subjects (work_record, uid)",
+				"CREATE INDEX idx_work_records_subjects_uid_created ON work_records_subjects (uid, created)"
+			],
+			"listRule": "@request.auth.id != \"\" &&\n(\n  uid = @request.auth.id ||\n  work_record.creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)",
+			"name": "work_records_subjects",
+			"system": false,
+			"type": "base",
+			"updateRule": null,
+			"viewRule": "@request.auth.id != \"\" &&\n(\n  uid = @request.auth.id ||\n  work_record.creator = @request.auth.id ||\n  @request.auth.user_claims_via_uid.cid.name ?= 'report'\n)"
+		}`
+
 		workRecordsTypeConsumablesJSON := `{
 			"createRule": null,
 			"deleteRule": null,
@@ -806,6 +987,10 @@ func init() {
 			return err
 		}
 
+		if err := saveCollectionFromJSON(app, workRecordsSubjectsJSON); err != nil {
+			return err
+		}
+
 		if err := saveCollectionFromJSON(app, workRecordsTypeConsumablesJSON); err != nil {
 			return err
 		}
@@ -824,6 +1009,7 @@ func init() {
 			"pbc_1776282106",
 			"pbc_1776282105",
 			"pbc_1776282104",
+			"pbc_1776282107",
 			"pbc_1776282103",
 			"pbc_1776282102",
 			"pbc_1776282101",

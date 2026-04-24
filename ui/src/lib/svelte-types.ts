@@ -29,6 +29,7 @@ export interface PageData<T> {
 
 export type LinkedWorkRecordSummary = {
   id: string;
+  subject_id: string;
   work_record: string;
   date: string;
   job_id: string;
@@ -276,6 +277,9 @@ export interface WorkRecordListRow {
   linked_time_entry_description: string;
   search_text: string;
   can_create_time_entry: boolean;
+  subject_count: number;
+  approved_subject_count: number;
+  subjects: WorkRecordSubjectResponse[];
 }
 
 export interface WorkRecordDetailsResponse {
@@ -296,6 +300,7 @@ export interface WorkRecordDetailsResponse {
   location: string;
   work_description: string;
   report_to: string;
+  lane_kms: number;
   hours_on_site: number;
   hours_travel_time: number;
   distance_travelled_km: number;
@@ -322,6 +327,7 @@ export interface WorkRecordDetailsResponse {
   can_copy_to_tomorrow: boolean;
   can_edit: boolean;
   can_add_note: boolean;
+  subjects: WorkRecordSubjectResponse[];
   notes: WorkRecordNoteResponse[];
   consumables: WorkRecordConsumableResponse[];
 }
@@ -401,6 +407,38 @@ export interface WorkRecordConsumableResponse {
   boolean_selected: boolean;
 }
 
+export interface WorkRecordSubjectResponse {
+  id: string;
+  work_record_id: string;
+  uid: string;
+  owner_name: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  distance_travelled_km: number;
+  vehicle_type: string;
+  is_passenger: boolean;
+  company_vehicle_unit_number: string;
+  approved: boolean;
+  linked_time_entry_id: string;
+  linked_timesheet_id: string;
+  linked_time_entry_date: string;
+  linked_time_entry_description: string;
+  linked_timesheet_week_ending: string;
+  can_create_time_entry: boolean;
+  can_edit: boolean;
+}
+
+export interface WorkRecordSubjectSaveRequest {
+  id?: string;
+  uid: string;
+  hours_on_site: number;
+  hours_travel_time: number;
+  distance_travelled_km: number;
+  vehicle_type: string;
+  is_passenger: boolean;
+  company_vehicle_unit_number: string;
+}
+
 export interface WorkRecordSaveConsumableRequest {
   entry_id: string;
   consumable_id: string;
@@ -414,24 +452,19 @@ export interface WorkRecordConsumablesReportResponse {
 }
 
 export interface WorkRecordCreateRequest {
-  uid: string;
   date: string;
   job: string;
   type: string;
   location: string;
   work_description: string;
   report_to: string;
-  hours_on_site: number;
-  hours_travel_time: number;
-  distance_travelled_km: number;
+  lane_kms?: number;
   field_book_number: string;
   field_book_page_number: number | "";
   sub_contractor: string;
   equipment: string;
   supplies: string;
-  vehicle_type: string;
-  is_passenger: boolean;
-  company_vehicle_unit_number: string;
+  subjects: WorkRecordSubjectSaveRequest[];
   consumables: WorkRecordSaveConsumableRequest[];
   copy_from_work_record_id?: string;
 }
@@ -443,17 +476,13 @@ export interface WorkRecordSaveRequest {
   location: string;
   work_description: string;
   report_to: string;
-  hours_on_site: number;
-  hours_travel_time: number;
-  distance_travelled_km: number;
+  lane_kms?: number;
   field_book_number: string;
   field_book_page_number: number | "";
   sub_contractor: string;
   equipment: string;
   supplies: string;
-  vehicle_type: string;
-  is_passenger: boolean;
-  company_vehicle_unit_number: string;
+  subjects: WorkRecordSubjectSaveRequest[];
   consumables: WorkRecordSaveConsumableRequest[];
 }
 
@@ -469,6 +498,7 @@ export interface WorkRecordCopyDraftResponse {
   location: string;
   work_description: string;
   report_to: string;
+  lane_kms: number;
   hours_on_site: number;
   hours_travel_time: number;
   distance_travelled_km: number;
@@ -480,6 +510,7 @@ export interface WorkRecordCopyDraftResponse {
   vehicle_type: string;
   is_passenger: boolean;
   company_vehicle_unit_number: string;
+  subjects: WorkRecordSubjectResponse[];
   consumables: WorkRecordConsumableResponse[];
   copy_from_work_record_id: string;
   source_work_record: string;

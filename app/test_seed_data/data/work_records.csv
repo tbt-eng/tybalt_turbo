@@ -1,6 +1,6 @@
-approved,creator,date,distance_travelled_km,hours_on_site,hours_travel_time,id,job,location,number,type,uid,vehicle_type,company_vehicle_unit_number,work_description,attachment,attachment_hash
-0,f2j5a8vk006baub,2026-04-03,10,8,1,wr260400000003a,cjf0kt0defhq480,Seeded location,W2604-0003,oask5u50nka0km8,f2j5a8vk006baub,company,7,Seeded work description,paper_copy.pdf,hash-for-detail
-0,f2j5a8vk006baub,2026-04-10,10,8,1,wr260400000010a,cjf0kt0defhq480,Seeded location,W2604-0010,oask5u50nka0km8,f2j5a8vk006baub,company,7,Seeded work description,,
-1,f2j5a8vk006baub,2030-02-05,10,8,1,wr300200000050a,cjf0kt0defhq480,Seeded location,W3002-0050,oask5u50nka0km8,f2j5a8vk006baub,company,7,Seeded work description,existing.pdf,3e506967347690a367c632ce96433d9878ad4b9532e423549d98cbf75d5ec9f3
-0,rzr98oadsp9qc11,2030-02-05,10,8,1,wrtimecopy3002a,cjf0kt0defhq480,Time seeded location,W3002-1050,oask5u50nka0km8,rzr98oadsp9qc11,company,7,Time seeded work description,,
-0,rzr98oadsp9qc11,2030-02-06,10,8,1,wrtimedup3002a,cjf0kt0defhq480,Time seeded duplicate location,W3002-1051,oask5u50nka0km8,rzr98oadsp9qc11,company,7,Time seeded duplicate description,,
+attachment,attachment_hash,creator,date,id,job,location,number,type,work_description
+paper_copy.pdf,hash-for-detail,f2j5a8vk006baub,2026-04-03,wr260400000003a,cjf0kt0defhq480,Seeded location,W2604-0003,oask5u50nka0km8,Seeded work description
+,,f2j5a8vk006baub,2026-04-10,wr260400000010a,cjf0kt0defhq480,Seeded location,W2604-0010,oask5u50nka0km8,Seeded work description
+existing.pdf,3e506967347690a367c632ce96433d9878ad4b9532e423549d98cbf75d5ec9f3,f2j5a8vk006baub,2030-02-05,wr300200000050a,cjf0kt0defhq480,Seeded location,W3002-0050,oask5u50nka0km8,Seeded work description
+,,rzr98oadsp9qc11,2030-02-05,wrtimecopy3002a,cjf0kt0defhq480,Time seeded location,W3002-1050,oask5u50nka0km8,Time seeded work description
+,,rzr98oadsp9qc11,2030-02-06,wrtimedup3002a,cjf0kt0defhq480,Time seeded duplicate location,W3002-1051,oask5u50nka0km8,Time seeded duplicate description

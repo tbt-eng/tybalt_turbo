@@ -1,0 +1,6 @@
+approved,company_vehicle_unit_number,distance_travelled_km,hours_on_site,hours_travel_time,id,is_passenger,uid,vehicle_type,work_record
+0,7,10,8,1,wrsub260400003,0,f2j5a8vk006baub,company,wr260400000003a
+0,7,10,8,1,wrsub260400010,0,f2j5a8vk006baub,company,wr260400000010a
+1,7,10,8,1,wrsub300200050,0,f2j5a8vk006baub,company,wr300200000050a
+0,7,10,8,1,wrsubtimecopy1,0,rzr98oadsp9qc11,company,wrtimecopy3002a
+0,7,10,8,1,wrsubtimedup01,0,rzr98oadsp9qc11,company,wrtimedup3002a

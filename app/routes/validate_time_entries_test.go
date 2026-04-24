@@ -25,33 +25,21 @@ func insertWorkRecordNumberForValidateTimeEntriesTest(t *testing.T, app core.App
 	if _, err := app.DB().NewQuery(`
 		INSERT INTO work_records (
 			id,
-			approved,
 			creator,
 			date,
-			distance_travelled_km,
-			hours_on_site,
-			hours_travel_time,
 			job,
 			location,
 			number,
 			type,
-			uid,
-			vehicle_type,
 			work_description
 		) VALUES (
 			{:id},
-			0,
 			'f2j5a8vk006baub',
 			'2026-12-31',
-			0,
-			8,
-			0,
 			'mg0sp9iyjzo4zw9',
 			'Test Location',
 			{:number},
 			'oask5u50nka0km8',
-			'f2j5a8vk006baub',
-			'Truck',
 			'Duplicate label coverage'
 		)
 	`).Bind(dbx.Params{
@@ -59,6 +47,33 @@ func insertWorkRecordNumberForValidateTimeEntriesTest(t *testing.T, app core.App
 		"number": number,
 	}).Execute(); err != nil {
 		t.Fatalf("failed to insert work record: %v", err)
+	}
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO work_records_subjects (
+			id,
+			work_record,
+			uid,
+			hours_on_site,
+			hours_travel_time,
+			distance_travelled_km,
+			vehicle_type,
+			company_vehicle_unit_number,
+			approved
+		) VALUES (
+			'wrsduplabel001',
+			{:id},
+			'f2j5a8vk006baub',
+			8,
+			0,
+			0,
+			'company',
+			'7',
+			0
+		)
+	`).Bind(dbx.Params{
+		"id": id,
+	}).Execute(); err != nil {
+		t.Fatalf("failed to insert work record subject: %v", err)
 	}
 }
 
@@ -324,7 +339,7 @@ func TestValidateTimeEntries_RejectsDuplicateVisibleWorkRecordAcrossLegacyAndLin
 	linkedEntry.Set("hours", 4.0)
 	linkedEntry.Set("date", "2024-01-09")
 	linkedEntry.Set("week_ending", weekEnding)
-	linkedEntry.Set("work_record_id", "wrduplabel00001")
+	linkedEntry.Set("work_record_subject_id", "wrsduplabel001")
 
 	err = validateTimeEntries(app, adminProfile, payrollYearEndDate, []*core.Record{legacyEntry, linkedEntry})
 	if err == nil {

@@ -146,7 +146,7 @@ func createCopyTimeEntryHandler(app core.App) func(e *core.RequestEvent) error {
 				}
 			}
 
-			if original.GetString("work_record_id") != "" {
+			if original.GetString("work_record_subject_id") != "" {
 				httpResponseStatusCode = http.StatusBadRequest
 				return &CodeError{
 					Code:    "linked_work_record_copy_not_supported",

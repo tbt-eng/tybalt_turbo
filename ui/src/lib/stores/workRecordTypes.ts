@@ -11,7 +11,7 @@ export const workRecordTypes = createCollectionStore<WorkRecordsTypesResponse>(
   {
     idField: "id",
     fields: ["name"],
-    storeFields: ["id", "name", "sort_order", "active"],
+    storeFields: ["id", "name", "sort_order", "active", "allow_lane_kms", "max_subjects"],
     extractField: (doc, field) => (doc as WorkRecordsTypesResponse)[field as keyof WorkRecordsTypesResponse],
   },
 );

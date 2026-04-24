@@ -1,26 +1,29 @@
 // Package migrations registers schema changes for PocketBase collections.
 //
-// This migration adds the time_entries.work_record_id relation that the work
+// This migration adds the time_entries.work_record_subject_id relation that the work
 // records feature depends on. Before this change, time entries only carried the
 // legacy free-text work_record field. That text value is fine for display, but
 // it cannot enforce that a referenced work record actually exists, cannot
 // guarantee one-to-one linkage, and cannot support relational queries and rules
-// that join time entries back to the first-class work_records collection.
+// that join time entries back to the first-class work_records_subjects
+// collection.
 //
 // Concretely, the forward migration does three things:
 //
 //  1. It loads the existing time_entries collection definition by its stable
 //     PocketBase collection id.
-//  2. It inserts a new optional relation field named work_record_id at field
-//     position 9. The relation targets the work_records collection
-//     (pbc_1776282103), allows at most one selected record, and is intentionally
-//     nullable so legacy rows without a relational match remain valid.
+//  2. It inserts a new optional relation field named work_record_subject_id at
+//     field position 9. The relation targets the work_records_subjects
+//     collection (pbc_1776282107), allows at most one selected record, and is
+//     intentionally nullable so legacy rows without a relational match remain
+//     valid.
 //  3. It appends a partial unique index:
-//     CREATE UNIQUE INDEX idx_time_entries_work_record_id
-//     ON time_entries (work_record_id) WHERE work_record_id != ''
-//     That index enforces the business rule that a single work record may be
-//     linked to at most one time entry, while still permitting any number of
-//     rows with an empty relation value.
+//     CREATE UNIQUE INDEX idx_time_entries_work_record_subject_id
+//     ON time_entries (work_record_subject_id)
+//     WHERE work_record_subject_id != ''
+//     That index enforces the business rule that a single worker row may be
+//     linked to at most one time entry, while still permitting any number of rows
+//     with an empty relation value.
 //
 // The rollback does the exact inverse: it removes the relation field from the
 // collection metadata and removes the partial unique index definition.
@@ -36,7 +39,7 @@
 // dropping and recreating the table's existing indexes so the stored schema
 // matches the updated collection definition. In practice, the runtime cost is
 // dominated by rebuilding the pre-existing time_entries indexes rather than by
-// adding work_record_id itself. In local testing captured in
+// adding work_record_subject_id itself. In local testing captured in
 // app/wr_migration_logs, this migration took about 5.3 seconds end-to-end, and
 // about 5.279 seconds of that time was spent in the block that drops and
 // recreates time_entries indexes. As of PocketBase v0.37.3, the collection
@@ -56,8 +59,8 @@ import (
 )
 
 const (
-	timeEntriesWorkRecordFieldID = "relation1776368000"
-	timeEntriesWorkRecordIndex   = "CREATE UNIQUE INDEX idx_time_entries_work_record_id ON time_entries (work_record_id) WHERE work_record_id != ''"
+	timeEntriesWorkRecordSubjectFieldID = "relation1776368000"
+	timeEntriesWorkRecordSubjectIndex   = "CREATE UNIQUE INDEX idx_time_entries_work_record_subject_id ON time_entries (work_record_subject_id) WHERE work_record_subject_id != ''"
 )
 
 // ensureIndex appends the supplied index definition only when it is not already
@@ -89,15 +92,15 @@ func init() {
 			return err
 		}
 
-		if collection.Fields.GetById(timeEntriesWorkRecordFieldID) == nil {
+		if collection.Fields.GetById(timeEntriesWorkRecordSubjectFieldID) == nil {
 			if err := collection.Fields.AddMarshaledJSONAt(9, []byte(`{
 				"cascadeDelete": false,
-				"collectionId": "pbc_1776282103",
+				"collectionId": "pbc_1776282107",
 				"hidden": false,
-				"id": "`+timeEntriesWorkRecordFieldID+`",
+				"id": "`+timeEntriesWorkRecordSubjectFieldID+`",
 				"maxSelect": 1,
 				"minSelect": 0,
-				"name": "work_record_id",
+				"name": "work_record_subject_id",
 				"presentable": false,
 				"required": false,
 				"system": false,
@@ -107,7 +110,7 @@ func init() {
 			}
 		}
 
-		collection.Indexes = ensureIndex(collection.Indexes, timeEntriesWorkRecordIndex)
+		collection.Indexes = ensureIndex(collection.Indexes, timeEntriesWorkRecordSubjectIndex)
 		return app.Save(collection)
 	}, func(app core.App) error {
 		collection, err := app.FindCollectionByNameOrId("ranctx5xgih6n3a")
@@ -115,8 +118,8 @@ func init() {
 			return err
 		}
 
-		collection.Fields.RemoveById(timeEntriesWorkRecordFieldID)
-		collection.Indexes = removeIndex(collection.Indexes, timeEntriesWorkRecordIndex)
+		collection.Fields.RemoveById(timeEntriesWorkRecordSubjectFieldID)
+		collection.Indexes = removeIndex(collection.Indexes, timeEntriesWorkRecordSubjectIndex)
 		return app.Save(collection)
 	})
 }

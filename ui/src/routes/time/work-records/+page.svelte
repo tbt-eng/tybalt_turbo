@@ -5,7 +5,8 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
-  import type { WorkRecordListRow } from "$lib/svelte-types";
+  import type { WorkRecordListRow, WorkRecordSubjectResponse } from "$lib/svelte-types";
+  import { authStore } from "$lib/stores/auth";
   import { globalStore } from "$lib/stores/global";
   import { allWorkRecords, myWorkRecords } from "$lib/stores/workRecords";
   import { pocketBaseFileHref, shortDate } from "$lib/utilities";
@@ -23,15 +24,29 @@
   const loading = $derived(activeStore.loading);
   const error = $derived(activeStore.error ?? "");
   const listHeader = $derived(scope === "all" ? "All Work Records" : "Mine / Created");
+  const currentUserId = $derived($authStore?.model?.id ?? "");
 
-  function linkedEntryHref(item: WorkRecordListRow) {
-    if (!item.linked_time_entry_id) {
+  function linkedEntryHref(subject: WorkRecordSubjectResponse) {
+    if (!subject.linked_time_entry_id) {
       return "";
     }
-    if (item.linked_timesheet_id) {
-      return `/time/sheets/${item.linked_timesheet_id}/details?entry=${item.linked_time_entry_id}`;
+    if (subject.linked_timesheet_id) {
+      return `/time/sheets/${subject.linked_timesheet_id}/details?entry=${subject.linked_time_entry_id}`;
     }
-    return `/time/entries/${item.linked_time_entry_id}/details`;
+    return `/time/entries/${subject.linked_time_entry_id}/details`;
+  }
+
+  function mySubject(item: WorkRecordListRow) {
+    return item.subjects?.find((subject) => subject.uid === currentUserId);
+  }
+
+  function subjectName(subject: WorkRecordSubjectResponse) {
+    return subject.owner_name || subject.uid;
+  }
+
+  function subjectHours(subject: WorkRecordSubjectResponse) {
+    const hours = subject.hours_on_site + subject.hours_travel_time;
+    return Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   }
 
   $effect(() => {
@@ -82,21 +97,18 @@
   {/snippet}
 
   {#snippet byline(item: WorkRecordListRow)}
+    {#if item.creator === currentUserId}
+      <DsLabel color="purple">Creator</DsLabel>
+    {/if}
     {#if item.approved}
       <DsLabel color="green">Approved</DsLabel>
     {:else}
       <DsLabel color="orange">Open</DsLabel>
     {/if}
-    {#if item.linked_time_entry_id}
-      <DsLabel color="cyan">Linked</DsLabel>
-    {/if}
   {/snippet}
 
   {#snippet line1(item: WorkRecordListRow)}
     <span class="flex flex-wrap items-center gap-1">
-      {#if item.owner_name}
-        <span>{item.owner_name}</span>
-      {/if}
       {#if item.job_number}
         <span>{item.job_number}</span>
       {/if}
@@ -110,19 +122,8 @@
   {/snippet}
 
   {#snippet line2(item: WorkRecordListRow)}
-    <span class="opacity-70">{item.work_description}</span>
-  {/snippet}
-
-  {#snippet line3(item: WorkRecordListRow)}
-    <span class="flex flex-wrap items-center gap-2 opacity-60">
-      {#if item.linked_time_entry_id}
-        Linked time entry {item.linked_time_entry_date}
-        {#if item.linked_timesheet_id}
-          on a bundled timesheet
-        {:else}
-          as a standalone entry
-        {/if}
-      {/if}
+    <span class="flex flex-wrap items-center gap-2">
+      <span class="opacity-70">{item.work_description}</span>
       {#if item.attachment}
         <a
           href={pocketBaseFileHref("work_records", item.id, item.attachment)}
@@ -135,17 +136,42 @@
     </span>
   {/snippet}
 
+  {#snippet line3(item: WorkRecordListRow)}
+    <span class="flex flex-wrap items-center gap-2">
+      {#each item.subjects ?? [] as subject (subject.id)}
+        <span class="inline-flex flex-wrap items-center gap-1 rounded-sm border border-neutral-300 bg-white/60 px-2 py-1 text-sm">
+          <span class:font-semibold={subject.uid === currentUserId}>{subjectName(subject)}</span>
+          <span class="text-neutral-600">{subjectHours(subject)}h</span>
+          {#if subject.uid === currentUserId}
+            <DsLabel color="cyan">You</DsLabel>
+          {/if}
+          {#if subject.approved}
+            <DsLabel color="green">Approved</DsLabel>
+          {:else if subject.linked_time_entry_id}
+            <DsLabel color="blue">Linked</DsLabel>
+          {:else}
+            <DsLabel color="orange">Open</DsLabel>
+          {/if}
+        </span>
+      {/each}
+      {#if (item.subjects?.length ?? 0) === 0}
+        <span class="text-sm text-neutral-600">No workers</span>
+      {/if}
+    </span>
+  {/snippet}
+
   {#snippet actions(item: WorkRecordListRow)}
-    {#if item.can_create_time_entry}
+    {@const subject = mySubject(item)}
+    {#if subject?.can_create_time_entry}
       <DsActionButton
-        action={`/time/entries/add/${item.id}`}
+        action={`/time/entries/add/${item.id}?worker=${encodeURIComponent(subject.id)}`}
         icon="mdi:add-bold"
         title="Create Time Entry"
         color="green"
       />
-    {:else if item.linked_time_entry_id}
+    {:else if subject?.linked_time_entry_id}
       <DsActionButton
-        action={linkedEntryHref(item)}
+        action={linkedEntryHref(subject)}
         icon="mdi:open-in-new"
         title="Open Time Entry"
       />

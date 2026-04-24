@@ -85,7 +85,8 @@
         },
         {
           filter: pb.filter("tsid={:tsid}", { tsid: data.timesheetId }),
-          expand: "job,time_type,division,category,role,work_record_id",
+          expand:
+            "job,time_type,division,category,role,work_record_subject_id,work_record_subject_id.work_record",
         },
       );
     } catch {
@@ -105,7 +106,7 @@
   }
 
   function resolvedWorkRecord(item: TimeEntriesResponse) {
-    return item.work_record || item.expand?.work_record_id?.number || "";
+    return item.work_record || (item.expand?.work_record_subject_id as any)?.expand?.work_record?.number || "";
   }
 
   async function del(id: string): Promise<void> {
