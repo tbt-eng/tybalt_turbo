@@ -3,6 +3,7 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"tybalt/utilities"
@@ -11,6 +12,54 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
+
+type unlinkedWorkRecordForBundle struct {
+	Number string `db:"number"`
+	Date   string `db:"date"`
+}
+
+func findUnlinkedWorkRecordsForBundle(txApp core.App, userID string, weekStart string, weekEnding string) ([]unlinkedWorkRecordForBundle, error) {
+	var rows []unlinkedWorkRecordForBundle
+	err := txApp.DB().NewQuery(`
+		SELECT
+			wr.number AS number,
+			wr.date AS date
+		FROM work_records_subjects wrs
+		JOIN work_records wr
+		  ON wr.id = wrs.work_record
+		WHERE wrs.uid = {:userId}
+		  AND wr.date >= {:weekStart}
+		  AND wr.date <= {:weekEnding}
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM time_entries te
+			WHERE te.work_record_subject_id = wrs.id
+		  )
+		ORDER BY wr.date ASC, wr.number ASC
+	`).Bind(dbx.Params{
+		"userId":     userID,
+		"weekStart":  weekStart,
+		"weekEnding": weekEnding,
+	}).All(&rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
+func unlinkedWorkRecordsBundleMessage(rows []unlinkedWorkRecordForBundle) string {
+	if len(rows) == 1 {
+		return fmt.Sprintf("work record %s for %s is not linked to a time entry", rows[0].Number, rows[0].Date)
+	}
+
+	labels := make([]string, 0, len(rows))
+	for _, row := range rows {
+		labels = append(labels, fmt.Sprintf("%s for %s", row.Number, row.Date))
+	}
+
+	return fmt.Sprintf("work records %s are not linked to time entries", strings.Join(labels, ", "))
+}
 
 func createBundleTimesheetHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -34,6 +83,7 @@ func createBundleTimesheetHandler(app core.App) func(e *core.RequestEvent) error
 
 		// Store the week ending date string
 		weekEnding := weekEndingTime.Format("2006-01-02")
+		weekStart := weekEndingTime.AddDate(0, 0, -6).Format("2006-01-02")
 
 		// get the auth record from the context
 		authRecord := e.Auth
@@ -75,6 +125,19 @@ func createBundleTimesheetHandler(app core.App) func(e *core.RequestEvent) error
 			})
 			if err != nil {
 				return fmt.Errorf("error fetching time entries: %v", err)
+			}
+
+			unlinkedWorkRecords, err := findUnlinkedWorkRecordsForBundle(txApp, userId, weekStart, weekEnding)
+			if err != nil {
+				return fmt.Errorf("error checking unlinked work records: %v", err)
+			}
+			if len(unlinkedWorkRecords) > 0 {
+				transactionError = &CodeError{
+					Code:    "unlinked_work_records",
+					Message: unlinkedWorkRecordsBundleMessage(unlinkedWorkRecords),
+				}
+				httpResponseStatusCode = http.StatusUnprocessableEntity
+				return transactionError
 			}
 
 			// Load the user's admin_profile record to get values for the new
