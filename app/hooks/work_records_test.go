@@ -62,6 +62,58 @@ func newWorkRecordConsumableEntryTestCollection() *core.Collection {
 	return collection
 }
 
+func TestValidateWorkRecordSubject_AllowsSameWorkerOnDifferentJobSameDay(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO work_records (
+			id,
+			number,
+			date,
+			creator,
+			job,
+			type,
+			location,
+			work_description,
+			created,
+			updated
+		) VALUES (
+			'wrdiffjoballow1',
+			'W2604-9090',
+			'2026-04-10',
+			'f2j5a8vk006baub',
+			'mg0sp9iyjzo4zw9',
+			'oask5u50nka0km8',
+			'Same day different job',
+			'Same day different job',
+			'2026-04-10 12:00:00.000Z',
+			'2026-04-10 12:00:00.000Z'
+		)
+	`).Execute(); err != nil {
+		t.Fatalf("failed to seed different-job work record: %v", err)
+	}
+
+	collection := newWorkRecordSubjectTestCollection()
+	record := buildRecordFromMap(collection, map[string]any{
+		"id":                          "wrsubdiffjob01",
+		"work_record":                 "wrdiffjoballow1",
+		"uid":                         "f2j5a8vk006baub",
+		"hours_on_site":               8,
+		"hours_travel_time":           1,
+		"distance_travelled_km":       10,
+		"vehicle_type":                "company",
+		"company_vehicle_unit_number": "7",
+	})
+	if err := record.PostScan(); err != nil {
+		t.Fatalf("failed to seed original different-job state: %v", err)
+	}
+
+	if err := ValidateWorkRecordSubject(app, record); err != nil {
+		t.Fatalf("expected same worker to be allowed on a different job for the same date: %v", err)
+	}
+}
+
 func TestValidateWorkRecordSubject_RejectsDuplicateDay(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
