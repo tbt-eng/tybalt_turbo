@@ -54,7 +54,7 @@
   type WorkerForm = {
     id: string;
     uid: string;
-    owner_name: string;
+    worker_name: string;
     hours_on_site: string | number;
     hours_travel_time: string | number;
     distance_travelled_km: string | number;
@@ -87,7 +87,7 @@
     return {
       id: worker.id,
       uid: worker.uid,
-      owner_name: worker.owner_name,
+      worker_name: worker.worker_name,
       hours_on_site: worker.hours_on_site,
       hours_travel_time: worker.hours_travel_time,
       distance_travelled_km: worker.distance_travelled_km,
@@ -104,7 +104,7 @@
     return {
       id: "",
       uid,
-      owner_name: "",
+      worker_name: "",
       hours_on_site: 0,
       hours_travel_time: 0,
       distance_travelled_km: 0,
@@ -386,7 +386,7 @@
     const profile = worker.uid ? $profiles.index?.getStoredFields(worker.uid) : null;
     const profileName =
       profile && `${profile.given_name ?? ""} ${profile.surname ?? ""}`.trim();
-    return worker.owner_name || profileName || worker.uid || "Unassigned worker";
+    return worker.worker_name || profileName || worker.uid || "Unassigned worker";
   }
 
   function workerTitle(worker: WorkerForm) {

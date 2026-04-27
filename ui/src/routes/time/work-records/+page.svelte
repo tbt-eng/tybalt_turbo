@@ -42,7 +42,7 @@
   }
 
   function subjectName(subject: WorkRecordSubjectResponse) {
-    return subject.owner_name || subject.uid;
+    return subject.worker_name || subject.uid;
   }
 
   function subjectHours(subject: WorkRecordSubjectResponse) {

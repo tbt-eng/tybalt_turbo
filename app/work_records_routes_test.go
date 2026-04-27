@@ -13,17 +13,18 @@ import (
 )
 
 type workRecordListRow struct {
-	ID                 string `json:"id"`
-	WorkRecord         string `json:"work_record"`
-	Date               string `json:"date"`
-	UID                string `json:"uid"`
-	OwnerName          string `json:"owner_name"`
-	JobNumber          string `json:"job_number"`
-	Attachment         string `json:"attachment"`
-	Approved           bool   `json:"approved"`
-	LinkedTimeEntryID  string `json:"linked_time_entry_id"`
-	SearchText         string `json:"search_text"`
-	CanCreateTimeEntry bool   `json:"can_create_time_entry"`
+	ID                 string                       `json:"id"`
+	WorkRecord         string                       `json:"work_record"`
+	Date               string                       `json:"date"`
+	Creator            string                       `json:"creator"`
+	CreatorName        string                       `json:"creator_name"`
+	JobID              string                       `json:"job_id"`
+	JobNumber          string                       `json:"job_number"`
+	Attachment         string                       `json:"attachment"`
+	Approved           bool                         `json:"approved"`
+	SearchText         string                       `json:"search_text"`
+	CanCreateTimeEntry bool                         `json:"can_create_time_entry"`
+	Subjects           []workRecordSubjectDetailRow `json:"subjects"`
 }
 
 type workRecordSearchResponse struct {
@@ -59,6 +60,7 @@ type workRecordConsumableRow struct {
 type workRecordSubjectDetailRow struct {
 	ID                       string  `json:"id"`
 	UID                      string  `json:"uid"`
+	WorkerName               string  `json:"worker_name"`
 	HoursOnSite              float64 `json:"hours_on_site"`
 	HoursTravelTime          float64 `json:"hours_travel_time"`
 	DistanceTravelledKM      float64 `json:"distance_travelled_km"`
@@ -66,57 +68,47 @@ type workRecordSubjectDetailRow struct {
 	IsPassenger              bool    `json:"is_passenger"`
 	CompanyVehicleUnitNumber string  `json:"company_vehicle_unit_number"`
 	Approved                 bool    `json:"approved"`
+	LinkedTimeEntryID        string  `json:"linked_time_entry_id"`
+	LinkedTimeSheetID        string  `json:"linked_timesheet_id"`
+	CanCreateTimeEntry       bool    `json:"can_create_time_entry"`
 }
 
 type workRecordDetailResponse struct {
-	ID                         string                       `json:"id"`
-	WorkRecord                 string                       `json:"work_record"`
-	Date                       string                       `json:"date"`
-	UID                        string                       `json:"uid"`
-	OwnerName                  string                       `json:"owner_name"`
-	Creator                    string                       `json:"creator"`
-	JobID                      string                       `json:"job_id"`
-	JobNumber                  string                       `json:"job_number"`
-	ClientName                 string                       `json:"client_name"`
-	JobDescription             string                       `json:"job_description"`
-	ClientReferenceNumber      string                       `json:"client_reference_number"`
-	ClientPO                   string                       `json:"client_po"`
-	TypeID                     string                       `json:"type_id"`
-	TypeName                   string                       `json:"type_name"`
-	Location                   string                       `json:"location"`
-	WorkDescription            string                       `json:"work_description"`
-	HoursOnSite                float64                      `json:"hours_on_site"`
-	HoursTravelTime            float64                      `json:"hours_travel_time"`
-	LaneKms                    float64                      `json:"lane_kms"`
-	ReportTo                   string                       `json:"report_to"`
-	DistanceTravelledKM        float64                      `json:"distance_travelled_km"`
-	FieldBookNumber            string                       `json:"field_book_number"`
-	FieldBookPageNumber        int                          `json:"field_book_page_number"`
-	SubContractor              string                       `json:"sub_contractor"`
-	Equipment                  string                       `json:"equipment"`
-	Supplies                   string                       `json:"supplies"`
-	VehicleType                string                       `json:"vehicle_type"`
-	IsPassenger                bool                         `json:"is_passenger"`
-	CompanyVehicleUnitNumber   string                       `json:"company_vehicle_unit_number"`
-	Attachment                 string                       `json:"attachment"`
-	Approved                   bool                         `json:"approved"`
-	ParentWorkRecordID         string                       `json:"parent_work_record_id"`
-	ParentWorkRecord           string                       `json:"parent_work_record"`
-	RootWorkRecordID           string                       `json:"root_work_record_id"`
-	RootWorkRecord             string                       `json:"root_work_record"`
-	LinkedTimeEntryID          string                       `json:"linked_time_entry_id"`
-	LinkedTimeSheetID          string                       `json:"linked_timesheet_id"`
-	LinkedTimeEntryDate        string                       `json:"linked_time_entry_date"`
-	LinkedTimeEntryDescription string                       `json:"linked_time_entry_description"`
-	LinkedTimeSheetWeekEnding  string                       `json:"linked_time_sheet_week_ending"`
-	CanCreateTimeEntry         bool                         `json:"can_create_time_entry"`
-	CanCopyToTomorrow          bool                         `json:"can_copy_to_tomorrow"`
-	CanEdit                    bool                         `json:"can_edit"`
-	CanEditShared              bool                         `json:"can_edit_shared"`
-	CanAddNote                 bool                         `json:"can_add_note"`
-	Subjects                   []workRecordSubjectDetailRow `json:"subjects"`
-	Notes                      []workRecordNoteRow          `json:"notes"`
-	Consumables                []workRecordConsumableRow    `json:"consumables"`
+	ID                    string                       `json:"id"`
+	WorkRecord            string                       `json:"work_record"`
+	Date                  string                       `json:"date"`
+	Creator               string                       `json:"creator"`
+	CreatorName           string                       `json:"creator_name"`
+	JobID                 string                       `json:"job_id"`
+	JobNumber             string                       `json:"job_number"`
+	ClientName            string                       `json:"client_name"`
+	JobDescription        string                       `json:"job_description"`
+	ClientReferenceNumber string                       `json:"client_reference_number"`
+	ClientPO              string                       `json:"client_po"`
+	TypeID                string                       `json:"type_id"`
+	TypeName              string                       `json:"type_name"`
+	Location              string                       `json:"location"`
+	WorkDescription       string                       `json:"work_description"`
+	LaneKms               float64                      `json:"lane_kms"`
+	ReportTo              string                       `json:"report_to"`
+	FieldBookNumber       string                       `json:"field_book_number"`
+	FieldBookPageNumber   int                          `json:"field_book_page_number"`
+	SubContractor         string                       `json:"sub_contractor"`
+	Equipment             string                       `json:"equipment"`
+	Supplies              string                       `json:"supplies"`
+	Attachment            string                       `json:"attachment"`
+	Approved              bool                         `json:"approved"`
+	ParentWorkRecordID    string                       `json:"parent_work_record_id"`
+	ParentWorkRecord      string                       `json:"parent_work_record"`
+	RootWorkRecordID      string                       `json:"root_work_record_id"`
+	RootWorkRecord        string                       `json:"root_work_record"`
+	CanCopyToTomorrow     bool                         `json:"can_copy_to_tomorrow"`
+	CanEdit               bool                         `json:"can_edit"`
+	CanEditShared         bool                         `json:"can_edit_shared"`
+	CanAddNote            bool                         `json:"can_add_note"`
+	Subjects              []workRecordSubjectDetailRow `json:"subjects"`
+	Notes                 []workRecordNoteRow          `json:"notes"`
+	Consumables           []workRecordConsumableRow    `json:"consumables"`
 }
 
 type workRecordConsumableReportRow struct {
@@ -134,30 +126,23 @@ type workRecordConsumablesReportResponse struct {
 }
 
 type workRecordCopyDraftResponse struct {
-	UID                      string                       `json:"uid"`
-	Date                     string                       `json:"date"`
-	Job                      string                       `json:"job"`
-	Type                     string                       `json:"type"`
-	Location                 string                       `json:"location"`
-	WorkDescription          string                       `json:"work_description"`
-	ReportTo                 string                       `json:"report_to"`
-	HoursOnSite              float64                      `json:"hours_on_site"`
-	HoursTravelTime          float64                      `json:"hours_travel_time"`
-	DistanceTravelledKM      float64                      `json:"distance_travelled_km"`
-	FieldBookNumber          string                       `json:"field_book_number"`
-	FieldBookPageNumber      int                          `json:"field_book_page_number"`
-	SubContractor            string                       `json:"sub_contractor"`
-	Equipment                string                       `json:"equipment"`
-	Supplies                 string                       `json:"supplies"`
-	VehicleType              string                       `json:"vehicle_type"`
-	IsPassenger              bool                         `json:"is_passenger"`
-	CompanyVehicleUnitNumber string                       `json:"company_vehicle_unit_number"`
-	Subjects                 []workRecordSubjectDetailRow `json:"subjects"`
-	Consumables              []workRecordConsumableRow    `json:"consumables"`
-	CopyFromWorkRecordID     string                       `json:"copy_from_work_record_id"`
-	SourceWorkRecord         string                       `json:"source_work_record"`
-	RootWorkRecordID         string                       `json:"root_work_record_id"`
-	RootWorkRecord           string                       `json:"root_work_record"`
+	Date                 string                       `json:"date"`
+	Job                  string                       `json:"job"`
+	Type                 string                       `json:"type"`
+	Location             string                       `json:"location"`
+	WorkDescription      string                       `json:"work_description"`
+	ReportTo             string                       `json:"report_to"`
+	FieldBookNumber      string                       `json:"field_book_number"`
+	FieldBookPageNumber  int                          `json:"field_book_page_number"`
+	SubContractor        string                       `json:"sub_contractor"`
+	Equipment            string                       `json:"equipment"`
+	Supplies             string                       `json:"supplies"`
+	Subjects             []workRecordSubjectDetailRow `json:"subjects"`
+	Consumables          []workRecordConsumableRow    `json:"consumables"`
+	CopyFromWorkRecordID string                       `json:"copy_from_work_record_id"`
+	SourceWorkRecord     string                       `json:"source_work_record"`
+	RootWorkRecordID     string                       `json:"root_work_record_id"`
+	RootWorkRecord       string                       `json:"root_work_record"`
 }
 
 type workRecordSaveResponse struct {
@@ -2140,10 +2125,10 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if rows[0].WorkRecord != "W3002-0050" || rows[1].WorkRecord != "W2604-0010" || rows[2].WorkRecord != "W2604-0003" {
 					t.Fatalf("unexpected row order: %#v", rows)
 				}
-				if rows[0].OwnerName == "" || rows[0].SearchText == "" {
-					t.Fatalf("expected owner/search text on owned row: %#v", rows[0])
+				if rows[0].CreatorName == "" || rows[0].SearchText == "" {
+					t.Fatalf("expected creator/search text on work record row: %#v", rows[0])
 				}
-				if !rows[0].CanCreateTimeEntry || rows[0].LinkedTimeEntryID != "" {
+				if !rows[0].CanCreateTimeEntry {
 					t.Fatalf("expected top row to allow time-entry creation: %#v", rows[0])
 				}
 			},
@@ -2175,7 +2160,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if payload.Items[0].WorkRecord != "W3002-1051" || payload.Items[1].WorkRecord != "W3002-1050" {
 					t.Fatalf("unexpected self-owned row order: %#v", payload.Items)
 				}
-				if !payload.Items[0].CanCreateTimeEntry || payload.Items[0].LinkedTimeEntryID != "" {
+				if !payload.Items[0].CanCreateTimeEntry {
 					t.Fatalf("expected top self-owned row to allow time-entry creation: %#v", payload.Items[0])
 				}
 			},
@@ -2236,8 +2221,13 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				}
 				var creatorVisible *workRecordListRow
 				for i := range payload.Items {
-					if payload.Items[i].UID == "rzr98oadsp9qc11" {
-						creatorVisible = &payload.Items[i]
+					for _, subject := range payload.Items[i].Subjects {
+						if subject.UID == "rzr98oadsp9qc11" {
+							creatorVisible = &payload.Items[i]
+							break
+						}
+					}
+					if creatorVisible != nil {
 						break
 					}
 				}
@@ -2303,7 +2293,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if row.WorkRecord != "W2604-0010" || row.Date != "2026-04-10" {
 					t.Fatalf("unexpected detail response: %#v", row)
 				}
-				if row.JobID == "" || row.UID == "" {
+				if row.JobID == "" || len(row.Subjects) == 0 {
 					t.Fatalf("expected linked identifiers in detail response: %#v", row)
 				}
 				if row.ClientName != "Mobilia SA" || row.JobDescription != "Clarke St Boiler Replacement" {
@@ -2312,14 +2302,13 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if row.ClientPO != "" || row.ClientReferenceNumber != "" {
 					t.Fatalf("expected blank optional client fields to serialize as empty strings: %#v", row)
 				}
-				if row.CanCreateTimeEntry {
-					t.Fatalf("report holder should not see create action in detail response: %#v", row)
-				}
 				if row.CanEdit || row.CanAddNote {
 					t.Fatalf("report holder should not get edit/note actions in detail response: %#v", row)
 				}
-				if row.LinkedTimeEntryID != "" || row.LinkedTimeSheetID != "" {
-					t.Fatalf("expected seeded work record to be unlinked: %#v", row)
+				for _, subject := range row.Subjects {
+					if subject.CanCreateTimeEntry || subject.LinkedTimeEntryID != "" || subject.LinkedTimeSheetID != "" {
+						t.Fatalf("expected report holder detail workers to be unlinked with no create action: %#v", row.Subjects)
+					}
 				}
 				if len(row.Notes) != 1 || row.Notes[0].Note == "" {
 					t.Fatalf("expected seeded notes in detail response: %#v", row.Notes)
@@ -2417,7 +2406,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("failed decoding work record details response: %v", err)
 				}
 				if !row.CanEdit || !row.CanAddNote {
-					t.Fatalf("expected owner to be able to edit and add notes: %#v", row)
+					t.Fatalf("expected worker to be able to edit and add notes: %#v", row)
 				}
 				if row.RootWorkRecordID != row.ID || row.RootWorkRecord != row.WorkRecord {
 					t.Fatalf("expected root lineage to point at self for root record: %#v", row)
@@ -2734,7 +2723,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				`"total":1`,
 				`"work_record":"W3102-0001"`,
 				`"uid":"rzr98oadsp9qc11"`,
-				`"owner_name":"Tester Time"`,
+				`"worker_name":"Tester Time"`,
 				`"linked_time_entry_id":"1v2bciifdg8uv5c"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
@@ -2778,8 +2767,15 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					t.Fatalf("expected one employee-filtered report row, got %#v", payload)
 				}
 				row := payload.Items[0]
-				if row.UID != "rzr98oadsp9qc11" || row.OwnerName != "Tester Time" || row.LinkedTimeEntryID != "1v2bciifdg8uv5c" {
-					t.Fatalf("expected filtered row to display matching worker fields, got %#v", row)
+				var worker *workRecordSubjectDetailRow
+				for i := range row.Subjects {
+					if row.Subjects[i].UID == "rzr98oadsp9qc11" {
+						worker = &row.Subjects[i]
+						break
+					}
+				}
+				if worker == nil || worker.WorkerName != "Tester Time" || worker.LinkedTimeEntryID != "1v2bciifdg8uv5c" {
+					t.Fatalf("expected filtered row to include matching worker fields under subjects, got %#v", row)
 				}
 			},
 		},

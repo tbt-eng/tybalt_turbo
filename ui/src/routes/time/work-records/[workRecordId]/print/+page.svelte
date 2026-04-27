@@ -112,7 +112,7 @@
         <td class="label-cell">Client</td>
         <td class="value-cell">{displayValue(item.client_name)}</td>
         <td class="label-cell">Workers</td>
-        <td class="value-cell">{item.subjects.map((worker) => worker.owner_name || worker.uid).join(", ")}</td>
+        <td class="value-cell">{item.subjects.map((worker) => worker.worker_name || worker.uid).join(", ")}</td>
       </tr>
       <tr>
         <td class="label-cell">Client Project No</td>
@@ -169,7 +169,7 @@
       <tbody>
         {#each item.subjects as worker (worker.id)}
           <tr>
-            <td class="worker-cell">{displayValue(worker.owner_name || worker.uid)}</td>
+            <td class="worker-cell">{displayValue(worker.worker_name || worker.uid)}</td>
             <td class="worker-cell numeric">{worker.hours_on_site || ""}</td>
             <td class="worker-cell numeric">{worker.hours_travel_time || ""}</td>
             <td class="worker-cell numeric">

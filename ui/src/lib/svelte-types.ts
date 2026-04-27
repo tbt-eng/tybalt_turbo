@@ -258,9 +258,8 @@ export interface WorkRecordListRow {
   id: string;
   work_record: string;
   date: string;
-  uid: string;
-  owner_name: string;
   creator: string;
+  creator_name: string;
   job_number: string;
   job_id: string;
   type_id: string;
@@ -269,10 +268,6 @@ export interface WorkRecordListRow {
   work_description: string;
   attachment: string;
   approved: boolean;
-  linked_time_entry_id: string;
-  linked_timesheet_id: string;
-  linked_time_entry_date: string;
-  linked_time_entry_description: string;
   search_text: string;
   can_create_time_entry: boolean;
   subject_count: number;
@@ -284,9 +279,8 @@ export interface WorkRecordDetailsResponse {
   id: string;
   work_record: string;
   date: string;
-  uid: string;
-  owner_name: string;
   creator: string;
+  creator_name: string;
   job_id: string;
   job_number: string;
   client_name: string;
@@ -299,29 +293,17 @@ export interface WorkRecordDetailsResponse {
   work_description: string;
   report_to: string;
   lane_kms: number;
-  hours_on_site: number;
-  hours_travel_time: number;
-  distance_travelled_km: number;
   field_book_number: string;
   field_book_page_number: number;
   sub_contractor: string;
   equipment: string;
   supplies: string;
-  vehicle_type: string;
-  is_passenger: boolean;
-  company_vehicle_unit_number: string;
   attachment: string;
   approved: boolean;
   parent_work_record_id: string;
   parent_work_record: string;
   root_work_record_id: string;
   root_work_record: string;
-  linked_time_entry_id: string;
-  linked_timesheet_id: string;
-  linked_time_entry_date: string;
-  linked_time_entry_description: string;
-  linked_time_sheet_week_ending: string;
-  can_create_time_entry: boolean;
   can_copy_to_tomorrow: boolean;
   can_edit: boolean;
   can_edit_shared: boolean;
@@ -359,7 +341,7 @@ export interface WorkRecordSubjectResponse {
   id: string;
   work_record_id: string;
   uid: string;
-  owner_name: string;
+  worker_name: string;
   hours_on_site: number;
   hours_travel_time: number;
   distance_travelled_km: number;
@@ -439,7 +421,6 @@ export interface WorkRecordSaveResponse {
 }
 
 export interface WorkRecordCopyDraftResponse {
-  uid: string;
   date: string;
   job: string;
   type: string;
@@ -447,17 +428,11 @@ export interface WorkRecordCopyDraftResponse {
   work_description: string;
   report_to: string;
   lane_kms: number;
-  hours_on_site: number;
-  hours_travel_time: number;
-  distance_travelled_km: number;
   field_book_number: string;
   field_book_page_number: number;
   sub_contractor: string;
   equipment: string;
   supplies: string;
-  vehicle_type: string;
-  is_passenger: boolean;
-  company_vehicle_unit_number: string;
   subjects: WorkRecordSubjectResponse[];
   consumables: WorkRecordConsumableResponse[];
   copy_from_work_record_id: string;
@@ -480,11 +455,12 @@ export interface PaginatedJobWorkRecordsResponse {
 }
 
 export interface WorkRecordConsumableReportRow {
+  id: string;
   work_record_id: string;
   work_record: string;
   date: string;
-  uid: string;
-  owner_name: string;
+  creator: string;
+  creator_name: string;
   job_id: string;
   job_number: string;
   type_id: string;
