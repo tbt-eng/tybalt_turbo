@@ -214,7 +214,7 @@
           </a>
         {/snippet}
         {#snippet headline(item: WorkRecordConsumableReportRow)}{item.consumable_name}{/snippet}
-        {#snippet byline(item: WorkRecordConsumableReportRow)}{item.owner_name} · {item.job_number}{/snippet}
+        {#snippet byline(item: WorkRecordConsumableReportRow)}{item.creator_name || item.creator} · {item.job_number}{/snippet}
         {#snippet line1(item: WorkRecordConsumableReportRow)}
           {item.date} · {item.type_name}
         {/snippet}
@@ -235,7 +235,7 @@
             >{item.work_record}</a
           >
         {/snippet}
-        {#snippet headline(item: WorkRecordListRow)}{item.owner_name}{/snippet}
+        {#snippet headline(item: WorkRecordListRow)}{item.creator_name || item.creator}{/snippet}
         {#snippet byline(item: WorkRecordListRow)}{item.job_number}{/snippet}
         {#snippet line1(item: WorkRecordListRow)}
           {item.date} · {item.type_name} · {item.location}

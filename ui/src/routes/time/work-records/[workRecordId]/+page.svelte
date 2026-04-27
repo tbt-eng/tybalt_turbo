@@ -111,7 +111,7 @@
     <div class="rounded-lg bg-neutral-100 p-4">
       <h2 class="mb-2 text-lg font-semibold">Summary</h2>
       <div class="space-y-2 text-sm">
-        <div><span class="font-medium">Owner:</span> {data.item.owner_name || "None"}</div>
+        <div><span class="font-medium">Creator:</span> {data.item.creator_name || data.item.creator || "None"}</div>
         <div><span class="font-medium">Job:</span> {data.item.job_number || "None"}</div>
         <div><span class="font-medium">Type:</span> {data.item.type_name || "None"}</div>
         <div><span class="font-medium">Location:</span> {data.item.location || "None"}</div>
@@ -131,7 +131,7 @@
           <div class="rounded-sm border border-neutral-200 bg-white p-3 text-sm">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="min-w-0">
-                <div class="font-semibold">{worker.owner_name || worker.uid}</div>
+                <div class="font-semibold">{worker.worker_name || worker.uid}</div>
                 <div class="text-neutral-600">
                   {worker.hours_on_site} site / {worker.hours_travel_time} travel /
                   {worker.hours_on_site + worker.hours_travel_time} total hours

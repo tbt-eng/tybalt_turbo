@@ -114,7 +114,7 @@
       {#snippet anchor(item: WorkRecordListRow)}
         <a href={`/time/work-records/${item.id}`} class="text-blue-600 hover:underline">{item.work_record}</a>
       {/snippet}
-      {#snippet headline(item: WorkRecordListRow)}{item.owner_name}{/snippet}
+      {#snippet headline(item: WorkRecordListRow)}{item.creator_name || item.creator}{/snippet}
       {#snippet byline(item: WorkRecordListRow)}{item.date}{/snippet}
       {#snippet line1(item: WorkRecordListRow)}{item.type_name} · {item.location}{/snippet}
       {#snippet line2(item: WorkRecordListRow)}{item.work_description}{/snippet}
