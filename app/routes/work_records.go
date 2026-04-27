@@ -838,31 +838,41 @@ func toWorkRecordSaveRequest(req WorkRecordCreateRequest) WorkRecordSaveRequest 
 	}
 }
 
-func canCreateWorkRecordForUID(app core.App, auth *core.Record, targetUID string) (bool, error) {
+func canCreateWorkRecordForRoster(app core.App, auth *core.Record, targetUIDs []string) (bool, error) {
 	if auth == nil {
 		return false, nil
 	}
 
-	targetUID = strings.TrimSpace(targetUID)
-	if targetUID == "" {
+	seen := map[string]struct{}{}
+	includesAuth := false
+	for _, targetUID := range targetUIDs {
+		targetUID = strings.TrimSpace(targetUID)
+		if targetUID == "" {
+			return false, nil
+		}
+		if _, ok := seen[targetUID]; ok {
+			continue
+		}
+		seen[targetUID] = struct{}{}
+
+		if targetUID == auth.Id {
+			includesAuth = true
+		}
+
+		canBeWorker, err := canBeWorkRecordWorker(app, targetUID)
+		if err != nil || !canBeWorker {
+			return false, err
+		}
+	}
+	if len(seen) == 0 {
 		return false, nil
 	}
 
-	if targetUID == auth.Id {
+	if includesAuth {
 		return utilities.HasClaim(app, auth, "time")
 	}
 
-	hasWorkRecordClaim, err := utilities.HasClaim(app, auth, "work_record")
-	if err != nil || !hasWorkRecordClaim {
-		return false, err
-	}
-
-	targetUser, err := app.FindRecordById("users", targetUID)
-	if err != nil {
-		return false, err
-	}
-
-	return utilities.HasClaim(app, targetUser, "time")
+	return utilities.HasClaim(app, auth, "work_record")
 }
 
 func canBeWorkRecordWorker(app core.App, targetUID string) (bool, error) {
@@ -910,17 +920,19 @@ func requireCopySourceAccess(app core.App, auth *core.Record, source workRecordC
 		}
 	}
 
+	targetUIDs := make([]string, 0, len(subjects))
 	for _, subject := range subjects {
-		if err := requireWorkRecordCreateAccess(app, auth, subject.UID, "copy this work record"); err != nil {
-			return err
-		}
+		targetUIDs = append(targetUIDs, subject.UID)
+	}
+	if err := requireWorkRecordRosterCreateAccess(app, auth, targetUIDs, "copy this work record"); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func requireWorkRecordCreateAccess(app core.App, auth *core.Record, targetUID string, action string) error {
-	canCreate, err := canCreateWorkRecordForUID(app, auth, targetUID)
+func requireWorkRecordRosterCreateAccess(app core.App, auth *core.Record, targetUIDs []string, action string) error {
+	canCreate, err := canCreateWorkRecordForRoster(app, auth, targetUIDs)
 	if err != nil {
 		return err
 	}
@@ -1883,10 +1895,12 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 
 		rootParentID, _ = resolveWorkRecordRootParent(source)
 	}
+	targetUIDs := make([]string, 0, len(subjects))
 	for _, subject := range subjects {
-		if err := requireWorkRecordCreateAccess(txApp, auth, subject.UID, "create this work record"); err != nil {
-			return WorkRecordSaveResponse{}, err
-		}
+		targetUIDs = append(targetUIDs, subject.UID)
+	}
+	if err := requireWorkRecordRosterCreateAccess(txApp, auth, targetUIDs, "create this work record"); err != nil {
+		return WorkRecordSaveResponse{}, err
 	}
 
 	collection, err := findWorkRecordCollection(txApp)
@@ -2456,17 +2470,15 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 
 		canCopyToTomorrow := row.Creator == auth.Id
 		if !canCopyToTomorrow {
-			canCopyToTomorrow = true
+			targetUIDs := make([]string, 0, len(subjects))
 			for _, subject := range subjects {
-				ok, err := canCreateWorkRecordForUID(app, auth, subject.UID)
-				if err != nil {
-					return e.Error(http.StatusInternalServerError, "failed to check copy permissions", err)
-				}
-				if !ok {
-					canCopyToTomorrow = false
-					break
-				}
+				targetUIDs = append(targetUIDs, subject.UID)
 			}
+			ok, err := canCreateWorkRecordForRoster(app, auth, targetUIDs)
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to check copy permissions", err)
+			}
+			canCopyToTomorrow = ok
 		}
 		canMutateShared := (isSubject || row.Creator == auth.Id) && !row.Approved
 		canMutateRecord := canMutateShared

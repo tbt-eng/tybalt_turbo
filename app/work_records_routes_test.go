@@ -134,29 +134,30 @@ type workRecordConsumablesReportResponse struct {
 }
 
 type workRecordCopyDraftResponse struct {
-	UID                      string                    `json:"uid"`
-	Date                     string                    `json:"date"`
-	Job                      string                    `json:"job"`
-	Type                     string                    `json:"type"`
-	Location                 string                    `json:"location"`
-	WorkDescription          string                    `json:"work_description"`
-	ReportTo                 string                    `json:"report_to"`
-	HoursOnSite              float64                   `json:"hours_on_site"`
-	HoursTravelTime          float64                   `json:"hours_travel_time"`
-	DistanceTravelledKM      float64                   `json:"distance_travelled_km"`
-	FieldBookNumber          string                    `json:"field_book_number"`
-	FieldBookPageNumber      int                       `json:"field_book_page_number"`
-	SubContractor            string                    `json:"sub_contractor"`
-	Equipment                string                    `json:"equipment"`
-	Supplies                 string                    `json:"supplies"`
-	VehicleType              string                    `json:"vehicle_type"`
-	IsPassenger              bool                      `json:"is_passenger"`
-	CompanyVehicleUnitNumber string                    `json:"company_vehicle_unit_number"`
-	Consumables              []workRecordConsumableRow `json:"consumables"`
-	CopyFromWorkRecordID     string                    `json:"copy_from_work_record_id"`
-	SourceWorkRecord         string                    `json:"source_work_record"`
-	RootWorkRecordID         string                    `json:"root_work_record_id"`
-	RootWorkRecord           string                    `json:"root_work_record"`
+	UID                      string                       `json:"uid"`
+	Date                     string                       `json:"date"`
+	Job                      string                       `json:"job"`
+	Type                     string                       `json:"type"`
+	Location                 string                       `json:"location"`
+	WorkDescription          string                       `json:"work_description"`
+	ReportTo                 string                       `json:"report_to"`
+	HoursOnSite              float64                      `json:"hours_on_site"`
+	HoursTravelTime          float64                      `json:"hours_travel_time"`
+	DistanceTravelledKM      float64                      `json:"distance_travelled_km"`
+	FieldBookNumber          string                       `json:"field_book_number"`
+	FieldBookPageNumber      int                          `json:"field_book_page_number"`
+	SubContractor            string                       `json:"sub_contractor"`
+	Equipment                string                       `json:"equipment"`
+	Supplies                 string                       `json:"supplies"`
+	VehicleType              string                       `json:"vehicle_type"`
+	IsPassenger              bool                         `json:"is_passenger"`
+	CompanyVehicleUnitNumber string                       `json:"company_vehicle_unit_number"`
+	Subjects                 []workRecordSubjectDetailRow `json:"subjects"`
+	Consumables              []workRecordConsumableRow    `json:"consumables"`
+	CopyFromWorkRecordID     string                       `json:"copy_from_work_record_id"`
+	SourceWorkRecord         string                       `json:"source_work_record"`
+	RootWorkRecordID         string                       `json:"root_work_record_id"`
+	RootWorkRecord           string                       `json:"root_work_record"`
 }
 
 type workRecordSaveResponse struct {
@@ -3049,6 +3050,98 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 		},
 		{
+			Name:   "time holder can create a crew work record that includes themselves",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+				"Content-Type":  "application/json",
+			},
+			Body: workRecordRequestBody(`{
+				"date":"2031-03-05",
+				"job":"cjf0kt0defhq480",
+				"type":"rqayp9yoz1qe6ui",
+				"location":"Crew creation location",
+				"work_description":"Crew creation work description",
+				"report_to":"",
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"subjects":[
+					{
+						"id":"",
+						"uid":"rzr98oadsp9qc11",
+						"hours_on_site":8,
+						"hours_travel_time":1,
+						"distance_travelled_km":10,
+						"vehicle_type":"personal",
+						"is_passenger":false,
+						"company_vehicle_unit_number":""
+					},
+					{
+						"id":"",
+						"uid":"u_mileage_valid",
+						"hours_on_site":7,
+						"hours_travel_time":1,
+						"distance_travelled_km":12,
+						"vehicle_type":"personal",
+						"is_passenger":true,
+						"company_vehicle_unit_number":""
+					}
+				],
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"id":"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var row workRecordSaveResponse
+				if err := json.NewDecoder(res.Body).Decode(&row); err != nil {
+					t.Fatalf("failed decoding crew work record create response: %v", err)
+				}
+				if row.ID == "" {
+					t.Fatalf("expected created crew work record id, got %#v", row)
+				}
+
+				var record struct {
+					Creator string `db:"creator"`
+					Type    string `db:"type"`
+				}
+				if err := app.DB().NewQuery(`
+					SELECT
+						COALESCE(creator, '') AS creator,
+						COALESCE(type, '') AS type
+					FROM work_records
+					WHERE id = {:id}
+				`).Bind(map[string]any{
+					"id": row.ID,
+				}).One(&record); err != nil {
+					t.Fatalf("failed loading created crew work record: %v", err)
+				}
+				if record.Creator != "rzr98oadsp9qc11" || record.Type != "rqayp9yoz1qe6ui" {
+					t.Fatalf("unexpected created crew work record state: %#v", record)
+				}
+
+				subjects := loadWorkRecordSubjectRowsForTest(t, app, row.ID)
+				if len(subjects) != 2 {
+					t.Fatalf("expected two crew workers, got %#v", subjects)
+				}
+				seen := map[string]bool{}
+				for _, subject := range subjects {
+					seen[subject.UID] = true
+				}
+				if !seen["rzr98oadsp9qc11"] || !seen["u_mileage_valid"] {
+					t.Fatalf("unexpected crew workers: %#v", subjects)
+				}
+			},
+		},
+		{
 			Name:   "time holder cannot tamper copied draft worker",
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
@@ -3955,6 +4048,185 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				}
 				if len(record.Number) < len("W2603-") || record.Number[:len("W2603-")] != "W2603-" {
 					t.Fatalf("expected March-prefixed work record number, got %q", record.Number)
+				}
+			},
+		},
+		{
+			Name:   "time holder can load a crew copy draft when the crew includes themselves",
+			Method: http.MethodGet,
+			URL:    "/api/work_records/wrcrewcopy001a/copy_to_tomorrow",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+			},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"date":"2030-04-02"`,
+				`"source_work_record":"W3004-0100"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				insertWorkRecordWithSubjectForTest(t, app, map[string]any{
+					"id":                       "wrcrewcopy001a",
+					"number":                   "W3004-0100",
+					"date":                     "2030-04-01",
+					"creator":                  "rzr98oadsp9qc11",
+					"job":                      "cjf0kt0defhq480",
+					"type":                     "rqayp9yoz1qe6ui",
+					"location":                 "Crew copy location",
+					"workDescription":          "Crew copy work description",
+					"subjectId":                "wrcrewsub001aa",
+					"uid":                      "rzr98oadsp9qc11",
+					"hoursOnSite":              8,
+					"hoursTravelTime":          1,
+					"distanceTravelledKM":      10,
+					"vehicleType":              "personal",
+					"companyVehicleUnitNumber": "",
+					"created":                  "2030-04-01 12:00:00.000Z",
+					"updated":                  "2030-04-01 12:00:00.000Z",
+				})
+				insertWorkRecordSubjectForTest(t, app, map[string]any{
+					"subjectId":                "wrcrewsub002aa",
+					"workRecordId":             "wrcrewcopy001a",
+					"uid":                      "u_mileage_valid",
+					"hoursOnSite":              7,
+					"hoursTravelTime":          1,
+					"distanceTravelledKM":      12,
+					"vehicleType":              "personal",
+					"companyVehicleUnitNumber": "",
+				})
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var row workRecordCopyDraftResponse
+				if err := json.NewDecoder(res.Body).Decode(&row); err != nil {
+					t.Fatalf("failed decoding crew copy draft response: %v", err)
+				}
+				if row.CopyFromWorkRecordID != "wrcrewcopy001a" || row.RootWorkRecordID != "wrcrewcopy001a" {
+					t.Fatalf("expected root crew copy metadata, got %#v", row)
+				}
+				if len(row.Subjects) != 2 {
+					t.Fatalf("expected copied crew draft subjects, got %#v", row.Subjects)
+				}
+				if got := countWorkRecordsForTest(t, app); got != 6 {
+					t.Fatalf("expected crew copy draft load to avoid extra inserts, got %d work records", got)
+				}
+			},
+		},
+		{
+			Name:   "time holder can save a copied crew draft when the crew includes themselves",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/save",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+				"Content-Type":  "application/json",
+			},
+			Body: workRecordRequestBody(`{
+				"date":"2030-04-02",
+				"job":"cjf0kt0defhq480",
+				"type":"rqayp9yoz1qe6ui",
+				"location":"Crew copy location",
+				"work_description":"Crew copy work description",
+				"report_to":"",
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"subjects":[
+					{
+						"id":"",
+						"uid":"rzr98oadsp9qc11",
+						"hours_on_site":8,
+						"hours_travel_time":1,
+						"distance_travelled_km":10,
+						"vehicle_type":"personal",
+						"is_passenger":false,
+						"company_vehicle_unit_number":""
+					},
+					{
+						"id":"",
+						"uid":"u_mileage_valid",
+						"hours_on_site":7,
+						"hours_travel_time":1,
+						"distance_travelled_km":12,
+						"vehicle_type":"personal",
+						"is_passenger":true,
+						"company_vehicle_unit_number":""
+					}
+				],
+				"copy_from_work_record_id":"wrcrewcopy001a",
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"id":"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				insertWorkRecordWithSubjectForTest(t, app, map[string]any{
+					"id":                       "wrcrewcopy001a",
+					"number":                   "W3004-0100",
+					"date":                     "2030-04-01",
+					"creator":                  "rzr98oadsp9qc11",
+					"job":                      "cjf0kt0defhq480",
+					"type":                     "rqayp9yoz1qe6ui",
+					"location":                 "Crew copy location",
+					"workDescription":          "Crew copy work description",
+					"subjectId":                "wrcrewsub001aa",
+					"uid":                      "rzr98oadsp9qc11",
+					"hoursOnSite":              8,
+					"hoursTravelTime":          1,
+					"distanceTravelledKM":      10,
+					"vehicleType":              "personal",
+					"companyVehicleUnitNumber": "",
+					"created":                  "2030-04-01 12:00:00.000Z",
+					"updated":                  "2030-04-01 12:00:00.000Z",
+				})
+				insertWorkRecordSubjectForTest(t, app, map[string]any{
+					"subjectId":                "wrcrewsub002aa",
+					"workRecordId":             "wrcrewcopy001a",
+					"uid":                      "u_mileage_valid",
+					"hoursOnSite":              7,
+					"hoursTravelTime":          1,
+					"distanceTravelledKM":      12,
+					"vehicleType":              "personal",
+					"companyVehicleUnitNumber": "",
+				})
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				defer res.Body.Close()
+
+				var row workRecordSaveResponse
+				if err := json.NewDecoder(res.Body).Decode(&row); err != nil {
+					t.Fatalf("failed decoding copied crew work record response: %v", err)
+				}
+				if row.ID == "" {
+					t.Fatalf("expected copied crew work record id, got %#v", row)
+				}
+
+				var record struct {
+					Creator          string `db:"creator"`
+					ParentWorkRecord string `db:"parent_work_record"`
+				}
+				if err := app.DB().NewQuery(`
+					SELECT
+						COALESCE(creator, '') AS creator,
+						COALESCE(parent_work_record, '') AS parent_work_record
+					FROM work_records
+					WHERE id = {:id}
+				`).Bind(map[string]any{
+					"id": row.ID,
+				}).One(&record); err != nil {
+					t.Fatalf("failed loading copied crew work record: %v", err)
+				}
+				if record.Creator != "rzr98oadsp9qc11" || record.ParentWorkRecord != "wrcrewcopy001a" {
+					t.Fatalf("unexpected copied crew work record state: %#v", record)
+				}
+
+				subjects := loadWorkRecordSubjectRowsForTest(t, app, row.ID)
+				if len(subjects) != 2 {
+					t.Fatalf("expected two copied crew workers, got %#v", subjects)
 				}
 			},
 		},
