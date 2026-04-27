@@ -14,6 +14,7 @@
   import ExpensesTabContent from "$lib/components/jobs/ExpensesTabContent.svelte";
   import POsTabContent from "$lib/components/jobs/POsTabContent.svelte";
   import WIPContent from "$lib/components/jobs/WIPContent.svelte";
+  import WorkRecordsTabContent from "$lib/components/jobs/WorkRecordsTabContent.svelte";
   import StaffSummaryContent from "$lib/components/jobs/StaffSummaryContent.svelte";
   import DivisionsSummaryContent from "$lib/components/jobs/DivisionsSummaryContent.svelte";
   import { pb } from "$lib/pocketbase";
@@ -38,12 +39,15 @@
   };
 
   // Tab management ------------------------------------------------------------
-  let activeTab = $state<"time" | "expenses" | "pos" | "wip">("time");
+  type JobDetailsTab = "time" | "expenses" | "work_records" | "pos" | "wip";
+
+  let activeTab = $state<JobDetailsTab>("time");
   let timeSubTab = $state<"all" | "staff_summary" | "divisions_summary">("all");
 
   // Reactive tabs array consumed by DSTabBar
   let tabs: TabItem[] = $derived([
     { label: "Time", href: "#time", active: activeTab === "time" },
+    { label: "Work Records", href: "#work_records", active: activeTab === "work_records" },
     { label: "Expenses", href: "#expenses", active: activeTab === "expenses" },
     { label: "POs", href: "#pos", active: activeTab === "pos" },
     { label: "WIP", href: "#wip", active: activeTab === "wip" },
@@ -84,6 +88,8 @@
       const hash = window.location.hash;
       if (hash === "#expenses") {
         activeTab = "expenses";
+      } else if (hash === "#work_records") {
+        activeTab = "work_records";
       } else if (hash === "#pos") {
         activeTab = "pos";
       } else if (hash === "#wip") {
@@ -104,6 +110,8 @@
         const hash = window.location.hash;
         if (hash === "#expenses") {
           activeTab = "expenses";
+        } else if (hash === "#work_records") {
+          activeTab = "work_records";
         } else if (hash === "#pos") {
           activeTab = "pos";
         } else if (hash === "#wip") {
@@ -291,7 +299,6 @@
               {page}
               {totalPages}
               jobId={data.job.id}
-              approvedWorkRecordsActive={activeTab === "time" && timeSubTab === "all"}
             />
           {/snippet}
         </JobDetailTab>
@@ -356,6 +363,11 @@
   </div>
 
   <!-- Expenses Section -->
+  <!-- Work Records Section -->
+  <div id="work_records" class:hidden={activeTab !== "work_records"}>
+    <WorkRecordsTabContent jobId={data.job.id} active={activeTab === "work_records"} />
+  </div>
+
   <div id="expenses" class:hidden={activeTab !== "expenses"}>
     {#key data.job.id}
       <JobDetailTab
