@@ -37,14 +37,17 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params, url }) => {
       throw error(404, "Work record worker not found");
     }
 
-    if (!worker.can_create_time_entry && worker.linked_time_entry_id) {
-      if (worker.linked_timesheet_id) {
-        throw redirect(
-          303,
-          `/time/sheets/${worker.linked_timesheet_id}/details?entry=${worker.linked_time_entry_id}`,
-        );
+    if (!worker.can_create_time_entry) {
+      if (worker.linked_time_entry_id) {
+        if (worker.linked_timesheet_id) {
+          throw redirect(
+            303,
+            `/time/sheets/${worker.linked_timesheet_id}/details?entry=${worker.linked_time_entry_id}`,
+          );
+        }
+        throw redirect(303, `/time/entries/${worker.linked_time_entry_id}/details`);
       }
-      throw redirect(303, `/time/entries/${worker.linked_time_entry_id}/details`);
+      throw error(403, "You can only create a time entry for your own work record row");
     }
 
     return {

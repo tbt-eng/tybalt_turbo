@@ -133,6 +133,7 @@ type WorkRecordDetailResponse struct {
 	CanCreateTimeEntry         bool                           `json:"can_create_time_entry"`
 	CanCopyToTomorrow          bool                           `json:"can_copy_to_tomorrow"`
 	CanEdit                    bool                           `json:"can_edit"`
+	CanEditShared              bool                           `json:"can_edit_shared"`
 	CanAddNote                 bool                           `json:"can_add_note"`
 	Subjects                   []WorkRecordSubjectResponse    `json:"subjects"`
 	Notes                      []WorkRecordNoteResponse       `json:"notes"`
@@ -515,7 +516,7 @@ func loadVisibleWorkRecordRows(app core.App, auth *core.Record, scope string) ([
 	}
 
 	for i := range rows {
-		subjects, err := loadWorkRecordSubjects(app, rows[i].ID, auth)
+		subjects, err := loadWorkRecordSubjects(app, rows[i].ID, auth, rows[i].Creator)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -609,7 +610,7 @@ func loadWorkRecordNotes(app core.App, workRecordID string) ([]WorkRecordNoteRes
 	return rows, nil
 }
 
-func loadWorkRecordSubjects(app core.App, workRecordID string, auth *core.Record) ([]WorkRecordSubjectResponse, error) {
+func loadWorkRecordSubjects(app core.App, workRecordID string, auth *core.Record, creatorIDs ...string) ([]WorkRecordSubjectResponse, error) {
 	rows := []WorkRecordSubjectResponse{}
 	if err := app.DB().NewQuery(`
 		SELECT
@@ -646,9 +647,13 @@ func loadWorkRecordSubjects(app core.App, workRecordID string, auth *core.Record
 	if auth != nil {
 		authID = auth.Id
 	}
+	creatorID := ""
+	if len(creatorIDs) > 0 {
+		creatorID = creatorIDs[0]
+	}
 	for i := range rows {
 		rows[i].CanCreateTimeEntry = rows[i].UID == authID && rows[i].LinkedTimeEntryID == ""
-		rows[i].CanEdit = rows[i].UID == authID && !rows[i].Approved
+		rows[i].CanEdit = !rows[i].Approved && (rows[i].UID == authID || creatorID == authID)
 	}
 	return rows, nil
 }
@@ -1061,6 +1066,10 @@ func requireWorkRecordEditAccess(app core.App, auth *core.Record, record *core.R
 		return workRecordRouteError(http.StatusForbidden, "unauthorized", "you are not authorized to edit this work record")
 	}
 
+	return nil
+}
+
+func workRecordHasApprovedSubjectForRoute(app core.App, workRecordID string) (bool, error) {
 	var lockRow struct {
 		Approved bool `db:"approved"`
 	}
@@ -1072,11 +1081,23 @@ func requireWorkRecordEditAccess(app core.App, auth *core.Record, record *core.R
 			  AND COALESCE(approved, 0) = 1
 		) AS approved
 	`).Bind(dbx.Params{
-		"workRecordId": record.Id,
+		"workRecordId": workRecordID,
 	}).One(&lockRow); err != nil {
+		return false, err
+	}
+	return lockRow.Approved, nil
+}
+
+func requireUnlockedSharedWorkRecordEditAccess(app core.App, auth *core.Record, record *core.Record) error {
+	if err := requireWorkRecordEditAccess(app, auth, record); err != nil {
 		return err
 	}
-	if lockRow.Approved {
+
+	locked, err := workRecordHasApprovedSubjectForRoute(app, record.Id)
+	if err != nil {
+		return err
+	}
+	if locked {
 		return workRecordRouteError(http.StatusBadRequest, "approved_work_record_locked", "Approved work records cannot be edited")
 	}
 
@@ -1133,6 +1154,28 @@ func validateWorkRecordNoteCreateRequest(req WorkRecordNoteCreateRequest) error 
 	}.Filter()
 }
 
+func normalizeOptionalFieldBookPageNumber(raw any) (any, int, error) {
+	switch value := raw.(type) {
+	case nil:
+		return "", 0, nil
+	case string:
+		if strings.TrimSpace(value) == "" {
+			return "", 0, nil
+		}
+	case float64:
+		return value, int(value), nil
+	case float32:
+		return value, int(value), nil
+	case int:
+		return value, value, nil
+	case int32:
+		return value, int(value), nil
+	case int64:
+		return value, int(value), nil
+	}
+	return nil, 0, workRecordFieldError("field_book_page_number", "invalid_field_value", "Field book page number must be a number or empty")
+}
+
 func applyWorkRecordSaveRequest(record *core.Record, req WorkRecordSaveRequest) error {
 	record.Set("date", req.Date)
 	record.Set("job", req.Job)
@@ -1143,38 +1186,11 @@ func applyWorkRecordSaveRequest(record *core.Record, req WorkRecordSaveRequest) 
 	record.Set("lane_kms", req.LaneKms)
 	record.Set("field_book_number", req.FieldBookNumber)
 
-	switch value := req.FieldBookPageNumber.(type) {
-	case nil:
-		record.Set("field_book_page_number", "")
-	case string:
-		if strings.TrimSpace(value) == "" {
-			record.Set("field_book_page_number", "")
-		} else {
-			return &errs.HookError{
-				Status:  http.StatusBadRequest,
-				Message: "validation failed",
-				Data: map[string]errs.CodeError{
-					"field_book_page_number": {
-						Code:    "invalid_field_value",
-						Message: "Field book page number must be a number or empty",
-					},
-				},
-			}
-		}
-	case float64, float32, int, int32, int64:
-		record.Set("field_book_page_number", value)
-	default:
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "validation failed",
-			Data: map[string]errs.CodeError{
-				"field_book_page_number": {
-					Code:    "invalid_field_value",
-					Message: "Field book page number must be a number or empty",
-				},
-			},
-		}
+	pageNumberValue, _, err := normalizeOptionalFieldBookPageNumber(req.FieldBookPageNumber)
+	if err != nil {
+		return err
 	}
+	record.Set("field_book_page_number", pageNumberValue)
 
 	record.Set("sub_contractor", req.SubContractor)
 	record.Set("equipment", req.Equipment)
@@ -1283,7 +1299,17 @@ func loadExistingSubjectRecords(app core.App, workRecordID string) (map[string]*
 	return byID, byUID, nil
 }
 
-func saveWorkRecordSubjects(txApp core.App, auth *core.Record, workRecordID string, creatorID string, subjects []WorkRecordSubjectSaveRequest, allowRosterChanges bool) error {
+func workRecordSubjectRequestMatchesRecord(record *core.Record, req WorkRecordSubjectSaveRequest) bool {
+	return record.GetString("uid") == strings.TrimSpace(req.UID) &&
+		record.GetFloat("hours_on_site") == req.HoursOnSite &&
+		record.GetFloat("hours_travel_time") == req.HoursTravelTime &&
+		record.GetFloat("distance_travelled_km") == req.DistanceTravelledKM &&
+		record.GetString("vehicle_type") == req.VehicleType &&
+		record.GetBool("is_passenger") == req.IsPassenger &&
+		record.GetString("company_vehicle_unit_number") == req.CompanyVehicleUnitNumber
+}
+
+func saveWorkRecordSubjects(txApp core.App, auth *core.Record, workRecordID string, creatorID string, subjects []WorkRecordSubjectSaveRequest, allowRosterChanges bool, rosterLocked bool) error {
 	if err := validateSubjectPayload(subjects); err != nil {
 		return err
 	}
@@ -1340,6 +1366,9 @@ func saveWorkRecordSubjects(txApp core.App, auth *core.Record, workRecordID stri
 		} else if existing := existingByUID[subject.UID]; existing != nil {
 			record = existing
 		} else {
+			if rosterLocked {
+				return workRecordFieldError("subjects", "approved_roster_locked", "Workers cannot be added or reassigned after approval")
+			}
 			if !allowRosterChanges || auth == nil || auth.Id != creatorID {
 				return workRecordFieldError("subjects", "creator_required", "Only the work record creator can add workers")
 			}
@@ -1354,6 +1383,11 @@ func saveWorkRecordSubjects(txApp core.App, auth *core.Record, workRecordID stri
 		}
 		if auth.Id != creatorID && record.GetString("uid") != auth.Id {
 			return workRecordFieldError("subjects", "unauthorized", "You may only edit your own worker row")
+		}
+
+		if record.GetBool("approved") && workRecordSubjectRequestMatchesRecord(record, subject) {
+			seenExistingIDs[record.Id] = struct{}{}
+			continue
 		}
 
 		applyWorkRecordSubjectSaveRequest(record, workRecordID, subject)
@@ -1521,6 +1555,110 @@ func setWorkRecordConsumableQuantity(entryRecord *core.Record, inputKind string,
 	entryRecord.Set("quantity_number", item.QuantityNumber)
 }
 
+func lockedWorkRecordEditError() *errs.HookError {
+	return workRecordFieldError("global", "approved_work_record_locked", "Approved work records cannot be edited")
+}
+
+func validateLockedWorkRecordSharedPayload(record *core.Record, req WorkRecordSaveRequest) error {
+	_, pageNumber, err := normalizeOptionalFieldBookPageNumber(req.FieldBookPageNumber)
+	if err != nil {
+		return err
+	}
+
+	if record.GetString("date") != req.Date ||
+		record.GetString("job") != req.Job ||
+		record.GetString("type") != req.Type ||
+		record.GetString("location") != req.Location ||
+		record.GetString("work_description") != req.WorkDescription ||
+		record.GetString("report_to") != req.ReportTo ||
+		record.GetFloat("lane_kms") != req.LaneKms ||
+		record.GetString("field_book_number") != req.FieldBookNumber ||
+		record.GetInt("field_book_page_number") != pageNumber ||
+		record.GetString("sub_contractor") != req.SubContractor ||
+		record.GetString("equipment") != req.Equipment ||
+		record.GetString("supplies") != req.Supplies {
+		return lockedWorkRecordEditError()
+	}
+
+	return nil
+}
+
+func requestedConsumableValueMap(app core.App, items []WorkRecordSaveConsumableRequest) (map[string]float64, error) {
+	values := map[string]float64{}
+	inputKindsByConsumable, err := resolveWorkRecordConsumableInputKinds(app, items)
+	if err != nil {
+		return nil, err
+	}
+
+	seenConsumables := map[string]struct{}{}
+	for _, item := range items {
+		consumableID := strings.TrimSpace(item.ConsumableID)
+		if consumableID == "" {
+			return nil, consumableFieldError("consumable_required", "Consumable id is required for all submitted consumables")
+		}
+		if _, exists := seenConsumables[consumableID]; exists {
+			return nil, consumableFieldError("duplicate_consumable_payload", "Each consumable may be submitted only once")
+		}
+		seenConsumables[consumableID] = struct{}{}
+
+		inputKind := inputKindsByConsumable[consumableID]
+		if !hasResolvedWorkRecordConsumableValue(inputKind, item) {
+			continue
+		}
+		if inputKind == "boolean" {
+			values[consumableID] = 0
+		} else {
+			values[consumableID] = item.QuantityNumber
+		}
+	}
+
+	return values, nil
+}
+
+func storedConsumableValueMap(app core.App, workRecordID string) (map[string]float64, error) {
+	rows := []struct {
+		ConsumableID   string  `db:"consumable"`
+		QuantityNumber float64 `db:"quantity_number"`
+	}{}
+	if err := app.DB().NewQuery(`
+		SELECT
+			COALESCE(consumable, '') AS consumable,
+			COALESCE(quantity_number, 0) AS quantity_number
+		FROM work_records_consumable_entries
+		WHERE work_record = {:workRecordId}
+	`).Bind(dbx.Params{
+		"workRecordId": workRecordID,
+	}).All(&rows); err != nil {
+		return nil, err
+	}
+
+	values := map[string]float64{}
+	for _, row := range rows {
+		values[row.ConsumableID] = row.QuantityNumber
+	}
+	return values, nil
+}
+
+func validateLockedWorkRecordConsumablePayload(app core.App, workRecordID string, items []WorkRecordSaveConsumableRequest) error {
+	requested, err := requestedConsumableValueMap(app, items)
+	if err != nil {
+		return err
+	}
+	stored, err := storedConsumableValueMap(app, workRecordID)
+	if err != nil {
+		return err
+	}
+	if len(requested) != len(stored) {
+		return lockedWorkRecordEditError()
+	}
+	for consumableID, quantity := range stored {
+		if requested[consumableID] != quantity {
+			return lockedWorkRecordEditError()
+		}
+	}
+	return nil
+}
+
 func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, req WorkRecordSaveRequest) (WorkRecordSaveResponse, error) {
 	currentRecord, err := findWorkRecordByID(txApp, record.Id)
 	if err != nil {
@@ -1531,12 +1669,34 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 		return WorkRecordSaveResponse{}, err
 	}
 
-	if auth == nil || auth.Id != currentRecord.GetString("creator") {
+	locked, err := workRecordHasApprovedSubjectForRoute(txApp, currentRecord.Id)
+	if err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
+	if locked {
+		if err := validateLockedWorkRecordSharedPayload(currentRecord, req); err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
+		if err := validateLockedWorkRecordConsumablePayload(txApp, currentRecord.Id, req.Consumables); err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
 		subjects, err := subjectsFromSaveRequest(req)
 		if err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
-		if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, false); err != nil {
+		if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, false, true); err != nil {
+			return WorkRecordSaveResponse{}, err
+		}
+		return WorkRecordSaveResponse{ID: currentRecord.Id}, nil
+	}
+
+	subjects, err := subjectsFromSaveRequest(req)
+	if err != nil {
+		return WorkRecordSaveResponse{}, err
+	}
+
+	if auth == nil || auth.Id != currentRecord.GetString("creator") {
+		if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, false, false); err != nil {
 			return WorkRecordSaveResponse{}, err
 		}
 		return WorkRecordSaveResponse{ID: currentRecord.Id}, nil
@@ -1655,11 +1815,7 @@ func saveWorkRecordEdit(txApp core.App, auth *core.Record, record *core.Record, 
 	if err := normalizeRouteValidationError(txApp.Save(currentRecord)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	subjects, err := subjectsFromSaveRequest(req)
-	if err != nil {
-		return WorkRecordSaveResponse{}, err
-	}
-	if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, auth != nil && auth.Id == currentRecord.GetString("creator")); err != nil {
+	if err := saveWorkRecordSubjects(txApp, auth, currentRecord.Id, currentRecord.GetString("creator"), subjects, auth != nil && auth.Id == currentRecord.GetString("creator"), false); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
 
@@ -1758,7 +1914,7 @@ func createWorkRecord(txApp core.App, auth *core.Record, req WorkRecordCreateReq
 	if err := normalizeRouteValidationError(txApp.Save(record)); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
-	if err := saveWorkRecordSubjects(txApp, auth, record.Id, auth.Id, subjects, true); err != nil {
+	if err := saveWorkRecordSubjects(txApp, auth, record.Id, auth.Id, subjects, true, false); err != nil {
 		return WorkRecordSaveResponse{}, err
 	}
 
@@ -1837,7 +1993,7 @@ func saveWorkRecordAttachment(
 		return WorkRecordAttachmentResponse{}, err
 	}
 
-	if err := requireWorkRecordEditAccess(txApp, auth, record); err != nil {
+	if err := requireUnlockedSharedWorkRecordEditAccess(txApp, auth, record); err != nil {
 		return WorkRecordAttachmentResponse{}, err
 	}
 
@@ -2258,7 +2414,7 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusNotFound, "work record not found", err)
 		}
 
-		subjects, err := loadWorkRecordSubjects(app, row.ID, auth)
+		subjects, err := loadWorkRecordSubjects(app, row.ID, auth, row.Creator)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load work record workers", err)
 		}
@@ -2312,7 +2468,16 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 				}
 			}
 		}
-		canMutateRecord := (isSubject || row.Creator == auth.Id) && !row.Approved
+		canMutateShared := (isSubject || row.Creator == auth.Id) && !row.Approved
+		canMutateRecord := canMutateShared
+		if !canMutateRecord {
+			for _, subject := range subjects {
+				if subject.CanEdit {
+					canMutateRecord = true
+					break
+				}
+			}
+		}
 		var primarySubject WorkRecordSubjectResponse
 		for _, subject := range subjects {
 			if subject.UID == auth.Id {
@@ -2368,6 +2533,7 @@ func createGetWorkRecordDetailsHandler(app core.App) func(e *core.RequestEvent) 
 			CanCreateTimeEntry:         primarySubject.CanCreateTimeEntry,
 			CanCopyToTomorrow:          canCopyToTomorrow,
 			CanEdit:                    canMutateRecord,
+			CanEditShared:              canMutateShared,
 			CanAddNote:                 canAddWorkRecordNote(app, auth, row.ID, row.Creator),
 			Subjects:                   subjects,
 			Notes:                      notes,

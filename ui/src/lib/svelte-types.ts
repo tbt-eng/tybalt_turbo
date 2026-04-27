@@ -326,6 +326,7 @@ export interface WorkRecordDetailsResponse {
   can_create_time_entry: boolean;
   can_copy_to_tomorrow: boolean;
   can_edit: boolean;
+  can_edit_shared: boolean;
   can_add_note: boolean;
   subjects: WorkRecordSubjectResponse[];
   notes: WorkRecordNoteResponse[];

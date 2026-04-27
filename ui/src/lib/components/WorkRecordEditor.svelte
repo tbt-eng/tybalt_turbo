@@ -192,6 +192,8 @@
   const canCreateForOthers = $derived($globalStore.user_claims_summary.claims.includes("work_record"));
   const canViewAll = $derived($globalStore.user_claims_summary.claims.includes("report"));
   const canEdit = $derived(detail?.can_edit ?? true);
+  const canEditShared = $derived(detail?.can_edit_shared ?? true);
+  const sharedDisabled = $derived(editing && !canEditShared);
   const isCopyMode = $derived(copyContext !== null);
   const showSaveButton = $derived(!editing || canEdit);
   const initialConsumableType = $derived(detail?.type_id ?? copyContext?.type ?? "");
@@ -347,6 +349,9 @@
   }
 
   function buildSaveWorkers() {
+    if (editing && !canEditShared) {
+      return workerForms.filter((worker) => workerCanEdit(worker)).map(workerToPayload);
+    }
     if (isCreator) {
       return workerForms.map(workerToPayload);
     }
@@ -662,7 +667,7 @@
     </div>
   {/if}
 
-  <DsDateInput bind:value={form.date} min={DATE_INPUT_MIN} max={dateInputMax} />
+  <DsDateInput bind:value={form.date} min={DATE_INPUT_MIN} max={dateInputMax} disabled={sharedDisabled} />
 
   {#if $jobs.index !== null}
     <DsAutoComplete
@@ -671,7 +676,7 @@
       {errors}
       fieldName="job"
       uiName="Job"
-      disabled={isCopyMode}
+      disabled={isCopyMode || sharedDisabled}
     >
       {#snippet resultTemplate(item)}{item.number} - {item.description}{/snippet}
     </DsAutoComplete>
@@ -681,8 +686,8 @@
     class="fields-grid grid auto-cols-fr grid-flow-col gap-3"
     style="--mobile-rows: repeat(10, auto); --desktop-rows: repeat(5, auto)"
   >
-    <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" />
-    <DsTextInput bind:value={form.report_to} {errors} fieldName="report_to" uiName="Report To" />
+    <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" disabled={sharedDisabled} />
+    <DsTextInput bind:value={form.report_to} {errors} fieldName="report_to" uiName="Report To" disabled={sharedDisabled} />
     {#if showLaneKms}
       <DsTextInput
         bind:value={form.lane_kms}
@@ -692,6 +697,7 @@
         type="number"
         min={0}
         step={0.1}
+        disabled={sharedDisabled}
       />
     {/if}
     <DsTextInput
@@ -699,12 +705,14 @@
       {errors}
       fieldName="sub_contractor"
       uiName="Sub Contractor"
+      disabled={sharedDisabled}
     />
     <DsTextInput
       bind:value={form.field_book_number}
       {errors}
       fieldName="field_book_number"
       uiName="Field Book Number"
+      disabled={sharedDisabled}
     />
     <DsTextInput
       bind:value={form.field_book_page_number}
@@ -714,6 +722,7 @@
       type="number"
       min={1}
       step={1}
+      disabled={sharedDisabled}
     />
   </div>
 
@@ -861,9 +870,9 @@
           {/if}
         </div>
 
-        {#if !canEdit}
+        {#if !canEditShared}
           <div class="text-sm text-neutral-600">
-            This work record is read-only, so the paper copy PDF cannot be changed.
+            The shared work record is locked, so the paper copy PDF cannot be changed.
           </div>
         {:else}
           <div class="flex flex-col gap-3">
@@ -931,6 +940,7 @@
         bind:value={form.work_description}
         placeholder="Work Description"
         class="flex-1 rounded border border-neutral-300 px-1"
+        disabled={sharedDisabled}
       ></textarea>
     </span>
     {#if errors.work_description}
@@ -938,8 +948,8 @@
     {/if}
   </div>
 
-  <DsTextInput bind:value={form.equipment} {errors} fieldName="equipment" uiName="Equipment" />
-  <DsTextInput bind:value={form.supplies} {errors} fieldName="supplies" uiName="Supplies" />
+  <DsTextInput bind:value={form.equipment} {errors} fieldName="equipment" uiName="Equipment" disabled={sharedDisabled} />
+  <DsTextInput bind:value={form.supplies} {errors} fieldName="supplies" uiName="Supplies" disabled={sharedDisabled} />
 
   <div class="rounded-sm bg-neutral-50 p-4">
     <div class="flex items-center justify-between gap-2">
@@ -960,6 +970,7 @@
         {errors}
         fieldName="type"
         uiName="Work Record Type"
+        disabled={sharedDisabled}
       >
         {#snippet optionTemplate(item)}{item.name}{/snippet}
       </DsSelector>
@@ -998,6 +1009,7 @@
                 type="checkbox"
                 bind:checked={consumable.boolean_selected}
                 class="h-4 w-4 shrink-0"
+                disabled={sharedDisabled}
               />
             </label>
           {:else}
@@ -1024,6 +1036,7 @@
                 min={0}
                 step={0.1}
                 class="w-20 shrink-0 rounded-sm border border-neutral-300 px-2 py-1 text-right text-sm"
+                disabled={sharedDisabled}
               />
             </div>
           {/if}
