@@ -112,6 +112,7 @@ type workRecordDetailResponse struct {
 	CanCreateTimeEntry         bool                         `json:"can_create_time_entry"`
 	CanCopyToTomorrow          bool                         `json:"can_copy_to_tomorrow"`
 	CanEdit                    bool                         `json:"can_edit"`
+	CanEditShared              bool                         `json:"can_edit_shared"`
 	CanAddNote                 bool                         `json:"can_add_note"`
 	Subjects                   []workRecordSubjectDetailRow `json:"subjects"`
 	Notes                      []workRecordNoteRow          `json:"notes"`
@@ -357,6 +358,7 @@ func insertWorkRecordWithSubjectForTest(t testing.TB, app *tests.TestApp, params
 		"distanceTravelledKM":      params["distanceTravelledKM"],
 		"vehicleType":              params["vehicleType"],
 		"companyVehicleUnitNumber": firstNonEmptyTestString(params["companyVehicleUnitNumber"], "7"),
+		"approved":                 params["approved"],
 	})
 }
 
@@ -1495,6 +1497,347 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				}
 				if own == nil || own.HoursOnSite != 5.25 || own.HoursTravelTime != 1.25 || own.DistanceTravelledKM != 18 || !own.IsPassenger || own.VehicleType != "personal" {
 					t.Fatalf("expected non-creator to update only own worker fields, got %#v", rows)
+				}
+			},
+		},
+		{
+			Name:   "non-creator can edit own unapproved worker row after another worker is approved",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wrpartialedit01/save",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+				"Content-Type":  "application/json",
+			},
+			Body: workRecordRequestBody(`{
+				"date":"2026-04-19",
+				"job":"cjf0kt0defhq480",
+				"type":"rqayp9yoz1qe6ui",
+				"location":"Partial locked seeded",
+				"work_description":"Partial locked seeded",
+				"report_to":"",
+				"lane_kms":0,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"subjects":[
+					{
+						"id":"wrsubpartialed2",
+						"uid":"rzr98oadsp9qc11",
+						"hours_on_site":6.5,
+						"hours_travel_time":1.5,
+						"distance_travelled_km":22,
+						"vehicle_type":"personal",
+						"is_passenger":true,
+						"company_vehicle_unit_number":""
+					}
+				],
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"id":"wrpartialedit01"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				insertWorkRecordWithSubjectForTest(t, app, map[string]any{
+					"id":                  "wrpartialedit01",
+					"subjectId":           "wrsubpartialed1",
+					"number":              "W2604-0019",
+					"date":                "2026-04-19",
+					"uid":                 "f2j5a8vk006baub",
+					"creator":             "f2j5a8vk006baub",
+					"job":                 "cjf0kt0defhq480",
+					"type":                "rqayp9yoz1qe6ui",
+					"location":            "Partial locked seeded",
+					"workDescription":     "Partial locked seeded",
+					"hoursOnSite":         8,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 10,
+					"vehicleType":         "company",
+					"approved":            true,
+				})
+				insertWorkRecordSubjectForTest(t, app, map[string]any{
+					"subjectId":           "wrsubpartialed2",
+					"workRecordId":        "wrpartialedit01",
+					"uid":                 "rzr98oadsp9qc11",
+					"hoursOnSite":         6,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 12,
+					"vehicleType":         "company",
+				})
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				_, location := loadWorkRecordTypeAndLocationForTest(t, app, "wrpartialedit01")
+				if location != "Partial locked seeded" {
+					t.Fatalf("expected locked shared fields to remain unchanged, got location %q", location)
+				}
+				rows := loadWorkRecordSubjectRowsForTest(t, app, "wrpartialedit01")
+				for _, row := range rows {
+					if row.ID == "wrsubpartialed1" && !row.Approved {
+						t.Fatalf("expected approved sibling to remain approved, got %#v", rows)
+					}
+					if row.ID == "wrsubpartialed2" && (row.HoursOnSite != 6.5 || row.HoursTravelTime != 1.5 || !row.IsPassenger || row.VehicleType != "personal") {
+						t.Fatalf("expected unapproved worker row to update, got %#v", rows)
+					}
+				}
+			},
+		},
+		{
+			Name:   "creator can edit an unapproved worker row after another worker is approved",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wrpartialedit02/save",
+			Headers: map[string]string{
+				"Authorization": workRecordToken,
+				"Content-Type":  "application/json",
+			},
+			Body: workRecordRequestBody(`{
+				"date":"2026-04-20",
+				"job":"cjf0kt0defhq480",
+				"type":"rqayp9yoz1qe6ui",
+				"location":"Creator partial locked seeded",
+				"work_description":"Creator partial locked seeded",
+				"report_to":"",
+				"lane_kms":0,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"subjects":[
+					{
+						"id":"wrsubpartialcr2",
+						"uid":"rzr98oadsp9qc11",
+						"hours_on_site":7,
+						"hours_travel_time":1.5,
+						"distance_travelled_km":30,
+						"vehicle_type":"personal",
+						"is_passenger":false,
+						"company_vehicle_unit_number":""
+					}
+				],
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"id":"wrpartialedit02"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				insertWorkRecordWithSubjectForTest(t, app, map[string]any{
+					"id":                  "wrpartialedit02",
+					"subjectId":           "wrsubpartialcr1",
+					"number":              "W2604-0020",
+					"date":                "2026-04-20",
+					"uid":                 "f2j5a8vk006baub",
+					"creator":             "f2j5a8vk006baub",
+					"job":                 "cjf0kt0defhq480",
+					"type":                "rqayp9yoz1qe6ui",
+					"location":            "Creator partial locked seeded",
+					"workDescription":     "Creator partial locked seeded",
+					"hoursOnSite":         8,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 10,
+					"vehicleType":         "company",
+					"approved":            true,
+				})
+				insertWorkRecordSubjectForTest(t, app, map[string]any{
+					"subjectId":           "wrsubpartialcr2",
+					"workRecordId":        "wrpartialedit02",
+					"uid":                 "rzr98oadsp9qc11",
+					"hoursOnSite":         6,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 12,
+					"vehicleType":         "company",
+				})
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				rows := loadWorkRecordSubjectRowsForTest(t, app, "wrpartialedit02")
+				for _, row := range rows {
+					if row.ID == "wrsubpartialcr2" && (row.HoursOnSite != 7 || row.HoursTravelTime != 1.5 || row.DistanceTravelledKM != 30 || row.VehicleType != "personal") {
+						t.Fatalf("expected creator to update unapproved worker row, got %#v", rows)
+					}
+				}
+			},
+		},
+		{
+			Name:   "locked parent rejects shared field changes while preserving worker rows",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wrpartialedit03/save",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+				"Content-Type":  "application/json",
+			},
+			Body: workRecordRequestBody(`{
+				"date":"2026-04-21",
+				"job":"cjf0kt0defhq480",
+				"type":"rqayp9yoz1qe6ui",
+				"location":"Changed locked location",
+				"work_description":"Shared lock seeded",
+				"report_to":"",
+				"lane_kms":0,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"subjects":[
+					{
+						"id":"wrsubpartialsh2",
+						"uid":"rzr98oadsp9qc11",
+						"hours_on_site":6.5,
+						"hours_travel_time":1.5,
+						"distance_travelled_km":22,
+						"vehicle_type":"personal",
+						"is_passenger":true,
+						"company_vehicle_unit_number":""
+					}
+				],
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"code":"approved_work_record_locked"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				insertWorkRecordWithSubjectForTest(t, app, map[string]any{
+					"id":                  "wrpartialedit03",
+					"subjectId":           "wrsubpartialsh1",
+					"number":              "W2604-0021",
+					"date":                "2026-04-21",
+					"uid":                 "f2j5a8vk006baub",
+					"creator":             "f2j5a8vk006baub",
+					"job":                 "cjf0kt0defhq480",
+					"type":                "rqayp9yoz1qe6ui",
+					"location":            "Shared lock seeded",
+					"workDescription":     "Shared lock seeded",
+					"hoursOnSite":         8,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 10,
+					"vehicleType":         "company",
+					"approved":            true,
+				})
+				insertWorkRecordSubjectForTest(t, app, map[string]any{
+					"subjectId":           "wrsubpartialsh2",
+					"workRecordId":        "wrpartialedit03",
+					"uid":                 "rzr98oadsp9qc11",
+					"hoursOnSite":         6,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 12,
+					"vehicleType":         "company",
+				})
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				_, location := loadWorkRecordTypeAndLocationForTest(t, app, "wrpartialedit03")
+				if location != "Shared lock seeded" {
+					t.Fatalf("expected locked shared field rejection to preserve location, got %q", location)
+				}
+				rows := loadWorkRecordSubjectRowsForTest(t, app, "wrpartialedit03")
+				for _, row := range rows {
+					if row.ID == "wrsubpartialsh2" && row.HoursOnSite != 6 {
+						t.Fatalf("expected rejected save to preserve worker row, got %#v", rows)
+					}
+				}
+			},
+		},
+		{
+			Name:   "locked parent rejects consumable changes while preserving worker rows",
+			Method: http.MethodPost,
+			URL:    "/api/work_records/wrpartialedit04/save",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+				"Content-Type":  "application/json",
+			},
+			Body: workRecordRequestBody(`{
+				"date":"2026-04-22",
+				"job":"cjf0kt0defhq480",
+				"type":"rqayp9yoz1qe6ui",
+				"location":"Consumable lock seeded",
+				"work_description":"Consumable lock seeded",
+				"report_to":"",
+				"lane_kms":0,
+				"field_book_number":"",
+				"field_book_page_number":"",
+				"sub_contractor":"",
+				"equipment":"",
+				"supplies":"",
+				"subjects":[
+					{
+						"id":"wrsubpartialcn2",
+						"uid":"rzr98oadsp9qc11",
+						"hours_on_site":6.5,
+						"hours_travel_time":1.5,
+						"distance_travelled_km":22,
+						"vehicle_type":"personal",
+						"is_passenger":true,
+						"company_vehicle_unit_number":""
+					}
+				],
+				"consumables":[]
+			}`),
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"code":"approved_work_record_locked"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+			BeforeTestFunc: func(t testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
+				insertWorkRecordWithSubjectForTest(t, app, map[string]any{
+					"id":                  "wrpartialedit04",
+					"subjectId":           "wrsubpartialcn1",
+					"number":              "W2604-0022",
+					"date":                "2026-04-22",
+					"uid":                 "f2j5a8vk006baub",
+					"creator":             "f2j5a8vk006baub",
+					"job":                 "cjf0kt0defhq480",
+					"type":                "rqayp9yoz1qe6ui",
+					"location":            "Consumable lock seeded",
+					"workDescription":     "Consumable lock seeded",
+					"hoursOnSite":         8,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 10,
+					"vehicleType":         "company",
+					"approved":            true,
+				})
+				insertWorkRecordSubjectForTest(t, app, map[string]any{
+					"subjectId":           "wrsubpartialcn2",
+					"workRecordId":        "wrpartialedit04",
+					"uid":                 "rzr98oadsp9qc11",
+					"hoursOnSite":         6,
+					"hoursTravelTime":     1,
+					"distanceTravelledKM": 12,
+					"vehicleType":         "company",
+				})
+				if _, err := app.DB().NewQuery(`
+					INSERT INTO work_records_consumable_entries (
+						id,
+						work_record,
+						consumable,
+						quantity_number,
+						created,
+						updated
+					) VALUES (
+						'wrcentrylock001',
+						'wrpartialedit04',
+						'wrconsmbl000003',
+						4,
+						'2026-04-22 12:00:00.000Z',
+						'2026-04-22 12:00:00.000Z'
+					)
+				`).Execute(); err != nil {
+					t.Fatalf("failed creating locked consumable fixture: %v", err)
+				}
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
+				if got := loadWorkRecordConsumableQuantityForTest(t, app, "wrpartialedit04", "wrconsmbl000003"); got != 4 {
+					t.Fatalf("expected locked consumable rejection to preserve quantity, got %v", got)
+				}
+				rows := loadWorkRecordSubjectRowsForTest(t, app, "wrpartialedit04")
+				for _, row := range rows {
+					if row.ID == "wrsubpartialcn2" && row.HoursOnSite != 6 {
+						t.Fatalf("expected rejected save to preserve worker row, got %#v", rows)
+					}
 				}
 			},
 		},
