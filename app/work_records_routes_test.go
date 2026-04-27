@@ -32,6 +32,8 @@ type workRecordSearchResponse struct {
 	Total int                 `json:"total"`
 }
 
+const seededWorkRecordCount = 10
+
 type paginatedJobWorkRecordsResponse struct {
 	Data       []workRecordListRow `json:"data"`
 	Page       int                 `json:"page"`
@@ -910,7 +912,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed lane-kms create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -2248,7 +2250,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":5`,
+				`"total":10`,
 				`"work_record":"W3002-1051"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
@@ -2259,8 +2261,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 					t.Fatalf("failed decoding work record list response: %v", err)
 				}
-				if payload.Total != 5 || len(payload.Items) != 5 {
-					t.Fatalf("expected 5 organization work records without endpoint-level filtering, got %#v", payload)
+				if payload.Total != seededWorkRecordCount || len(payload.Items) != seededWorkRecordCount {
+					t.Fatalf("expected organization work records without endpoint-level filtering, got %#v", payload)
 				}
 				if payload.Items[0].CanCreateTimeEntry {
 					t.Fatalf("report all-scope should not expose create action for another user's row: %#v", payload.Items[0])
@@ -2637,7 +2639,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":5`,
+				`"total":9`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -2788,7 +2790,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"total":4`,
+				`"total":9`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -2939,7 +2941,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if len(row.Consumables) != 2 {
 					t.Fatalf("expected copied draft consumables, got %#v", row.Consumables)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected copy draft load to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3185,7 +3187,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected rejected copied worker tampering to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3225,7 +3227,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, _ *http.Response) {
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected unauthorized self create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3293,7 +3295,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 					}
 				}
 
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed empty create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3337,7 +3339,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_number"]; !ok {
 					t.Fatalf("expected field_book_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3395,7 +3397,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_number"]; !ok {
 					t.Fatalf("expected field_book_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3439,7 +3441,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_page_number"]; !ok {
 					t.Fatalf("expected field_book_page_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3497,7 +3499,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["field_book_page_number"]; !ok {
 					t.Fatalf("expected field_book_page_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3541,7 +3543,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["company_vehicle_unit_number"]; !ok {
 					t.Fatalf("expected company_vehicle_unit_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3599,7 +3601,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["company_vehicle_unit_number"]; !ok {
 					t.Fatalf("expected company_vehicle_unit_number validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed edit to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3643,7 +3645,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["job"]; !ok {
 					t.Fatalf("expected job validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3687,7 +3689,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if _, ok := payload.Data["type"]; !ok {
 					t.Fatalf("expected type validation error, got %#v", payload)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 5 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount {
 					t.Fatalf("expected failed create to avoid inserts, got %d work records", got)
 				}
 			},
@@ -3954,7 +3956,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if row.RootWorkRecordID != "wr260400000003a" || row.RootWorkRecord != "W2604-0003" {
 					t.Fatalf("expected child draft to keep root metadata, got %#v", row)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 6 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount+1 {
 					t.Fatalf("expected copy draft to avoid inserts after seeding child, got %d work records", got)
 				}
 			},
@@ -4104,7 +4106,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if len(row.Subjects) != 2 {
 					t.Fatalf("expected copied crew draft subjects, got %#v", row.Subjects)
 				}
-				if got := countWorkRecordsForTest(t, app); got != 6 {
+				if got := countWorkRecordsForTest(t, app); got != seededWorkRecordCount+1 {
 					t.Fatalf("expected crew copy draft load to avoid extra inserts, got %d work records", got)
 				}
 			},

@@ -95,6 +95,116 @@ func TestBundleTimesheet_SelfManagerWithTaprAutoApproves(t *testing.T) {
 	scenario.Test(t)
 }
 
+// TestBundleTimesheet_UnlinkedWorkRecordsInWeekFail verifies that a user cannot
+// bundle a week while any of their work record subject rows for that week has no
+// linked time entry. The fixtures include missing links on both week boundaries
+// to cover the Sunday-through-Saturday date window.
+func TestBundleTimesheet_UnlinkedWorkRecordsInWeekFail(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "bundle timesheet fails with unlinked work record subject in week",
+		Method:         http.MethodPost,
+		URL:            "/api/time_sheets/2024-09-21/bundle",
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: http.StatusUnprocessableEntity,
+		ExpectedContent: []string{
+			`"code":"unlinked_work_records"`,
+			`W2409-9001`,
+			`W2409-9002`,
+		},
+		TestAppFactory: testutils.SetupTestApp,
+	}
+
+	scenario.Test(t)
+}
+
+func TestBundleTimesheet_LinkedWorkRecordInWeekSucceeds(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "bundle timesheet succeeds with linked work record subject in week",
+		Method:         http.MethodPost,
+		URL:            "/api/time_sheets/2024-09-28/bundle",
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"message":"Time sheet processed successfully"`,
+		},
+		TestAppFactory: testutils.SetupTestApp,
+		AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+			ts, err := app.FindFirstRecordByFilter(
+				"time_sheets",
+				"uid = {:uid} && week_ending = {:weekEnding}",
+				dbx.Params{"uid": "u_self_apv_yes", "weekEnding": "2024-09-28"},
+			)
+			if err != nil {
+				tb.Fatalf("failed to find newly bundled time sheet: %v", err)
+			}
+			if ts.GetString("approver") != "u_self_apv_yes" {
+				tb.Fatalf("approver = %q, want %q", ts.GetString("approver"), "u_self_apv_yes")
+			}
+			subject, err := app.FindRecordById("work_records_subjects", "wrsubbundlelnk1")
+			if err != nil {
+				tb.Fatalf("failed to load linked work record subject: %v", err)
+			}
+			if !subject.GetBool("approved") {
+				tb.Fatalf("expected linked work record subject to be approved after auto-approved bundle")
+			}
+		},
+	}
+
+	scenario.Test(t)
+}
+
+func TestBundleTimesheet_UnlinkedWorkRecordOutsideWeekSucceeds(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "bundle timesheet ignores unlinked work record outside week",
+		Method:         http.MethodPost,
+		URL:            "/api/time_sheets/2024-10-05/bundle",
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"message":"Time sheet processed successfully"`,
+		},
+		TestAppFactory: testutils.SetupTestApp,
+	}
+
+	scenario.Test(t)
+}
+
+func TestBundleTimesheet_OtherUsersUnlinkedWorkRecordInWeekSucceeds(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "bundle timesheet ignores another user's unlinked work record in week",
+		Method:         http.MethodPost,
+		URL:            "/api/time_sheets/2024-10-12/bundle",
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"message":"Time sheet processed successfully"`,
+		},
+		TestAppFactory: testutils.SetupTestApp,
+	}
+
+	scenario.Test(t)
+}
+
 // TestBundleTimesheet_SelfManagerWithoutTaprFails verifies that a user who is
 // their own manager but does NOT hold the tapr claim cannot bundle (and thus
 // cannot self-approve).

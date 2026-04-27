@@ -786,6 +786,11 @@ Behavior:
   - `description` derived from parent work record content
 - The legacy `time_entries.work_record` text should not be the primary link for
   newly created records.
+- Bundling a timesheet must fail if any worker row for the submitting user has
+  a parent work record dated within that timesheet week and no
+  `time_entries.work_record_subject_id` link. The bundle check is independent
+  of recorded work-record hours; the existence of the worker row is enough to
+  require reconciliation.
 
 Hours validation:
 
@@ -974,6 +979,9 @@ Future reporting work:
 - Instead, it enforces one time entry per worker row: each
   `work_records_subjects` record can be referenced by at most one time entry
   via `time_entries.work_record_subject_id`.
+- Timesheet bundling also enforces the inverse weekly reconciliation: every
+  worker row for the submitting user dated inside the bundled week must already
+  be referenced by a time entry before the bundle can be created.
 - This is a better match for the real crew workflow and avoids over-tightening
   the data model around a false one-to-one assumption.
 

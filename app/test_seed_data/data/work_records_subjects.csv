@@ -4,3 +4,8 @@ approved,company_vehicle_unit_number,distance_travelled_km,hours_on_site,hours_t
 1,7,10,8,1,wrsub300200050,0,f2j5a8vk006baub,company,wr300200000050a
 0,7,10,8,1,wrsubtimecopy1,0,rzr98oadsp9qc11,company,wrtimecopy3002a
 0,7,10,8,1,wrsubtimedup01,0,rzr98oadsp9qc11,company,wrtimedup3002a
+0,,0,8,0,wrsubbundmiss1,0,u_self_apv_yes,company,wrbundlemisssun
+0,,0,8,0,wrsubbundmiss2,0,u_self_apv_yes,company,wrbundlemisssat
+0,,0,8,0,wrsubbundlelnk1,0,u_self_apv_yes,company,wrbundlelinked1
+0,,0,8,0,wrsubbundout1,0,u_self_apv_yes,company,wrbundleoutside1
+0,,0,8,0,wrsubbundoth1,0,u_self_apv_no,company,wrbundleother01
