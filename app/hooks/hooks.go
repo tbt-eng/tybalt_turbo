@@ -401,17 +401,35 @@ func AddHooks(app core.App) {
 			originalWorkRecordSubjectID = original.GetString("work_record_subject_id")
 		}
 
+		if err := e.Next(); err != nil {
+			return err
+		}
+
 		return workrecords.SyncApprovalForWorkRecordSubjectIDs(
 			e.App,
 			originalWorkRecordSubjectID,
 			e.Record.GetString("work_record_subject_id"),
 		)
 	}
-	app.OnRecordAfterCreateSuccess("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
-	app.OnRecordAfterUpdateSuccess("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
-	app.OnRecordAfterDeleteSuccess("time_entries").BindFunc(func(e *core.RecordEvent) error {
-		return workrecords.SyncApprovalForWorkRecordSubjectIDs(e.App, e.Record.GetString("work_record_subject_id"))
+	app.OnRecordCreate("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
+	app.OnRecordUpdate("time_entries").BindFunc(syncTimeEntryWorkRecordApproval)
+	app.OnRecordDelete("time_entries").BindFunc(func(e *core.RecordEvent) error {
+		workRecordSubjectID := e.Record.GetString("work_record_subject_id")
+		if err := e.Next(); err != nil {
+			return err
+		}
+		return workrecords.SyncApprovalForWorkRecordSubjectIDs(e.App, workRecordSubjectID)
 	})
+	syncTimeSheetWorkRecordApproval := func(e *core.RecordEvent) error {
+		timeSheetID := e.Record.Id
+		if err := e.Next(); err != nil {
+			return err
+		}
+		return workrecords.SyncApprovalForTimeSheet(e.App, timeSheetID)
+	}
+	app.OnRecordCreate("time_sheets").BindFunc(syncTimeSheetWorkRecordApproval)
+	app.OnRecordUpdate("time_sheets").BindFunc(syncTimeSheetWorkRecordApproval)
+	app.OnRecordDelete("time_sheets").BindFunc(syncTimeSheetWorkRecordApproval)
 	timeEntriesGateHook := func(e *core.RecordRequestEvent) error {
 		enabled, err := utilities.IsTimeEditingEnabled(app)
 		if err != nil {

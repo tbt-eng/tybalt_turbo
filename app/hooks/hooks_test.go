@@ -170,6 +170,48 @@ func insertLegacyTimeEntryForHooksTest(t *testing.T, app *tests.TestApp, id stri
 	}
 }
 
+func linkSeededWorkRecordSubjectForHooksTest(t *testing.T, app *tests.TestApp, timeSheetID string, approved bool) {
+	t.Helper()
+
+	if _, err := app.DB().NewQuery(`
+		UPDATE time_entries
+		SET tsid = {:timeSheetId},
+		    work_record_subject_id = 'wrsub260400003',
+		    work_record = ''
+		WHERE id = 'wrkrcdentry0001'
+	`).Bind(map[string]any{
+		"timeSheetId": timeSheetID,
+	}).Execute(); err != nil {
+		t.Fatalf("failed to link seeded time entry to work record subject: %v", err)
+	}
+
+	if _, err := app.DB().NewQuery(`
+		UPDATE work_records_subjects
+		SET approved = {:approved}
+		WHERE id = 'wrsub260400003'
+	`).Bind(map[string]any{
+		"approved": approved,
+	}).Execute(); err != nil {
+		t.Fatalf("failed to seed work record subject approval: %v", err)
+	}
+}
+
+func workRecordSubjectApprovedForHooksTest(t *testing.T, app *tests.TestApp) bool {
+	t.Helper()
+
+	var row struct {
+		Approved bool `db:"approved"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT COALESCE(approved, 0) AS approved
+		FROM work_records_subjects
+		WHERE id = 'wrsub260400003'
+	`).One(&row); err != nil {
+		t.Fatalf("failed to load work record subject approval: %v", err)
+	}
+	return row.Approved
+}
+
 func extractArbitraryKey(err error) (string, error) {
 	errMap := err.(validation.Errors)
 	keys := make([]string, len(errMap))
@@ -186,6 +228,102 @@ func extractArbitraryKey(err error) (string, error) {
 
 	// return the first key
 	return keys[0], nil
+}
+
+func TestTimeSheetHooks_SyncWorkRecordSubjectOnDirectApprovalChange(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	t.Cleanup(app.Cleanup)
+	AddHooks(app)
+
+	linkSeededWorkRecordSubjectForHooksTest(t, app, "av32qwch9xrcb5n", false)
+
+	timeSheet, err := app.FindRecordById("time_sheets", "av32qwch9xrcb5n")
+	if err != nil {
+		t.Fatalf("failed to load timesheet: %v", err)
+	}
+	timeSheet.Set("approved", "2026-04-27 12:00:00.000Z")
+	if err := app.Save(timeSheet); err != nil {
+		t.Fatalf("failed to approve timesheet through general save hook: %v", err)
+	}
+
+	if !workRecordSubjectApprovedForHooksTest(t, app) {
+		t.Fatalf("expected direct timesheet approval to approve linked work record subject")
+	}
+
+	timeSheet, err = app.FindRecordById("time_sheets", "av32qwch9xrcb5n")
+	if err != nil {
+		t.Fatalf("failed to reload timesheet: %v", err)
+	}
+	timeSheet.Set("approved", "")
+	if err := app.Save(timeSheet); err != nil {
+		t.Fatalf("failed to unapprove timesheet through general save hook: %v", err)
+	}
+
+	if workRecordSubjectApprovedForHooksTest(t, app) {
+		t.Fatalf("expected direct timesheet unapproval to clear linked work record subject")
+	}
+}
+
+func TestTimeSheetHooks_SyncWorkRecordSubjectOnDirectRejection(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	t.Cleanup(app.Cleanup)
+	AddHooks(app)
+
+	linkSeededWorkRecordSubjectForHooksTest(t, app, "pts000000000001", true)
+
+	timeSheet, err := app.FindRecordById("time_sheets", "pts000000000001")
+	if err != nil {
+		t.Fatalf("failed to load timesheet: %v", err)
+	}
+	timeSheet.Set("rejected", "2026-04-27 12:00:00.000Z")
+	if err := app.Save(timeSheet); err != nil {
+		t.Fatalf("failed to reject timesheet through general save hook: %v", err)
+	}
+
+	if workRecordSubjectApprovedForHooksTest(t, app) {
+		t.Fatalf("expected direct timesheet rejection to clear linked work record subject")
+	}
+}
+
+func TestTimeEntryHooks_SyncWorkRecordSubjectOnDirectUnbundle(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	t.Cleanup(app.Cleanup)
+	AddHooks(app)
+
+	linkSeededWorkRecordSubjectForHooksTest(t, app, "pts000000000001", true)
+
+	entry, err := app.FindRecordById("time_entries", "wrkrcdentry0001")
+	if err != nil {
+		t.Fatalf("failed to load time entry: %v", err)
+	}
+	entry.Set("tsid", "")
+	if err := app.Save(entry); err != nil {
+		t.Fatalf("failed to unbundle time entry through general save hook: %v", err)
+	}
+
+	if workRecordSubjectApprovedForHooksTest(t, app) {
+		t.Fatalf("expected direct time-entry unbundle to clear linked work record subject")
+	}
+}
+
+func TestTimeSheetHooks_SyncWorkRecordSubjectOnDirectDelete(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	t.Cleanup(app.Cleanup)
+	AddHooks(app)
+
+	linkSeededWorkRecordSubjectForHooksTest(t, app, "pts000000000001", true)
+
+	timeSheet, err := app.FindRecordById("time_sheets", "pts000000000001")
+	if err != nil {
+		t.Fatalf("failed to load timesheet: %v", err)
+	}
+	if err := app.Delete(timeSheet); err != nil {
+		t.Fatalf("failed to delete timesheet through general delete hook: %v", err)
+	}
+
+	if workRecordSubjectApprovedForHooksTest(t, app) {
+		t.Fatalf("expected direct timesheet delete to clear linked work record subject")
+	}
 }
 
 func TestValidateTimeEntry(t *testing.T) {
