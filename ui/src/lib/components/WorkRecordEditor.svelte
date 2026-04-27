@@ -215,7 +215,7 @@
       showSaveButton &&
       !detail?.approved &&
       workerForms.length < maxWorkers &&
-      (editing || canCreateForOthers),
+      (editing || canCreateSelf || canCreateForOthers),
   );
   const attachmentHref = $derived.by(() =>
     id && currentAttachmentName !== "" ? pocketBaseFileHref("work_records", id, currentAttachmentName) : "",
