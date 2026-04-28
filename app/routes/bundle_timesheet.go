@@ -18,6 +18,11 @@ type unlinkedWorkRecordForBundle struct {
 	Date   string `db:"date"`
 }
 
+type missingRequiredAttachmentForBundle struct {
+	Number string `db:"number"`
+	Date   string `db:"date"`
+}
+
 func findUnlinkedWorkRecordsForBundle(txApp core.App, userID string, weekStart string, weekEnding string) ([]unlinkedWorkRecordForBundle, error) {
 	var rows []unlinkedWorkRecordForBundle
 	err := txApp.DB().NewQuery(`
@@ -48,6 +53,37 @@ func findUnlinkedWorkRecordsForBundle(txApp core.App, userID string, weekStart s
 	return rows, nil
 }
 
+func findMissingRequiredAttachmentsForBundle(txApp core.App, userID string, weekEnding string) ([]missingRequiredAttachmentForBundle, error) {
+	var rows []missingRequiredAttachmentForBundle
+	err := txApp.DB().NewQuery(`
+		SELECT
+			wr.number AS number,
+			wr.date AS date
+		FROM time_entries te
+		JOIN work_records_subjects wrs
+		  ON wrs.id = te.work_record_subject_id
+		JOIN work_records wr
+		  ON wr.id = wrs.work_record
+		JOIN work_records_types wrt
+		  ON wrt.id = wr.type
+		WHERE te.uid = {:userId}
+		  AND te.week_ending = {:weekEnding}
+		  AND COALESCE(te.work_record_subject_id, '') != ''
+		  AND COALESCE(wrt.attachment_required, 0) = 1
+		  AND COALESCE(wr.attachment, '') = ''
+		GROUP BY wr.id, wr.number, wr.date
+		ORDER BY wr.date ASC, wr.number ASC
+	`).Bind(dbx.Params{
+		"userId":     userID,
+		"weekEnding": weekEnding,
+	}).All(&rows)
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
 func unlinkedWorkRecordsBundleMessage(rows []unlinkedWorkRecordForBundle) string {
 	if len(rows) == 1 {
 		return fmt.Sprintf("work record %s for %s is not linked to a time entry", rows[0].Number, rows[0].Date)
@@ -59,6 +95,19 @@ func unlinkedWorkRecordsBundleMessage(rows []unlinkedWorkRecordForBundle) string
 	}
 
 	return fmt.Sprintf("work records %s are not linked to time entries", strings.Join(labels, ", "))
+}
+
+func missingRequiredAttachmentsBundleMessage(rows []missingRequiredAttachmentForBundle) string {
+	if len(rows) == 1 {
+		return fmt.Sprintf("work record %s for %s requires a paper copy PDF before this time sheet can be bundled", rows[0].Number, rows[0].Date)
+	}
+
+	labels := make([]string, 0, len(rows))
+	for _, row := range rows {
+		labels = append(labels, fmt.Sprintf("%s for %s", row.Number, row.Date))
+	}
+
+	return fmt.Sprintf("work records %s require paper copy PDFs before this time sheet can be bundled", strings.Join(labels, ", "))
 }
 
 func createBundleTimesheetHandler(app core.App) func(e *core.RequestEvent) error {
@@ -135,6 +184,19 @@ func createBundleTimesheetHandler(app core.App) func(e *core.RequestEvent) error
 				transactionError = &CodeError{
 					Code:    "unlinked_work_records",
 					Message: unlinkedWorkRecordsBundleMessage(unlinkedWorkRecords),
+				}
+				httpResponseStatusCode = http.StatusUnprocessableEntity
+				return transactionError
+			}
+
+			missingRequiredAttachments, err := findMissingRequiredAttachmentsForBundle(txApp, userId, weekEnding)
+			if err != nil {
+				return fmt.Errorf("error checking required work record attachments: %v", err)
+			}
+			if len(missingRequiredAttachments) > 0 {
+				transactionError = &CodeError{
+					Code:    "missing_required_work_record_attachment",
+					Message: missingRequiredAttachmentsBundleMessage(missingRequiredAttachments),
 				}
 				httpResponseStatusCode = http.StatusUnprocessableEntity
 				return transactionError

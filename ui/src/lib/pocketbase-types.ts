@@ -1017,6 +1017,7 @@ export type WorkRecordsTypeConsumablesRecord = {
 export type WorkRecordsTypesRecord = {
   active: boolean;
   allow_lane_kms: boolean;
+  attachment_required: boolean;
   id: string;
   max_subjects: number;
   name: string;

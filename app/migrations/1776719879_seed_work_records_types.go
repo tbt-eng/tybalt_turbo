@@ -84,6 +84,7 @@ func init() {
 			record.Set("name", seed.name)
 			record.Set("max_subjects", 1)
 			record.Set("allow_lane_kms", false)
+			record.Set("attachment_required", false)
 			record.Set("sort_order", seed.sortOrder)
 			record.Set("active", true)
 

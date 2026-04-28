@@ -3173,6 +3173,11 @@
             "x-sqlite-type": "BOOLEAN"
           },
           {
+            "name": "attachment_required",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
             "name": "id",
             "type": "string",
             "x-sqlite-type": "TEXT"
