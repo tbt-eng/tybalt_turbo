@@ -532,6 +532,8 @@ Fields:
 - `name`: text, unique, required
 - `max_subjects`: number, required, minimum `1`
 - `allow_lane_kms`: boolean, required
+- `attachment_required`: boolean; when true, linked timesheet bundling requires
+  the work record to have a paper-copy PDF attachment
 - `active`: boolean
 - `sort_order`: number, optional
 
@@ -542,6 +544,8 @@ Rules:
   work record of this type
 - `allow_lane_kms` controls whether `work_records.lane_kms` may be set for
   work records of this type
+- `attachment_required` controls whether a linked work record must have an
+  attachment before a related timesheet can be bundled
 - `max_subjects` applies to new work records and future roster edits;
   decreasing it does not invalidate historical work records that already have
   more worker rows, but those records cannot add workers beyond the current
@@ -791,6 +795,10 @@ Behavior:
   `time_entries.work_record_subject_id` link. The bundle check is independent
   of recorded work-record hours; the existence of the worker row is enough to
   require reconciliation.
+- Bundling a timesheet must also fail if any linked work record on one of the
+  submitting user's time entries has a type where
+  `work_records_types.attachment_required = true` and the work record has no
+  paper-copy PDF attachment.
 
 Hours validation:
 

@@ -163,6 +163,107 @@ func TestBundleTimesheet_LinkedWorkRecordInWeekSucceeds(t *testing.T) {
 	scenario.Test(t)
 }
 
+func TestBundleTimesheet_RequiredWorkRecordAttachmentMissingFails(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "bundle timesheet fails when linked work record requires missing attachment",
+		Method:         http.MethodPost,
+		URL:            "/api/time_sheets/2024-09-28/bundle",
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: http.StatusUnprocessableEntity,
+		ExpectedContent: []string{
+			`"code":"missing_required_work_record_attachment"`,
+			`W2409-9003`,
+			`requires a paper copy PDF`,
+		},
+		TestAppFactory: func(tb testing.TB) *tests.TestApp {
+			app := testutils.SetupTestApp(tb)
+
+			// This test intentionally mutates an existing fixture type instead of
+			// inserting new rows so global work-record list-count expectations in
+			// unrelated tests remain stable.
+			if _, err := app.DB().NewQuery(`
+				UPDATE work_records_types
+				SET attachment_required = 1
+				WHERE id = {:typeId}
+			`).Bind(dbx.Params{
+				"typeId": "oask5u50nka0km8",
+			}).Execute(); err != nil {
+				tb.Fatalf("failed to require attachment on fixture work record type: %v", err)
+			}
+
+			return app
+		},
+	}
+
+	scenario.Test(t)
+}
+
+func TestBundleTimesheet_RequiredWorkRecordAttachmentPresentSucceeds(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "bundle timesheet succeeds when linked work record has required attachment",
+		Method:         http.MethodPost,
+		URL:            "/api/time_sheets/2024-09-28/bundle",
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			`"message":"Time sheet processed successfully"`,
+		},
+		TestAppFactory: func(tb testing.TB) *tests.TestApp {
+			app := testutils.SetupTestApp(tb)
+
+			// This test intentionally mutates existing fixture rows instead of
+			// inserting new rows so global work-record list-count expectations in
+			// unrelated tests remain stable.
+			if _, err := app.DB().NewQuery(`
+				UPDATE work_records_types
+				SET attachment_required = 1
+				WHERE id = {:typeId}
+			`).Bind(dbx.Params{
+				"typeId": "oask5u50nka0km8",
+			}).Execute(); err != nil {
+				tb.Fatalf("failed to require attachment on fixture work record type: %v", err)
+			}
+			if _, err := app.DB().NewQuery(`
+				UPDATE work_records
+				SET attachment = 'required-paper-copy.pdf',
+					attachment_hash = 'required-paper-copy-hash'
+				WHERE id = {:workRecordId}
+			`).Bind(dbx.Params{
+				"workRecordId": "wrbundlelinked1",
+			}).Execute(); err != nil {
+				tb.Fatalf("failed to attach paper copy to fixture work record: %v", err)
+			}
+
+			return app
+		},
+		AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+			ts, err := app.FindFirstRecordByFilter(
+				"time_sheets",
+				"uid = {:uid} && week_ending = {:weekEnding}",
+				dbx.Params{"uid": "u_self_apv_yes", "weekEnding": "2024-09-28"},
+			)
+			if err != nil {
+				tb.Fatalf("failed to find newly bundled time sheet: %v", err)
+			}
+			if ts.GetString("approver") != "u_self_apv_yes" {
+				tb.Fatalf("approver = %q, want %q", ts.GetString("approver"), "u_self_apv_yes")
+			}
+		},
+	}
+
+	scenario.Test(t)
+}
+
 func TestBundleTimesheet_UnlinkedWorkRecordOutsideWeekSucceeds(t *testing.T) {
 	recordToken, err := testutils.GenerateRecordToken("users", "self_apv_yes@test.com")
 	if err != nil {

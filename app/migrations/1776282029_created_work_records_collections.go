@@ -88,6 +88,15 @@ func init() {
 				},
 				{
 					"hidden": false,
+					"id": "bool1777341957",
+					"name": "attachment_required",
+					"presentable": false,
+					"required": false,
+					"system": false,
+					"type": "bool"
+				},
+				{
+					"hidden": false,
 					"id": "bool1776282101",
 					"name": "active",
 					"presentable": false,
