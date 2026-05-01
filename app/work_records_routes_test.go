@@ -567,6 +567,10 @@ func TestWorkRecordsRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	workRecordOnlyToken, err := testutils.GenerateRecordToken("users", "workrecord.only@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
 	regularUserToken, err := testutils.GenerateRecordToken("users", "time@test.com")
 	if err != nil {
 		t.Fatal(err)
@@ -3197,11 +3201,11 @@ func TestWorkRecordsRoutes(t *testing.T) {
 			Method: http.MethodPost,
 			URL:    "/api/work_records/save",
 			Headers: map[string]string{
-				"Authorization": workRecordToken,
+				"Authorization": workRecordOnlyToken,
 				"Content-Type":  "application/json",
 			},
 			Body: workRecordRequestBody(`{
-				"uid":"f2j5a8vk006baub",
+				"uid":"uwronly0000001",
 				"date":"2026-04-11",
 				"job":"cjf0kt0defhq480",
 				"type":"oask5u50nka0km8",

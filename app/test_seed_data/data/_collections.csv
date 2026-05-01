@@ -505,9 +505,9 @@ tsid = """"","[{""autogeneratePattern"":""[a-z0-9]{15}"",""help"":"""",""hidden"
 (tsid.submitted = true && @request.auth.id ?= tsid.time_sheet_reviewers_via_time_sheet.reviewer) ||
 (tsid.submitted = true && tsid.approved != '' && tsid.committed = '' && @request.auth.user_claims_via_uid.cid.name ?= 'commit') ||
 (tsid.committed != '' && @request.auth.user_claims_via_uid.cid.name ?= 'report')",time_entries,{},0,base,"// the creating user can edit if the entry is not yet part of a timesheet
-	uid = @request.auth.id &&
-	@request.auth.user_claims_via_uid.cid.name ?= 'time' &&
-	tsid = """" &&
+uid = @request.auth.id &&
+@request.auth.user_claims_via_uid.cid.name ?= 'time' &&
+tsid = """" &&
 
 // uid must not change after create
 @request.body.uid:changed = false &&
