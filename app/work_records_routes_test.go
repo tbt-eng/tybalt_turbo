@@ -2286,6 +2286,7 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				`"job_number":"24-321"`,
 				`"client_name":"Mobilia SA"`,
 				`"job_description":"Clarke St Boiler Replacement"`,
+				`"client_po":"PA-QUEUE-PO"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -2305,8 +2306,8 @@ func TestWorkRecordsRoutes(t *testing.T) {
 				if row.ClientName != "Mobilia SA" || row.JobDescription != "Clarke St Boiler Replacement" {
 					t.Fatalf("expected job-derived client context in detail response: %#v", row)
 				}
-				if row.ClientPO != "" || row.ClientReferenceNumber != "" {
-					t.Fatalf("expected blank optional client fields to serialize as empty strings: %#v", row)
+				if row.ClientPO != "PA-QUEUE-PO" || row.ClientReferenceNumber != "" {
+					t.Fatalf("expected job-derived client fields in detail response: %#v", row)
 				}
 				if row.CanEdit || row.CanAddNote {
 					t.Fatalf("report holder should not get edit/note actions in detail response: %#v", row)
