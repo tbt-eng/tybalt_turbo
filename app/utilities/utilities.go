@@ -17,8 +17,8 @@ import (
 	"tybalt/constants"
 	"tybalt/errs"
 
-	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/pocketbase/dbx"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/types"
 )

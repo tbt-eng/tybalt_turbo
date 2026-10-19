@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	validation "github.com/go-ozzo/ozzo-validation/v4"
+	validation "github.com/pocketbase/ozzo-validation/v4"
 	"tybalt/errs"
 	"tybalt/hooks"
 	"tybalt/utilities"
