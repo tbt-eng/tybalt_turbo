@@ -135,14 +135,14 @@ showed where the time goes:
 The cost is the lookup, once per time entry, into the automatic index SQLite
 builds on the materialized `rate_periods` result.
 
-### Proposed query change
+### Query change, applied
 
-Start the time-entry lookup from the rate periods instead of the jobs. Each
-period then reads its own date range from the `(job, date)` time-entry index,
+The pricing query now starts the time-entry lookup from the rate periods
+instead of the jobs. Each period reads its own date range from the `(job, date)` time-entry index,
 and no per-entry period lookup remains. For this to keep every entry, each
 selected job needs an opening period, including jobs without a rate sheet.
 The rate sheet is null for those jobs, and for a gap before the first dated
-row if a history has no opening row. These are the changes to
+row if a history has no opening row. These were the changes to
 `job_priced_time_entries.sql`:
 
 ```sql
@@ -162,7 +162,7 @@ row if a history has no opening row. These are the changes to
 
 No new index is needed. Measured in the same interleaved series:
 
-| Report scope | Before | Proposed | Change |
+| Report scope | Before | After the change | Change |
 | --- | ---: | ---: | ---: |
 | My WIP, largest manager by valued jobs | 11.16 ms | 12.10 ms | +8% |
 | Branch WIP, all branches | 99.89 ms | 102.32 ms | +2% |
@@ -170,9 +170,14 @@ No new index is needed. Measured in the same interleaved series:
 | Division WIP, largest allocated division, recorded hours required | 46.93 ms | 48.16 ms | +3% |
 | Division WIP, same division, all allocated jobs | 75.67 ms | 77.40 ms | +2% |
 
-On the migrated snapshot, the proposed query returned exactly the same report
-rows as the committed query for 316 scopes: every manager, branch, and
-allocated division, plus all branches, each with recorded hours required and
-not required. This snapshot has only opening rows, so dated periods are
-covered by the unit tests, not this comparison. The `routes` and `hooks` test
-packages pass with the proposed query.
+On the migrated snapshot, the changed query returned exactly the same report
+rows as the previous one for 316 scopes: every manager, branch, and allocated
+division, plus all branches, each with recorded hours required and not
+required. This snapshot has only opening rows.
+
+To cover dated periods, a second copy of the local database was given 308
+dated periods on 200 projects with time: one at the median date of each
+project's time on another sheet, and for about half, a later one back on the
+original sheet. Over every project, both queries priced the same 288,409
+entries identically: date, user, role, hours, sheet, sheet rate, default rate,
+and value.
