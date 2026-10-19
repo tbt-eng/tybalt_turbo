@@ -920,7 +920,9 @@ func ProcessExpense(app core.App, e *core.RecordRequestEvent) error {
 		expenseRecord.Set("attachment_document", "")
 	}
 
-	return nil
+	// Vendor invoice details are written to the resolved document in the same
+	// transaction as the expense save.
+	return applyVendorInvoiceDetails(app, e, requestInfo.Body, hasBookKeeperClaim)
 }
 
 func loadVirtualExpenseAttachmentInput(record *core.Record, body map[string]any, e *core.RecordRequestEvent) error {

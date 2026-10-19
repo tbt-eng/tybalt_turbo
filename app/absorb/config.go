@@ -71,6 +71,7 @@ var Configs = map[string]Config{
 		RefConfigs: []RefConfig{
 			{"purchase_orders", "vendor"},
 			{"expenses", "vendor"},
+			{"expense_documents", "vendor"},
 		},
 		// vendors is independent - no parent dependency
 	},
