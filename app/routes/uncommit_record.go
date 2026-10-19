@@ -156,7 +156,8 @@ func maybeReopenPurchaseOrderAfterExpenseUncommit(app core.App, expenseRecord *c
 		if err != nil {
 			return err
 		}
-		shouldReopen = total < purchaseOrderRecord.GetFloat("total")
+		// Compare whole cents: a float sum can land a hair below an exact total.
+		shouldReopen = utilities.CurrencyAmountToCents(total) < utilities.CurrencyAmountToCents(purchaseOrderRecord.GetFloat("total"))
 	}
 
 	if !shouldReopen {

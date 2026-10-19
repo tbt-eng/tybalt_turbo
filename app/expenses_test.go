@@ -4840,3 +4840,131 @@ func TestExpensesCreate_InactiveApproverFails(t *testing.T) {
 
 	scenario.Test(t)
 }
+
+// setupCumulativePOCentsFixture rewrites the cumulative purchase order
+// ly8xyzpuj79upq1 and its expenses to amounts whose float sums miss the exact
+// total by a hair (0.7 + 0.1 is 0.7999999999999999 at runtime). Expenses named
+// in committed are marked committed; the others keep their seeded state.
+func setupCumulativePOCentsFixture(tb testing.TB, poTotal float64, poStatus string, expenseTotals map[string]float64, committed []string) *tests.TestApp {
+	tb.Helper()
+
+	app := testutils.SetupTestApp(tb)
+	if _, err := app.DB().NewQuery(
+		"UPDATE purchase_orders SET total = {:total}, status = {:status} WHERE id = 'ly8xyzpuj79upq1'",
+	).Bind(dbx.Params{"total": poTotal, "status": poStatus}).Execute(); err != nil {
+		tb.Fatalf("failed to update purchase order: %v", err)
+	}
+	for id, total := range expenseTotals {
+		if _, err := app.DB().NewQuery(
+			"UPDATE expenses SET total = {:total} WHERE id = {:id}",
+		).Bind(dbx.Params{"total": total, "id": id}).Execute(); err != nil {
+			tb.Fatalf("failed to update expense %s: %v", id, err)
+		}
+	}
+	for _, id := range committed {
+		if _, err := app.DB().NewQuery(
+			"UPDATE expenses SET committed = '2024-11-07 16:30:00.000Z', committed_week_ending = '2024-11-09', committer = 'wegviunlyr2jjjv', pay_period_ending = '2024-11-09' WHERE id = {:id}",
+		).Bind(dbx.Params{"id": id}).Execute(); err != nil {
+			tb.Fatalf("failed to commit expense %s: %v", id, err)
+		}
+	}
+	return app
+}
+
+func expectPurchaseOrderStatus(tb testing.TB, app *tests.TestApp, poID string, want string) {
+	tb.Helper()
+	po, err := app.FindRecordById("purchase_orders", poID)
+	if err != nil {
+		tb.Fatalf("failed to load purchase order %s: %v", poID, err)
+	}
+	if got := po.GetString("status"); got != want {
+		tb.Fatalf("status = %q, want %q", got, want)
+	}
+}
+
+func TestCumulativePOCommitAndUncommitCompareWholeCents(t *testing.T) {
+	adminToken, err := testutils.GenerateRecordToken("users", "admin.only@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	commitToken, err := testutils.GenerateRecordToken("users", "fakemanager@fakesite.xyz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:            "commit closes a cumulative purchase order when committed expenses exactly fill it",
+			Method:          http.MethodPost,
+			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
+			Headers:         map[string]string{"Authorization": commitToken},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"message":"Record committed successfully"`},
+			TestAppFactory: func(tb testing.TB) *tests.TestApp {
+				return setupCumulativePOCentsFixture(tb, 0.8, "Active", map[string]float64{
+					"su3hyft6n9rlt7d": 0.7,
+					"hlqb5xdzm2xbii7": 0.1,
+				}, nil)
+			},
+			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+				expectPurchaseOrderStatus(tb, app, "ly8xyzpuj79upq1", "Closed")
+			},
+		},
+		{
+			// 5% of 3.80 is exactly 0.19, but 3.80 * 1.05 is 3.9899999999999998.
+			Name:            "commit allows a cumulative purchase order to reach exactly its allowed excess",
+			Method:          http.MethodPost,
+			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
+			Headers:         map[string]string{"Authorization": commitToken},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"message":"Record committed successfully"`},
+			TestAppFactory: func(tb testing.TB) *tests.TestApp {
+				return setupCumulativePOCentsFixture(tb, 3.80, "Active", map[string]float64{
+					"su3hyft6n9rlt7d": 3.00,
+					"hlqb5xdzm2xbii7": 0.99,
+				}, nil)
+			},
+			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+				expectPurchaseOrderStatus(tb, app, "ly8xyzpuj79upq1", "Closed")
+			},
+		},
+		{
+			Name:            "commit refuses a cumulative purchase order one cent beyond its allowed excess",
+			Method:          http.MethodPost,
+			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
+			Headers:         map[string]string{"Authorization": commitToken},
+			ExpectedStatus:  http.StatusBadRequest,
+			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus"`},
+			TestAppFactory: func(tb testing.TB) *tests.TestApp {
+				return setupCumulativePOCentsFixture(tb, 3.80, "Active", map[string]float64{
+					"su3hyft6n9rlt7d": 3.00,
+					"hlqb5xdzm2xbii7": 1.00,
+				}, nil)
+			},
+		},
+		{
+			Name:           "uncommit leaves a cumulative purchase order closed when the remaining committed expenses exactly fill it",
+			Method:         http.MethodPost,
+			URL:            "/api/expenses/eqhozipupteogp8/uncommit",
+			Headers:        map[string]string{"Authorization": adminToken},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"message":"Record uncommitted successfully"`,
+			},
+			TestAppFactory: func(tb testing.TB) *tests.TestApp {
+				return setupCumulativePOCentsFixture(tb, 0.8, "Closed", map[string]float64{
+					"su3hyft6n9rlt7d": 0.7,
+					"hlqb5xdzm2xbii7": 0.1,
+					"eqhozipupteogp8": 0.01,
+				}, []string{"hlqb5xdzm2xbii7", "eqhozipupteogp8"})
+			},
+			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+				expectPurchaseOrderStatus(tb, app, "ly8xyzpuj79upq1", "Closed")
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}

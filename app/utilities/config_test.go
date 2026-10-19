@@ -1,7 +1,6 @@
 package utilities
 
 import (
-	"math"
 	"testing"
 
 	"tybalt/constants"
@@ -469,67 +468,91 @@ func TestGetPOExpenseExcessConfig(t *testing.T) {
 
 func TestCalculatePOExpenseTotalLimit(t *testing.T) {
 	tests := []struct {
-		name           string
-		poTotal        float64
-		cfg            POExpenseExcessConfig
-		wantTotalLimit float64
-		wantExcessText string
+		name                string
+		poTotal             float64
+		cfg                 POExpenseExcessConfig
+		wantTotalLimitCents int64
+		wantExcessText      string
 	}{
 		{
 			name:    "lesser_of: percent is lesser (small PO)",
 			poTotal: 500.0,
 			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
 			// 5% of 500 = 25, which is < 100, so percent applies
-			wantTotalLimit: 525.0,
-			wantExcessText: "5.00%",
+			wantTotalLimitCents: 52500,
+			wantExcessText:      "5.00%",
 		},
 		{
 			name:    "lesser_of: value is lesser (large PO)",
 			poTotal: 5000.0,
 			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
 			// 5% of 5000 = 250, which is > 100, so value applies
-			wantTotalLimit: 5100.0,
-			wantExcessText: "$100.00",
+			wantTotalLimitCents: 510000,
+			wantExcessText:      "$100.00",
 		},
 		{
 			name:    "lesser_of: equal at breakpoint",
 			poTotal: 2000.0,
 			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
 			// 5% of 2000 = 100, equals value, so percent branch applies (value < percent is false)
-			wantTotalLimit: 2100.0,
-			wantExcessText: "5.00%",
+			wantTotalLimitCents: 210000,
+			wantExcessText:      "5.00%",
 		},
 		{
 			name:    "greater_of: value is greater (small PO)",
 			poTotal: 500.0,
 			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "greater_of"},
 			// 5% of 500 = 25, value 100 >= 25, so value applies
-			wantTotalLimit: 600.0,
-			wantExcessText: "$100.00",
+			wantTotalLimitCents: 60000,
+			wantExcessText:      "$100.00",
 		},
 		{
 			name:    "greater_of: percent is greater (large PO)",
 			poTotal: 5000.0,
 			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "greater_of"},
 			// 5% of 5000 = 250, value 100 < 250, so percent applies
-			wantTotalLimit: 5250.0,
-			wantExcessText: "5.00%",
+			wantTotalLimitCents: 525000,
+			wantExcessText:      "5.00%",
 		},
 		{
 			name:    "zero PO total",
 			poTotal: 0,
 			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
 			// 5% of 0 = 0, which is < 100, so percent applies; total = 0
-			wantTotalLimit: 0,
-			wantExcessText: "5.00%",
+			wantTotalLimitCents: 0,
+			wantExcessText:      "5.00%",
+		},
+		{
+			name:    "percent limit landing exactly on a cent is not floored below it",
+			poTotal: 3.80,
+			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
+			// 3.80 * 1.05 is 3.9899999999999998 in floats; the exact limit is 3.99
+			wantTotalLimitCents: 399,
+			wantExcessText:      "5.00%",
+		},
+		{
+			name:    "value limit landing exactly on a cent is not floored below it",
+			poTotal: 2000.03,
+			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
+			// 2000.03 + 100 is 2100.0299999999997 in floats; the exact limit is 2100.03
+			wantTotalLimitCents: 210003,
+			wantExcessText:      "$100.00",
+		},
+		{
+			name:    "limit between cents is floored to the cent below",
+			poTotal: 16.27,
+			cfg:     POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"},
+			// 16.27 * 1.05 = 17.0835, so 17.08 is the largest allowed total
+			wantTotalLimitCents: 1708,
+			wantExcessText:      "5.00%",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := CalculatePOExpenseTotalLimit(tc.poTotal, tc.cfg)
-			if math.Abs(got.TotalLimit-tc.wantTotalLimit) > 0.001 {
-				t.Errorf("TotalLimit = %v, want %v", got.TotalLimit, tc.wantTotalLimit)
+			if got.TotalLimitCents != tc.wantTotalLimitCents {
+				t.Errorf("TotalLimitCents = %v, want %v", got.TotalLimitCents, tc.wantTotalLimitCents)
 			}
 			if got.ExcessText != tc.wantExcessText {
 				t.Errorf("ExcessText = %q, want %q", got.ExcessText, tc.wantExcessText)

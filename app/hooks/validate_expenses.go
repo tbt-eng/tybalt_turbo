@@ -24,7 +24,7 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 		poTotal          float64
 		poDate           time.Time
 		poEndDate        time.Time
-		totalLimit       float64
+		totalLimitCents  int64
 		excessErrorText  string
 		parseErr         error
 	)
@@ -63,7 +63,7 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 
 		excessCfg := utilities.GetPOExpenseExcessConfig(app)
 		limitResult := utilities.CalculatePOExpenseTotalLimit(poTotal, excessCfg)
-		totalLimit = limitResult.TotalLimit
+		totalLimitCents = limitResult.TotalLimitCents
 		excessErrorText = limitResult.ExcessText
 
 		// For Cumulative POs, we check for overflow before other validations.
@@ -72,10 +72,14 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 		// 2. We can provide rich error data (overflow amount, parent PO) that the validation framework doesn't support
 		// 3. This represents a special case that can lead to child PO creation, not just rejection
 		// 4. It makes testing clearer by distinctly separating this special case
+		//
+		// Amounts are compared in whole cents because float sums can land a hair
+		// above the exact total and refuse an expense that exactly fills the PO.
 		if poType == "Cumulative" {
-			newTotal := existingExpensesTotal + expenseRecord.GetFloat("total")
-			if newTotal > poTotal {
-				overflowAmount := newTotal - poTotal
+			newTotalCents := utilities.CurrencyAmountToCents(existingExpensesTotal) + utilities.CurrencyAmountToCents(expenseRecord.GetFloat("total"))
+			poTotalCents := utilities.CurrencyAmountToCents(poTotal)
+			if newTotalCents > poTotalCents {
+				overflowAmount := float64(newTotalCents-poTotalCents) / 100
 				// TODO: This returns a validation.Error per https://pocketbase.io/docs/go-routing/#error-response
 				// However, the po number is not returned in the error data and neither is the poTotal and overflowAmount
 				// properly delimited (it's just combined into a string). How can we return structured error data given
@@ -98,7 +102,6 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 					},
 				}
 			}
-			totalLimit -= existingExpensesTotal
 		}
 	}
 
@@ -290,7 +293,12 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 			validation.Required.Error("must be greater than 0"),
 			validation.Min(0.01).Error("must be greater than 0"),
 			validation.When(hasPurchaseOrder && (poType == "One-Time" || poType == "Recurring"),
-				validation.Max(totalLimit).Error(fmt.Sprintf("expense exceeds purchase order total of $%0.2f by more than %s", poTotal, excessErrorText)),
+				validation.By(func(value any) error {
+					if utilities.CurrencyAmountToCents(value.(float64)) > totalLimitCents {
+						return validation.NewError("validation_max_less_equal_required", fmt.Sprintf("expense exceeds purchase order total of $%0.2f by more than %s", poTotal, excessErrorText))
+					}
+					return nil
+				}),
 			),
 			// TODO: Prevent a second expense from being created for a One-Time PO i.e.
 			// Two Expenses cannot exist for the same purchase_order if the type of

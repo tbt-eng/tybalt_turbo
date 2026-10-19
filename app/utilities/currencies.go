@@ -148,6 +148,22 @@ func RoundCurrencyAmount(value float64) float64 {
 	return math.Round(value*100) / 100
 }
 
+// CurrencyAmountToCents converts an amount to whole cents. Compare amounts in
+// cents rather than as floats: a float sum can land a hair above or below the
+// exact amount (16.26 + 0.01 is 16.270000000000003).
+func CurrencyAmountToCents(value float64) int64 {
+	return int64(math.Round(value * 100))
+}
+
+// CurrencyLimitToCents returns the largest whole number of cents that does not
+// exceed limit. A computed limit can fall between cents (5% over 16.27 is
+// 17.0835), so it is floored. Float error is rounded away first so that a
+// limit that is exactly a whole cent (3.80 * 1.05 is 3.9899999999999998) isn't
+// floored to the cent below.
+func CurrencyLimitToCents(limit float64) int64 {
+	return int64(math.Floor(math.Round(limit*1e6) / 1e4))
+}
+
 func IndicativeHomeAmount(amount float64, info CurrencyInfo) float64 {
 	return RoundCurrencyAmount(amount * CurrencyRateOrOne(info))
 }

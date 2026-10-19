@@ -254,19 +254,20 @@ func createCommitRecordHandler(app core.App, collectionName string) func(e *core
 						if err != nil {
 							return err
 						}
-						pendingExpenseTotal := record.GetFloat("total")
+						// Compare whole cents: float sums can land a hair above or
+						// below an exact total.
+						committedTotalCents := utilities.CurrencyAmountToCents(existingExpensesTotal) + utilities.CurrencyAmountToCents(record.GetFloat("total"))
 
 						excessCfg := utilities.GetPOExpenseExcessConfig(app)
 						limitResult := utilities.CalculatePOExpenseTotalLimit(purchaseOrderRecord.GetFloat("total"), excessCfg)
-						totalLimit := limitResult.TotalLimit
 
-						if existingExpensesTotal+pendingExpenseTotal > totalLimit {
+						if committedTotalCents > limitResult.TotalLimitCents {
 							httpResponseStatusCode = http.StatusBadRequest
 							return &CodeError{
 								Code:    "exceeded_purchase_order_total",
 								Message: "the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus",
 							}
-						} else if existingExpensesTotal+pendingExpenseTotal >= purchaseOrderRecord.GetFloat("total") {
+						} else if committedTotalCents >= utilities.CurrencyAmountToCents(purchaseOrderRecord.GetFloat("total")) {
 							// Set the status to Closed since the total of all committed
 							// expenses plus the pending expense matches or exceeds the
 							// purchase order total

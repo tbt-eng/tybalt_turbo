@@ -858,3 +858,124 @@ func TestCleanExpense_CurrencyAssignmentAndSettlementRules(t *testing.T) {
 		}
 	})
 }
+
+// Float sums can land a hair above an exact amount (16.26 + 0.01 is
+// 16.270000000000003 at runtime), so PO limits must be compared in whole cents.
+func TestValidateExpense_CumulativePOComparesWholeCents(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	if err := utilities.ValidateExpenditureKindsConfig(app); err != nil {
+		t.Fatalf("failed to load expenditure kinds config: %v", err)
+	}
+
+	po := buildRecordFromMap(poCollection, map[string]any{
+		"date":  "2024-01-22",
+		"total": 16.27,
+		"type":  "Cumulative",
+		"job":   "mg0sp9iyjzo4zw9",
+	})
+	buildExpense := func(total float64) *core.Record {
+		return buildRecordFromMap(expensesCollection, map[string]any{
+			"allowance_types": []string{},
+			"date":            "2024-01-22",
+			"description":     "Cumulative cents test",
+			"job":             "mg0sp9iyjzo4zw9",
+			"payment_type":    "OnAccount",
+			"purchase_order":  "recordId",
+			"total":           total,
+			"vendor":          "2zqxtsmymf670ha",
+			"attachment":      "dummy.pdf",
+		})
+	}
+
+	existing := 0.0
+	for _, total := range []float64{16.26, 0.01} {
+		if err := validateExpense(app, buildExpense(total), po, existing, false); err != nil {
+			t.Fatalf("expense of %v with %v already on a 16.27 PO should be valid, got: %v", total, existing, err)
+		}
+		existing += total
+	}
+
+	err := validateExpense(app, buildExpense(0.01), po, existing, false)
+	if err == nil {
+		t.Fatal("expense one cent over the cumulative PO total should be refused")
+	}
+	hookErr, ok := err.(*errs.HookError)
+	if !ok {
+		t.Fatalf("expected HookError, got %T: %v", err, err)
+	}
+	fieldErr, ok := hookErr.Data["total"]
+	if !ok || fieldErr.Code != "cumulative_po_overflow" {
+		t.Fatalf("expected cumulative_po_overflow total error, got %+v", hookErr.Data)
+	}
+	data, ok := fieldErr.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected overflow data map, got %T", fieldErr.Data)
+	}
+	if overflow := data["overflow_amount"]; overflow != 0.01 {
+		t.Fatalf("expected overflow_amount 0.01, got %v", overflow)
+	}
+}
+
+// The excess limit (lesser of 5% and $100 by default) can land exactly on a
+// cent, but float math can leave it just under (3.80 * 1.05 is
+// 3.9899999999999998), which would refuse an expense at exactly the limit.
+func TestValidateExpense_POExcessLimitComparesWholeCents(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	if err := utilities.ValidateExpenditureKindsConfig(app); err != nil {
+		t.Fatalf("failed to load expenditure kinds config: %v", err)
+	}
+
+	tests := map[string]struct {
+		poTotal      float64
+		expenseTotal float64
+		valid        bool
+	}{
+		"percent_limit_exact":     {poTotal: 3.80, expenseTotal: 3.99, valid: true},
+		"percent_limit_cent_over": {poTotal: 3.80, expenseTotal: 4.00, valid: false},
+		"value_limit_exact":       {poTotal: 2000.03, expenseTotal: 2100.03, valid: true},
+		"value_limit_cent_over":   {poTotal: 2000.03, expenseTotal: 2100.04, valid: false},
+		// 5% of 16.27 is 0.8135, so the limit falls between cents: 17.08 is
+		// allowed and 17.09 is not.
+		"fractional_limit_floor":     {poTotal: 16.27, expenseTotal: 17.08, valid: true},
+		"fractional_limit_cent_over": {poTotal: 16.27, expenseTotal: 17.09, valid: false},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			po := buildRecordFromMap(poCollection, map[string]any{
+				"date":  "2024-01-22",
+				"total": tt.poTotal,
+				"type":  "One-Time",
+				"job":   "mg0sp9iyjzo4zw9",
+			})
+			record := buildRecordFromMap(expensesCollection, map[string]any{
+				"allowance_types": []string{},
+				"date":            "2024-01-22",
+				"description":     "Excess limit cents test",
+				"job":             "mg0sp9iyjzo4zw9",
+				"payment_type":    "OnAccount",
+				"purchase_order":  "recordId",
+				"total":           tt.expenseTotal,
+				"vendor":          "2zqxtsmymf670ha",
+				"attachment":      "dummy.pdf",
+			})
+
+			err := validateExpense(app, record, po, 0, false)
+			if tt.valid {
+				if err != nil {
+					t.Fatalf("expected valid, got: %v", err)
+				}
+				return
+			}
+			errMap, ok := err.(validation.Errors)
+			if !ok {
+				t.Fatalf("expected validation.Errors, got %T: %v", err, err)
+			}
+			if _, ok := errMap["total"]; !ok {
+				t.Fatalf("expected total validation error, got %v", errMap)
+			}
+		})
+	}
+}

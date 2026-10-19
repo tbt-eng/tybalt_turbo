@@ -162,8 +162,8 @@ type POExpenseExcessConfig struct {
 // POExpenseLimitResult holds the computed total limit and a human-readable
 // description of the excess amount for use in error messages.
 type POExpenseLimitResult struct {
-	TotalLimit float64
-	ExcessText string // e.g. "5.00%" or "$100.00"
+	TotalLimitCents int64  // largest allowed total, in whole cents
+	ExcessText      string // e.g. "5.00%" or "$100.00"
 }
 
 // GetPOExpenseExcessConfig reads the po_expense_allowed_excess config from the
@@ -247,8 +247,8 @@ func CalculatePOExpenseTotalLimit(poTotal float64, cfg POExpenseExcessConfig) PO
 	}
 
 	return POExpenseLimitResult{
-		TotalLimit: totalLimit,
-		ExcessText: excessText,
+		TotalLimitCents: CurrencyLimitToCents(totalLimit),
+		ExcessText:      excessText,
 	}
 }
 
