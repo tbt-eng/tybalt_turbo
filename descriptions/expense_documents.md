@@ -824,3 +824,88 @@ removed `expenses.attachment`, `expenses.attachment_hash` and the unique index o
 that hash, and the legacy fallback code and the backfill command are gone. A
 known unrecoverable historical attachment is represented by
 `attachment_missing_reason`.
+
+## Vendor invoice details (#153)
+
+Status: implemented on the `vendor_invoices` branch.
+
+A vendor invoice is the document that substantiates an expense, whoever enters
+the expense. Its details are stored on the `expense_documents` row, not on the
+expense, and not in a separate vendor invoice record. One invoice split across
+several POs is one document shared by several expenses, as bookkeepers already
+do.
+
+### Fields on `expense_documents`
+
+| Field                       | Type                    | Notes                                                                                                                          |
+| --------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `vendor`                    | relation → `vendors`    | Copied from the expense when the details are first written.                                                                    |
+| `vendor_invoice_number`     | text, max 100           | As entered.                                                                                                                    |
+| `vendor_invoice_number_key` | text                    | Server-set: the number in lowercase with every character except letters and digits removed. Used only for the duplicate check. |
+| `vendor_invoice_date`       | text, `YYYY-MM-DD`      | The date on the invoice.                                                                                                       |
+| `vendor_invoice_total`      | number                  | The invoice total, taxes included, in the invoice currency.                                                                    |
+| `vendor_invoice_currency`   | relation → `currencies` | Copied from the expense. Empty means the home currency, as on expenses.                                                        |
+
+A document with a `vendor_invoice_number` is a vendor invoice. One without is a
+receipt. A unique partial index on `(vendor, vendor_invoice_number_key)` where
+the key is not empty prevents the same invoice from being recorded twice.
+
+The collection's API rules stay null. Like the file itself, the details are
+written only by the expense write path.
+
+### Entering details
+
+The expense write endpoints (`POST /api/expenses`, `PATCH /api/expenses/{id}`)
+accept three virtual inputs alongside `attachment`:
+
+- `vendor_invoice_number`
+- `vendor_invoice_date`
+- `vendor_invoice_total`
+
+They are not expense fields. After the document is resolved, `ProcessExpense`
+applies them to the expense's document in the same transaction as the expense
+save. An input left out of the request keeps the document's current value, so a
+bookkeeper reusing a document carries its details.
+
+### Rules
+
+- **Required:** on an `OnAccount` expense that has a document, the number, date,
+  and a total greater than zero must be present after the inputs are applied.
+  This includes `OnAccount` expenses without a PO. Other payment types may record
+  them; a `CorporateCreditCard` expense needs only its receipt. Historical rows
+  with `attachment_missing_reason` and no document are exempt.
+- **No document:** details sent for an expense with no document are refused:
+  attach the invoice first.
+- **Same vendor and currency:** once a document has a number, every expense
+  linked to it must have the document's vendor and currency.
+- **Who can change them:** the document's uploader (`uploaded_by`), a
+  `book_keeper`, or anyone when no other expense uses the document.
+- **When they lock:** once another expense on the document is submitted and not
+  rejected, the details cannot change, because that expense is waiting for
+  approval against them. The expense being saved is always unsubmitted, since
+  submitted expenses cannot be edited.
+- **Duplicates:**
+  - The same file is caught by `attachment_hash`, as before.
+  - A different file of the same invoice is caught by the unique key. The error
+    gives the PO number and the name of whoever entered an expense on the
+    existing invoice, not a link, because the user may not be allowed to view
+    that expense.
+  - The same invoice reused for more than it is worth is caught by the total:
+    the totals of the expenses on a document, other than rejected ones, cannot
+    exceed `vendor_invoice_total`.
+- **Cents:** totals are compared in whole cents with
+  `utilities.CurrencyAmountToCents`, so a sum like 16.26 + 0.01 matches a 16.27
+  invoice exactly.
+- **No backfill:** details start with expenses entered after release.
+
+### Vendor merges
+
+`expense_documents.vendor` is merged with the other vendor references. If both
+vendors have an invoice with the same number key, the merge is refused with a
+message naming the invoice number, since merging would record it twice.
+
+### Payment (#148)
+
+#148 adds approval to pay and the payment record to the same document, once per
+invoice, after every expense on it is approved and the expenses add up to
+`vendor_invoice_total`.

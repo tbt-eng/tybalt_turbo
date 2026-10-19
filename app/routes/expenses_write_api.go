@@ -31,6 +31,10 @@ var expenseWriteAllowedFields = map[string]struct{}{
 	"purchase_order":   {},
 	"vendor":           {},
 	"source_expense":   {},
+	// Vendor invoice details, applied to the expense's document.
+	"vendor_invoice_number": {},
+	"vendor_invoice_date":   {},
+	"vendor_invoice_total":  {},
 }
 
 func createCreateExpenseHandler(app core.App) func(e *core.RequestEvent) error {

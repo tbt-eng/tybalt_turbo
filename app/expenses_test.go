@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"tybalt/constants"
@@ -2552,9 +2553,35 @@ func mustMultipartExpense(t testing.TB, fields map[string]string, filename strin
 	return mustMultipartExpenseWithContent(t, fields, filename, []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A})
 }
 
+// testVendorInvoiceCounter numbers the vendor invoices that the multipart
+// helpers add, so each request records a distinct invoice.
+var testVendorInvoiceCounter atomic.Int64
+
+// withTestVendorInvoice adds vendor invoice details to an OnAccount expense
+// request that has none, because every OnAccount expense needs them. The total
+// is large enough for documents shared by several test expenses. Tests that
+// exercise the vendor invoice rules set the fields themselves.
+func withTestVendorInvoice(fields map[string]string) map[string]string {
+	if fields["payment_type"] != "OnAccount" {
+		return fields
+	}
+	if _, ok := fields["vendor_invoice_number"]; ok {
+		return fields
+	}
+	result := make(map[string]string, len(fields)+3)
+	for k, v := range fields {
+		result[k] = v
+	}
+	result["vendor_invoice_number"] = fmt.Sprintf("TEST-%d", testVendorInvoiceCounter.Add(1))
+	result["vendor_invoice_date"] = "2024-09-01"
+	result["vendor_invoice_total"] = "100000"
+	return result
+}
+
 func mustMultipartExpenseWithContent(t testing.TB, fields map[string]string, filename string, content []byte) (*bytes.Buffer, string) {
 	t.Helper()
 
+	fields = withTestVendorInvoice(fields)
 	buf := &bytes.Buffer{}
 	w := multipart.NewWriter(buf)
 	for k, v := range fields {
