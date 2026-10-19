@@ -129,6 +129,18 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 			}
 		}
 
+		// A vendor invoice number is unique per vendor. Merging two vendors that
+		// each have an invoice with the same number would record it twice.
+		if collectionName == "vendors" {
+			if clash, err := clashingVendorInvoiceNumbers(app, append([]string{targetId}, request.IdsToAbsorb...)); err != nil {
+				return apis.NewApiError(http.StatusInternalServerError, "Failed to check vendor invoices", err)
+			} else if len(clash) > 0 {
+				return apis.NewBadRequestError(fmt.Sprintf(
+					"These vendors each have an invoice numbered %s. Correct the invoice number on one of them before merging.",
+					strings.Join(clash, ", ")), nil)
+			}
+		}
+
 		err = AbsorbRecords(app, collectionName, targetId, request.IdsToAbsorb)
 		if err != nil {
 			// Customize the error response as needed
@@ -673,4 +685,29 @@ func transferRequestMergeReferences(app core.App, request, job, note *core.Recor
 		}
 	}
 	return nil
+}
+
+// clashingVendorInvoiceNumbers returns the invoice numbers that more than one
+// of the given vendors has recorded.
+func clashingVendorInvoiceNumbers(app core.App, vendorIDs []string) ([]string, error) {
+	ids := make([]any, len(vendorIDs))
+	for i, id := range vendorIDs {
+		ids[i] = id
+	}
+	var rows []struct {
+		Number string `db:"number"`
+	}
+	err := app.DB().Select("MIN(vendor_invoice_number) AS number").
+		From("expense_documents").
+		Where(dbx.In("vendor", ids...)).
+		AndWhere(dbx.NewExp("vendor_invoice_number_key != ''")).
+		GroupBy("vendor_invoice_number_key").
+		Having(dbx.NewExp("COUNT(DISTINCT vendor) > 1")).
+		OrderBy("number").
+		All(&rows)
+	numbers := make([]string, len(rows))
+	for i, row := range rows {
+		numbers[i] = row.Number
+	}
+	return numbers, err
 }

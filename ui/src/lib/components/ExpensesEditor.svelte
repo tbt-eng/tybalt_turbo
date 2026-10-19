@@ -78,10 +78,28 @@
   type ExpenseSavePayload = Partial<Omit<EditableExpenseFields, "attachment">> & {
     attachment?: string | File;
     source_expense?: string;
+    vendor_invoice_number?: string;
+    vendor_invoice_date?: string;
+    vendor_invoice_total?: number;
+  };
+  // Vendor invoice details belong to the attached document, not the expense.
+  // The edit loader copies them from the expense details endpoint.
+  type VendorInvoiceFields = {
+    vendor_invoice_number?: string;
+    vendor_invoice_date?: string;
+    vendor_invoice_total?: number;
+    vendor_invoice_allocated?: number;
   };
 
   let errors = $state({} as Record<string, { message: string; code?: string }>);
   let item = $state(untrack(() => data.item as EditableExpenseFields & typeof data.item));
+  const loadedInvoice = untrack(() => data.item as VendorInvoiceFields);
+  let vendorInvoice = $state({
+    number: loadedInvoice.vendor_invoice_number ?? "",
+    date: loadedInvoice.vendor_invoice_date ?? "",
+    total: loadedInvoice.vendor_invoice_total ?? 0,
+  });
+  const vendorInvoiceAllocated = loadedInvoice.vendor_invoice_allocated ?? 0;
   const dateInputMax = dateInputMaxMonthsAhead(15);
   let overflowModal: CumulativePOOverflowModal;
 
@@ -362,6 +380,16 @@
     }
     if (data.source_expense) {
       payload.source_expense = data.source_expense;
+    }
+    // Send the invoice details only when they are filled in. Left out, the
+    // server keeps the document's details, so a reused invoice carries them.
+    if (
+      item.payment_type === "OnAccount" &&
+      (vendorInvoice.number !== "" || vendorInvoice.date !== "" || vendorInvoice.total)
+    ) {
+      payload.vendor_invoice_number = vendorInvoice.number;
+      payload.vendor_invoice_date = vendorInvoice.date;
+      payload.vendor_invoice_total = Number(vendorInvoice.total ?? 0);
     }
 
     // if the job is empty, set the category to empty
@@ -724,6 +752,45 @@
         return openExpenseAttachment(data.id, item.attachment as string);
       }}
     />
+
+    {#if item.payment_type === "OnAccount"}
+      <!-- The attachment is the vendor's invoice. Its details are stored on the
+      attached document and are required on on-account expenses. -->
+      <DsTextInput
+        bind:value={vendorInvoice.number}
+        {errors}
+        fieldName="vendor_invoice_number"
+        uiName="Invoice number"
+        placeholder="As printed on the vendor's invoice"
+      />
+      <span
+        class="flex w-full gap-2 {errors.vendor_invoice_date !== undefined ? 'bg-red-200' : ''}"
+      >
+        <label for="vendor_invoice_date">Invoice date</label>
+        <DsDateInput
+          class="flex-1 md:flex-none"
+          id="vendor_invoice_date"
+          name="vendor_invoice_date"
+          bind:value={vendorInvoice.date}
+        />
+        {#if errors.vendor_invoice_date !== undefined}
+          <span class="text-red-600">{errors.vendor_invoice_date.message}</span>
+        {/if}
+      </span>
+      <DSCurrencyInput
+        bind:amount={vendorInvoice.total}
+        currency={item.currency}
+        items={$currencies.items}
+        {errors}
+        amountFieldName="vendor_invoice_total"
+        currencyFieldName="vendor_invoice_currency"
+        uiName="Invoice total"
+        disabledCurrency={true}
+        helperText={vendorInvoiceAllocated > 0
+          ? `Expenses on this invoice so far total ${vendorInvoiceAllocated.toFixed(2)}.`
+          : "The full invoice total, taxes included."}
+      />
+    {/if}
   {/if}
 
   <div class="flex w-full flex-col gap-2 {errors.global !== undefined ? 'bg-red-200' : ''}">
