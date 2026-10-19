@@ -28,6 +28,9 @@ const (
 	// ProjectWorkflowMutationChangeClient moves a project and its subjobs to
 	// another client, with a recorded reason.
 	ProjectWorkflowMutationChangeClient ProjectWorkflowMutation = "change_client"
+	// ProjectWorkflowMutationRateSheet writes a project's rate sheet history
+	// and keeps jobs.rate_sheet equal to its latest row.
+	ProjectWorkflowMutationRateSheet ProjectWorkflowMutation = "rate_sheet"
 )
 
 type projectWorkflowContextKey struct{}
@@ -309,6 +312,11 @@ func AddProjectWorkflowHooks(app core.App) {
 			}
 			if r.GetFloat("project_value") != r.Original().GetFloat("project_value") && op != ProjectWorkflowMutationApproveValue && op != ProjectWorkflowMutationRestoreValue {
 				return workflowError("project value changes require approval")
+			}
+			// Once set, a project's rate sheet follows its rate sheet history.
+			// Setting the first one is a normal job edit.
+			if original := r.Original().GetString("rate_sheet"); original != "" && r.GetString("rate_sheet") != original && op != ProjectWorkflowMutationRateSheet {
+				return workflowError("change a project's rate sheet from its rate sheet history")
 			}
 		}
 		for _, f := range []string{"request_creator", "request_created", "request_submitted", "created_by", "creation_completed"} {

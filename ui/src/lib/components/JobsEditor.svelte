@@ -160,6 +160,11 @@
   item.proposal_value = item.proposal_value ?? 0;
   item.time_and_materials = item.time_and_materials ?? false;
   (item as Record<string, unknown>).rate_sheet = (item as Record<string, unknown>).rate_sheet ?? "";
+  // Once set, a project's rate sheet changes only through its rate sheet
+  // history on the job's details page. A project with none can be given one here.
+  const rateSheetLocked = untrack(
+    () => data.editing && !!(item as Record<string, unknown>).rate_sheet,
+  );
   // The job fields as loaded, after the defaults above. A save that leaves them
   // unchanged sends only allocations, which an older project can save without a
   // profile. A draft kept during client maintenance carries the original value.
@@ -1378,11 +1383,17 @@
             {errors}
             fieldName="rate_sheet"
             uiName="Rate Sheet"
+            disabled={rateSheetLocked}
           >
             {#snippet resultTemplate(sheet)}
               {sheet.name} (rev. {sheet.revision}) - {sheet.effective_date}
             {/snippet}
           </DsAutoComplete>
+          {#if rateSheetLocked}
+            <p class="self-start text-sm text-neutral-600">
+              Change the rate sheet from the Rate sheets section of this job's details page.
+            </p>
+          {/if}
         {/if}
       {/if}
 

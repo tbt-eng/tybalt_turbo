@@ -1,9 +1,16 @@
 -- Appended to job_priced_time_entries.sql. Price entries before grouping
 -- because an employee can use more than one role on the same job. A missing
 -- division gives blank names; the Go row fields cannot hold NULL.
-, base AS (
+, sheet_labels AS (
+  -- The sheets that priced each row's entries. Time in different periods can
+  -- use different sheets.
+  SELECT division, GROUP_CONCAT(label, '; ') AS rate_sheets
+  FROM (SELECT DISTINCT division, rate_sheet_name || ' (rev. ' || rate_sheet_revision || ')' AS label
+    FROM priced_entries WHERE rate_sheet_name != '' ORDER BY label)
+  GROUP BY division
+), base AS (
   SELECT te.number, te.division, COALESCE(d.code, '') AS division_code, COALESCE(d.name, '') AS division_name,
-    te.rate_sheet_name, te.rate_sheet_revision,
+    COALESCE(sl.rate_sheets, '') AS rate_sheets,
     SUM(te.hours) AS hours,
     COALESCE(SUM(te.value), 0) AS value,
     SUM(COALESCE(SUM(te.value), 0)) OVER () AS total,
@@ -12,6 +19,7 @@
     SUM(te.unpriced_hours) AS unpriced_hours,
     SUM(SUM(te.unpriced_hours)) OVER () AS total_unpriced_hours
   FROM priced_entries te
+  LEFT JOIN sheet_labels sl ON sl.division IS te.division
   LEFT JOIN divisions d ON te.division = d.id
   GROUP BY te.division
 )

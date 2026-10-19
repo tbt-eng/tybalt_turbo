@@ -3583,6 +3583,66 @@
       ]
     },
     {
+      "name": "job_rate_sheets",
+      "path": "data/job_rate_sheets.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created_by",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "effective_date",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "job",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "rate_sheet",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "updated_by",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full",
+        "import-baseline"
+      ]
+    },
+    {
       "name": "job_request_allocations",
       "path": "data/job_request_allocations.csv",
       "schema": {

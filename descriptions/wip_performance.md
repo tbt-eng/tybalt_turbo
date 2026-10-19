@@ -90,3 +90,89 @@ the separate five-run comparison medians.
 
 Start the updated backend with the migration applied to use the new queries
 and indexes. The frontend change also requires the updated UI build.
+
+## Rate sheet history
+
+Measured on 2026-10-19 with an Apple M1 Max, after time pricing in
+`job_priced_time_entries.sql` began joining each time entry to its rate sheet
+period (see `job_rate_sheet_history.md`). The snapshot is the local production
+database dump of 2026-10-16, copied twice with SQLite's backup command from a
+read-only connection. The source database was not changed.
+
+- **Before:** `main` at `d71196b6`, with its migrations applied.
+- **After:** `rate_sheet_history` at `d2160b46`, with
+  `1792425372_job_rate_sheets.go` also applied. The backfill wrote 876 opening
+  rows, one for each project with a rate sheet.
+
+The snapshot contains 16,352 jobs, 453,979 time entries, 37,802 expenses, and
+7,679 purchase orders. Of 6,110 active non-proposal jobs, 601 have a positive
+project value.
+
+Each case ran `BenchmarkWIPReports` one operation at a time, five times per
+round, in four rounds that alternated before and after. The table shows the
+median of those 20 runs. The report date is 2026-10-16. Rows matched before and
+after for every case. `My WIP, no user` returns before the pricing query, so its
+difference is measurement noise.
+
+| Report scope | Rows | Before | After | Change |
+| --- | ---: | ---: | ---: | ---: |
+| My WIP, no user | 0 | 2.42 ms | 2.59 ms | +7% |
+| My WIP, largest manager by valued jobs | 126 | 11.16 ms | 12.53 ms | +12% |
+| Branch WIP, all branches | 601 | 99.89 ms | 111.63 ms | +12% |
+| Branch WIP, largest branch by valued jobs | 350 | 60.84 ms | 67.15 ms | +10% |
+| Division WIP, largest allocated division, recorded hours required | 149 | 46.93 ms | 51.55 ms | +10% |
+| Division WIP, same division, all allocated jobs | 395 | 75.67 ms | 83.35 ms | +10% |
+
+Every priced scope is about 10% slower, or 5 to 12 ms. Diagnostic variants
+showed where the time goes:
+
+- Removing the date range test from the period join did not change the
+  timings, so the cost is not the date comparison.
+- Removing `LEAD()` did not change them either, so the cost is not the window.
+- Starting the history lookup from `selected_jobs` with the
+  `(job, effective_date)` index did not help.
+
+The cost is the lookup, once per time entry, into the automatic index SQLite
+builds on the materialized `rate_periods` result.
+
+### Proposed query change
+
+Start the time-entry lookup from the rate periods instead of the jobs. Each
+period then reads its own date range from the `(job, date)` time-entry index,
+and no per-entry period lookup remains. For this to keep every entry, each
+selected job needs an opening period, including jobs without a rate sheet.
+The rate sheet is null for those jobs, and for a gap before the first dated
+row if a history has no opening row. These are the changes to
+`job_priced_time_entries.sql`:
+
+```sql
+  UNION ALL
+  SELECT j.id, CASE WHEN NOT EXISTS (SELECT 1 FROM job_rate_sheets jrs WHERE jrs.job = j.id)
+    THEN NULLIF(j.rate_sheet, '') END, ''
+  FROM selected_jobs j
+  WHERE NOT EXISTS (
+    SELECT 1 FROM job_rate_sheets jrs WHERE jrs.job = j.id AND jrs.effective_date = ''
+  )
+...
+  FROM rate_periods p
+  JOIN selected_jobs j ON j.id = p.job
+  CROSS JOIN time_entries te ON te.job = p.job
+    AND te.date >= p.starts AND (p.ends IS NULL OR te.date < p.ends)
+```
+
+No new index is needed. Measured in the same interleaved series:
+
+| Report scope | Before | Proposed | Change |
+| --- | ---: | ---: | ---: |
+| My WIP, largest manager by valued jobs | 11.16 ms | 12.10 ms | +8% |
+| Branch WIP, all branches | 99.89 ms | 102.32 ms | +2% |
+| Branch WIP, largest branch by valued jobs | 60.84 ms | 60.81 ms | 0% |
+| Division WIP, largest allocated division, recorded hours required | 46.93 ms | 48.16 ms | +3% |
+| Division WIP, same division, all allocated jobs | 75.67 ms | 77.40 ms | +2% |
+
+On the migrated snapshot, the proposed query returned exactly the same report
+rows as the committed query for 316 scopes: every manager, branch, and
+allocated division, plus all branches, each with recorded hours required and
+not required. This snapshot has only opening rows, so dated periods are
+covered by the unit tests, not this comparison. The `routes` and `hooks` test
+packages pass with the proposed query.

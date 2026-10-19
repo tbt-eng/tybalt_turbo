@@ -1060,8 +1060,9 @@ func validateJobValueRequirement(record *core.Record, derived jobType, status st
 //   - Proposals: skip validation (cleanJob clears rate_sheet for proposals)
 //   - New projects: rate_sheet is required and must be active
 //   - Existing projects: only validate if rate_sheet changed, and it must be active
-//   - Changing rate_sheet on existing projects requires rate_sheet_revise claim
-//   - Clearing rate_sheet (once set) is not allowed
+//   - A project with no rate sheet may be given one by any job editor
+//   - Once set, the rate sheet changes only through the project's rate sheet
+//     history (job_rate_sheets), never through a job save
 func validateRateSheetIsActive(app core.App, record *core.Record, authRecord *core.Record) error {
 	newRateSheet := record.GetString("rate_sheet")
 	isProposal := isProposalRecord(record)
@@ -1096,10 +1097,9 @@ func validateRateSheetIsActive(app core.App, record *core.Record, authRecord *co
 		rateSheetChanged = newRateSheet != originalRateSheet
 	}
 
-	// If rate_sheet had a value and is being changed, require rate_sheet_revise claim
-	// Clearing rate_sheet (once set) is not allowed
+	// Once set, a project's rate sheet follows its rate sheet history, where
+	// the rate_sheet_revise claim is checked. Clearing it is never allowed.
 	if !record.IsNew() && originalRateSheet != "" && rateSheetChanged {
-		// Cannot clear rate_sheet once it's been set
 		if newRateSheet == "" {
 			return &errs.HookError{
 				Status:  http.StatusBadRequest,
@@ -1112,32 +1112,21 @@ func validateRateSheetIsActive(app core.App, record *core.Record, authRecord *co
 				},
 			}
 		}
+		return &errs.HookError{
+			Status:  http.StatusBadRequest,
+			Message: "change the rate sheet from the rate sheet history",
+			Data: map[string]errs.CodeError{
+				"rate_sheet": {
+					Code:    "use_rate_sheet_history",
+					Message: "a project's rate sheet changes only through its rate sheet history",
+				},
+			},
+		}
+	}
 
-		hasReviseClaim, err := utilities.HasClaim(app, authRecord, "rate_sheet_revise")
-		if err != nil {
-			return &errs.HookError{
-				Status:  http.StatusInternalServerError,
-				Message: "error checking rate_sheet_revise claim",
-				Data: map[string]errs.CodeError{
-					"rate_sheet": {
-						Code:    "claim_check_failed",
-						Message: "unable to verify rate_sheet_revise claim",
-					},
-				},
-			}
-		}
-		if !hasReviseClaim {
-			return &errs.HookError{
-				Status:  http.StatusForbidden,
-				Message: "insufficient permissions to change rate sheet",
-				Data: map[string]errs.CodeError{
-					"rate_sheet": {
-						Code:    "missing_claim",
-						Message: "changing a job's rate sheet requires the rate_sheet_revise claim",
-					},
-				},
-			}
-		}
+	// The opening row records who set the first rate sheet.
+	if rateSheetChanged && authRecord != nil {
+		record.Set(rateSheetActorKey, authRecord.Id)
 	}
 
 	// If rate_sheet is empty at this point, no further validation needed

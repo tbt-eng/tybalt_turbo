@@ -16,19 +16,21 @@ func TestJobWIPMissingRates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sheet := &routes.WIPMissingRateSheet{ID: "rsvaluation0001", Name: "Summary valuation fixture", Revision: 0}
+	none := []routes.WIPMissingRateSheet{}
 	// Existing CSV fixtures cover both fallback sources, blank roles, matched
 	// rates, and future time. The assigned inactive revision must remain in use.
 	for _, tc := range []struct {
 		name, job, date string
-		sheet           *routes.WIPMissingRateSheet
-		roles           []routes.WIPMissingRateRole
+		sheets          []routes.WIPMissingRateSheet
 	}{
-		{"group missing rates and exclude blank roles and future time", "jobwipreason001", "2026-01-02", sheet, []routes.WIPMissingRateRole{{ID: "2bd6pxxof7p649x", Name: "Administration Staff", Hours: 7}}},
-		{"honour the report date", "jobwipreason001", "2026-01-01", sheet, []routes.WIPMissingRateRole{}},
-		{"blank entry role is not a missing sheet role", "jobwip000000001", "2026-01-02", sheet, []routes.WIPMissingRateRole{}},
-		{"no sheet", "jobwip000000002", "2026-01-02", nil, []routes.WIPMissingRateRole{}},
-		{"no time", "jobwip000000004", "2026-01-02", sheet, []routes.WIPMissingRateRole{}},
+		{"group missing rates and exclude blank roles and future time", "jobwipreason001", "2026-01-02", []routes.WIPMissingRateSheet{{
+			ID: "rsvaluation0001", Name: "Summary valuation fixture", Revision: 0,
+			Roles: []routes.WIPMissingRateRole{{ID: "2bd6pxxof7p649x", Name: "Administration Staff", Hours: 7}},
+		}}},
+		{"honour the report date", "jobwipreason001", "2026-01-01", none},
+		{"blank entry role is not a missing sheet role", "jobwip000000001", "2026-01-02", none},
+		{"no sheet", "jobwip000000002", "2026-01-02", none},
+		{"no time", "jobwip000000004", "2026-01-02", none},
 	} {
 		(&tests.ApiScenario{
 			Name: tc.name, Method: http.MethodGet,
@@ -41,7 +43,7 @@ func TestJobWIPMissingRates(t *testing.T) {
 				if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
 					tb.Fatal(err)
 				}
-				want := routes.WIPMissingRates{AsOf: tc.date, RateSheet: tc.sheet, Roles: tc.roles}
+				want := routes.WIPMissingRates{AsOf: tc.date, RateSheets: tc.sheets}
 				if !reflect.DeepEqual(got, want) {
 					tb.Errorf("missing rates = %+v; want %+v", got, want)
 				}

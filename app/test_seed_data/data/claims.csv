@@ -8,7 +8,7 @@ created,description,id,name,updated
 2024-06-21 17:44:38.424Z,Can delete jobs,cjna52siibr7zgq,admin,2024-06-21 17:44:38.424Z
 2024-10-10 20:46:01.260Z,Can cancel purchase_orders records,hqejx6o2dkkaahf,accounting,2024-10-10 20:46:01.260Z
 2024-06-21 14:22:05.768Z,Create and update jobs,ioemk1d4qo2u6xh,job,2024-06-21 14:22:05.768Z
-2026-01-29 17:31:32.413Z,Holders can create revisions of a rate_sheets record (revision > 0). Holders may also change the rate_sheet value of a jobs record that has a non-blank rate_sheet value.,m3kzmuowqlzuic0,rate_sheet_revise,2026-01-29 18:10:30.039Z
+2026-01-29 17:31:32.413Z,Holders can create revisions of a rate_sheets record (revision > 0). Holders may also change a project's rate sheet history once the project has a rate sheet.,m3kzmuowqlzuic0,rate_sheet_revise,2026-01-29 18:10:30.039Z
 2024-06-21 14:55:32.986Z,Create Time Types,mjli2j7oc7osy8b,tt,2024-06-21 16:21:34.158Z
 2024-11-18 15:54:29.070Z,Can CRUD uncommitted time_amendments records and read committed ones,moz5ks3fqn7dvt2,tame,2024-11-18 15:54:29.070Z
 2024-09-24 13:08:20.616Z,Broad read-access to data for reporting,nyt4qcvwc5l5o3o,report,2024-09-24 13:08:20.616Z

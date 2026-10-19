@@ -11,8 +11,9 @@ var jobPricedTimeEntriesQuery string
 // JobTimeValuation identifies employee-rate estimates and unpriced hours in
 // the API and CSV exports. Percent is null for incomplete or zero totals.
 type JobTimeValuation struct {
-	RateSheetName       string   `db:"rate_sheet_name" json:"rate_sheet_name"`
-	RateSheetRevision   *int     `db:"rate_sheet_revision" json:"rate_sheet_revision"`
+	// RateSheets names the sheets that priced the row's entries, such as
+	// "2026 Standard Rates (rev. 0)", joined by "; ". Empty when none applied.
+	RateSheets          string   `db:"rate_sheets" json:"rate_sheets"`
 	Value               float64  `db:"value" json:"value"`
 	Total               float64  `db:"total" json:"total"`
 	Percent             *float64 `db:"percent" json:"percent"`

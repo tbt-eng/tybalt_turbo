@@ -3,9 +3,15 @@
   import { pb } from "$lib/pocketbase";
   import type { JobWIP } from "./wip";
   let { data, jobId = "" }: { data: JobWIP; jobId?: string } = $props();
+  // Missing rates are grouped by the sheet that priced the time. A job's rate
+  // sheet history can use different sheets for different dates.
   type MissingRates = {
-    rate_sheet: { id: string; name: string; revision: number } | null;
-    roles: { id: string; name: string; hours: number }[];
+    rate_sheets: {
+      id: string;
+      name: string;
+      revision: number;
+      roles: { id: string; name: string; hours: number }[];
+    }[];
   };
   const id = $props.id();
   let request = $state.raw<{ data: JobWIP; jobId: string } | null>(null);
@@ -58,18 +64,7 @@
   {#if data.missing_role_rate_hours > 0}
     <p>
       <strong>{data.missing_role_rate_hours.toFixed(2)}</strong> hours have a role with no matching
-      rate in the
-      {#if details?.rate_sheet}
-        <a
-          class="text-blue-700 underline"
-          href={resolve("/rate-sheets/[id]/details", { id: details.rate_sheet.id })}
-          >{details.rate_sheet.name}</a
-        >
-        (revision {details.rate_sheet.revision})
-      {:else}
-        assigned
-      {/if}
-      rate sheet.
+      rate in the rate sheet in effect on their date.
       {#if jobId && !details}
         <button
           type="button"
@@ -92,15 +87,22 @@
           >
         </p>
       {:else if details}
-        {#if details.rate_sheet}
-          {#if details.roles.length}
+        {#if details.rate_sheets.length}
+          {#each details.rate_sheets as sheet (sheet.id)}
+            <p>
+              <a
+                class="text-blue-700 underline"
+                href={resolve("/rate-sheets/[id]/details", { id: sheet.id })}>{sheet.name}</a
+              >
+              (revision {sheet.revision})
+            </p>
             <ul class="list-disc space-y-1 pl-5">
-              {#each details.roles as role (role.id)}
+              {#each sheet.roles as role (role.id)}
                 <li>{role.name} — {role.hours.toFixed(2)} hours</li>
               {/each}
             </ul>
-          {:else}<p>No missing role rates found. The job or rate sheet may have changed.</p>{/if}
-        {:else}<p>This job no longer has an assigned rate sheet.</p>{/if}
+          {/each}
+        {:else}<p>No missing role rates found. The job or rate sheet may have changed.</p>{/if}
       {/if}
     </div>
   {/if}

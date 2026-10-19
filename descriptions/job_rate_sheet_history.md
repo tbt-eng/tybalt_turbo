@@ -1,9 +1,9 @@
 # Job rate sheet history
 
-Status: Proposed
-Last updated: 2026-10-15
+Status: Implemented on the `rate_sheet_history` branch, not yet merged
+Last updated: 2026-10-19
 
-## Current behaviour
+## Behaviour before this change
 
 A project has one rate sheet, `jobs.rate_sheet`. It is required when the
 project is created and must be active at that time. Proposals have no rate
@@ -99,7 +99,10 @@ Indexes:
   changes. Rows keep inactive sheets after deactivation, as `jobs.rate_sheet`
   does today. Changing only the date or reason does not require an active sheet.
 - Two consecutive rows must not use the same sheet. Such a row adds nothing,
-  and rejecting it keeps the history readable.
+  and rejecting it keeps the history readable. The rule is checked after
+  every create, edit, and delete. Deleting a dated row, or changing its date,
+  must not leave its neighbours on the same sheet: if it would, the change is
+  refused, and the user deletes the later duplicate instead.
 - The opening row cannot be deleted. Changing its sheet replaces today's
   "change the job's rate sheet" and restates all time up to the first dated row.
 - Proposals have no rows. `cleanJob` already clears their rate sheet.
@@ -116,27 +119,59 @@ This keeps these working unchanged:
 - the `no_rate_sheet` flag in `job_wip.sql`
 - job lists, details, and the job request views that show the current sheet
 
-Direct writes to `jobs.rate_sheet` on existing projects are rejected. The field
-changes only through the history action, using a new workflow mutation in the
-same way that `ProjectWorkflowMutationChangeClient` guards `client`.
-`validateRateSheetIsActive` keeps its create-time checks. Its update path,
-which requires `rate_sheet_revise` and forbids clearing, moves to the history
-action.
+Once set, `jobs.rate_sheet` changes only through the history. The project
+workflow guard refuses any other change unless the save carries
+`ProjectWorkflowMutationRateSheet`, in the same way that
+`ProjectWorkflowMutationChangeClient` guards `client`. A job save that tries it
+fails in `validateRateSheetIsActive` with `use_rate_sheet_history`; clearing
+still fails with `cannot_clear`. Create-time checks are unchanged.
+
+A project's first rate sheet can still be set by any job save. A `jobs` model
+hook (`AddJobRateSheetHooks` in `app/hooks/job_rate_sheets.go`) then writes the
+opening row in the same transaction, recording the user who saved the job. This
+covers direct creation, job request approval, and the editor.
+
+### Projects with a rate sheet but no history
+
+The import tool (`import_data/`) writes `jobs.rate_sheet` directly and skips
+hooks, so an imported project can have a rate sheet and no rows. Pricing treats
+such a project as one opening period on `jobs.rate_sheet`, and the history API
+shows it as an opening period with id `opening`. Its row is written on the
+first change to its history. That row keeps the sheet even if it has since been
+deactivated, since it was valid when set.
 
 ## Permissions
 
 - **View:** anyone who can view the job.
-- **Create, edit, or delete a row:** an active user with both the `job` and
+- **First rate sheet on an existing project:** a project with no rows gets its
+  opening row from any active user with the `job` claim. `rate_sheet_revise` is
+  not needed. This keeps today's rule, where setting a project's rate sheet for
+  the first time needs only the `job` claim. It matters because most imported
+  projects have no rate sheet (see Migration). As today, it reprices that
+  project's past time from employee default rates to the new sheet.
+- **Every other change to a row:** an active user with both the `job` and
   `rate_sheet_revise` claims, matching today's rule for changing a project's
-  rate sheet.
-- **Opening row on a new project:** created automatically. Job request approval
-  (`ProjectWorkflowMutationCreateJob` in `job_requests.go`) creates it in the
-  same transaction as the job, with no `rate_sheet_revise` check. Projects
-  created directly when job request approval is off do the same.
+  rate sheet. This covers dated rows, changing the opening row's sheet, and
+  edits and deletes.
+- **Opening row on a new project:** created automatically by the `jobs` hook,
+  with no `rate_sheet_revise` check, whether the project comes from job request
+  approval or direct creation.
 
-All writes go through a custom route, not PocketBase's record API, so the job
-mirror, the row rules, and the claim checks run in one transaction. The
-collection's create, update, and delete rules are null.
+Writes go through these routes, each in one transaction that checks the whole
+history and then updates `jobs.rate_sheet`:
+
+| Route                                        | Does                                                                        |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /api/jobs/{id}/rate_sheets`             | The history, plus `can_revise` and `can_set_first` for the user             |
+| `POST /api/jobs/{id}/rate_sheets`            | With no `effective_date`, sets a first sheet; with one, starts a new period |
+| `PATCH /api/jobs/{id}/rate_sheets/{period}`  | Changes a period's sheet or start date                                      |
+| `DELETE /api/jobs/{id}/rate_sheets/{period}` | Deletes a dated period                                                      |
+
+`{period}` is a row id, or `opening` for a project whose history has no rows
+yet. Every write except a first sheet needs a reason of up to 500 characters.
+The collection's create, update, and delete API rules are null, and a model
+hook refuses any row write that does not carry
+`ProjectWorkflowMutationRateSheet`.
 
 ## Pricing
 
@@ -148,14 +183,20 @@ Turn the history into date ranges for the selected jobs, then join each entry
 to the range that contains its date:
 
 ```sql
-, rate_periods AS (
-  SELECT jrs.job, jrs.rate_sheet,
-    jrs.effective_date AS starts,
-    LEAD(jrs.effective_date) OVER (
-      PARTITION BY jrs.job ORDER BY jrs.effective_date
-    ) AS ends
+, rate_history AS (
+  SELECT jrs.job, jrs.rate_sheet, jrs.effective_date AS starts
   FROM selected_jobs j
   JOIN job_rate_sheets jrs ON jrs.job = j.id
+  UNION ALL
+  -- A project with a rate sheet but no rows: one opening period.
+  SELECT j.id, j.rate_sheet, ''
+  FROM selected_jobs j
+  WHERE COALESCE(j.rate_sheet, '') != ''
+    AND NOT EXISTS (SELECT 1 FROM job_rate_sheets jrs WHERE jrs.job = j.id)
+), rate_periods AS (
+  SELECT job, rate_sheet, starts,
+    LEAD(starts) OVER (PARTITION BY job ORDER BY starts) AS ends
+  FROM rate_history
 )
 ```
 
@@ -185,44 +226,60 @@ in `wip_performance.md` before and after, on the same production snapshot.
 
 ### Time valuation
 
-`JobTimeValuation` returns one `rate_sheet_name` and `rate_sheet_revision`.
-`TimeSummaryTable.svelte` reads `rows[0].rate_sheet_revision === null` to
-decide that a job has no sheet. With history, a job's time can be priced by
-several sheets.
+A job's time can be priced by several sheets, so a summary row no longer has
+one sheet.
 
-- Replace the single name and revision with a `rate_sheets` list of
-  `{ name, revision, starts, ends }` for the periods that contain priced time
-  in the report range.
-- Use `jobs.rate_sheet` for the "no rate sheet" check rather than inferring it
-  from row data.
-- When more than one sheet contributed, the summaries say so and list the
-  periods.
+- `JobTimeValuation` replaces `rate_sheet_name` and `rate_sheet_revision` with
+  `rate_sheets`: the sheets that priced the row's entries, such as
+  "2026 Standard Rates (rev. 0)", joined by "; ". It is in the staff and
+  division summaries and their CSV exports.
+- The periods themselves, with their dates, come from the history route.
+- `TimeSummaryTable.svelte` uses `jobs.rate_sheet` for the "no rate sheet"
+  notice instead of inferring it from row data.
 
 ### Missing rates
 
-The breakdown groups missing-role-rate hours by sheet. A role can be priced in
-one period and not in the next.
+`GET /api/jobs/{id}/wip/missing-rates` returns `rate_sheets`, a list of
+`{ id, name, revision, roles }`, one per sheet that priced time with a missing
+role rate. A role can be priced in one period and not in the next.
 
 ### Job editor and details
 
-- On existing projects the rate sheet selector is read-only, and shows the
-  current sheet.
-- Job details gets a Rate sheets section listing the history: sheet name and
-  revision, effective date ("from the start" for the opening row), reason, and
-  who set it.
-- `rate_sheet_revise` holders see Add, Edit, and Delete actions on that list.
-  The add form defaults the date to today and lists only active sheets.
-- Warn before saving a dated row earlier than today: past time values will
-  change.
+- On existing projects that have a rate sheet, the selector is read-only and
+  shows the current sheet.
+- On existing projects with no rate sheet, `job` holders can still pick one.
+  Saving creates the opening row.
+- Job details has a Rate sheets section (`RateSheetHistory.svelte`) listing the
+  history: sheet name and revision, dates ("From the start" for the opening
+  period), reason, and who set it.
+- `rate_sheet_revise` holders see New period, Change, and Delete. The new
+  period form defaults the date to today and lists only active sheets.
+- A project with no rate sheet shows Set rate sheet to `job` holders.
+- The forms warn which time will be repriced before a change is saved.
 
 ## Migration
+
+Migration `1792425372_job_rate_sheets.go`:
 
 1. Create `job_rate_sheets` and its indexes.
 2. Backfill one opening row for every project with a non-empty `rate_sheet`,
    including imported jobs. Leave `reason` empty and `created_by` unset on
    backfilled rows.
 3. Projects with no rate sheet get no rows. Their time remains priced only by
-   employee defaults, as today.
+   employee defaults, as today, until a `job` holder sets a first sheet.
+4. Update the `rate_sheet_revise` claim description: it now governs the history
+   rather than `jobs.rate_sheet`.
+
+The test fixtures in `app/test_seed_data` include the collection and the 32
+opening rows the backfill creates for fixture projects.
+
+In the local database copy checked on 2026-10-19, 6,167 of 7,043 projects (88%)
+have no rate sheet, and 4,463 of those have time entries. Almost all are
+imported. Only 876 projects get a backfilled row.
+
+4,228 time entries are dated before their project's rate sheet revision took
+effect. The opening row covers them, which is why it is exempt from the
+revision-date rule.
 
 The backfill produces identical prices: every project has one range covering
 all time, using its current sheet. Run the WIP report and a sample of job
@@ -230,18 +287,24 @@ summaries before and after the migration and compare the results.
 
 ## Tests
 
+In `app/job_rate_sheets_test.go` (routes), `app/routes/job_rate_sheets_pricing_test.go`
+(pricing), and `app/hooks/job_rate_sheets_test.go` (hooks):
+
 - **Pricing:** entries before, on, and after a dated row; several dated rows;
   an inactive sheet in history; a role present in one sheet and missing from
   the next; a project with no rows.
 - **Row rules:** second opening row; duplicate date; future date; date before
   the revision's `effective_date`; consecutive duplicate sheet; deleting the
   opening row; inactive sheet on create; date-only edit of a row whose sheet is
-  now inactive.
+  now inactive; deleting or re-dating a row so that its neighbours share a
+  sheet.
 - **Mirror:** `jobs.rate_sheet` follows the latest row after create, edit,
   and delete. Direct writes to it are rejected on existing projects.
 - **Permissions:** missing `job` or `rate_sheet_revise`; inactive user; the
   opening row created through job request approval without
-  `rate_sheet_revise`.
+  `rate_sheet_revise`; a first sheet set on an existing project with only the
+  `job` claim; changing an existing opening row's sheet without
+  `rate_sheet_revise` is refused.
 - **Migration:** WIP values are identical before and after the backfill.
 
 ## Open questions
