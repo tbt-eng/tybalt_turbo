@@ -4,6 +4,8 @@
   import { globalStore } from "$lib/stores/global";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DSField from "$lib/components/DSField.svelte";
+  import DSFieldList from "$lib/components/DSFieldList.svelte";
   import StoredFileHashRepairPopover from "$lib/components/StoredFileHashRepairPopover.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import UncommitConfirmPopover from "$lib/components/UncommitConfirmPopover.svelte";
@@ -564,6 +566,22 @@
         <span class="font-semibold">Allowance Types:</span>
         {expense.allowance_types}
       </div>
+    {/if}
+
+    {#if expense.vendor_invoice_number}
+      <!-- Vendor invoice details are stored on the attached document. -->
+      <DSFieldList>
+        <DSField label="Vendor invoice" value={expense.vendor_invoice_number} />
+        <DSField
+          label="Invoice date"
+          value={expense.vendor_invoice_date ? shortDate(expense.vendor_invoice_date, true) : ""}
+        />
+        <DSField
+          label="Invoice total"
+          value={formatCurrencyAmount(expense.vendor_invoice_total, expense.currency_code)}
+          hint={`${formatCurrencyAmount(expense.vendor_invoice_allocated, expense.currency_code)} on expenses`}
+        />
+      </DSFieldList>
     {/if}
 
     {#if expense.attachment}
