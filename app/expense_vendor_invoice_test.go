@@ -193,6 +193,101 @@ func TestVendorInvoiceDetails(t *testing.T) {
 		}
 	})
 
+	t.Run("a shared invoice keeps its vendor", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		details := invoice("INV-VENDOR", "2024-08-30", "30")
+		content := pngContent(9)
+		status, body, _ := postVendorInvoiceExpense(t, app, bookkeeperToken,
+			vendorInvoiceExpenseFields("first part", "10", details), content)
+		if status != http.StatusOK {
+			t.Fatalf("first part failed: %d %s", status, body)
+		}
+		// The bookkeeper reuses the invoice for an expense with another vendor.
+		fields := vendorInvoiceExpenseFields("other vendor part", "10", details)
+		fields["vendor"] = "2zqxtsmymf670ha"
+		status, body, _ = postVendorInvoiceExpense(t, app, bookkeeperToken, fields, content)
+		if status != http.StatusBadRequest || !strings.Contains(body, `"vendor":{"code":"vendor_mismatch"`) {
+			t.Fatalf("expected a vendor mismatch, got %d %s", status, body)
+		}
+	})
+
+	t.Run("a shared invoice keeps its currency", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		details := invoice("INV-CURRENCY", "2024-08-30", "30")
+		content := pngContent(10)
+		status, body, _ := postVendorInvoiceExpense(t, app, bookkeeperToken,
+			vendorInvoiceExpenseFields("CAD part", "10", details), content)
+		if status != http.StatusOK {
+			t.Fatalf("CAD part failed: %d %s", status, body)
+		}
+		// The same file reused on the owner's USD PO 26-PRINT-004, keeping the
+		// invoice's vendor so only the currency differs. That fixture PO has no
+		// branch, so it borrows the CAD PO's for this test.
+		if _, err := app.DB().NewQuery(`UPDATE purchase_orders SET branch = (SELECT branch FROM purchase_orders WHERE id = 'poa1ctvbrnch001') WHERE id = 'poprint00000004'`).Execute(); err != nil {
+			t.Fatal(err)
+		}
+		fields := vendorInvoiceExpenseFields("USD part", "10", details)
+		fields["purchase_order"] = "poprint00000004"
+		fields["currency"] = "usdcurr00000001"
+		fields["date"] = "2024-11-06" // the PO starts on 2024-11-05
+		status, body, _ = postVendorInvoiceExpense(t, app, bookkeeperToken, fields, content)
+		if status != http.StatusBadRequest || !strings.Contains(body, `"currency":{"code":"currency_mismatch"`) {
+			t.Fatalf("expected a currency mismatch, got %d %s", status, body)
+		}
+	})
+
+	t.Run("an invoice used by one expense follows that expense's vendor", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		status, body, id := postVendorInvoiceExpense(t, app, ownerToken,
+			vendorInvoiceExpenseFields("owner entered invoice", "10", invoice("INV-FIX", "2024-08-30", "10")), pngContent(11))
+		if status != http.StatusOK {
+			t.Fatalf("create failed: %d %s", status, body)
+		}
+		update := performTestAPIRequest(t, app, http.MethodPatch, "/api/expenses/"+id,
+			strings.NewReader(`{"vendor": "2zqxtsmymf670ha"}`), map[string]string{
+				"Authorization": ownerToken,
+				"Content-Type":  "application/json",
+			})
+		mustStatus(t, update, http.StatusOK)
+		var vendor string
+		if err := app.DB().NewQuery("SELECT ed.vendor FROM expenses e JOIN expense_documents ed ON ed.id = e.attachment_document WHERE e.id = {:id}").
+			Bind(map[string]any{"id": id}).Row(&vendor); err != nil {
+			t.Fatal(err)
+		}
+		if vendor != "2zqxtsmymf670ha" {
+			t.Fatalf("document vendor = %q; want the corrected vendor", vendor)
+		}
+	})
+
+	t.Run("details need an attached invoice", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		// A personal reimbursement has no attachment, so it has no document to
+		// hold invoice details.
+		payload := `{
+			"uid": "rzr98oadsp9qc11",
+			"date": "2024-09-01",
+			"division": "vccd5fo56ctbigh",
+			"description": "reimbursement with invoice details",
+			"payment_type": "PersonalReimbursement",
+			"kind": "l3vtlbqg529m52j",
+			"total": 20,
+			"vendor_invoice_number": "INV-NODOC",
+			"vendor_invoice_date": "2024-08-30",
+			"vendor_invoice_total": 20
+		}`
+		res := performTestAPIRequest(t, app, http.MethodPost, "/api/expenses", strings.NewReader(payload), map[string]string{
+			"Authorization": ownerToken,
+			"Content-Type":  "application/json",
+		})
+		if res.Code != http.StatusBadRequest || !strings.Contains(res.Body.String(), `"vendor_invoice_number":{"code":"document_required"`) {
+			t.Fatalf("expected details without a document to be refused, got %d %s", res.Code, res.Body.String())
+		}
+	})
+
 	t.Run("a corporate card expense needs only its receipt", func(t *testing.T) {
 		app := testutils.SetupTestApp(t)
 		t.Cleanup(app.Cleanup)
