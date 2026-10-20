@@ -6,6 +6,11 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSField from "$lib/components/DSField.svelte";
   import DSFieldList from "$lib/components/DSFieldList.svelte";
+  import VendorInvoiceParts from "$lib/components/expenses/VendorInvoiceParts.svelte";
+  import {
+    loadVendorInvoice,
+    type VendorInvoiceView,
+  } from "$lib/components/expenses/vendorInvoice";
   import StoredFileHashRepairPopover from "$lib/components/StoredFileHashRepairPopover.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import UncommitConfirmPopover from "$lib/components/UncommitConfirmPopover.svelte";
@@ -59,6 +64,19 @@
   $: isOwner = expense.creator === viewerId;
   $: isApprover = expense.approver === viewerId;
   $: hasAttachmentRepairTarget = Boolean(expense.attachment || expense.attachment_document);
+
+  // The vendor invoice and every expense that shares it.
+  let invoiceView: VendorInvoiceView | null = null;
+  async function loadInvoice(id: string, number: string) {
+    invoiceView = null;
+    if (!number) return;
+    try {
+      invoiceView = await loadVendorInvoice(id);
+    } catch {
+      invoiceView = null;
+    }
+  }
+  $: loadInvoice(expense.id, expense.vendor_invoice_number);
 
   async function refreshExpense() {
     try {
@@ -579,9 +597,11 @@
         <DSField
           label="Invoice total"
           value={formatCurrencyAmount(expense.vendor_invoice_total, expense.currency_code)}
-          hint={`${formatCurrencyAmount(expense.vendor_invoice_allocated, expense.currency_code)} on expenses`}
         />
       </DSFieldList>
+      {#if invoiceView && invoiceView.parts.length > 0}
+        <VendorInvoiceParts invoice={invoiceView} currentExpenseId={expense.id} />
+      {/if}
     {/if}
 
     {#if expense.attachment}
