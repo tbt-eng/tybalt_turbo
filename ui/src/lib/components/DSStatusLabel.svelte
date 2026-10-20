@@ -9,15 +9,14 @@
     size = "md",
   }: {
     status: string;
-    kind?: "job" | "po" | "expense" | "request" | "uncommit" | "proposal";
+    kind?: StatusKind;
     // "sm" for compact list rows.
     size?: "md" | "sm";
   } = $props();
 
-  const tonesByKind: Record<
-    "job" | "po" | "expense" | "request" | "uncommit" | "proposal",
-    Record<string, LabelTone>
-  > = {
+  type StatusKind = "job" | "po" | "expense" | "request" | "uncommit" | "proposal" | "invoice";
+
+  const tonesByKind: Record<StatusKind, Record<string, LabelTone>> = {
     job: {
       Active: "success",
       Awarded: "success",
@@ -60,6 +59,10 @@
       Declined: "danger",
       Withdrawn: "neutral",
       Obsolete: "neutral",
+    },
+    // A draft invoice is neutral, like a draft expense.
+    invoice: {
+      Issued: "success",
     },
   };
 

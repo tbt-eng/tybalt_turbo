@@ -3,6 +3,7 @@ import { canViewWIPReports } from "$lib/reports/wipReports";
 import { canViewBranchHours } from "$lib/reports/branchHours";
 import { canViewPOApprovers } from "$lib/poApprovalLimits";
 import { canViewPOGroups } from "$lib/poGroups";
+import { canViewInvoices } from "$lib/invoices";
 import { canViewJobCreateQueue } from "$lib/jobRequests";
 import { canViewComputers } from "$lib/computers";
 
@@ -366,6 +367,12 @@ export const navSections: NavSection[] = [
             color: "green",
           },
         ],
+      },
+      {
+        label: "Invoices",
+        href: "/invoices/list",
+        buttons: [],
+        canView: ({ claims }) => canViewInvoices(claims),
       },
       {
         label: "Absorb Actions",

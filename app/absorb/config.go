@@ -105,6 +105,7 @@ var Configs = map[string]Config{
 			{"job_requests", "client"},
 			{"job_requests", "job_owner"},
 			{"client_invoicing_information", "client"},
+			{"invoices", "client"},
 		},
 		ChangesJobs: true,
 		// clients has no parent - it's at the top of the hierarchy
