@@ -193,6 +193,65 @@ func TestVendorInvoiceDetails(t *testing.T) {
 		}
 	})
 
+	t.Run("only a bookkeeper fills in a blank invoice that is already in use", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		details := invoice("INV-OLD", "2024-08-30", "30")
+		content := pngContent(12)
+		status, body, ownerExpenseID := postVendorInvoiceExpense(t, app, ownerToken,
+			vendorInvoiceExpenseFields("owner part", "10", details), content)
+		if status != http.StatusOK {
+			t.Fatalf("owner part failed: %d %s", status, body)
+		}
+		status, body, bookkeeperExpenseID := postVendorInvoiceExpense(t, app, bookkeeperToken,
+			vendorInvoiceExpenseFields("bookkeeper part", "10", details), content)
+		if status != http.StatusOK {
+			t.Fatalf("bookkeeper part failed: %d %s", status, body)
+		}
+		// Make it an invoice uploaded before vendor invoice details existed: no
+		// details, and an expense on it already submitted.
+		if _, err := app.DB().NewQuery(`UPDATE expense_documents SET vendor = '', vendor_invoice_number = '',
+			vendor_invoice_number_key = '', vendor_invoice_date = '', vendor_invoice_total = 0, vendor_invoice_currency = ''
+			WHERE id = (SELECT attachment_document FROM expenses WHERE id = {:id})`).
+			Bind(map[string]any{"id": ownerExpenseID}).Execute(); err != nil {
+			t.Fatal(err)
+		}
+		submit := performTestAPIRequest(t, app, http.MethodPost, "/api/expenses/"+bookkeeperExpenseID+"/submit", nil, map[string]string{
+			"Authorization": bookkeeperToken,
+		})
+		mustStatus(t, submit, http.StatusOK)
+
+		// The uploader is not a bookkeeper, so the blank invoice stays locked.
+		update := performTestAPIRequest(t, app, http.MethodPatch, "/api/expenses/"+ownerExpenseID,
+			strings.NewReader(`{"vendor_invoice_number": "INV-OLD", "vendor_invoice_date": "2024-08-30", "vendor_invoice_total": 30}`),
+			map[string]string{"Authorization": ownerToken, "Content-Type": "application/json"})
+		if update.Code != http.StatusBadRequest || !strings.Contains(update.Body.String(), `"code":"locked"`) {
+			t.Fatalf("expected the uploader to be locked out of a blank shared invoice, got %d %s", update.Code, update.Body.String())
+		}
+
+		// A bookkeeper reusing the invoice for another part may fill it in.
+		status, body, _ = postVendorInvoiceExpense(t, app, bookkeeperToken,
+			vendorInvoiceExpenseFields("third part", "10", details), content)
+		if status != http.StatusOK {
+			t.Fatalf("a bookkeeper should fill in a blank invoice: %d %s", status, body)
+		}
+		var number string
+		if err := app.DB().NewQuery("SELECT ed.vendor_invoice_number FROM expenses e JOIN expense_documents ed ON ed.id = e.attachment_document WHERE e.id = {:id}").
+			Bind(map[string]any{"id": ownerExpenseID}).Row(&number); err != nil {
+			t.Fatal(err)
+		}
+		if number != "INV-OLD" {
+			t.Fatalf("vendor_invoice_number = %q; want INV-OLD", number)
+		}
+
+		// Once filled in, the details are locked for bookkeepers too.
+		status, body, _ = postVendorInvoiceExpense(t, app, bookkeeperToken,
+			vendorInvoiceExpenseFields("fourth part", "0.01", invoice("INV-OLD", "2024-08-30", "40")), content)
+		if status != http.StatusBadRequest || !strings.Contains(body, `"code":"locked"`) {
+			t.Fatalf("expected filled-in details to be locked, got %d %s", status, body)
+		}
+	})
+
 	t.Run("a shared invoice keeps its vendor", func(t *testing.T) {
 		app := testutils.SetupTestApp(t)
 		t.Cleanup(app.Cleanup)

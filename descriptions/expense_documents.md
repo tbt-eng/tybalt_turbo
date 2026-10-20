@@ -897,6 +897,15 @@ bookkeeper reusing a document carries its details.
   rejected, the details cannot change, because that expense is waiting for
   approval against them. The expense being saved is always unsubmitted, since
   submitted expenses cannot be edited.
+- **Blank invoices already in use:** a `book_keeper` may fill in the details of
+  an invoice that has none at all (no number, date or total), even while
+  another expense on it is submitted. This covers invoices uploaded before
+  vendor invoice details existed, which bookkeepers keep splitting across POs
+  after release. Filling in blank details changes nothing an approver saw.
+  Only bookkeepers get this exception, because only bookkeepers reuse a
+  document across POs; `payables_admin` manages POs and settlement and does not
+  enter invoices. Once filled in, the details lock for everyone, bookkeepers
+  included.
 - **Duplicates:**
   - The same file is caught by `attachment_hash`, as before.
   - A different file of the same invoice is caught by the unique key. The error
