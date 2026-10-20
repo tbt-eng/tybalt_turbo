@@ -97,7 +97,8 @@
   let vendorInvoice = $state({
     number: loadedInvoice.vendor_invoice_number ?? "",
     date: loadedInvoice.vendor_invoice_date ?? "",
-    total: loadedInvoice.vendor_invoice_total ?? 0,
+    // Blank until entered: a 0 would read as an entered total.
+    total: (loadedInvoice.vendor_invoice_total || "") as number | string,
   });
   const vendorInvoiceAllocated = loadedInvoice.vendor_invoice_allocated ?? 0;
   const dateInputMax = dateInputMaxMonthsAhead(15);
@@ -378,7 +379,7 @@
     ) {
       payload.vendor_invoice_number = vendorInvoice.number;
       payload.vendor_invoice_date = vendorInvoice.date;
-      payload.vendor_invoice_total = Number(vendorInvoice.total ?? 0);
+      payload.vendor_invoice_total = Number(vendorInvoice.total || 0);
     }
 
     // if the job is empty, set the category to empty

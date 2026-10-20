@@ -887,8 +887,10 @@ bookkeeper reusing a document carries its details.
   with `attachment_missing_reason` and no document are exempt.
 - **No document:** details sent for an expense with no document are refused:
   attach the invoice first.
-- **Same vendor and currency:** once a document has a number, every expense
-  linked to it must have the document's vendor and currency.
+- **Same vendor and currency:** while one expense uses the document, the
+  document takes that expense's vendor and currency, so correcting the expense
+  corrects the invoice. Once the invoice is shared, every expense on it must have
+  the document's vendor and currency.
 - **Who can change them:** the document's uploader (`uploaded_by`), a
   `book_keeper`, or anyone when no other expense uses the document.
 - **When they lock:** once another expense on the document is submitted and not
