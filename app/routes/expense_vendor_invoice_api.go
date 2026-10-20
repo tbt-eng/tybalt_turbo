@@ -108,22 +108,78 @@ func createGetExpenseVendorInvoiceHandler(app core.App) func(e *core.RequestEven
 			return e.JSON(http.StatusOK, vendorInvoiceView{Parts: []vendorInvoicePart{}})
 		}
 
-		params["document"] = expense.Document
-		var view vendorInvoiceView
-		if err := app.DB().NewQuery(vendorInvoiceViewQuery).Bind(dbx.Params{"document": expense.Document}).One(&view); err != nil {
+		view, err := buildVendorInvoiceView(app, expense.Document, params)
+		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load the invoice", err)
 		}
-		view.Parts = []vendorInvoicePart{}
-		if err := app.DB().NewQuery(vendorInvoicePartsQuery).Bind(params).All(&view.Parts); err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to load the invoice's expenses", err)
+		return e.JSON(http.StatusOK, view)
+	}
+}
+
+// buildVendorInvoiceView loads a document's invoice details and every expense
+// on it. params carries the caller's expense visibility inputs.
+func buildVendorInvoiceView(app core.App, documentID string, params dbx.Params) (vendorInvoiceView, error) {
+	var view vendorInvoiceView
+	if err := app.DB().NewQuery(vendorInvoiceViewQuery).Bind(dbx.Params{"document": documentID}).One(&view); err != nil {
+		return view, err
+	}
+	params["document"] = documentID
+	view.Parts = []vendorInvoicePart{}
+	if err := app.DB().NewQuery(vendorInvoicePartsQuery).Bind(params).All(&view.Parts); err != nil {
+		return view, err
+	}
+	cents := int64(0)
+	for _, part := range view.Parts {
+		if part.Rejected == "" {
+			cents += utilities.CurrencyAmountToCents(part.Total)
 		}
-		cents := int64(0)
-		for _, part := range view.Parts {
-			if part.Rejected == "" {
-				cents += utilities.CurrencyAmountToCents(part.Total)
-			}
+	}
+	view.Allocated = float64(cents) / 100
+	return view, nil
+}
+
+// createGetVendorInvoiceByFileHashHandler finds the invoice already uploaded
+// with this file, by its SHA-256 hash, so the expense editor can show and
+// prefill it before a bookkeeper saves a second expense against it. Only
+// bookkeepers may reuse an uploaded file, so only they may look one up. An
+// empty response means the file is new or not on any expense.
+func createGetVendorInvoiceByFileHashHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		auth := e.Auth
+		if auth == nil {
+			return e.Error(http.StatusUnauthorized, "unauthorized", nil)
 		}
-		view.Allocated = float64(cents) / 100
+		hasBookKeeper, err := utilities.HasClaim(app, auth, "book_keeper")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "error checking claims", err)
+		}
+		if !hasBookKeeper {
+			return e.Error(http.StatusForbidden, "book_keeper claim required", nil)
+		}
+		params, err := expenseVisibilityParams(app, auth)
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
+		}
+		hasAdmin, err := utilities.HasClaim(app, auth, "admin")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
+		}
+		params["has_admin"] = boolToInt(hasAdmin)
+
+		var document struct {
+			ID string `db:"id"`
+		}
+		err = app.DB().NewQuery(`SELECT ed.id FROM expense_documents ed
+			WHERE ed.attachment_hash = {:hash}
+			  AND EXISTS (SELECT 1 FROM expenses e WHERE e.attachment_document = ed.id)
+			LIMIT 1`).Bind(dbx.Params{"hash": e.Request.PathValue("hash")}).One(&document)
+		if err != nil {
+			return e.JSON(http.StatusOK, vendorInvoiceView{Parts: []vendorInvoicePart{}})
+		}
+		view, err := buildVendorInvoiceView(app, document.ID, params)
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to load the invoice", err)
+		}
 		return e.JSON(http.StatusOK, view)
 	}
 }

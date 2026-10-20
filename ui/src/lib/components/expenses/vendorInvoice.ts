@@ -38,6 +38,20 @@ export function loadVendorInvoice(expenseId: string) {
   });
 }
 
+// Looks up the invoice already uploaded with this file, by the same SHA-256
+// hash the server uses, so a bookkeeper uploading it again sees the invoice it
+// will be reused for. Bookkeepers only. An empty document means a new file.
+export async function loadVendorInvoiceByFile(file: File) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  const hash = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return pb.send<VendorInvoiceView>(`/api/expenses/invoice-by-file/${hash}`, {
+    method: "GET",
+    requestKey: null,
+  });
+}
+
 // Expenses have no status field; this follows the same order as the expense
 // pages: rejected, committed, approved, submitted, then draft.
 export function partStatus(part: VendorInvoicePart) {

@@ -147,6 +147,7 @@ func AddRoutes(app core.App) {
 		expensesGroup.GET("/list", createGetExpensesListHandler(app))
 		expensesGroup.GET("/details/{id}", createGetExpenseDetailsHandler(app))
 		expensesGroup.GET("/invoice/{id}", createGetExpenseVendorInvoiceHandler(app))
+		expensesGroup.GET("/invoice-by-file/{hash}", createGetVendorInvoiceByFileHashHandler(app))
 		expensesGroup.GET("/attachment/{id}", createGetExpenseAttachmentHandler(app))
 		expensesGroup.POST("/{id}/attachment_hash/audit", createAuditExpenseAttachmentHashHandler(app))
 		expensesGroup.POST("/{id}/attachment_hash/replace", createReplaceExpenseAttachmentHashHandler(app))

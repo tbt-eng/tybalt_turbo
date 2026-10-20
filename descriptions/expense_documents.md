@@ -934,7 +934,11 @@ shown without a link.
 
 The expense details page shows this list under the invoice fields. The expense
 editor shows it whenever the invoice is shared, including when a bookkeeper
-reuses an attachment, and prefills a reused invoice's details. Before saving, the
+reuses an attachment, and prefills a reused invoice's details. For
+"Create another expense with this attachment" it loads the source expense's
+invoice. When a bookkeeper uploads the same file again, it hashes the file
+(SHA-256, as the server does) and calls `GET /api/expenses/invoice-by-file/{hash}`,
+which only `book_keeper` holders may use, since only they can reuse a file. Before saving, the
 editor says why the details cannot change when another part is submitted, and
 warns a bookkeeper filling in a blank shared invoice that the details apply to
 every part, with how many are submitted.
