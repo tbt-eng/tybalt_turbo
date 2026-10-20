@@ -6,6 +6,11 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSField from "$lib/components/DSField.svelte";
   import DSFieldList from "$lib/components/DSFieldList.svelte";
+  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
+  import DSCard from "$lib/components/DSCard.svelte";
+  import DSCardGrid from "$lib/components/DSCardGrid.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
   import VendorInvoiceParts from "$lib/components/expenses/VendorInvoiceParts.svelte";
   import {
     loadVendorInvoice,
@@ -14,19 +19,15 @@
   import StoredFileHashRepairPopover from "$lib/components/StoredFileHashRepairPopover.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import UncommitConfirmPopover from "$lib/components/UncommitConfirmPopover.svelte";
-  import DSCallout from "$lib/components/DSCallout.svelte";
   import ExpenseUncommitRequestPopover from "$lib/components/ExpenseUncommitRequestPopover.svelte";
   import {
     expenseUncommitBlockText,
     expenseUncommitOutcomeLabel,
     expenseUncommitReasonText,
   } from "$lib/expenseUncommitRequests";
-  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
-  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
   import { advanceExpenseApprovalQueue } from "$lib/expenseApprovalQueue";
   import { expenseTitle } from "$lib/expenseTitle";
   import { getApiErrorMessage } from "$lib/errors";
-  import Icon from "@iconify/svelte";
   import {
     formatCurrencyAmount,
     formatCurrencyEquivalent,
@@ -227,9 +228,6 @@
     return trimmedOrEmpty(name) || trimmedOrEmpty(uid) || fallback;
   }
 
-  $: hasSettledCadTotal = Number(expense.settled_total ?? 0) > 0;
-  $: showIndicativeCadEquivalent = expense.currency_code !== "CAD" && !hasSettledCadTotal;
-
   // Expenses have no status field; derive the one the header shows.
   $: status = expense.committed
     ? "Committed"
@@ -246,7 +244,14 @@
     expense.approved === "" &&
     expense.rejected === "" &&
     expense.committed === "";
+  $: hasSettledCadTotal = Number(expense.settled_total ?? 0) > 0;
+  $: showIndicativeCadEquivalent = expense.currency_code !== "CAD" && !hasSettledCadTotal;
 </script>
+
+<!-- A field value that differs from the linked PO's shows the PO's value. -->
+{#snippet poDiff(text: string)}
+  <DsLabel tone="warning" size="sm">PO: {text}</DsLabel>
+{/snippet}
 
 <div class="mx-auto space-y-4 p-4">
   <DSPageHeader title={expenseTitle(expense)} subtitle={expense.description}>
@@ -373,360 +378,268 @@
     </DSCallout>
   {/if}
 
-  <div class="space-y-2 rounded-sm bg-neutral-100 p-4">
-    {#if expense.creator && expense.creator !== expense.uid}
-      <div><span class="font-semibold">Submitted for:</span> {expense.uid_name}</div>
-      <div><span class="font-semibold">Entered by:</span> {expense.creator_name}</div>
-    {:else}
-      <div><span class="font-semibold">Submitted By:</span> {expense.uid_name}</div>
-    {/if}
-
-    {#if expense.po_owner_uid_mismatch}
-      <div class="rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-        <div class="flex items-center gap-2 font-semibold">
-          <Icon icon="mdi:alert-outline" width="18" />
-          UID mismatch with linked purchase order
-        </div>
-        <div class="mt-1">
-          This expense was submitted by
-          {personLabel(expense.uid_name, expense.uid, "unknown submitter")}, but the linked PO
-          {#if expense.purchase_order_number}
-            {expense.purchase_order_number}
-          {/if}
-          is owned by
-          {personLabel(expense.po_uid_name, expense.po_uid, "unknown PO owner")}.
-        </div>
-      </div>
-    {/if}
-
-    <!-- The header shows the description; repeat it here only to flag a PO mismatch. -->
-    {#if poDiffers(expense.description, expense.po_description)}
-      <div>
-        <span class="font-semibold">Description:</span>
-        {expense.description}
-        <span
-          class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-          >PO: {expense.po_description}</span
-        >
-      </div>
-    {/if}
-
-    <div>
-      <span class="font-semibold">Total:</span>
-      {formatCurrencyAmount(expense.total, expense.currency_code)}
-      {#if expense.purchase_order && expense.po_total && expense.total !== expense.po_total}
-        <span
-          class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-          >PO: {formatCurrencyAmount(
-            expense.po_total,
-            expense.po_currency_code || expense.currency_code,
-          )}</span
-        >
+  {#if expense.po_owner_uid_mismatch}
+    <DSCallout tone="warning" title="UID mismatch with linked purchase order">
+      This expense was submitted by
+      {personLabel(expense.uid_name, expense.uid, "unknown submitter")}, but the linked PO
+      {#if expense.purchase_order_number}
+        {expense.purchase_order_number}
       {/if}
-    </div>
+      is owned by
+      {personLabel(expense.po_uid_name, expense.po_uid, "unknown PO owner")}.
+    </DSCallout>
+  {/if}
 
-    {#if showIndicativeCadEquivalent}
-      <div>
-        <span class="font-semibold">Indicative CAD Equivalent:</span>
-        {formatCurrencyEquivalent(
-          expense.total * expense.currency_rate,
-          expense.currency_rate,
-          expense.currency_rate_date,
-        )}
-      </div>
-    {/if}
+  {#if expense.rejected}
+    <DSCallout
+      tone="danger"
+      title={`Rejected ${shortDate(expense.rejected, true)} by ${expense.rejector_name}`}
+    >
+      {expense.rejection_reason}
+    </DSCallout>
+  {/if}
 
-    {#if hasSettledCadTotal}
-      <div>
-        <span class="font-semibold">Settled Total:</span>
-        {formatCurrencyAmount(expense.settled_total, "CAD")}
-      </div>
-    {/if}
-
-    {#if expense.payment_type}
-      <div>
-        <span class="font-semibold">Payment Type:</span>
-        {paymentTypeLabel(expense.payment_type)}
-        {#if poDiffers(expense.payment_type, expense.po_payment_type)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-            >PO: {paymentTypeLabel(expense.po_payment_type)}</span
-          >
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.cc_last_4_digits}
-      <div>
-        <span class="font-semibold">Card:</span>
-        ****{expense.cc_last_4_digits}
-      </div>
-    {/if}
-
-    {#if expense.vendor}
-      <div>
-        <span class="font-semibold">Vendor:</span>
-        <a
-          href={resolve(`/vendors/${expense.vendor}/details`)}
-          class="text-blue-600 hover:underline"
-        >
-          {expense.vendor_name}
-          {#if trimmedOrEmpty(expense.vendor_alias)}
-            <span class="opacity-60">({trimmedOrEmpty(expense.vendor_alias)})</span>
-          {/if}
-        </a>
-        {#if poDiffers(expense.vendor, expense.po_vendor)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-          >
-            PO: {expense.po_vendor_name}
-            {#if trimmedOrEmpty(expense.po_vendor_alias)}
-              ({trimmedOrEmpty(expense.po_vendor_alias)})
-            {/if}
-          </span>
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.purchase_order}
-      <div>
-        <span class="font-semibold">Purchase Order:</span>
-        <a
-          href={resolve(`/pos/${expense.purchase_order}/details`)}
-          class="text-blue-600 hover:underline"
-        >
-          {expense.purchase_order_number}
-        </a>
-      </div>
-    {/if}
-
-    {#if expense.job}
-      <div>
-        <span class="font-semibold">Job:</span>
-        <a href={resolve(`/jobs/${expense.job}/details`)} class="text-blue-600 hover:underline">
-          {expense.job_number}
-          {#if expense.job_description}
-            <span class="opacity-60">— {expense.job_description}</span>
-          {/if}
-        </a>
-        {#if poDiffers(expense.job, expense.po_job)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-            >PO: {expense.po_job_number}{#if expense.po_job_description}
-              — {expense.po_job_description}{/if}</span
-          >
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.client_name}
-      <div><span class="font-semibold">Client:</span> {expense.client_name}</div>
-    {/if}
-
-    {#if expense.division_code}
-      <div>
-        <span class="font-semibold">Division:</span>
-        {expense.division_code} — {expense.division_name}
-        {#if poDiffers(expense.division, expense.po_division)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-            >PO: {expense.po_division_code} — {expense.po_division_name}</span
-          >
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.category_name}
-      <div>
-        <span class="font-semibold">Category:</span>
-        {expense.category_name}
-        {#if poDiffers(expense.category, expense.po_category)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-            >PO: {expense.po_category_name}</span
-          >
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.kind_name}
-      <div>
-        <span class="font-semibold">Kind:</span>
-        {expense.kind_name}
-        {#if poDiffers(expense.kind, expense.po_kind)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-            >PO: {expense.po_kind_name}</span
-          >
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.branch_name}
-      <div>
-        <span class="font-semibold">Branch:</span>
-        {expense.branch_name}
-        {#if poDiffers(expense.branch_name, expense.po_branch_name)}
-          <span
-            class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
-            >PO: {expense.po_branch_name}</span
-          >
-        {/if}
-      </div>
-    {/if}
-
-    {#if expense.payment_type === "Mileage"}
-      <div><span class="font-semibold">Distance:</span> {expense.distance} km</div>
-    {/if}
-
-    {#if expense.allowance_types && expense.allowance_types !== "[]"}
-      <div>
-        <span class="font-semibold">Allowance Types:</span>
-        {expense.allowance_types}
-      </div>
-    {/if}
-
-    {#if expense.vendor_invoice_number}
-      <!-- Vendor invoice details are stored on the attached document. -->
+  <DSCardGrid>
+    <DSCard title="Expense">
       <DSFieldList>
-        <DSField label="Vendor invoice" value={expense.vendor_invoice_number} />
-        <DSField
-          label="Invoice date"
-          value={expense.vendor_invoice_date ? shortDate(expense.vendor_invoice_date, true) : ""}
-        />
-        <DSField
-          label="Invoice total"
-          value={formatCurrencyAmount(expense.vendor_invoice_total, expense.currency_code)}
-        />
-      </DSFieldList>
-      {#if invoiceView && invoiceView.parts.length > 0}
-        <VendorInvoiceParts invoice={invoiceView} currentExpenseId={expense.id} />
-      {/if}
-    {/if}
-
-    {#if expense.attachment}
-      <div class="flex items-center gap-2">
-        <span class="font-semibold">Attachment:</span>
-        <DsActionButton
-          action={() => openExpenseAttachment(expense.id, expense.attachment)}
-          icon="mdi:download"
-        >
-          Download
-        </DsActionButton>
-        {#if hasBookKeeperAccess}
-          <DsActionButton
-            action={`/pos/search?source_expense=${encodeURIComponent(expense.id)}`}
-            icon="mdi:file-document-plus-outline"
-            title="Create another expense with this attachment"
-            color="green"
+        <DSField label="Date" value={shortDate(expense.date, true)} />
+        {#if expense.creator && expense.creator !== expense.uid}
+          <DSField label="Submitted for" value={expense.uid_name} />
+          <DSField label="Entered by" value={expense.creator_name} />
+        {:else}
+          <DSField label="Submitted by" value={expense.uid_name} />
+        {/if}
+        <!-- The header shows the description; repeat it here only to flag a PO mismatch. -->
+        {#if poDiffers(expense.description, expense.po_description)}
+          <DSField label="Description">
+            {expense.description}
+            {@render poDiff(expense.po_description)}
+          </DSField>
+        {/if}
+        <DSField label="Total">
+          {formatCurrencyAmount(expense.total, expense.currency_code)}
+          {#if expense.purchase_order && expense.po_total && expense.total !== expense.po_total}
+            {@render poDiff(
+              formatCurrencyAmount(
+                expense.po_total,
+                expense.po_currency_code || expense.currency_code,
+              ),
+            )}
+          {/if}
+        </DSField>
+        {#if showIndicativeCadEquivalent}
+          <DSField
+            label="Indicative CAD equivalent"
+            value={formatCurrencyEquivalent(
+              expense.total * expense.currency_rate,
+              expense.currency_rate,
+              expense.currency_rate_date,
+            )}
           />
         {/if}
-        {#if hasAdminAccess}
-          <button
-            type="button"
-            class="font-mono text-sm text-blue-700 underline decoration-dotted underline-offset-2 hover:text-blue-900"
-            title="Audit attachment hash"
-            on:click={openHashRepairPopover}
-          >
-            {expense.attachment_hash ? expense.attachment_hash.slice(0, 8) : "No hash"}
-          </button>
-        {:else if expense.attachment_hash}
-          <span class="font-mono text-sm opacity-70">{expense.attachment_hash.slice(0, 8)}</span>
+        {#if hasSettledCadTotal}
+          <DSField
+            label="Settled total"
+            value={formatCurrencyAmount(expense.settled_total, "CAD")}
+          />
         {/if}
-        {#if expense.attachment_hash}
-          <button
-            type="button"
-            class="text-neutral-500 hover:text-neutral-700"
-            title="Copy full hash"
-            on:click={() => navigator.clipboard.writeText(expense.attachment_hash)}
-          >
-            <Icon icon="mdi:content-copy" width="16" />
-          </button>
+        {#if expense.payment_type}
+          <DSField label="Payment type">
+            {paymentTypeLabel(expense.payment_type)}
+            {#if poDiffers(expense.payment_type, expense.po_payment_type)}
+              {@render poDiff(paymentTypeLabel(expense.po_payment_type))}
+            {/if}
+          </DSField>
         {/if}
-      </div>
-    {:else if expense.attachment_missing_reason}
-      <div class="flex items-start gap-2">
-        <span class="font-semibold">Attachment:</span>
-        <div
-          class="max-w-2xl rounded-sm border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
-        >
-          <div class="font-semibold">Missing historical attachment</div>
-          <div>{expense.attachment_missing_reason}</div>
-        </div>
-        {#if hasAdminAccess}
-          <button
-            type="button"
-            class="font-mono text-sm text-blue-700 underline decoration-dotted underline-offset-2 hover:text-blue-900"
-            title="Review attachment missing reason"
-            on:click={openHashRepairPopover}
-          >
-            Review
-          </button>
+        {#if expense.cc_last_4_digits}
+          <DSField label="Card" value={`****${expense.cc_last_4_digits}`} />
         {/if}
-      </div>
-    {:else if hasAdminAccess && expense.attachment_document}
-      <div class="flex items-start gap-2">
-        <span class="font-semibold">Attachment:</span>
-        <div
-          class="max-w-2xl rounded-sm border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
-        >
-          <div class="font-semibold">Attachment document issue</div>
-          <div>The linked document has no downloadable attachment.</div>
-        </div>
-        <button
-          type="button"
-          class="font-mono text-sm text-blue-700 underline decoration-dotted underline-offset-2 hover:text-blue-900"
-          title="Review attachment document issue"
-          on:click={openHashRepairPopover}
-        >
-          Review
-        </button>
-      </div>
-    {/if}
-
-    {#if expense.pay_period_ending}
-      <div>
-        <span class="font-semibold">Pay Period Ending:</span>
-        {shortDate(expense.pay_period_ending)}
-      </div>
-    {/if}
-
-    <div>
-      <span class="font-semibold">Submitted:</span>
-      {expense.submitted ? "Yes" : "No"}
-    </div>
-
-    {#if expense.approved}
-      <div>
-        <span class="font-semibold">Approved:</span>
-        {shortDate(expense.approved)} by {expense.approver_name}
-      </div>
-    {/if}
-
-    {#if expense.rejected}
-      <div class="space-y-1 rounded-sm border border-red-300 bg-red-50 p-3">
-        <div class="flex items-center gap-2">
-          <DsLabel color="red">
-            <Icon icon="mdi:cancel" width="16" class="inline-block" /> Rejected
-          </DsLabel>
-          <span>{shortDate(expense.rejected)} by {expense.rejector_name}</span>
-        </div>
-        {#if expense.rejection_reason}
-          <div class="text-red-700">{expense.rejection_reason}</div>
+        {#if expense.payment_type === "Mileage"}
+          <DSField label="Distance" value={`${expense.distance} km`} />
         {/if}
-      </div>
-    {/if}
-
-    {#if expense.committed}
-      <div>
-        <span class="font-semibold">Committed:</span>
-        {shortDate(expense.committed)}
-        {#if expense.committed_week_ending}
-          (Week ending {shortDate(expense.committed_week_ending)})
+        {#if expense.allowance_types && expense.allowance_types !== "[]"}
+          <DSField label="Allowance types" value={expense.allowance_types} />
         {/if}
-      </div>
+      </DSFieldList>
+    </DSCard>
+
+    <DSCard title="Coding">
+      <DSFieldList>
+        {#if expense.vendor}
+          <DSField label="Vendor" hint={trimmedOrEmpty(expense.vendor_alias) || undefined}>
+            <a class="link" href={resolve(`/vendors/${expense.vendor}/details`)}
+              >{expense.vendor_name}</a
+            >
+            {#if poDiffers(expense.vendor, expense.po_vendor)}
+              {@render poDiff(
+                trimmedOrEmpty(expense.po_vendor_alias)
+                  ? `${expense.po_vendor_name} (${trimmedOrEmpty(expense.po_vendor_alias)})`
+                  : expense.po_vendor_name,
+              )}
+            {/if}
+          </DSField>
+        {/if}
+        {#if expense.purchase_order}
+          <DSField
+            label="Purchase order"
+            value={expense.purchase_order_number}
+            href={resolve(`/pos/${expense.purchase_order}/details`)}
+          />
+        {/if}
+        {#if expense.job}
+          <DSField label="Job" hint={expense.job_description || undefined}>
+            <a class="link" href={resolve(`/jobs/${expense.job}/details`)}>{expense.job_number}</a>
+            {#if poDiffers(expense.job, expense.po_job)}
+              {@render poDiff(
+                expense.po_job_description
+                  ? `${expense.po_job_number} — ${expense.po_job_description}`
+                  : expense.po_job_number,
+              )}
+            {/if}
+          </DSField>
+        {/if}
+        <DSField label="Client" value={expense.client_name} />
+        {#if expense.division_code}
+          <DSField label="Division">
+            {expense.division_code} — {expense.division_name}
+            {#if poDiffers(expense.division, expense.po_division)}
+              {@render poDiff(`${expense.po_division_code} — ${expense.po_division_name}`)}
+            {/if}
+          </DSField>
+        {/if}
+        {#if expense.category_name}
+          <DSField label="Category">
+            {expense.category_name}
+            {#if poDiffers(expense.category, expense.po_category)}
+              {@render poDiff(expense.po_category_name)}
+            {/if}
+          </DSField>
+        {/if}
+        {#if expense.kind_name}
+          <DSField label="Kind">
+            {expense.kind_name}
+            {#if poDiffers(expense.kind, expense.po_kind)}
+              {@render poDiff(expense.po_kind_name)}
+            {/if}
+          </DSField>
+        {/if}
+        {#if expense.branch_name}
+          <DSField label="Branch">
+            {expense.branch_name}
+            {#if poDiffers(expense.branch_name, expense.po_branch_name)}
+              {@render poDiff(expense.po_branch_name)}
+            {/if}
+          </DSField>
+        {/if}
+      </DSFieldList>
+    </DSCard>
+
+    <DSCard title="Status">
+      <DSFieldList>
+        <DSField label="Submitted" value={expense.submitted ? "Yes" : "No"} />
+        {#if expense.approved}
+          <DSField
+            label="Approved"
+            value={`${shortDate(expense.approved, true)} by ${expense.approver_name}`}
+          />
+        {/if}
+        {#if expense.committed}
+          <DSField
+            label="Committed"
+            value={shortDate(expense.committed, true)}
+            hint={expense.committed_week_ending
+              ? `week ending ${shortDate(expense.committed_week_ending, true)}`
+              : undefined}
+          />
+        {/if}
+        {#if expense.pay_period_ending}
+          <DSField label="Pay period ending" value={shortDate(expense.pay_period_ending, true)} />
+        {/if}
+      </DSFieldList>
+    </DSCard>
+
+    {#if expense.attachment || expense.attachment_missing_reason || (hasAdminAccess && expense.attachment_document) || expense.vendor_invoice_number}
+      <DSCard title="Attachment" span="full">
+        {#if expense.attachment}
+          <div class="flex flex-wrap items-center gap-2">
+            <DsActionButton
+              action={() => openExpenseAttachment(expense.id, expense.attachment)}
+              icon="mdi:download"
+            >
+              Download
+            </DsActionButton>
+            {#if hasBookKeeperAccess}
+              <DsActionButton
+                action={`/pos/search?source_expense=${encodeURIComponent(expense.id)}`}
+                icon="mdi:file-document-plus-outline"
+                title="Create another expense with this attachment"
+                color="green"
+              />
+            {/if}
+            {#if hasAdminAccess}
+              <DsActionButton
+                variant="plain"
+                action={openHashRepairPopover}
+                title="Audit attachment hash"
+              >
+                {expense.attachment_hash ? expense.attachment_hash.slice(0, 8) : "No hash"}
+              </DsActionButton>
+            {:else if expense.attachment_hash}
+              <DsLabel size="sm">{expense.attachment_hash.slice(0, 8)}</DsLabel>
+            {/if}
+            {#if expense.attachment_hash}
+              <DsActionButton
+                variant="plain"
+                icon="mdi:content-copy"
+                title="Copy full hash"
+                action={() => navigator.clipboard.writeText(expense.attachment_hash)}
+              />
+            {/if}
+          </div>
+        {:else if expense.attachment_missing_reason}
+          <DSCallout tone="warning" title="Missing historical attachment">
+            {expense.attachment_missing_reason}
+            {#snippet actions()}
+              {#if hasAdminAccess}
+                <DsActionButton variant="secondary" action={openHashRepairPopover}
+                  >Review</DsActionButton
+                >
+              {/if}
+            {/snippet}
+          </DSCallout>
+        {:else if hasAdminAccess && expense.attachment_document}
+          <DSCallout tone="danger" title="Attachment document issue">
+            The linked document has no downloadable attachment.
+            {#snippet actions()}
+              <DsActionButton variant="secondary" action={openHashRepairPopover}
+                >Review</DsActionButton
+              >
+            {/snippet}
+          </DSCallout>
+        {/if}
+
+        {#if expense.vendor_invoice_number}
+          <!-- Vendor invoice details are stored on the attached document. -->
+          <DSFieldList columns={2}>
+            <DSField label="Vendor invoice" value={expense.vendor_invoice_number} />
+            <DSField
+              label="Invoice date"
+              value={expense.vendor_invoice_date
+                ? shortDate(expense.vendor_invoice_date, true)
+                : ""}
+            />
+            <DSField
+              label="Invoice total"
+              value={formatCurrencyAmount(expense.vendor_invoice_total, expense.currency_code)}
+            />
+          </DSFieldList>
+          {#if invoiceView && invoiceView.parts.length > 0}
+            <VendorInvoiceParts invoice={invoiceView} currentExpenseId={expense.id} />
+          {/if}
+        {/if}
+      </DSCard>
     {/if}
-  </div>
+  </DSCardGrid>
 
   <RejectModal collectionName="expenses" bind:this={rejectModal} on:refresh={handleRejected} />
   <ExpenseUncommitRequestPopover
