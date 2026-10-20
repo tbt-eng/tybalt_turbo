@@ -837,14 +837,16 @@ do.
 
 ### Fields on `expense_documents`
 
-| Field                       | Type                    | Notes                                                                                                                          |
-| --------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `vendor`                    | relation → `vendors`    | Copied from the expense when the details are first written.                                                                    |
-| `vendor_invoice_number`     | text, max 100           | As entered.                                                                                                                    |
-| `vendor_invoice_number_key` | text                    | Server-set: the number in lowercase with every character except letters and digits removed. Used only for the duplicate check. |
-| `vendor_invoice_date`       | text, `YYYY-MM-DD`      | The date on the invoice.                                                                                                       |
-| `vendor_invoice_total`      | number                  | The invoice total, taxes included, in the invoice currency.                                                                    |
-| `vendor_invoice_currency`   | relation → `currencies` | Copied from the expense. Empty means the home currency, as on expenses.                                                        |
+| Field                        | Type                    | Notes                                                                                                                          |
+| ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `vendor`                     | relation → `vendors`    | Copied from the expense when the details are first written.                                                                    |
+| `vendor_invoice_number`      | text, max 100           | As entered.                                                                                                                    |
+| `vendor_invoice_number_key`  | text                    | Server-set: the number in lowercase with every character except letters and digits removed. Used only for the duplicate check. |
+| `vendor_invoice_date`        | text, `YYYY-MM-DD`      | The date on the invoice.                                                                                                       |
+| `vendor_invoice_total`       | number                  | The invoice total, taxes included, in the invoice currency.                                                                    |
+| `vendor_invoice_currency`    | relation → `currencies` | Copied from the expense. Empty means the home currency, as on expenses.                                                        |
+| `vendor_invoice_recorded_by` | relation → `users`      | Server-set: who last set or changed the details. Not a history.                                                                |
+| `vendor_invoice_recorded`    | date                    | Server-set: when.                                                                                                              |
 
 A document with a `vendor_invoice_number` is a vendor invoice. One without is a
 receipt. A unique partial index on `(vendor, vendor_invoice_number_key)` where
@@ -908,6 +910,23 @@ bookkeeper reusing a document carries its details.
   `utilities.CurrencyAmountToCents`, so a sum like 16.26 + 0.01 matches a 16.27
   invoice exactly.
 - **No backfill:** details start with expenses entered after release.
+
+### Seeing which expenses share an invoice
+
+`GET /api/expenses/invoice/{id}` returns the invoice behind expense `{id}`: its
+details, who last set them and when, how much its non-rejected expenses account
+for, and every expense on it with its PO number, date, amount, who it is for,
+who entered it and its status. The caller must be able to see expense `{id}`,
+by the same rule as the expense details. Every part is listed, and
+`can_open` marks the parts the caller may open by that rule; the others are
+shown without a link.
+
+The expense details page shows this list under the invoice fields. The expense
+editor shows it whenever the invoice is shared, including when a bookkeeper
+reuses an attachment, and prefills a reused invoice's details. Before saving, the
+editor says why the details cannot change when another part is submitted, and
+warns a bookkeeper filling in a blank shared invoice that the details apply to
+every part, with how many are submitted.
 
 ### Vendor merges
 

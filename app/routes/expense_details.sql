@@ -14,16 +14,11 @@ SELECT
   COALESCE(e.attachment_missing_reason, '') AS attachment_missing_reason,
   CASE WHEN ed.id IS NOT NULL THEN 'pbc_2089657321' ELSE '' END AS attachment_collection_id,
   CASE WHEN ed.id IS NOT NULL THEN ed.id ELSE '' END AS attachment_record_id,
-  -- Vendor invoice details on the expense's document, and how much of the
-  -- invoice its non-rejected expenses already account for.
+  -- Vendor invoice details on the expense's document. The expenses that share
+  -- it come from GET /api/expenses/invoice/{id}.
   COALESCE(ed.vendor_invoice_number, '') AS vendor_invoice_number,
   COALESCE(ed.vendor_invoice_date, '') AS vendor_invoice_date,
   COALESCE(ed.vendor_invoice_total, 0) AS vendor_invoice_total,
-  COALESCE((
-    SELECT SUM(other.total) FROM expenses other
-    WHERE ed.id IS NOT NULL AND other.attachment_document = ed.id
-      AND COALESCE(other.rejected, '') = ''
-  ), 0) AS vendor_invoice_allocated,
   e.rejector,
   e.rejected,
   e.rejection_reason,

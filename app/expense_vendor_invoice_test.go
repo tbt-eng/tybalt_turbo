@@ -366,3 +366,105 @@ func TestVendorInvoiceDetails(t *testing.T) {
 		}
 	})
 }
+
+// TestExpenseVendorInvoiceView checks the list of expenses on an invoice: every
+// part is listed, only the parts the viewer may open are linkable, and the
+// person who set the details is shown.
+func TestExpenseVendorInvoiceView(t *testing.T) {
+	ownerToken, err := testutils.GenerateRecordToken("users", "time@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bookkeeperToken, err := testutils.GenerateRecordToken("users", "book@keeper.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	strangerToken, err := testutils.GenerateRecordToken("users", "francesco@mac.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := testutils.SetupTestApp(t)
+	t.Cleanup(app.Cleanup)
+
+	details := map[string]string{"vendor_invoice_number": "INV-VIEW", "vendor_invoice_date": "2024-08-30", "vendor_invoice_total": "30"}
+	content := pngContent(20)
+	status, body, ownerExpenseID := postVendorInvoiceExpense(t, app, ownerToken,
+		vendorInvoiceExpenseFields("owner part", "10", details), content)
+	if status != http.StatusOK {
+		t.Fatalf("owner part failed: %d %s", status, body)
+	}
+	status, body, bookkeeperExpenseID := postVendorInvoiceExpense(t, app, bookkeeperToken,
+		vendorInvoiceExpenseFields("bookkeeper part", "12.5", details), content)
+	if status != http.StatusOK {
+		t.Fatalf("bookkeeper part failed: %d %s", status, body)
+	}
+
+	type part struct {
+		ID        string  `json:"id"`
+		PONumber  string  `json:"po_number"`
+		Total     float64 `json:"total"`
+		EnteredBy string  `json:"entered_by_name"`
+		CanOpen   bool    `json:"can_open"`
+	}
+	type view struct {
+		Number     string  `json:"vendor_invoice_number"`
+		Total      float64 `json:"vendor_invoice_total"`
+		RecordedBy string  `json:"recorded_by_name"`
+		Recorded   string  `json:"vendor_invoice_recorded"`
+		Allocated  float64 `json:"allocated"`
+		Parts      []part  `json:"parts"`
+	}
+	load := func(token, expenseID string) (int, view) {
+		t.Helper()
+		res := performTestAPIRequest(t, app, http.MethodGet, "/api/expenses/invoice/"+expenseID, nil, map[string]string{"Authorization": token})
+		var v view
+		_ = json.Unmarshal(res.Body.Bytes(), &v)
+		return res.Code, v
+	}
+
+	// The bookkeeper reused the invoice without changing it, so the owner who
+	// set the details is still shown as having recorded them.
+	code, v := load(bookkeeperToken, bookkeeperExpenseID)
+	if code != http.StatusOK {
+		t.Fatalf("bookkeeper view failed: %d", code)
+	}
+	if v.Number != "INV-VIEW" || v.Total != 30 || v.Allocated != 22.5 || v.RecordedBy != "Tester Time" || v.Recorded == "" {
+		t.Fatalf("unexpected invoice view: %+v", v)
+	}
+	if len(v.Parts) != 2 {
+		t.Fatalf("parts = %d; want 2", len(v.Parts))
+	}
+	canOpen := map[string]bool{}
+	for _, p := range v.Parts {
+		if p.PONumber != "2026-0901" {
+			t.Errorf("part %s PO = %q; want 2026-0901", p.ID, p.PONumber)
+		}
+		canOpen[p.ID] = p.CanOpen
+	}
+	// The bookkeeper entered their part but may not open the owner's own part.
+	if !canOpen[bookkeeperExpenseID] || canOpen[ownerExpenseID] {
+		t.Fatalf("bookkeeper can_open = %v; want only their own part", canOpen)
+	}
+
+	// The owner can open both: the bookkeeper's part was entered for them.
+	code, v = load(ownerToken, ownerExpenseID)
+	if code != http.StatusOK || len(v.Parts) != 2 || !v.Parts[0].CanOpen || !v.Parts[1].CanOpen {
+		t.Fatalf("owner view = %d %+v; want both parts openable", code, v)
+	}
+
+	// Someone who cannot see the expense cannot see its invoice.
+	if code, _ := load(strangerToken, ownerExpenseID); code != http.StatusNotFound {
+		t.Fatalf("stranger view = %d; want 404", code)
+	}
+
+	// Changing the details records who changed them.
+	update := performTestAPIRequest(t, app, http.MethodPatch, "/api/expenses/"+bookkeeperExpenseID,
+		strings.NewReader(`{"vendor_invoice_total": 40}`), map[string]string{
+			"Authorization": bookkeeperToken,
+			"Content-Type":  "application/json",
+		})
+	mustStatus(t, update, http.StatusOK)
+	if _, v = load(ownerToken, ownerExpenseID); v.RecordedBy != "Ultra Chifres" || v.Total != 40 {
+		t.Fatalf("after the bookkeeper's change: %+v; want recorded by Ultra Chifres, total 40", v)
+	}
+}
