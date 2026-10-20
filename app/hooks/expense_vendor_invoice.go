@@ -280,10 +280,11 @@ func validateVendorInvoiceFields(expense *core.Record, next *vendorInvoiceDetail
 }
 
 // matchVendorInvoiceVendorAndCurrency takes the vendor and currency from the
-// expense when the document has none, and otherwise requires every expense on
-// the invoice to use the document's.
+// expense while it is the only expense on the document, so correcting the
+// expense corrects the invoice. Once the invoice is shared, every expense on it
+// must use the document's vendor and currency.
 func matchVendorInvoiceVendorAndCurrency(app core.App, expense *core.Record, others []*core.Record, next *vendorInvoiceDetails) error {
-	if next.Vendor == "" {
+	if next.Vendor == "" || len(others) == 0 {
 		next.Vendor = expense.GetString("vendor")
 		next.Currency = expense.GetString("currency")
 	}
