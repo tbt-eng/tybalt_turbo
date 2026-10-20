@@ -25,6 +25,7 @@
   import {
     invoiceIsBlank,
     loadVendorInvoice,
+    loadVendorInvoiceByFile,
     partLocksDetails,
     type VendorInvoiceView,
   } from "$lib/components/expenses/vendorInvoice";
@@ -119,16 +120,40 @@
       .then((view) => {
         invoiceView = view;
         // A reused invoice carries its details; show them instead of blanks.
-        if (!data.editing && vendorInvoice.number === "" && view.vendor_invoice_number !== "") {
-          vendorInvoice = {
-            number: view.vendor_invoice_number,
-            date: view.vendor_invoice_date,
-            total: view.vendor_invoice_total,
-          };
-        }
+        if (!data.editing) prefillVendorInvoice(view);
       })
       .catch(() => (invoiceView = null));
   }
+  function prefillVendorInvoice(view: VendorInvoiceView) {
+    if (vendorInvoice.number === "" && view.vendor_invoice_number !== "") {
+      vendorInvoice = {
+        number: view.vendor_invoice_number,
+        date: view.vendor_invoice_date,
+        total: view.vendor_invoice_total,
+      };
+    }
+  }
+  // A bookkeeper can also reuse an invoice by uploading its file again. Look the
+  // file up when it is chosen, so the form shows the invoice it will be reused
+  // for rather than blank fields.
+  let lookedUpFile: File | null = null;
+  $effect(() => {
+    const attachment = item.attachment as unknown;
+    if (!(attachment instanceof File) || attachment === lookedUpFile) return;
+    if (!isBookKeeper || item.payment_type !== "OnAccount") return;
+    lookedUpFile = attachment;
+    loadVendorInvoiceByFile(attachment)
+      .then((view) => {
+        if (lookedUpFile !== attachment) return;
+        if (view.document) {
+          invoiceView = view;
+          prefillVendorInvoice(view);
+        } else if (!data.editing) {
+          invoiceView = null;
+        }
+      })
+      .catch(() => {});
+  });
   // Other expenses on the invoice. A submitted one locks the details, except
   // that a bookkeeper may fill in an invoice that has none yet.
   const invoiceOthers = $derived(
