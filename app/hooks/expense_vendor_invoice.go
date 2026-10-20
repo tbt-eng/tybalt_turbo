@@ -196,6 +196,11 @@ func applyVendorInvoiceDetails(app core.App, e *core.RecordRequestEvent, body ma
 	if next == current {
 		return nil
 	}
+	now := types.NowDateTime()
+	recordedBy := ""
+	if e.Auth != nil {
+		recordedBy = e.Auth.Id
+	}
 	_, err = app.DB().Update(constants.ExpenseDocumentsCollectionName, dbx.Params{
 		"vendor":                    next.Vendor,
 		"vendor_invoice_number":     next.Number,
@@ -203,7 +208,10 @@ func applyVendorInvoiceDetails(app core.App, e *core.RecordRequestEvent, body ma
 		"vendor_invoice_date":       next.Date,
 		"vendor_invoice_total":      next.Total,
 		"vendor_invoice_currency":   next.Currency,
-		"updated":                   types.NowDateTime(),
+		// Who last set or changed the details, and when. Not a history.
+		"vendor_invoice_recorded_by": recordedBy,
+		"vendor_invoice_recorded":    now,
+		"updated":                    now,
 	}, dbx.HashExp{"id": document.Id}).Execute()
 	return err
 }

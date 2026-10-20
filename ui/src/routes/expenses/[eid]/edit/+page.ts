@@ -45,7 +45,6 @@ export const load: PageLoad<ExpensesPageData> = async ({ params }) => {
         vendor_invoice_number: invoice.vendor_invoice_number ?? "",
         vendor_invoice_date: invoice.vendor_invoice_date ?? "",
         vendor_invoice_total: invoice.vendor_invoice_total ?? 0,
-        vendor_invoice_allocated: invoice.vendor_invoice_allocated ?? 0,
       });
     } catch (error) {
       console.warn(`error loading expense attachment metadata: ${error}`);
