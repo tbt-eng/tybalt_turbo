@@ -20,6 +20,14 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import DsFileSelect from "$lib/components/DsFileSelect.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import VendorInvoiceParts from "$lib/components/expenses/VendorInvoiceParts.svelte";
+  import {
+    invoiceIsBlank,
+    loadVendorInvoice,
+    partLocksDetails,
+    type VendorInvoiceView,
+  } from "$lib/components/expenses/vendorInvoice";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import { authStore } from "$lib/stores/auth";
   import { divisions } from "$lib/stores/divisions";
@@ -88,7 +96,6 @@
     vendor_invoice_number?: string;
     vendor_invoice_date?: string;
     vendor_invoice_total?: number;
-    vendor_invoice_allocated?: number;
   };
 
   let errors = $state({} as Record<string, { message: string; code?: string }>);
@@ -100,7 +107,39 @@
     // Blank until entered: a 0 would read as an entered total.
     total: (loadedInvoice.vendor_invoice_total || "") as number | string,
   });
-  const vendorInvoiceAllocated = loadedInvoice.vendor_invoice_allocated ?? 0;
+
+  // The invoice behind this expense, or behind the expense whose attachment a
+  // bookkeeper is reusing, and every expense that shares it.
+  let invoiceView = $state<VendorInvoiceView | null>(null);
+  const invoiceSourceId = untrack(() =>
+    data.editing ? (data.id ?? "") : (data.source_expense ?? ""),
+  );
+  if (invoiceSourceId) {
+    loadVendorInvoice(invoiceSourceId)
+      .then((view) => {
+        invoiceView = view;
+        // A reused invoice carries its details; show them instead of blanks.
+        if (!data.editing && vendorInvoice.number === "" && view.vendor_invoice_number !== "") {
+          vendorInvoice = {
+            number: view.vendor_invoice_number,
+            date: view.vendor_invoice_date,
+            total: view.vendor_invoice_total,
+          };
+        }
+      })
+      .catch(() => (invoiceView = null));
+  }
+  // Other expenses on the invoice. A submitted one locks the details, except
+  // that a bookkeeper may fill in an invoice that has none yet.
+  const invoiceOthers = $derived(
+    invoiceView?.parts.filter((part) => part.id !== (data.editing ? data.id : "")) ?? [],
+  );
+  const invoiceLockingOthers = $derived(invoiceOthers.filter(partLocksDetails));
+  const invoiceBlank = $derived(invoiceView !== null && invoiceIsBlank(invoiceView));
+  const isBookKeeper = $derived($globalStore.claims.includes("book_keeper"));
+  const invoiceLocked = $derived(
+    invoiceLockingOthers.length > 0 && !(invoiceBlank && isBookKeeper),
+  );
   const dateInputMax = dateInputMaxMonthsAhead(15);
   let overflowModal: CumulativePOOverflowModal;
 
@@ -739,12 +778,34 @@
     {#if item.payment_type === "OnAccount"}
       <!-- The attachment is the vendor's invoice. Its details are stored on the
       attached document and are required on on-account expenses. -->
+      {#if invoiceLocked && invoiceBlank}
+        <DSCallout tone="warning" title="Only a bookkeeper can add these invoice details">
+          This invoice has no details yet, and {invoiceLockingOthers.length === 1
+            ? "another expense on it is"
+            : `${invoiceLockingOthers.length} other expenses on it are`} already submitted.
+        </DSCallout>
+      {:else if invoiceLocked}
+        <DSCallout tone="info" title="These invoice details are locked">
+          {invoiceLockingOthers.length === 1
+            ? "Another expense on this invoice is"
+            : `${invoiceLockingOthers.length} other expenses on this invoice are`} submitted for approval
+          against them.
+        </DSCallout>
+      {:else if invoiceBlank && invoiceOthers.length > 0}
+        <DSCallout tone="warning" title="These details apply to every expense on this invoice">
+          This invoice is already used by {invoiceOthers.length === 1
+            ? "another expense"
+            : `${invoiceOthers.length} other expenses`}, {invoiceLockingOthers.length} of them submitted.
+          Check them below before saving.
+        </DSCallout>
+      {/if}
       <DsTextInput
         bind:value={vendorInvoice.number}
         {errors}
         fieldName="vendor_invoice_number"
         uiName="Invoice number"
         placeholder="As printed on the vendor's invoice"
+        disabled={invoiceLocked}
       />
       <span
         class="flex w-full gap-2 {errors.vendor_invoice_date !== undefined ? 'bg-red-200' : ''}"
@@ -755,6 +816,7 @@
           id="vendor_invoice_date"
           name="vendor_invoice_date"
           bind:value={vendorInvoice.date}
+          disabled={invoiceLocked}
         />
         {#if errors.vendor_invoice_date !== undefined}
           <span class="text-red-600">{errors.vendor_invoice_date.message}</span>
@@ -769,10 +831,15 @@
         currencyFieldName="vendor_invoice_currency"
         uiName="Invoice total"
         disabledCurrency={true}
-        helperText={vendorInvoiceAllocated > 0
-          ? `Expenses on this invoice so far total ${vendorInvoiceAllocated.toFixed(2)}.`
-          : "The full invoice total, taxes included."}
+        disabledAmount={invoiceLocked}
+        helperText="The full invoice total, taxes included."
       />
+      {#if invoiceView && invoiceOthers.length > 0}
+        <VendorInvoiceParts
+          invoice={invoiceView}
+          currentExpenseId={data.editing ? (data.id ?? "") : ""}
+        />
+      {/if}
     {/if}
   {/if}
 
