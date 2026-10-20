@@ -49,6 +49,8 @@ LEFT JOIN (
   SELECT client FROM client_invoicing_information
   UNION
   SELECT client FROM client_notes
+  UNION
+  SELECT client FROM invoices
 ) uses ON uses.client = c.id
 WHERE ({:id} IS NULL OR {:id} = '' OR c.id = {:id})
 ORDER BY c.name;

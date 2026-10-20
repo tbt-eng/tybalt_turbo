@@ -34,6 +34,8 @@ export enum Collections {
   ExpenseRates = "expense_rates",
   Expenses = "expenses",
   ExpensesAugmented = "expenses_augmented",
+  InvoiceLines = "invoice_lines",
+  Invoices = "invoices",
   Jobs = "jobs",
   Managers = "managers",
   MileageResetDates = "mileage_reset_dates",
@@ -540,6 +542,40 @@ export enum JobsStatusOptions {
   "In Progress" = "In Progress",
   "No Bid" = "No Bid",
 }
+export enum InvoiceLinesKindOptions {
+  expense = "expense",
+  po = "po",
+}
+export type InvoiceLinesRecord = {
+  amount: number;
+  created: IsoDateString;
+  creator: RecordIdString;
+  expense: RecordIdString;
+  id: string;
+  invoice: RecordIdString;
+  kind: InvoiceLinesKindOptions;
+  purchase_order: RecordIdString;
+  updated: IsoDateString;
+};
+
+export enum InvoicesStatusOptions {
+  Draft = "Draft",
+  Issued = "Issued",
+}
+export type InvoicesRecord = {
+  client: RecordIdString;
+  created: IsoDateString;
+  creator: RecordIdString;
+  date: string;
+  id: string;
+  issued_at: string;
+  issued_by: RecordIdString;
+  number: string;
+  status: InvoicesStatusOptions;
+  total: number;
+  updated: IsoDateString;
+};
+
 export type JobsRecord = {
   invoicing_information?: RecordIdString;
   request_creator: RecordIdString;
@@ -1192,6 +1228,10 @@ export type ExpensesResponse<Texpand = ExpensesRecordExpands> = Required<Expense
   BaseSystemFields<Texpand>;
 export type ExpensesAugmentedResponse<Texpand = unknown> = Required<ExpensesAugmentedRecord> &
   BaseSystemFields<Texpand>;
+export type InvoiceLinesResponse<Texpand = unknown> = Required<InvoiceLinesRecord> &
+  BaseSystemFields<Texpand>;
+export type InvoicesResponse<Texpand = unknown> = Required<InvoicesRecord> &
+  BaseSystemFields<Texpand>;
 export type JobsResponse<Texpand = JobsRecordExpands> = Required<JobsRecord> &
   BaseSystemFields<Texpand>;
 export type ManagersResponse<Texpand = ManagersRecordExpands> = Required<ManagersRecord> &
@@ -1287,6 +1327,8 @@ export type CollectionRecords = {
   expense_rates: ExpenseRatesRecord;
   expenses: ExpensesRecord;
   expenses_augmented: ExpensesAugmentedRecord;
+  invoice_lines: InvoiceLinesRecord;
+  invoices: InvoicesRecord;
   jobs: JobsRecord;
   managers: ManagersRecord;
   mileage_reset_dates: MileageResetDatesRecord;
@@ -1347,6 +1389,8 @@ export type CollectionResponses = {
   expense_rates: ExpenseRatesResponse;
   expenses: ExpensesResponse;
   expenses_augmented: ExpensesAugmentedResponse;
+  invoice_lines: InvoiceLinesResponse;
+  invoices: InvoicesResponse;
   jobs: JobsResponse;
   managers: ManagersResponse;
   mileage_reset_dates: MileageResetDatesResponse;
@@ -1408,6 +1452,8 @@ export type TypedPocketBase = PocketBase & {
   collection(idOrName: "expense_rates"): RecordService<ExpenseRatesResponse>;
   collection(idOrName: "expenses"): RecordService<ExpensesResponse>;
   collection(idOrName: "expenses_augmented"): RecordService<ExpensesAugmentedResponse>;
+  collection(idOrName: "invoice_lines"): RecordService<InvoiceLinesResponse>;
+  collection(idOrName: "invoices"): RecordService<InvoicesResponse>;
   collection(idOrName: "jobs"): RecordService<JobsResponse>;
   collection(idOrName: "managers"): RecordService<ManagersResponse>;
   collection(idOrName: "mileage_reset_dates"): RecordService<MileageResetDatesResponse>;

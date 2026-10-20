@@ -23,3 +23,4 @@ created,description,id,name,updated
 2026-09-02 00:00:00.000Z,Can view management KPI reports,kpihoursclaim01,kpi,2026-09-02 00:00:00.000Z
 2026-09-30 00:00:00.000Z,Approve full project values within the assigned limit,projectauth0001,project_authorization,2026-09-30 00:00:00.000Z
 2026-11-02 16:00:00.000Z,Create purchase orders for other staff from a template and a CSV upload,superpo00000001,super_po,2026-11-02 16:00:00.000Z
+2026-10-20 21:36:00.334Z,Can record client invoices and link billed-back expenses and purchase orders to them,invoicingclm001,invoicing,2026-10-20 21:36:00.334Z

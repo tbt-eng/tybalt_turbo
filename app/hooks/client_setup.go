@@ -25,6 +25,7 @@ var clientRecordUses = map[string][]struct{ collection, field string }{
 		{"job_requests", "job_owner"},
 		{"client_invoicing_information", "client"},
 		{"client_notes", "client"},
+		{"invoices", "client"},
 	},
 	"client_contacts": {
 		{"jobs", "contact"},

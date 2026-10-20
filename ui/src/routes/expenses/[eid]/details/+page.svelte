@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSCardGrid from "$lib/components/DSCardGrid.svelte";
+  import BilledToClient from "$lib/components/invoices/BilledToClient.svelte";
   import type { PageData } from "./$types";
   import { pb } from "$lib/pocketbase";
   import { globalStore } from "$lib/stores/global";
@@ -687,6 +689,10 @@
       </div>
     {/if}
   </div>
+
+  <DSCardGrid>
+    <BilledToClient kind="expense" id={expense.id} />
+  </DSCardGrid>
 
   <RejectModal collectionName="expenses" bind:this={rejectModal} on:refresh={handleRejected} />
   <ExpenseUncommitRequestPopover

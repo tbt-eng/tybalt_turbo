@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSCardGrid from "$lib/components/DSCardGrid.svelte";
+  import BilledToClient from "$lib/components/invoices/BilledToClient.svelte";
   import type { PageData } from "./$types";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
@@ -581,6 +583,9 @@
       {/if}
     </div>
   </div>
+  <DSCardGrid>
+    <BilledToClient kind="po" id={data.po.id} />
+  </DSCardGrid>
   {#if data.po.status === "Unapproved" && $expensesEditingEnabled}
     <div class="flex flex-wrap gap-2">
       {#if isOwner && !data.po.legacy_manual_entry}
