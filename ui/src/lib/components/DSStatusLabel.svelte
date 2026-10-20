@@ -3,15 +3,11 @@
 
   // The one map from record status to tone. Expenses have no status field;
   // pass the display status the page derives from its timestamps.
-  let {
-    status,
-    kind,
-  }: { status: string; kind?: "job" | "po" | "expense" | "request" | "uncommit" } = $props();
+  let { status, kind }: { status: string; kind?: StatusKind } = $props();
 
-  const tonesByKind: Record<
-    "job" | "po" | "expense" | "request" | "uncommit",
-    Record<string, LabelTone>
-  > = {
+  type StatusKind = "job" | "po" | "expense" | "request" | "uncommit" | "invoice";
+
+  const tonesByKind: Record<StatusKind, Record<string, LabelTone>> = {
     job: {
       Active: "success",
       Awarded: "success",
@@ -47,6 +43,10 @@
       Approved: "success",
       Declined: "danger",
       Cancelled: "neutral",
+    },
+    // A draft invoice is neutral, like a draft expense.
+    invoice: {
+      Issued: "success",
     },
   };
 

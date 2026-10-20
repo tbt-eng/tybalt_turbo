@@ -23,3 +23,4 @@ created,description,id,name,updated
 2026-09-02 00:00:00.000Z,"Can view the KPI reports, the Branch and Division WIP reports, and Branch Hours for every branch.",kpihoursclaim01,kpi,2026-09-02 00:00:00.000Z
 2026-09-30 00:00:00.000Z,"Can be chosen to approve project requests and project value changes when the full project value is within the holder's limit. An admin must set that limit, or the claim does nothing.",projectauth0001,project_authorization,2026-09-30 00:00:00.000Z
 2026-11-02 16:00:00.000Z,"Can create a group of POs for other staff from one template PO and a CSV upload, and see every PO of a group in any status.",superpo00000001,super_po,2026-11-02 16:00:00.000Z
+2026-10-20 21:36:00.334Z,"Invoicing staff: can create draft client invoices, bill back expenses and POs on them, issue them, and see every client invoice.",invoicingclm001,invoicing,2026-10-20 21:36:00.334Z

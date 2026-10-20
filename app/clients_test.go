@@ -153,6 +153,7 @@ var clientUses = []clientUse{
 	{"job_requests", "job_owner", "UPDATE job_requests SET job_owner = 'cwclient0000002' WHERE id = 'parequest000001'", http.StatusBadRequest},
 	{"client_invoicing_information", "client", "UPDATE client_invoicing_information SET client = 'cwclient0000002' WHERE id = 'cwinvoice000003'", http.StatusNotFound},
 	{"client_notes", "client", "UPDATE client_notes SET client = 'cwclient0000002' WHERE id = 'note_eld'", http.StatusBadRequest},
+	{"invoices", "client", "INSERT INTO invoices (id, client, number, date, total, status, creator, issued_by, issued_at, created, updated) VALUES ('clientuseinv001', 'cwclient0000002', '', '', 0, 'Draft', '', '', '', '2026-10-20 00:00:00.000Z', '2026-10-20 00:00:00.000Z')", http.StatusBadRequest},
 }
 
 // TestClientsApi_Referenced verifies that the clients API reports whether any

@@ -149,6 +149,7 @@ func AddRoutes(app core.App) {
 		expensesGroup.POST("/{id}/uncommit_requests", createCreateExpenseUncommitRequestHandler(app))
 		expensesGroup.GET("/list", createGetExpensesListHandler(app))
 		expensesGroup.GET("/details/{id}", createGetExpenseDetailsHandler(app))
+		expensesGroup.GET("/client_invoice/{id}", createGetExpenseClientInvoiceHandler(app))
 		expensesGroup.GET("/attachment/{id}", createGetExpenseAttachmentHandler(app))
 		expensesGroup.POST("/{id}/attachment_hash/audit", createAuditExpenseAttachmentHashHandler(app))
 		expensesGroup.POST("/{id}/attachment_hash/replace", createReplaceExpenseAttachmentHashHandler(app))
@@ -211,6 +212,7 @@ func AddRoutes(app core.App) {
 		poGroup.GET("/visible", createGetVisiblePurchaseOrdersHandler(app))
 		poGroup.GET("/visible/{id}", createGetVisiblePurchaseOrderHandler(app))
 		poGroup.GET("/visible/{id}/expenses", createGetPurchaseOrderExpensesHandler(app))
+		poGroup.GET("/client_invoice/{id}", createGetPurchaseOrderClientInvoiceHandler(app))
 		poGroup.GET("/search", createGetSearchablePurchaseOrdersHandler(app))
 		poGroup.GET("/approvers", createGetApproversHandler(app, false))
 		poGroup.GET("/approval_limits", createGetPOApprovalLimitsHandler(app))
@@ -241,6 +243,13 @@ func AddRoutes(app core.App) {
 		poLegacy.GET("/{id}/edit", createGetLegacyPurchaseOrderForEditHandler(app))
 		poLegacy.POST("", createCreateLegacyPurchaseOrderHandler(app))
 		poLegacy.PATCH("/{id}", createUpdateLegacyPurchaseOrderHandler(app))
+
+		// Client invoices; drafts and lines are written through their collections.
+		invoicesGroup := se.Router.Group("/api/invoices")
+		invoicesGroup.Bind(apis.RequireAuth("users"))
+		invoicesGroup.POST("/{id}/issue", createIssueInvoiceHandler(app))
+		invoicesGroup.GET("/{id}/lines", createGetInvoiceLinesHandler(app))
+		invoicesGroup.GET("/{id}/billable", createGetInvoiceBillableHandler(app))
 
 		clientsGroup := se.Router.Group("/api/clients")
 		clientsGroup.Bind(apis.RequireAuth("users"))
