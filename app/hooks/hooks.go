@@ -479,6 +479,37 @@ func AddHooks(app core.App) {
 		}
 		return e.Next()
 	})
+	// hooks for client invoices and the costs billed on them
+	app.OnRecordCreateRequest("invoices").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ProcessInvoiceCreate(app, e); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordUpdateRequest("invoices").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ProcessInvoiceUpdate(app, e); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordDeleteRequest("invoices").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ProcessInvoiceDelete(app, e); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordCreateRequest("invoice_lines").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ProcessInvoiceLineCreate(app, e); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
+	app.OnRecordDeleteRequest("invoice_lines").BindFunc(func(e *core.RecordRequestEvent) error {
+		if err := ProcessInvoiceLineDelete(app, e); err != nil {
+			return AnnotateHookError(app, e, err)
+		}
+		return e.Next()
+	})
 	// hooks for po_approver_props model
 	app.OnRecordCreateRequest("po_approver_props").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ProcessPOApproverProps(app, e); err != nil {

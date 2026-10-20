@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSCardGrid from "$lib/components/DSCardGrid.svelte";
+  import BilledToClient from "$lib/components/invoices/BilledToClient.svelte";
   import type { PageData } from "./$types";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
@@ -576,6 +578,9 @@
       {/if}
     </div>
   </div>
+  <DSCardGrid>
+    <BilledToClient kind="po" id={data.po.id} />
+  </DSCardGrid>
   <!-- A rejected PO's Edit and Resubmit is in the rejection notice above. -->
   {#if data.po.status === "Unapproved" && $expensesEditingEnabled && !isRejected}
     <div class="flex flex-wrap gap-2">
