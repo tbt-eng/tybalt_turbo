@@ -165,7 +165,7 @@ func applyVendorInvoiceDetails(app core.App, e *core.RecordRequestEvent, body ma
 	changed := next.Number != current.Number || next.Date != current.Date ||
 		utilities.CurrencyAmountToCents(next.Total) != utilities.CurrencyAmountToCents(current.Total)
 	if changed {
-		if err := checkVendorInvoiceEditable(document, others, e.Auth, hasBookKeeperClaim); err != nil {
+		if err := checkVendorInvoiceEditable(document, current, others, e.Auth, hasBookKeeperClaim); err != nil {
 			return err
 		}
 	}
@@ -225,10 +225,21 @@ func isRejected(expense *core.Record) bool {
 // details, or anyone when no other expense uses the document. The details lock
 // once another expense on the document is submitted and not rejected, because
 // that expense is waiting for approval against them.
-func checkVendorInvoiceEditable(document *core.Record, others []*core.Record, auth *core.Record, hasBookKeeperClaim bool) error {
+//
+// One exception: a bookkeeper may fill in an invoice that has no details at
+// all. Invoices uploaded before vendor invoice details existed have none, and a
+// bookkeeper reusing one for another PO must add them even though its earlier
+// expense is already submitted. Filling blank details changes nothing an
+// approver saw. Only bookkeepers reuse documents across POs, so the exception
+// is theirs. Existing details stay locked for everyone.
+func checkVendorInvoiceEditable(document *core.Record, current vendorInvoiceDetails, others []*core.Record, auth *core.Record, hasBookKeeperClaim bool) error {
 	if len(others) > 0 && !hasBookKeeperClaim && (auth == nil || document.GetString("uploaded_by") != auth.Id) {
 		return vendorInvoiceError(http.StatusForbidden, "vendor_invoice_number", "not_editable",
 			"Only the person who uploaded this invoice or a bookkeeper can change its details.")
+	}
+	blank := current.Number == "" && current.Date == "" && utilities.CurrencyAmountToCents(current.Total) == 0
+	if blank && hasBookKeeperClaim {
+		return nil
 	}
 	for _, other := range others {
 		if other.GetBool("submitted") && !isRejected(other) {
