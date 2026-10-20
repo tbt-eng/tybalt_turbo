@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -467,4 +469,144 @@ func TestExpenseVendorInvoiceView(t *testing.T) {
 	if _, v = load(ownerToken, ownerExpenseID); v.RecordedBy != "Ultra Chifres" || v.Total != 40 {
 		t.Fatalf("after the bookkeeper's change: %+v; want recorded by Ultra Chifres, total 40", v)
 	}
+}
+
+// TestVendorInvoiceNonUploaderCannotChangeSharedInvoice follows the one way a
+// user who neither uploaded an invoice nor is a bookkeeper can end up on a
+// shared invoice: the uploader deletes their draft, leaving the document
+// orphaned; another user uploads the same file, which relinks that document
+// with its original uploader; then a bookkeeper reuses it for a PO. The second
+// user may not change the shared invoice's details.
+func TestVendorInvoiceNonUploaderCannotChangeSharedInvoice(t *testing.T) {
+	ownerToken, err := testutils.GenerateRecordToken("users", "time@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bookkeeperToken, err := testutils.GenerateRecordToken("users", "book@keeper.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := testutils.SetupTestApp(t)
+	t.Cleanup(app.Cleanup)
+	content := pngContent(30)
+	details := map[string]string{"vendor_invoice_number": "INV-ORPHAN", "vendor_invoice_date": "2024-08-30", "vendor_invoice_total": "50"}
+
+	// 1. The PO owner uploads the invoice, then deletes the draft.
+	status, body, ownerExpenseID := postVendorInvoiceExpense(t, app, ownerToken,
+		vendorInvoiceExpenseFields("owner draft", "10", details), content)
+	if status != http.StatusOK {
+		t.Fatalf("owner draft failed: %d %s", status, body)
+	}
+	del := performTestAPIRequest(t, app, http.MethodDelete, "/api/collections/expenses/records/"+ownerExpenseID, nil, map[string]string{"Authorization": ownerToken})
+	mustStatus(t, del, http.StatusNoContent)
+
+	// 2. Another user uploads the same file on their own expense. The orphaned
+	// document is relinked and keeps its original uploader.
+	otherFields := map[string]string{
+		"uid":          "f2j5a8vk006baub",
+		"date":         "2024-09-01",
+		"division":     "vccd5fo56ctbigh",
+		"description":  "other user's on-account expense",
+		"payment_type": "OnAccount",
+		"kind":         "l3vtlbqg529m52j",
+		"total":        "10",
+		"vendor":       "z66xe6vqhwtokt4",
+	}
+	for key, value := range details {
+		otherFields[key] = value
+	}
+	status, body, otherExpenseID := postVendorInvoiceExpense(t, app, otherToken, otherFields, content)
+	if status != http.StatusOK {
+		t.Fatalf("other user's expense failed: %d %s", status, body)
+	}
+	var uploadedBy string
+	if err := app.DB().NewQuery("SELECT ed.uploaded_by FROM expenses e JOIN expense_documents ed ON ed.id = e.attachment_document WHERE e.id = {:id}").
+		Bind(map[string]any{"id": otherExpenseID}).Row(&uploadedBy); err != nil {
+		t.Fatal(err)
+	}
+	if uploadedBy != "rzr98oadsp9qc11" {
+		t.Fatalf("uploaded_by = %q; the relinked document should keep its original uploader", uploadedBy)
+	}
+
+	// 3. A bookkeeper reuses the invoice for the PO owner's PO.
+	status, body, _ = postVendorInvoiceExpense(t, app, bookkeeperToken,
+		vendorInvoiceExpenseFields("bookkeeper part", "10", details), content)
+	if status != http.StatusOK {
+		t.Fatalf("bookkeeper reuse failed: %d %s", status, body)
+	}
+
+	// The second user is neither the uploader nor a bookkeeper.
+	update := performTestAPIRequest(t, app, http.MethodPatch, "/api/expenses/"+otherExpenseID,
+		strings.NewReader(`{"vendor_invoice_total": 60}`), map[string]string{
+			"Authorization": otherToken,
+			"Content-Type":  "application/json",
+		})
+	if update.Code != http.StatusForbidden || !strings.Contains(update.Body.String(), `"code":"not_editable"`) {
+		t.Fatalf("expected not_editable, got %d %s", update.Code, update.Body.String())
+	}
+	// Saving their expense without changing the invoice still works.
+	update = performTestAPIRequest(t, app, http.MethodPatch, "/api/expenses/"+otherExpenseID,
+		strings.NewReader(`{"description": "other user's corrected description"}`), map[string]string{
+			"Authorization": otherToken,
+			"Content-Type":  "application/json",
+		})
+	mustStatus(t, update, http.StatusOK)
+}
+
+// TestVendorInvoiceLookupByFile checks that a bookkeeper choosing a file that is
+// already on an expense can see the invoice it will be reused for, and that
+// nobody else can look files up.
+func TestVendorInvoiceLookupByFile(t *testing.T) {
+	ownerToken, err := testutils.GenerateRecordToken("users", "time@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bookkeeperToken, err := testutils.GenerateRecordToken("users", "book@keeper.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := testutils.SetupTestApp(t)
+	t.Cleanup(app.Cleanup)
+	content := pngContent(31)
+	status, body, _ := postVendorInvoiceExpense(t, app, ownerToken,
+		vendorInvoiceExpenseFields("owner part", "10", map[string]string{
+			"vendor_invoice_number": "INV-FILE", "vendor_invoice_date": "2024-08-30", "vendor_invoice_total": "25",
+		}), content)
+	if status != http.StatusOK {
+		t.Fatalf("owner part failed: %d %s", status, body)
+	}
+	sum := sha256.Sum256(content)
+	url := "/api/expenses/invoice-by-file/" + hex.EncodeToString(sum[:])
+
+	res := performTestAPIRequest(t, app, http.MethodGet, url, nil, map[string]string{"Authorization": bookkeeperToken})
+	mustStatus(t, res, http.StatusOK)
+	var view struct {
+		Document string `json:"document"`
+		Number   string `json:"vendor_invoice_number"`
+		Parts    []struct {
+			ID string `json:"id"`
+		} `json:"parts"`
+	}
+	if err := json.Unmarshal(res.Body.Bytes(), &view); err != nil {
+		t.Fatal(err)
+	}
+	if view.Document == "" || view.Number != "INV-FILE" || len(view.Parts) != 1 {
+		t.Fatalf("unexpected lookup: %+v", view)
+	}
+
+	// A file nobody has uploaded returns no invoice.
+	unknown := sha256.Sum256([]byte("not uploaded"))
+	res = performTestAPIRequest(t, app, http.MethodGet, "/api/expenses/invoice-by-file/"+hex.EncodeToString(unknown[:]), nil, map[string]string{"Authorization": bookkeeperToken})
+	mustStatus(t, res, http.StatusOK)
+	if strings.Contains(res.Body.String(), `"document":"`) && !strings.Contains(res.Body.String(), `"document":""`) {
+		t.Fatalf("expected no invoice for an unknown file, got %s", res.Body.String())
+	}
+
+	// Only bookkeepers can reuse a file, so only they can look one up.
+	res = performTestAPIRequest(t, app, http.MethodGet, url, nil, map[string]string{"Authorization": ownerToken})
+	mustStatus(t, res, http.StatusForbidden)
 }
