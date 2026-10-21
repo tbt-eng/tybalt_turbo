@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -425,6 +428,59 @@ func TestJobValueSaveIgnoresProjectDetails(t *testing.T) {
 	}
 	if hours := workflowRecord(t, app, "job_time_allocations", "pawflegacyalloc").GetFloat("hours"); hours != 10 {
 		t.Fatalf("value change changed allocation hours to %v", hours)
+	}
+}
+
+// workflowFormMethod sends a multipart form with no document, as the value
+// change form does when no replacement PDF is chosen.
+func workflowFormMethod(t *testing.T, app *tests.TestApp, method, path, email string, fields map[string]string, status int) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for key, value := range fields {
+		if err := writer.WriteField(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	response := performTestAPIRequest(t, app, method, path, &body, map[string]string{"Authorization": workflowToken(t, app, email), "Content-Type": writer.FormDataContentType()})
+	mustStatus(t, response, status)
+	return response
+}
+
+// The correction form marks the replacement PDF optional, so a pending change
+// can move to another approver and keep its PDF.
+func TestJobValueCorrectionWithoutPDFChangesApprover(t *testing.T) {
+	app := newWorkflowTestApp(t, false)
+	grantTesterTimeApproval(t, app)
+	id := createValueChange(t, app, legacyWorkflowJob, 10000, "Keep this PDF")
+	before := workflowRecord(t, app, "job_attachments", id)
+	fields := map[string]string{"job": legacyWorkflowJob, "project_value": "10000", "assigned_approver": "rzr98oadsp9qc11", "version": fmt.Sprint(before.GetInt("version"))}
+	workflowFormMethod(t, app, http.MethodPatch, "/api/job_attachments/"+id, workflowAuthor, fields, http.StatusOK)
+	after := workflowRecord(t, app, "job_attachments", id)
+	if got := after.GetString("assigned_approver"); got != "rzr98oadsp9qc11" {
+		t.Fatalf("approver = %s, want rzr98oadsp9qc11", got)
+	}
+	if after.GetString("status") != "Pending" {
+		t.Fatalf("status = %s, want Pending", after.GetString("status"))
+	}
+	if after.GetString("document") != before.GetString("document") || after.GetString("document_hash") != before.GetString("document_hash") {
+		t.Fatal("correction without a PDF replaced the PDF")
+	}
+}
+
+// A new value change still needs a PDF.
+func TestJobValueCreateWithoutPDFIsRejected(t *testing.T) {
+	app := newWorkflowTestApp(t, false)
+	fields := map[string]string{"job": legacyWorkflowJob, "project_value": "10000", "assigned_approver": "6bq4j0eb26631dy"}
+	response := workflowFormMethod(t, app, http.MethodPost, "/api/job_attachments", workflowAuthor, fields, http.StatusBadRequest)
+	if !strings.Contains(response.Body.String(), "Upload one authorization PDF.") {
+		t.Fatalf("unexpected error: %s", response.Body.String())
+	}
+	if count, err := app.CountRecords("job_attachments", dbx.HashExp{"job": legacyWorkflowJob}); err != nil || count != 0 {
+		t.Fatalf("rejected submission retained attachment: %v %d", err, count)
 	}
 }
 

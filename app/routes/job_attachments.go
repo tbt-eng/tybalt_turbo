@@ -24,7 +24,9 @@ import (
 func readAuthorizationUpload(e *core.RequestEvent, required bool) (*filesystem.File, string, error) {
 	e.Request.Body = http.MaxBytesReader(e.Response, e.Request.Body, 21<<20)
 	files, err := e.FindUploadedFiles("document")
-	if err != nil {
+	// PocketBase reports a form without the file as ErrMissingFile, not as an
+	// empty list, so a correction that keeps its PDF must not fail here.
+	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		return nil, "", workflowError("Cannot read the authorization PDF.")
 	}
 	if len(files) == 0 && !required {
