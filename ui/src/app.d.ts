@@ -5,7 +5,10 @@ declare global {
     // interface Error {}
     // interface Locals {}
     // interface PageData {}
-    // interface PageState {}
+    interface PageState {
+      clientWorkspaceUrl?: string;
+      flash?: import("$lib/flash").Flash;
+    }
     // interface Platform {}
   }
 }

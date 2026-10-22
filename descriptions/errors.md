@@ -1,24 +1,35 @@
 # ErrorSystem
 
-## ErrorBar component
+## MessageBar component
 
-The error bar is a component that displays a list of error messages and next to
-each error message is a button that allows the user to dismiss the error. If the
-messages are dismissed, they are removed from the list. If there are no
-messages, the error bar is hidden. It is placed in the layout component so it is
-visible on every page and persists across navigation. This error bar component
-will be at ui/src/lib/components/ErrorBar.svelte. The ErrorBar component has no
-props of its own. It simply displays the errorMessages array contents if there
-are any, and allows the user to dismiss the errors. It's a full-width bar at the
-top of the page styled with tailwind. It will be included in the layout in
-ui/src/routes/+layout.svelte as the first element within the main element. It
-will have a light red background, no border, and the text will be dark red.
-There will be no border radius on the edges.
+The message bar is the app's message area. It displays the error messages and,
+after them, any flash message (see below). Next to each message is a button that
+dismisses it. If there are no messages, nothing is shown. It is placed in the
+layout so it is visible on every page, and errors persist across navigation. It
+is at ui/src/lib/components/MessageBar.svelte, has no props of its own, and is
+included in ui/src/routes/+layout.svelte as the first element of the main
+content area.
+
+MessageBar only decides which messages to show. Each one is drawn by
+ui/src/lib/components/DSMessageBar.svelte: a full-width strip at the top of the
+page with no border radius, a bottom border, a tone icon, and a tone colour
+(red for errors, green for success, blue for info). The split follows the UI
+conventions in ui/CLAUDE.md: DS components own the styling and hold no app
+state.
+
+## Flash messages
+
+A flash message is a one-line message for the page navigated to, such as
+"Approved X" after approving an expense moves the user on to the next one. A
+page passes it with the navigation: `goto(url, { state: { flash } })`, where
+`flash` is a `Flash` from ui/src/lib/flash.ts (a tone, the message, and an
+optional link). It lives in that history entry, so Back and Forward keep it and
+a reload or fresh visit drops it. Dismissing it clears it from page state.
 
 ## errorMessages in global store
 
 The global store is at ui/src/lib/stores/global.ts. The errorMessages array is
-used to store the error messages that are displayed in the ErrorBar component.
+used to store the error messages that are displayed in the MessageBar component.
 It is an array of objects with the following properties:
 
 - `message`: The error message to display.

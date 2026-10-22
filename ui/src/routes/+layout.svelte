@@ -6,7 +6,7 @@
   import { globalStore } from "$lib/stores/global";
   import { afterNavigate, beforeNavigate } from "$app/navigation";
   import "../app.css";
-  import ErrorBar from "$lib/components/ErrorBar.svelte";
+  import MessageBar from "$lib/components/MessageBar.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import VersionInfo from "$lib/components/VersionInfo.svelte";
   import { navigating } from "$app/stores";
@@ -392,7 +392,7 @@
 
       <!-- Main content -->
       <div class="relative flex-1 overflow-auto bg-white">
-        <ErrorBar />
+        <MessageBar />
         {#if $navigating}
           <!-- Desktop navigation loading bar (green) -->
           <div

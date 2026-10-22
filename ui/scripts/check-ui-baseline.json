@@ -208,7 +208,7 @@
     "src/lib/components/jobs/POsTabContent.svelte": 2,
     "src/lib/components/jobs/TimeTabContent.svelte": 2,
     "src/routes/admin_profiles/[id]/details/+page.svelte": 27,
-    "src/routes/expenses/[eid]/details/+page.svelte": 27,
+    "src/routes/expenses/[eid]/details/+page.svelte": 26,
     "src/routes/pos/[poid]/details/+page.svelte": 25
   },
   "raw-page-title": {
@@ -231,7 +231,6 @@
     "src/routes/admin_profiles/po_approvers/+page.svelte": 1,
     "src/routes/attachment_audit/+page.svelte": 1,
     "src/routes/claims/project-authorization-limits/+page.svelte": 1,
-    "src/routes/expenses/[eid]/details/+page.svelte": 1,
     "src/routes/job-requests/+page.svelte": 1,
     "src/routes/job-requests/[id]/+page.svelte": 1,
     "src/routes/job-requests/[id]/print/+page.svelte": 1,

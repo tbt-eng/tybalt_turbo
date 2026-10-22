@@ -7,6 +7,11 @@
   import StoredFileHashRepairPopover from "$lib/components/StoredFileHashRepairPopover.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import UncommitConfirmPopover from "$lib/components/UncommitConfirmPopover.svelte";
+  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
+  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
+  import { advanceExpenseApprovalQueue } from "$lib/expenseApprovalQueue";
+  import { expenseTitle } from "$lib/expenseTitle";
+  import { getApiErrorMessage } from "$lib/errors";
   import Icon from "@iconify/svelte";
   import {
     formatCurrencyAmount,
@@ -23,6 +28,8 @@
   const viewerId = pb.authStore.record?.id ?? "";
   let rejectModal: RejectModal;
   let expense = data.expense;
+  // Moving through the approval queue reuses this component, so follow data.
+  $: expense = data.expense;
   let hasCommitAccess = false;
   let hasAdminAccess = false;
   let hasBookKeeperAccess = false;
@@ -72,9 +79,29 @@
     try {
       await pb.send(`/api/expenses/${expense.id}/approve`, { method: "POST" });
       await globalStore.refreshAttentionCounts();
-      await refreshExpense();
     } catch (error: any) {
       globalStore.addError(error?.response?.error || "Approve failed");
+      return;
+    }
+    await moveToNextPending("approved");
+  }
+
+  // Only an approver working through their pending queue moves on after a
+  // reject; a commit holder rejecting an approved expense stays here.
+  async function handleRejected() {
+    if (isApprover && expense.approved === "") {
+      await moveToNextPending("rejected");
+    } else {
+      await refreshExpense();
+    }
+  }
+
+  async function moveToNextPending(verb: "approved" | "rejected") {
+    try {
+      await advanceExpenseApprovalQueue(expense, verb);
+    } catch (error) {
+      globalStore.addError(getApiErrorMessage(error, "Failed to load the next pending expense"));
+      await refreshExpense();
     }
   }
 
@@ -157,22 +184,122 @@
 
   $: hasSettledCadTotal = Number(expense.settled_total ?? 0) > 0;
   $: showIndicativeCadEquivalent = expense.currency_code !== "CAD" && !hasSettledCadTotal;
+
+  // Expenses have no status field; derive the one the header shows.
+  $: status = expense.committed
+    ? "Committed"
+    : expense.rejected
+      ? "Rejected"
+      : expense.approved
+        ? "Approved"
+        : expense.submitted
+          ? "Submitted"
+          : "Draft";
+  $: pendingMyApproval =
+    isApprover &&
+    expense.submitted &&
+    expense.approved === "" &&
+    expense.rejected === "" &&
+    expense.committed === "";
 </script>
 
 <div class="mx-auto space-y-4 p-4">
-  <h1 class="text-2xl font-bold">Expense Details</h1>
+  <DSPageHeader title={expenseTitle(expense)} subtitle={expense.description}>
+    {#snippet badges()}
+      <DSStatusLabel {status} kind="expense" />
+    {/snippet}
+    {#snippet context()}
+      {expense.uid_name} · {shortDate(expense.date)}
+      {#if pendingMyApproval}
+        · Pending your approval
+        {#if data.leftToReview > 1}
+          · {data.leftToReview} left to review, including this one
+        {:else if data.leftToReview === 1}
+          · the last one
+        {/if}
+      {/if}
+    {/snippet}
+    {#snippet actions()}
+      {#if $expensesEditingEnabled}
+        {#if hasAdminAccess && expense.committed !== ""}
+          <DsActionButton
+            action={() => openUncommitConfirm()}
+            icon="mdi:undo"
+            title="Uncommit"
+            color="orange"
+          />
+        {/if}
+
+        <!-- Owner draft actions: an unsubmitted expense can still be edited and submitted. -->
+        {#if isOwner && !expense.submitted}
+          <DsActionButton
+            action={`/expenses/${expense.id}/edit`}
+            icon="mdi:pencil"
+            title="Edit"
+            color="blue"
+          />
+          <DsActionButton
+            action={() => submitExpense()}
+            icon="mdi:send"
+            title="Submit"
+            color="blue"
+          />
+        {/if}
+
+        <!-- Owner recall: allowed for submitted-but-unapproved expenses and rejected expenses until committed. -->
+        {#if isOwner && ((expense.submitted && expense.approved === "") || expense.rejected !== "") && expense.committed === ""}
+          <DsActionButton
+            action={() => recallExpense()}
+            icon="mdi:rewind"
+            title="Recall"
+            color="orange"
+          />
+        {/if}
+
+        <!-- Owner delete: only available while the expense is still a draft. -->
+        {#if isOwner && !expense.submitted && expense.committed === ""}
+          <DsActionButton
+            action={() => deleteExpense()}
+            icon="mdi:delete"
+            title="Delete"
+            color="red"
+          />
+        {/if}
+
+        <!-- Approver approve: only the assigned approver can approve a submitted, unrejected, uncommitted expense. -->
+        {#if pendingMyApproval}
+          <DsActionButton
+            action={() => approveExpense()}
+            icon="mdi:approve"
+            title="Approve"
+            color="green"
+          />
+        {/if}
+
+        <!-- Reject behavior: approvers may reject any submitted, uncommitted expense; commit holders may reject approved ones. -->
+        {#if (isApprover || (hasCommitAccess && expense.approved !== "")) && expense.submitted && expense.rejected === "" && expense.committed === ""}
+          <DsActionButton
+            action={() => openRejectModal()}
+            icon="mdi:cancel"
+            title="Reject"
+            color="orange"
+          />
+        {/if}
+
+        <!-- Commit behavior: commit holders can commit only once the submitted expense has been approved. -->
+        {#if hasCommitAccess && expense.submitted && expense.approved !== "" && expense.rejected === "" && expense.committed === ""}
+          <DsActionButton
+            action={() => commitExpense()}
+            icon="mdi:check-all"
+            title="Commit"
+            color="green"
+          />
+        {/if}
+      {/if}
+    {/snippet}
+  </DSPageHeader>
 
   <div class="space-y-2 rounded-sm bg-neutral-100 p-4">
-    <div class="flex items-center gap-2">
-      <span class="font-semibold">Date:</span>
-      <span>{shortDate(expense.date)}</span>
-      {#if expense.payment_type === "Mileage"}
-        <DsLabel color="cyan">
-          <Icon icon="mdi:road" width="24" class="inline-block" /> Mileage
-        </DsLabel>
-      {/if}
-    </div>
-
     {#if expense.creator && expense.creator !== expense.uid}
       <div><span class="font-semibold">Submitted for:</span> {expense.uid_name}</div>
       <div><span class="font-semibold">Entered by:</span> {expense.creator_name}</div>
@@ -198,16 +325,17 @@
       </div>
     {/if}
 
-    <div>
-      <span class="font-semibold">Description:</span>
-      {expense.description}
-      {#if poDiffers(expense.description, expense.po_description)}
+    <!-- The header shows the description; repeat it here only to flag a PO mismatch. -->
+    {#if poDiffers(expense.description, expense.po_description)}
+      <div>
+        <span class="font-semibold">Description:</span>
+        {expense.description}
         <span
           class="ml-1 inline-block rounded-sm border border-amber-300 bg-amber-100 px-2 py-0.5 text-xs text-amber-600"
           >PO: {expense.po_description}</span
         >
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <div>
       <span class="font-semibold">Total:</span>
@@ -508,86 +636,7 @@
     {/if}
   </div>
 
-  {#if $expensesEditingEnabled}
-    <div class="flex flex-wrap gap-2">
-      {#if hasAdminAccess && expense.committed !== ""}
-        <DsActionButton
-          action={() => openUncommitConfirm()}
-          icon="mdi:undo"
-          title="Uncommit"
-          color="orange"
-        />
-      {/if}
-
-      <!-- Owner draft actions: an unsubmitted expense can still be edited and submitted. -->
-      {#if isOwner && !expense.submitted}
-        <DsActionButton
-          action={`/expenses/${expense.id}/edit`}
-          icon="mdi:pencil"
-          title="Edit"
-          color="blue"
-        />
-        <DsActionButton
-          action={() => submitExpense()}
-          icon="mdi:send"
-          title="Submit"
-          color="blue"
-        />
-      {/if}
-
-      <!-- Owner recall: allowed for submitted-but-unapproved expenses and rejected expenses until committed. -->
-      {#if isOwner && ((expense.submitted && expense.approved === "") || expense.rejected !== "") && expense.committed === ""}
-        <DsActionButton
-          action={() => recallExpense()}
-          icon="mdi:rewind"
-          title="Recall"
-          color="orange"
-        />
-      {/if}
-
-      <!-- Owner delete: only available while the expense is still a draft. -->
-      {#if isOwner && !expense.submitted && expense.committed === ""}
-        <DsActionButton
-          action={() => deleteExpense()}
-          icon="mdi:delete"
-          title="Delete"
-          color="red"
-        />
-      {/if}
-
-      <!-- Approver approve: only the assigned approver can approve a submitted, unrejected, uncommitted expense. -->
-      {#if isApprover && expense.submitted && expense.approved === "" && expense.rejected === "" && expense.committed === ""}
-        <DsActionButton
-          action={() => approveExpense()}
-          icon="mdi:approve"
-          title="Approve"
-          color="green"
-        />
-      {/if}
-
-      <!-- Reject behavior: approvers may reject any submitted, uncommitted expense; commit holders may reject approved ones. -->
-      {#if (isApprover || (hasCommitAccess && expense.approved !== "")) && expense.submitted && expense.rejected === "" && expense.committed === ""}
-        <DsActionButton
-          action={() => openRejectModal()}
-          icon="mdi:cancel"
-          title="Reject"
-          color="orange"
-        />
-      {/if}
-
-      <!-- Commit behavior: commit holders can commit only once the submitted expense has been approved. -->
-      {#if hasCommitAccess && expense.submitted && expense.approved !== "" && expense.rejected === "" && expense.committed === ""}
-        <DsActionButton
-          action={() => commitExpense()}
-          icon="mdi:check-all"
-          title="Commit"
-          color="green"
-        />
-      {/if}
-    </div>
-  {/if}
-
-  <RejectModal collectionName="expenses" bind:this={rejectModal} on:refresh={refreshExpense} />
+  <RejectModal collectionName="expenses" bind:this={rejectModal} on:refresh={handleRejected} />
   <UncommitConfirmPopover
     bind:show={showUncommitConfirm}
     recordLabel="expense"
