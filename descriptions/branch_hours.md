@@ -9,17 +9,26 @@ staff worked for other branches.
 
 ## Access
 
-- Branch managers (`branches.manager`), and users with the `kpi` or `admin`
-  claim, can view the report. This is the same access as the branch and
-  division WIP reports (`canViewBranchReports` in `app/routes/wip_reports.go`).
-- Any permitted user can select any branch.
+- Users with the `kpi` or `admin` claim can view any branch.
+- A branch manager (`branches.manager`) without either claim can view only the
+  branches they manage. The branch picker lists only those branches, and the
+  API returns 403 for any other branch.
+- The report shows each person's hours with no job, which the `kpi` claim
+  otherwise gates through the KPI Employee Branch Hours report. Limiting
+  managers to their own branches keeps them from rebuilding that company-wide
+  view one branch at a time.
+- The access check is `requireBranchHoursAccess` in
+  `app/routes/branch_hours_access.go`, and `branchHoursChoices` in
+  `ui/src/lib/reports/branchHours.ts` builds the picker.
 - The Branch Hours navigation item is under Reports.
 
 ## Page
 
 - `/reports/branch-hours` displays this report.
-- The branch defaults to the branch the user manages, or else the user's own
-  default branch.
+- The branch defaults to the branch the user manages, even when they hold the
+  `kpi` or `admin` claim. Otherwise it defaults to the user's own default
+  branch.
+- A link to a branch the user cannot select opens their own branch instead.
 - The period defaults to January 1 of the current year through today. Start
   and end dates are inclusive. Changing a control reloads the report.
 - The branch, dates and selected tab are kept in the URL hash, so a report can

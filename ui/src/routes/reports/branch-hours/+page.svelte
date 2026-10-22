@@ -12,15 +12,17 @@
   import BranchHoursTable from "$lib/components/reports/BranchHoursTable.svelte";
   import { pb } from "$lib/pocketbase";
   import {
+    branchHoursChoices,
     branchHoursDirections,
     branchHoursProjects,
     branchHoursTotals,
+    canViewBranchHours,
     formatHours,
+    seesAllBranchHours,
     yearToDate,
     type BranchHoursDirection,
     type BranchHoursReport,
   } from "$lib/reports/branchHours";
-  import { canViewWIPReports } from "$lib/reports/wipReports";
   import { authStore } from "$lib/stores/auth";
   import { branches } from "$lib/stores/branches";
   import { globalStore } from "$lib/stores/global";
@@ -28,7 +30,9 @@
 
   const userId = $derived($authStore?.model?.id ?? "");
   const managedBranch = $derived($branches.items.find((item) => item.manager === userId));
-  const allowed = $derived(canViewWIPReports($globalStore.claims, !!managedBranch));
+  const allowed = $derived(canViewBranchHours($globalStore.claims, !!managedBranch));
+  const seesAll = $derived(seesAllBranchHours($globalStore.claims));
+  const choices = $derived(branchHoursChoices($globalStore.claims, $branches.items, userId));
 
   // The selection lives in the URL hash so a report can be shared as a link.
   const range = yearToDate();
@@ -84,6 +88,8 @@
     startDate = params.get("from") ?? startDate;
     endDate = params.get("to") ?? endDate;
     branch = params.get("branch") ?? branch;
+    // A link to a branch the user cannot select falls back to their own.
+    if (!choices.some((item) => item.id === branch)) branch = choices[0]?.id ?? "";
   }
 
   function writeHash() {
@@ -109,8 +115,8 @@
         selectionReady = true;
         writeHash();
       });
-    if (managedBranch) {
-      finish(managedBranch.id);
+    if (managedBranch || !seesAll) {
+      finish(managedBranch?.id ?? "");
       return;
     }
     pb.send<{ default_branch: string }>("/api/users/defaults", {
@@ -152,7 +158,7 @@
         if (current)
           error =
             reason?.status === 403
-              ? "You do not have permission to view this report."
+              ? "You can only view the hours of branches you manage."
               : "The report could not be loaded.";
       });
     return () => {
@@ -201,7 +207,7 @@
       <div class="w-72">
         <DSSelector
           bind:value={() => branch, (value) => (branch = String(value))}
-          items={$branches.items}
+          items={choices}
           errors={{}}
           fieldName="branch"
           uiName="Branch"

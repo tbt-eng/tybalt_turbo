@@ -40,6 +40,25 @@ export type BranchHoursProject = {
   people: BranchHoursRow[];
 };
 
+export function canViewBranchHours(claims: string[], isBranchManager = false): boolean {
+  return isBranchManager || seesAllBranchHours(claims);
+}
+
+export function seesAllBranchHours(claims: string[]): boolean {
+  return claims.includes("kpi") || claims.includes("admin");
+}
+
+// The kpi and admin claims may select any branch. Without them, a branch
+// manager may select only the branches they manage, as the API enforces.
+export function branchHoursChoices<T extends { id: string; manager?: string }>(
+  claims: string[],
+  branches: T[],
+  userId: string,
+): T[] {
+  if (seesAllBranchHours(claims)) return branches;
+  return branches.filter((branch) => !!userId && branch.manager === userId);
+}
+
 export function branchHoursTotals(rows: BranchHoursRow[]): Record<BranchHoursDirection, number> {
   const totals = { received: 0, supplied: 0, internal: 0 };
   for (const row of rows) totals[row.direction] += row.hours;

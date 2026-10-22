@@ -1,5 +1,6 @@
 import { downloadActiveJobsCsv, downloadTimeEntryBranchMismatchesCsv } from "$lib/navActions";
 import { canViewWIPReports } from "$lib/reports/wipReports";
+import { canViewBranchHours } from "$lib/reports/branchHours";
 import { canViewPOApprovers } from "$lib/poApprovalLimits";
 
 export interface NavButton {
@@ -263,7 +264,7 @@ export const navSections: NavSection[] = [
         label: "Branch Hours",
         href: "/reports/branch-hours",
         buttons: [],
-        canView: canViewWIPReports,
+        canView: canViewBranchHours,
       },
       { label: "KPI", href: "/reports/kpi", buttons: [], requiredClaim: "kpi" },
     ],

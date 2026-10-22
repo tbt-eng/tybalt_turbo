@@ -63,7 +63,7 @@ func loadWIPReport(db dbx.Builder, params dbx.Params, result *WIPReport) error {
 		Bind(params).All(&result.Items)
 }
 
-func canViewBranchReports(app core.App, auth *core.Record) (bool, error) {
+func canViewManagementWIP(app core.App, auth *core.Record) (bool, error) {
 	for _, claim := range []string{"kpi", "admin"} {
 		hasClaim, err := utilities.HasClaim(app, auth, claim)
 		if err != nil || hasClaim {
@@ -77,7 +77,7 @@ func canViewBranchReports(app core.App, auth *core.Record) (bool, error) {
 func createGetWIPReportHandler(app core.App, mode string) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if mode != "my" {
-			allowed, err := canViewBranchReports(app, e.Auth)
+			allowed, err := canViewManagementWIP(app, e.Auth)
 			if err != nil {
 				return e.InternalServerError("Failed to check WIP access", err)
 			}

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  branchHoursChoices,
   branchHoursProjects,
   branchHoursTotals,
+  canViewBranchHours,
   yearToDate,
   type BranchHoursRow,
 } from "../src/lib/reports/branchHours.ts";
@@ -85,4 +87,32 @@ test("search matches project details and people, and finds no-job time", () => {
 
 test("year to date runs from January 1 to the reference day", () => {
   assert.deepEqual(yearToDate(new Date(2026, 9, 22)), { start: "2026-01-01", end: "2026-10-22" });
+});
+
+test("a branch manager can select only the branches they manage", () => {
+  const branches = [
+    { id: "kw", manager: "u1" },
+    { id: "tb", manager: "u2" },
+    { id: "to", manager: "u1" },
+    { id: "ot", manager: "" },
+  ];
+  assert.deepEqual(
+    branchHoursChoices([], branches, "u1").map((branch) => branch.id),
+    ["kw", "to"],
+  );
+  assert.deepEqual(branchHoursChoices(["report"], branches, "u3"), []);
+  assert.deepEqual(branchHoursChoices([], branches, ""), []);
+});
+
+test("kpi and admin can select any branch, even when they also manage one", () => {
+  const branches = [
+    { id: "kw", manager: "u1" },
+    { id: "tb", manager: "u2" },
+  ];
+  for (const claim of ["kpi", "admin"]) {
+    assert.equal(branchHoursChoices([claim], branches, "u1").length, 2);
+    assert.equal(canViewBranchHours([claim]), true);
+  }
+  assert.equal(canViewBranchHours([], true), true);
+  assert.equal(canViewBranchHours(["report"]), false);
 });

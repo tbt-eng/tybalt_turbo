@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	branchHoursThunderBayID = "80875lm27v8wgi4"
-	branchHoursTorontoID    = "xeq9q81q5307f70"
-	branchHoursMay2040      = "&start_date=2040-05-01&end_date=2040-05-31"
+	branchHoursCollingwoodID = "2b65d8161y8hx95"
+	branchHoursThunderBayID  = "80875lm27v8wgi4"
+	branchHoursTorontoID     = "xeq9q81q5307f70"
+	branchHoursMay2040       = "&start_date=2040-05-01&end_date=2040-05-31"
 )
 
 type branchHoursAPIRow struct {
@@ -39,38 +40,40 @@ type branchHoursAPIResponse struct {
 }
 
 func TestBranchHoursReportAccess(t *testing.T) {
-	url := "/api/branch_hours?branch=" + branchHoursThunderBayID + branchHoursMay2040
+	const notPermitted = "You need to be a branch manager or hold the kpi or admin claim to view this report."
+	const notManaged = "You can only view the hours of branches you manage."
 	cases := []struct {
 		name   string
 		email  string
+		query  string
 		status int
+		want   string
 	}{
-		{"ordinary user cannot view branch hours", "valuation1@example.com", http.StatusForbidden},
-		{"report claim does not grant branch hours", "fatt@mac.com", http.StatusForbidden},
-		{"branch manager can view another branch", "u_no_claims@example.com", http.StatusOK},
-		{"kpi can view branch hours", "time@test.com", http.StatusOK},
-		{"admin can view branch hours", "admin.only@example.com", http.StatusOK},
+		{"ordinary user cannot view branch hours", "valuation1@example.com", "branch=" + branchHoursThunderBayID, http.StatusForbidden, notPermitted},
+		{"report claim does not grant branch hours", "fatt@mac.com", "branch=" + branchHoursThunderBayID, http.StatusForbidden, notPermitted},
+		{"branch manager can view their own branch", "u_no_claims@example.com", "branch=" + branchHoursCollingwoodID, http.StatusOK, `"branch":"Collingwood"`},
+		{"branch manager cannot view another branch", "u_no_claims@example.com", "branch=" + branchHoursThunderBayID, http.StatusForbidden, notManaged},
+		{"branch manager cannot probe an unknown branch", "u_no_claims@example.com", "branch=missingbranch01", http.StatusForbidden, notManaged},
+		{"branch manager still needs a branch", "u_no_claims@example.com", "", http.StatusBadRequest, "Branch is required"},
+		{"kpi can view any branch", "time@test.com", "branch=" + branchHoursThunderBayID, http.StatusOK, `"branch":"Thunder Bay"`},
+		{"admin can view any branch", "admin.only@example.com", "branch=" + branchHoursThunderBayID, http.StatusOK, `"branch":"Thunder Bay"`},
 	}
 	(&tests.ApiScenario{
 		Name:            "branch hours requires authentication",
 		Method:          http.MethodGet,
-		URL:             url,
+		URL:             "/api/branch_hours?branch=" + branchHoursThunderBayID + branchHoursMay2040,
 		ExpectedStatus:  http.StatusUnauthorized,
 		ExpectedContent: []string{"The request requires valid record authorization token."},
 		TestAppFactory:  testutils.SetupTestApp,
 	}).Test(t)
 	for _, tc := range cases {
-		expected := []string{`"rows"`}
-		if tc.status == http.StatusForbidden {
-			expected = []string{"You need to be a branch manager or hold the kpi or admin claim to view this report."}
-		}
 		(&tests.ApiScenario{
 			Name:            tc.name,
 			Method:          http.MethodGet,
-			URL:             url,
+			URL:             "/api/branch_hours?" + tc.query + branchHoursMay2040,
 			Headers:         map[string]string{"Authorization": mustGenerateEmployeeBranchHoursToken(t, tc.email)},
 			ExpectedStatus:  tc.status,
-			ExpectedContent: expected,
+			ExpectedContent: []string{tc.want},
 			TestAppFactory:  testutils.SetupTestApp,
 		}).Test(t)
 	}
