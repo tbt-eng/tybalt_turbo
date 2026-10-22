@@ -319,6 +319,21 @@ func AddRoutes(app core.App) {
 		})
 		kpiReportsGroup.GET("/employee_branch_hours", reports.CreateEmployeeBranchHoursReportHandler(app))
 
+		// Branch Hours uses the same access as the branch and division WIP reports.
+		branchHoursGroup := se.Router.Group("/api/branch_hours")
+		branchHoursGroup.Bind(apis.RequireAuth("users"))
+		branchHoursGroup.BindFunc(func(e *core.RequestEvent) error {
+			allowed, err := canViewBranchReports(app, e.Auth)
+			if err != nil {
+				return e.InternalServerError("Failed to check branch hours access", err)
+			}
+			if !allowed {
+				return e.ForbiddenError("You need to be a branch manager or hold the kpi or admin claim to view this report", nil)
+			}
+			return e.Next()
+		})
+		branchHoursGroup.GET("", reports.CreateBranchHoursReportHandler(app))
+
 		// Admin stats dashboard
 		statsGroup := se.Router.Group("/api/stats")
 		statsGroup.Bind(apis.RequireAuth("users"))

@@ -148,9 +148,14 @@
       })
       .filter((section) => {
         if ($globalStore.showAllUi) return true;
-        // KPI-only users still need the Reports section for the KPI index.
+        // KPI-only users still need the Reports section for the KPI index, and
+        // branch managers need it for the reports their canView check allows.
         if (section.title === "Reports") {
-          return $globalStore.claims.includes("report") || $globalStore.claims.includes("kpi");
+          return (
+            $globalStore.claims.includes("report") ||
+            $globalStore.claims.includes("kpi") ||
+            section.items.some((item) => item.canView)
+          );
         }
         // Hide sections that become empty after filtering
         return section.items.length > 0;

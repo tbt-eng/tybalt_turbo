@@ -10,6 +10,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:branch-flow": "node --test --experimental-strip-types tests/branchResourceFlow.test.ts",
+    "test:branch-hours": "node --test --experimental-strip-types tests/branchHours.test.ts",
     "lint": "node scripts/check-ui.mjs && prettier --check . && eslint .",
     "check:ui": "node scripts/check-ui.mjs",
     "format": "prettier --write .",

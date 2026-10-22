@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  branchHoursProjects,
+  branchHoursTotals,
+  yearToDate,
+  type BranchHoursRow,
+} from "../src/lib/reports/branchHours.ts";
+
+function row(overrides: Partial<BranchHoursRow>): BranchHoursRow {
+  return {
+    direction: "received",
+    jobId: "job1",
+    jobNumber: "26-001",
+    jobDescription: "Culvert",
+    client: "City",
+    workBranch: "Kitchener-Waterloo",
+    uid: "u1",
+    payrollId: "1",
+    surname: "Doe",
+    givenName: "Jane",
+    staffBranch: "Thunder Bay",
+    hours: 1,
+    ...overrides,
+  };
+}
+
+const rows: BranchHoursRow[] = [
+  row({ uid: "u1", hours: 2 }),
+  row({ uid: "u2", surname: "Roe", staffBranch: "Ottawa", hours: 5 }),
+  row({ jobId: "job2", jobNumber: "26-002", jobDescription: "Bridge", hours: 4 }),
+  row({ direction: "supplied", workBranch: "Toronto", hours: 3 }),
+  row({
+    direction: "internal",
+    jobId: "",
+    jobNumber: "",
+    jobDescription: "",
+    client: "",
+    hours: 1.5,
+  }),
+];
+
+test("totals hours by direction", () => {
+  assert.deepEqual(branchHoursTotals(rows), { received: 11, supplied: 3, internal: 1.5 });
+});
+
+test("groups one direction into projects, largest first, with people by hours", () => {
+  const projects = branchHoursProjects(rows, "received");
+  assert.deepEqual(
+    projects.map((project) => [project.jobNumber, project.hours, project.people.length]),
+    [
+      ["26-001", 7, 2],
+      ["26-002", 4, 1],
+    ],
+  );
+  assert.deepEqual(projects[0].staffBranches, ["Ottawa", "Thunder Bay"]);
+  assert.deepEqual(
+    projects[0].people.map((person) => person.uid),
+    ["u2", "u1"],
+  );
+});
+
+test("keeps the same job separate for each work branch", () => {
+  const projects = branchHoursProjects(
+    [row({ direction: "supplied" }), row({ direction: "supplied", workBranch: "Toronto" })],
+    "supplied",
+  );
+  assert.deepEqual(
+    projects.map((project) => project.workBranch),
+    ["Kitchener-Waterloo", "Toronto"],
+  );
+});
+
+test("search matches project details and people, and finds no-job time", () => {
+  assert.deepEqual(
+    branchHoursProjects(rows, "received", "roe ottawa").map((project) => project.jobNumber),
+    ["26-001"],
+  );
+  assert.deepEqual(
+    branchHoursProjects(rows, "received", "bridge").map((project) => project.jobNumber),
+    ["26-002"],
+  );
+  assert.equal(branchHoursProjects(rows, "internal", "no project").length, 1);
+});
+
+test("year to date runs from January 1 to the reference day", () => {
+  assert.deepEqual(yearToDate(new Date(2026, 9, 22)), { start: "2026-01-01", end: "2026-10-22" });
+});

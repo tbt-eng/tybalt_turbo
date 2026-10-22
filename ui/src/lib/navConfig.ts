@@ -259,6 +259,12 @@ export const navSections: NavSection[] = [
           },
         ],
       },
+      {
+        label: "Branch Hours",
+        href: "/reports/branch-hours",
+        buttons: [],
+        canView: canViewWIPReports,
+      },
       { label: "KPI", href: "/reports/kpi", buttons: [], requiredClaim: "kpi" },
     ],
   },
