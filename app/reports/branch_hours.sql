@@ -34,7 +34,6 @@ SELECT
   COALESCE(c.name, '') AS client,
   work_branch.name AS workBranch,
   qt.uid AS uid,
-  COALESCE(ap.payroll_id, '') AS payrollId,
   COALESCE(p.surname, '') AS surname,
   COALESCE(p.given_name, '') AS givenName,
   COALESCE(staff_branch.name, '') AS staffBranch,
@@ -42,8 +41,6 @@ SELECT
 FROM qualifying_time qt
 INNER JOIN branches work_branch
   ON work_branch.id = qt.work_branch
-INNER JOIN admin_profiles ap
-  ON ap.uid = qt.uid
 INNER JOIN profiles p
   ON p.uid = qt.uid
 LEFT JOIN branches staff_branch

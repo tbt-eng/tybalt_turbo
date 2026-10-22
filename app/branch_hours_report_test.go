@@ -19,6 +19,9 @@ const (
 	branchHoursMay2040       = "&start_date=2040-05-01&end_date=2040-05-31"
 )
 
+// The payroll IDs of the fixture employees whose hours the report returns.
+var branchHoursPayrollIDs = []string{"payroll", "900001", "FIX_INACTIVE"}
+
 type branchHoursAPIRow struct {
 	Direction      string  `json:"direction"`
 	JobID          string  `json:"jobId"`
@@ -27,7 +30,6 @@ type branchHoursAPIRow struct {
 	Client         string  `json:"client"`
 	WorkBranch     string  `json:"workBranch"`
 	UID            string  `json:"uid"`
-	PayrollID      string  `json:"payrollId"`
 	Surname        string  `json:"surname"`
 	GivenName      string  `json:"givenName"`
 	StaffBranch    string  `json:"staffBranch"`
@@ -90,19 +92,19 @@ func TestBranchHoursReportData(t *testing.T) {
 			name:   "staff branch sees internal and supplied time by job and employee",
 			branch: branchHoursThunderBayID,
 			want: []branchHoursAPIRow{
-				{Direction: "internal", JobNumber: "98-8101", WorkBranch: "Thunder Bay", PayrollID: "900001", StaffBranch: "Thunder Bay", Hours: 4},
-				{Direction: "internal", JobNumber: "", WorkBranch: "Thunder Bay", PayrollID: "900001", StaffBranch: "Thunder Bay", Hours: 1.5},
-				{Direction: "internal", JobNumber: "", WorkBranch: "Thunder Bay", PayrollID: "FIX_INACTIVE", StaffBranch: "Thunder Bay", Hours: 3},
-				{Direction: "supplied", JobNumber: "98-8101", WorkBranch: "Toronto", PayrollID: "900001", StaffBranch: "Thunder Bay", Hours: 2},
-				{Direction: "supplied", JobNumber: "98-8101", WorkBranch: "Toronto", PayrollID: "FIX_INACTIVE", StaffBranch: "Thunder Bay", Hours: 2.5},
+				{Direction: "internal", JobNumber: "98-8101", WorkBranch: "Thunder Bay", UID: "rzr98oadsp9qc11", StaffBranch: "Thunder Bay", Hours: 4},
+				{Direction: "internal", JobNumber: "", WorkBranch: "Thunder Bay", UID: "rzr98oadsp9qc11", StaffBranch: "Thunder Bay", Hours: 1.5},
+				{Direction: "internal", JobNumber: "", WorkBranch: "Thunder Bay", UID: "u_inactive", StaffBranch: "Thunder Bay", Hours: 3},
+				{Direction: "supplied", JobNumber: "98-8101", WorkBranch: "Toronto", UID: "rzr98oadsp9qc11", StaffBranch: "Thunder Bay", Hours: 2},
+				{Direction: "supplied", JobNumber: "98-8101", WorkBranch: "Toronto", UID: "u_inactive", StaffBranch: "Thunder Bay", Hours: 2.5},
 			},
 		},
 		{
 			name:   "work branch sees time received from other branches",
 			branch: branchHoursTorontoID,
 			want: []branchHoursAPIRow{
-				{Direction: "received", JobNumber: "98-8101", WorkBranch: "Toronto", PayrollID: "900001", StaffBranch: "Thunder Bay", Hours: 2},
-				{Direction: "received", JobNumber: "98-8101", WorkBranch: "Toronto", PayrollID: "FIX_INACTIVE", StaffBranch: "Thunder Bay", Hours: 2.5},
+				{Direction: "received", JobNumber: "98-8101", WorkBranch: "Toronto", UID: "rzr98oadsp9qc11", StaffBranch: "Thunder Bay", Hours: 2},
+				{Direction: "received", JobNumber: "98-8101", WorkBranch: "Toronto", UID: "u_inactive", StaffBranch: "Thunder Bay", Hours: 2.5},
 			},
 		},
 	}
@@ -114,7 +116,10 @@ func TestBranchHoursReportData(t *testing.T) {
 			Headers:         map[string]string{"Authorization": token},
 			ExpectedStatus:  http.StatusOK,
 			ExpectedContent: []string{`"rows"`},
-			TestAppFactory:  testutils.SetupTestApp,
+			// Branch managers cannot read admin_profiles, so the report must
+			// not expose payroll IDs.
+			NotExpectedContent: branchHoursPayrollIDs,
+			TestAppFactory:     testutils.SetupTestApp,
 			AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, response *http.Response) {
 				payload := decodeBranchHoursResponse(tb, response)
 				if len(payload.Rows) != len(tc.want) {
@@ -123,7 +128,7 @@ func TestBranchHoursReportData(t *testing.T) {
 				for index, want := range tc.want {
 					got := payload.Rows[index]
 					if got.Direction != want.Direction || got.JobNumber != want.JobNumber ||
-						got.WorkBranch != want.WorkBranch || got.PayrollID != want.PayrollID ||
+						got.WorkBranch != want.WorkBranch || got.UID != want.UID ||
 						got.StaffBranch != want.StaffBranch || got.Hours != want.Hours {
 						tb.Fatalf("row %d = %+v, want %+v", index, got, want)
 					}
@@ -210,13 +215,14 @@ func TestBranchHoursReportReconcilesWithEmployeeBranchHours(t *testing.T) {
 
 func TestBranchHoursReportCSV(t *testing.T) {
 	(&tests.ApiScenario{
-		Name:            "branch hours CSV has one row per job and employee",
-		Method:          http.MethodGet,
-		URL:             "/api/branch_hours?branch=" + branchHoursThunderBayID + branchHoursMay2040 + "&format=csv",
-		Headers:         map[string]string{"Authorization": mustGenerateEmployeeBranchHoursToken(t, "time@test.com")},
-		ExpectedStatus:  http.StatusOK,
-		ExpectedContent: []string{"direction,jobNumber"},
-		TestAppFactory:  testutils.SetupTestApp,
+		Name:               "branch hours CSV has one row per job and employee",
+		Method:             http.MethodGet,
+		URL:                "/api/branch_hours?branch=" + branchHoursThunderBayID + branchHoursMay2040 + "&format=csv",
+		Headers:            map[string]string{"Authorization": mustGenerateEmployeeBranchHoursToken(t, "time@test.com")},
+		ExpectedStatus:     http.StatusOK,
+		ExpectedContent:    []string{"direction,jobNumber"},
+		NotExpectedContent: branchHoursPayrollIDs,
+		TestAppFactory:     testutils.SetupTestApp,
 		AfterTestFunc: func(tb testing.TB, _ *tests.TestApp, response *http.Response) {
 			defer response.Body.Close()
 			if got := response.Header.Get("Content-Disposition"); got != `attachment; filename="branch_hours_Thunder_Bay_2040-05-01_2040-05-31.csv"` {
@@ -226,14 +232,14 @@ func TestBranchHoursReportCSV(t *testing.T) {
 			if err != nil {
 				tb.Fatalf("failed to parse branch hours CSV: %v", err)
 			}
-			wantColumns := []string{"direction", "jobNumber", "jobDescription", "client", "workBranch", "payrollId", "surname", "givenName", "staffBranch", "hours"}
+			wantColumns := []string{"direction", "jobNumber", "jobDescription", "client", "workBranch", "surname", "givenName", "staffBranch", "hours"}
 			if !slices.Equal(records[0], wantColumns) {
 				tb.Fatalf("CSV columns = %v, want %v", records[0], wantColumns)
 			}
 			if len(records) != 6 {
 				tb.Fatalf("CSV row count = %d, want 6", len(records))
 			}
-			want := []string{"supplied", "98-8101", "Branch mismatch fixture job", "Sepulchi & Co", "Toronto", "FIX_INACTIVE", "User", "Inactive", "Thunder Bay", "2.5"}
+			want := []string{"supplied", "98-8101", "Branch mismatch fixture job", "Sepulchi & Co", "Toronto", "User", "Inactive", "Thunder Bay", "2.5"}
 			if !slices.Equal(records[5], want) {
 				tb.Fatalf("last CSV row = %v, want %v", records[5], want)
 			}

@@ -14,7 +14,6 @@ export type BranchHoursRow = {
   client: string;
   workBranch: string;
   uid: string;
-  payrollId: string;
   surname: string;
   givenName: string;
   staffBranch: string;

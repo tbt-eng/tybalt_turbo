@@ -25,7 +25,6 @@ type BranchHoursRow struct {
 	Client         string  `db:"client" json:"client"`
 	WorkBranch     string  `db:"workBranch" json:"workBranch"`
 	UID            string  `db:"uid" json:"uid"`
-	PayrollID      string  `db:"payrollId" json:"payrollId"`
 	Surname        string  `db:"surname" json:"surname"`
 	GivenName      string  `db:"givenName" json:"givenName"`
 	StaffBranch    string  `db:"staffBranch" json:"staffBranch"`
@@ -43,7 +42,6 @@ var branchHoursCSVColumns = []string{
 	"jobDescription",
 	"client",
 	"workBranch",
-	"payrollId",
 	"surname",
 	"givenName",
 	"staffBranch",
@@ -130,7 +128,6 @@ func branchHoursCSV(rows []BranchHoursRow) (string, error) {
 			row.JobDescription,
 			row.Client,
 			row.WorkBranch,
-			row.PayrollID,
 			row.Surname,
 			row.GivenName,
 			row.StaffBranch,

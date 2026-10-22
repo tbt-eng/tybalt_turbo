@@ -18,7 +18,6 @@ function row(overrides: Partial<BranchHoursRow>): BranchHoursRow {
     client: "City",
     workBranch: "Kitchener-Waterloo",
     uid: "u1",
-    payrollId: "1",
     surname: "Doe",
     givenName: "Jane",
     staffBranch: "Thunder Bay",

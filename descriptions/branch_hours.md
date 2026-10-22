@@ -90,7 +90,6 @@ branch:
       "client": "...",
       "workBranch": "Kitchener-Waterloo",
       "uid": "...",
-      "payrollId": "...",
       "surname": "...",
       "givenName": "...",
       "staffBranch": "Thunder Bay",
@@ -101,5 +100,5 @@ branch:
 ```
 
 The CSV has the columns `direction`, `jobNumber`, `jobDescription`, `client`,
-`workBranch`, `payrollId`, `surname`, `givenName`, `staffBranch` and `hours`.
+`workBranch`, `surname`, `givenName`, `staffBranch` and `hours`.
 No-job rows have an empty `jobNumber`.
