@@ -28,6 +28,16 @@ export interface JobRef {
   number: string;
 }
 
+// A job numbered as a project's subjob that is not linked to it. The blocker
+// says why it cannot be adopted.
+export interface UnlinkedSubjob {
+  id: string;
+  number: string;
+  description: string;
+  client: string;
+  blocker?: string;
+}
+
 export interface JobDetails {
   id: string;
   number: string;
@@ -78,4 +88,6 @@ export interface JobDetails {
   projects: JobRef[] | null;
   children: JobRef[] | null;
   categories: { id: string; name: string }[] | null;
+  // Sent to admins only.
+  unlinked_subjobs?: UnlinkedSubjob[] | null;
 }

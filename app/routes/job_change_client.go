@@ -242,15 +242,11 @@ func changeJobClient(tx core.App, e *core.RequestEvent, jobID string, req jobCha
 // the subjobs that will move. A subjob added since the dialog opened, or a
 // confirmation that was never given, would move a job the user did not see.
 func checkSubjobsConfirmed(children []*core.Record, confirmed []string) error {
-	want := map[string]bool{}
-	for _, child := range children {
-		want[child.Id] = true
+	want := make([]string, len(children))
+	for i, child := range children {
+		want[i] = child.Id
 	}
-	got := map[string]bool{}
-	for _, id := range confirmed {
-		got[id] = true
-	}
-	if !maps.Equal(want, got) {
+	if !sameIDSet(want, confirmed) {
 		return jobChangeClientError(http.StatusConflict, "subjobs", "unconfirmed", "The subjobs confirmed do not match this project's subjobs, which may have changed. Review the current list and confirm again.")
 	}
 	return nil

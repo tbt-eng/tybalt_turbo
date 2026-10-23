@@ -163,6 +163,9 @@ type JobDetails struct {
 	Projects                  []JobRef      `json:"projects"`
 	Children                  []JobRef      `json:"children"`
 	Categories                []Category    `json:"categories"`
+	// UnlinkedSubjobs lists, for admins, the jobs numbered as this project's
+	// subjobs that are not linked to it. Admins can adopt them.
+	UnlinkedSubjobs []unlinkedSubjob `json:"unlinked_subjobs,omitempty"`
 }
 
 type Category struct {
@@ -260,6 +263,20 @@ func createGetJobDetailsHandler(app core.App) func(e *core.RequestEvent) error {
 			Projects:                  projects,
 			Children:                  children,
 			Categories:                categories,
+		}
+
+		isAdmin, err := utilities.HasClaim(app, e.Auth, "admin")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+		}
+		if isAdmin {
+			project, err := app.FindRecordById("jobs", r.ID)
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to load job", err)
+			}
+			if jd.UnlinkedSubjobs, err = findUnlinkedSubjobs(app, project); err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to find unlinked subjobs", err)
+			}
 		}
 
 		return e.JSON(http.StatusOK, jd)

@@ -9,6 +9,7 @@
   import DSCallout from "$lib/components/DSCallout.svelte";
   import CloseProjectConfirmPopover from "$lib/components/CloseProjectConfirmPopover.svelte";
   import ChangeClientPopover from "$lib/components/jobs/ChangeClientPopover.svelte";
+  import AdoptSubjobsPopover from "$lib/components/jobs/AdoptSubjobsPopover.svelte";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -42,6 +43,11 @@
     !isProposal && /^\d{2}-\d{3,4}$/.test(job.number ?? "") && canStartProject,
   );
   const canSetNumber = $derived($jobsEditingEnabled && claims.includes("admin"));
+  // Legacy subjobs were imported without a link to their project. The server
+  // lists them for admins only.
+  const canAdoptSubjobs = $derived(
+    $jobsEditingEnabled && claims.includes("admin") && (job.unlinked_subjobs?.length ?? 0) > 0,
+  );
   // A subjob uses its parent's client, so only a top-level project's client
   // can be changed, and it moves its subjobs with it.
   const canChangeClient = $derived(
@@ -172,6 +178,10 @@
   // Change client -----------------------------------------------------------
 
   let showChangeClient = $state(false);
+
+  // Adopt subjobs -----------------------------------------------------------
+
+  let showAdoptSubjobs = $state(false);
 
   // Close project -----------------------------------------------------------
 
@@ -312,6 +322,13 @@
     {#if canSetNumber}
       <DSMenuItem label="Change number" icon="mdi:pound" action={openSetNumber} />
     {/if}
+    {#if canAdoptSubjobs}
+      <DSMenuItem
+        label="Adopt subjobs"
+        icon="mdi:file-tree"
+        action={() => (showAdoptSubjobs = true)}
+      />
+    {/if}
     {#if canChangeClient}
       <DSMenuItem
         label="Change client"
@@ -379,4 +396,8 @@
     subjobs={job.children ?? []}
     onchanged={() => invalidateAll()}
   />
+{/if}
+
+{#if canAdoptSubjobs && showAdoptSubjobs}
+  <AdoptSubjobsPopover bind:show={showAdoptSubjobs} {job} onchanged={() => invalidateAll()} />
 {/if}
