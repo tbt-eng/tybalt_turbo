@@ -14,14 +14,14 @@ import (
 // =============================================================================
 //
 // POST /api/jobs/{id}/adopt-subjobs links a project to the unlinked jobs
-// numbered as its subjobs. The tests use the legacy workflow project 26-9876
-// of Sepulchi & Co (pqpd90fqd5ohjcs). Horace Silver (author@soup.com) is an
-// admin.
+// numbered as its subjobs. The fixtures give project 26-7710 of Sepulchi & Co
+// two jobs it can adopt, one with another client, one with a subjob of its
+// own, one already linked to project 26-5555, and two that only look alike.
+// Horace Silver (author@soup.com) is an admin.
 
 const (
-	adoptProject       = legacyWorkflowJob
+	adoptProject       = "adoptproject000"
 	adoptClient        = "pqpd90fqd5ohjcs"
-	adoptOtherClient   = "lb0fnenkeyitsny"
 	adoptFirst         = "adoptsubjob0001"
 	adoptSecond        = "adoptsubjob0002"
 	adoptOtherClientID = "adoptsubjob0003"
@@ -34,27 +34,9 @@ const (
 	adoptStaleUpdated  = "2020-01-01 00:00:00.000Z"
 )
 
-// newAdoptSubjobsApp adds jobs numbered under 26-9876: two that can be adopted,
-// one with another client, one with a subjob of its own, one already linked to
-// another project, and two that only look alike.
 func newAdoptSubjobsApp(t *testing.T) *tests.TestApp {
 	t.Helper()
-	app := newWorkflowTestApp(t, false)
-	insert := func(id, number, parent, client string) string {
-		return "INSERT INTO jobs (id, number, parent, client, status, description, _imported, updated) VALUES ('" + id + "', '" + number + "', '" + parent + "', '" + client + "', 'Active', 'Adopt fixture', 1, '" + adoptStaleUpdated + "')"
-	}
-	execSQL(t, app,
-		insert(adoptOtherProject, "26-5555", "", adoptClient),
-		insert(adoptFirst, "26-9876-1", "", adoptClient),
-		insert(adoptSecond, "26-9876-02", "", adoptClient),
-		insert(adoptOtherClientID, "26-9876-3", "", adoptOtherClient),
-		insert(adoptLongerBase, "26-98761-1", "", adoptClient),
-		insert(adoptNested, "26-9876-4-1", "", adoptClient),
-		insert(adoptLinked, "26-9876-5", adoptOtherProject, adoptClient),
-		insert(adoptWithChild, "26-9876-6", "", adoptClient),
-		insert(adoptChild, "26-9876-6-1", adoptWithChild, adoptClient),
-	)
-	return app
+	return newWorkflowTestApp(t, false)
 }
 
 func postAdoptSubjobs(t *testing.T, app *tests.TestApp, job, email string, subjobs []string, status int) string {
@@ -105,7 +87,7 @@ func TestAdoptSubjobsLinksAdoptableSubjobs(t *testing.T) {
 	app := newAdoptSubjobsApp(t)
 
 	body := postAdoptSubjobs(t, app, adoptProject, horaceEmail, []string{adoptFirst, adoptSecond}, http.StatusOK)
-	if strings.TrimSpace(body) != `{"adopted":["26-9876-02","26-9876-1"]}` {
+	if strings.TrimSpace(body) != `{"adopted":["26-7710-02","26-7710-1"]}` {
 		t.Errorf("unexpected response %s", body)
 	}
 
@@ -131,7 +113,7 @@ func TestAdoptSubjobsLinksAdoptableSubjobs(t *testing.T) {
 		}
 	}
 
-	note, err := app.FindFirstRecordByData("client_notes", "note", "Adopted unlinked subjobs: 26-9876-02, 26-9876-1.")
+	note, err := app.FindFirstRecordByData("client_notes", "note", "Adopted unlinked subjobs: 26-7710-02, 26-7710-1.")
 	if err != nil {
 		t.Fatal("no note records the adoption")
 	}
@@ -172,7 +154,7 @@ func TestAdoptSubjobsRefusals(t *testing.T) {
 	postAdoptSubjobs(t, app, adoptProject, "noclaims@example.com", []string{adoptFirst, adoptSecond}, http.StatusForbidden)
 	// Only a top-level project can adopt subjobs.
 	postAdoptSubjobs(t, app, adoptWithChild, horaceEmail, []string{adoptChild}, http.StatusBadRequest)
-	// 26-5555 has no unlinked subjobs.
+	// 26-5555 has no unlinked subjobs of its own.
 	postAdoptSubjobs(t, app, adoptOtherProject, horaceEmail, nil, http.StatusBadRequest)
 
 	if got := workflowRecord(t, app, "jobs", adoptFirst).GetString("parent"); got != "" {

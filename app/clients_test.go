@@ -340,10 +340,10 @@ func TestClientsApi_JobOwnerCountsAndBalances(t *testing.T) {
 			want := map[string]totals{
 				// Owns cjf0kt0defhq480, which is billed to Mobilia SA.
 				"cwclient0000002": {1, 0, true},
-				// Billed for cjf0kt0defhq480 among its 41 jobs.
-				"lb0fnenkeyitsny": {41, 100, true},
+				// Billed for cjf0kt0defhq480 among its 42 jobs.
+				"lb0fnenkeyitsny": {42, 100, true},
 				// Both billed for and owns fcprojimpauto01.
-				"pqpd90fqd5ohjcs": {17, 50, true},
+				"pqpd90fqd5ohjcs": {26, 50, true},
 			}
 			for _, row := range rows {
 				w, ok := want[row.ID]
