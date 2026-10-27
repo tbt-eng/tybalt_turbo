@@ -7,6 +7,7 @@
   import Icon from "@iconify/svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
   import { page } from "$app/stores";
+  import { localIsoDate } from "$lib/localDate";
 
   const committedWeekEnding = $derived.by(
     () => ($page.params as Record<string, string | undefined>).committedWeekEnding,
@@ -33,7 +34,7 @@
     if (!committedWeekEnding) return "";
     const date = parseIsoDate(committedWeekEnding);
     date.setDate(date.getDate() - 6);
-    return date.toISOString().slice(0, 10);
+    return localIsoDate(date);
   });
 
   const attachmentCount = $derived.by(

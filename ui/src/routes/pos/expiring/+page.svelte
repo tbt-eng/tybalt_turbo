@@ -3,6 +3,7 @@
   import PurchaseOrdersList from "$lib/components/PurchaseOrdersList.svelte";
   import { fetchVisiblePOs, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
   import { onMount } from "svelte";
+  import { localIsoDate } from "$lib/localDate";
 
   interface PurchaseOrdersListData {
     items?: VisiblePurchaseOrderResponse[];
@@ -23,7 +24,7 @@
     const target = new Date();
     target.setHours(0, 0, 0, 0);
     target.setDate(target.getDate() + daysAhead);
-    return target.toISOString().split("T")[0];
+    return localIsoDate(target);
   }
 
   async function load(): Promise<void> {

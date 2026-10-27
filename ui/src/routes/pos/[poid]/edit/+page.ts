@@ -9,6 +9,7 @@ import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
 import type { PurchaseOrdersPageData } from "$lib/svelte-types";
 import { isRedirect, redirect } from "@sveltejs/kit";
+import { localIsoDate } from "$lib/localDate";
 
 export const load: PageLoad<PurchaseOrdersPageData> = async ({ params }) => {
   const defaultItem: Partial<PurchaseOrdersRecord> = {
@@ -17,7 +18,7 @@ export const load: PageLoad<PurchaseOrdersPageData> = async ({ params }) => {
     uid: "",
     type: PurchaseOrdersTypeOptions["One-Time"],
     // date in YYYY-MM-DD format
-    date: new Date().toISOString().split("T")[0],
+    date: localIsoDate(),
     end_date: "",
     frequency: PurchaseOrdersFrequencyOptions.Weekly,
     division: "vccd5fo56ctbigh",

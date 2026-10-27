@@ -2,12 +2,13 @@ import type { TimeEntriesRecord } from "$lib/pocketbase-types";
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
 import type { TimeEntriesPageData } from "$lib/svelte-types";
+import { localIsoDate } from "$lib/localDate";
 
 export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
   const defaultItem = {
     uid: "",
     // date in YYYY-MM-DD format
-    date: new Date().toISOString().split("T")[0],
+    date: localIsoDate(),
     time_type: "sdyfl3q7j7ap849",
     division: "",
     description: "",

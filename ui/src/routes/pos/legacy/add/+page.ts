@@ -7,6 +7,7 @@ import {
 } from "$lib/pocketbase-types";
 import type { PageLoad } from "./$types";
 import type { PurchaseOrdersPageData } from "$lib/svelte-types";
+import { localIsoDate } from "$lib/localDate";
 
 export const load: PageLoad<PurchaseOrdersPageData> = async () => {
   const defaultItem: Partial<PurchaseOrdersRecord> = {
@@ -16,7 +17,7 @@ export const load: PageLoad<PurchaseOrdersPageData> = async () => {
     status: PurchaseOrdersStatusOptions.Active,
     uid: "",
     type: PurchaseOrdersTypeOptions["One-Time"],
-    date: new Date().toISOString().split("T")[0],
+    date: localIsoDate(),
     end_date: "",
     frequency: PurchaseOrdersFrequencyOptions.Weekly,
     division: "",

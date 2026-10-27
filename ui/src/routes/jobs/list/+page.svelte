@@ -11,6 +11,7 @@
   import { globalStore } from "$lib/stores/global";
   import Icon from "@iconify/svelte";
   import { goto } from "$app/navigation";
+  import { localIsoDate } from "$lib/localDate";
 
   // initialize the jobs store, noop if already initialized
   jobs.init();
@@ -90,7 +91,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `jobs_export_${new Date().toISOString().split("T")[0]}.json`;
+      a.download = `jobs_export_${localIsoDate()}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

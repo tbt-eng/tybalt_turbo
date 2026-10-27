@@ -5,6 +5,7 @@ import {
   PurchaseOrdersStatusOptions,
   PurchaseOrdersTypeOptions,
 } from "$lib/pocketbase-types";
+import { localIsoDate } from "$lib/localDate";
 
 type PurchaseOrderTemplateSource = Partial<PurchaseOrdersRecord | PurchaseOrdersResponse>;
 
@@ -14,7 +15,7 @@ export function blankPurchaseOrder(date = new Date()): Partial<PurchaseOrdersRec
     status: PurchaseOrdersStatusOptions.Unapproved,
     uid: "",
     type: PurchaseOrdersTypeOptions["One-Time"],
-    date: date.toISOString().split("T")[0],
+    date: localIsoDate(date),
     end_date: "",
     frequency: PurchaseOrdersFrequencyOptions.Weekly,
     division: "",

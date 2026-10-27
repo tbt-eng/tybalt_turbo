@@ -3,6 +3,7 @@
   import { globalStore } from "$lib/stores/global";
   import type { PageData } from "./$types";
   import { downloadCSV } from "$lib/utilities";
+  import { localIsoDate } from "$lib/localDate";
 
   let { data }: { data: PageData } = $props();
   let monthlyYYMM = $state("");
@@ -26,7 +27,7 @@
       // eslint-disable-next-line svelte/prefer-svelte-reactivity
       const monday = new Date(d);
       monday.setDate(diff);
-      const key = monday.toISOString().slice(0, 10);
+      const key = localIsoDate(monday);
       if (!weekMap.has(key)) weekMap.set(key, []);
       weekMap.get(key)!.push(ds);
     }

@@ -9,6 +9,7 @@ import { fetchLegacyPurchaseOrderForEdit } from "$lib/legacyPurchaseOrders";
 import type { PageLoad } from "./$types";
 import type { PurchaseOrdersPageData } from "$lib/svelte-types";
 import { redirect } from "@sveltejs/kit";
+import { localIsoDate } from "$lib/localDate";
 
 const defaultItem = (): PurchaseOrdersRecord =>
   ({
@@ -26,7 +27,7 @@ const defaultItem = (): PurchaseOrdersRecord =>
     covered_within_project_budget: false,
     closer: "",
     created: "",
-    date: new Date().toISOString().split("T")[0],
+    date: localIsoDate(),
     description: "",
     division: "",
     end_date: "",

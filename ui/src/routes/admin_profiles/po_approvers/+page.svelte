@@ -3,6 +3,7 @@
   import { globalStore } from "$lib/stores/global";
   import { divisions as divisionsStore } from "$lib/stores/divisions";
   import { downloadCsvRows } from "$lib/utilities";
+  import { localIsoDate } from "$lib/localDate";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
@@ -183,7 +184,7 @@
       };
     });
 
-    downloadCsvRows(`po_approvers_${new Date().toISOString().split("T")[0]}.csv`, exportRows, [
+    downloadCsvRows(`po_approvers_${localIsoDate()}.csv`, exportRows, [
       "given_name",
       "surname",
       "capital_max",
@@ -203,11 +204,10 @@
       surname: user.surname,
     }));
 
-    downloadCsvRows(
-      `tapr_without_po_approver_${new Date().toISOString().split("T")[0]}.csv`,
-      exportRows,
-      ["given_name", "surname"],
-    );
+    downloadCsvRows(`tapr_without_po_approver_${localIsoDate()}.csv`, exportRows, [
+      "given_name",
+      "surname",
+    ]);
   }
 
   // Initialize edited state for a row if not already present

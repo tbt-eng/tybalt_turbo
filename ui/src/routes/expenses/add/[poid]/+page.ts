@@ -2,12 +2,13 @@ import type { ExpensesRecord } from "$lib/pocketbase-types";
 import type { PageLoad } from "./$types";
 import type { ExpensesPageData } from "$lib/svelte-types";
 import { fetchVisiblePO, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
+import { localIsoDate } from "$lib/localDate";
 
 export const load: PageLoad<ExpensesPageData> = async ({ params, url }) => {
   const defaultItem = {
     uid: "",
     // date in YYYY-MM-DD format
-    date: new Date().toISOString().split("T")[0],
+    date: localIsoDate(),
     division: "",
     description: "",
     payment_type: "OnAccount",
