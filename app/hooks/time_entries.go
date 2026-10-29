@@ -230,7 +230,7 @@ func ProcessTimeEntry(app core.App, e *core.RecordRequestEvent) error {
 		return err
 	}
 
-	if err := utilities.EnsureUserCanUseBranch(app, record.GetString("branch"), authRecord.Id, "branch"); err != nil {
+	if err := utilities.EnsureUserCanUseRecordBranch(app, record, authRecord.Id); err != nil {
 		return err
 	}
 

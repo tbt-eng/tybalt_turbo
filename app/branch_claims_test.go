@@ -229,7 +229,9 @@ func TestCorporateBranchClaimGating_TimeEntriesCreate_WithJobBranch(t *testing.T
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "time entry create fails when job branch is corporate and caller lacks claim",
+			// The branch comes from the job rather than the caller, so the
+			// corporate_branch claim is not required.
+			Name:   "time entry create succeeds when job branch is corporate and caller lacks claim",
 			Method: http.MethodPost,
 			URL:    "/api/collections/time_entries/records",
 			Body: strings.NewReader(`{
@@ -246,10 +248,10 @@ func TestCorporateBranchClaimGating_TimeEntriesCreate_WithJobBranch(t *testing.T
 				"Authorization": noClaimToken,
 				"Content-Type":  "application/json",
 			},
-			ExpectedStatus: 400,
+			ExpectedStatus: 200,
 			ExpectedContent: []string{
-				`branch claim requirement not met`,
-				`corporate_branch`,
+				`"branch":"kpj5jijh0if8kx8"`,
+				`"job":"jobcorpbranch01"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -269,6 +271,74 @@ func TestCorporateBranchClaimGating_TimeEntriesCreate_WithJobBranch(t *testing.T
 			}`),
 			Headers: map[string]string{
 				"Authorization": claimToken,
+				"Content-Type":  "application/json",
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"branch":"kpj5jijh0if8kx8"`,
+				`"job":"jobcorpbranch01"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
+func TestCorporateBranchClaimGating_PurchaseOrdersAndExpensesCreate_WithJobBranch(t *testing.T) {
+	noClaimToken, err := testutils.GenerateRecordToken("users", "corp.noclaim@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:   "purchase order create succeeds when job branch is corporate and caller lacks claim",
+			Method: http.MethodPost,
+			URL:    "/api/collections/purchase_orders/records",
+			Body: strings.NewReader(`{
+				"uid": "u_corp_noclaim",
+				"date": "2024-09-01",
+				"division": "fy4i9poneukvq9u",
+				"description": "corporate job purchase order",
+				"payment_type": "Expense",
+				"total": 100,
+				"vendor": "2zqxtsmymf670ha",
+				"approver": "etysnrlup2f6bak",
+				"status": "Unapproved",
+				"type": "One-Time",
+				"kind": "prj0kind0000001",
+				"job": "jobcorpbranch01"
+			}`),
+			Headers: map[string]string{
+				"Authorization": noClaimToken,
+				"Content-Type":  "application/json",
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"branch":"kpj5jijh0if8kx8"`,
+				`"job":"jobcorpbranch01"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			Name:   "expense create succeeds when job branch is corporate and caller lacks claim",
+			Method: http.MethodPost,
+			URL:    "/api/collections/expenses/records",
+			Body: strings.NewReader(`{
+				"uid": "u_corp_noclaim",
+				"date": "2025-01-10",
+				"division": "fy4i9poneukvq9u",
+				"payment_type": "Allowance",
+				"allowance_types": ["Breakfast"],
+				"total": 0,
+				"description": "Allowance for Breakfast",
+				"job": "jobcorpbranch01"
+			}`),
+			Headers: map[string]string{
+				"Authorization": noClaimToken,
 				"Content-Type":  "application/json",
 			},
 			ExpectedStatus: 200,

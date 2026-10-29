@@ -745,7 +745,7 @@ func ProcessExpense(app core.App, e *core.RecordRequestEvent) error {
 		return err
 	}
 
-	if err := utilities.EnsureUserCanUseBranch(app, expenseRecord.GetString("branch"), authRecord.Id, "branch"); err != nil {
+	if err := utilities.EnsureUserCanUseRecordBranch(app, expenseRecord, authRecord.Id); err != nil {
 		return err
 	}
 

@@ -13,6 +13,27 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// EnsureUserCanUseRecordBranch applies EnsureUserCanUseBranch to a record's
+// branch field unless that branch is inherited from the record's job. A job
+// forces the record's branch to the job's branch, so the user did not choose
+// it and branch claims do not apply. Charging time or costs to a job on a
+// restricted branch (for example a company-wide job on the Corporate branch)
+// must not require the branch claim.
+//
+// The branch is compared with the job's rather than skipping whenever a job is
+// set because expenses linked to a purchase order take the purchase order's
+// branch, which can differ from the job's branch.
+func EnsureUserCanUseRecordBranch(app core.App, record *core.Record, userID string) error {
+	branchID := strings.TrimSpace(record.GetString("branch"))
+	if jobID := strings.TrimSpace(record.GetString("job")); jobID != "" && branchID != "" {
+		job, err := app.FindRecordById("jobs", jobID)
+		if err == nil && job != nil && strings.TrimSpace(job.GetString("branch")) == branchID {
+			return nil
+		}
+	}
+	return EnsureUserCanUseBranch(app, branchID, userID, "branch")
+}
+
 // EnsureUserCanUseBranch enforces branch-level claim restrictions for the
 // target user. A branch with no allowed_claims is unrestricted.
 func EnsureUserCanUseBranch(app core.App, branchID string, userID string, fieldName string) error {

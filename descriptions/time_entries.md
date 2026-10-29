@@ -97,7 +97,13 @@ This means time entries no longer always derive branch from
 - When a job is present, `role` is required.
 - When a job is present, the selected division must be allocated to that job.
 - If a referenced job exists but has no `branch`, the create/update is rejected.
-- Branch claim enforcement applies to the resolved branch value.
+- Branch claim enforcement (`branches.allowed_claims`, e.g. `corporate_branch`)
+  applies only when the branch is not inherited from the job. A branch forced
+  from the job is not the user's choice, so anyone may charge time to a job on a
+  restricted branch, such as a company-wide job on the Corporate branch.
+  Purchase orders and expenses follow the same rule. An expense linked to a
+  purchase order takes the purchase order's branch, so it is still checked when
+  that branch differs from the job's branch.
 
 ## UI Exposure of Rule (3)
 
