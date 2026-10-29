@@ -12,6 +12,7 @@
   import Icon from "@iconify/svelte";
   import { goto } from "$app/navigation";
   import { localIsoDate } from "$lib/localDate";
+  import { saveErrorMessage } from "$lib/utilities";
 
   // initialize the jobs store, noop if already initialized
   jobs.init();
@@ -151,13 +152,8 @@
       await pb.send(`/api/jobs/${pendingCloseJob.id}/close`, { method: "POST" });
       await jobs.refresh(pendingCloseJob.id);
       cancelCloseConfirm();
-    } catch (error: any) {
-      const msg =
-        error?.response?.message ??
-        error?.response?.error ??
-        error?.message ??
-        "Failed to close project";
-      globalStore.addError(msg);
+    } catch (error: unknown) {
+      globalStore.addError(saveErrorMessage(error, "Failed to close project"));
     } finally {
       closingJobId = null;
     }

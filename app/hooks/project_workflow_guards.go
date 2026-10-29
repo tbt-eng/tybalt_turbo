@@ -154,6 +154,43 @@ func AddProjectWorkflowHooks(app core.App) {
 				return workflowError("user identity is retained in project authorization records")
 			}
 		}
+		// Refuse to delete a user who is the manager of any job.
+		//
+		// When a deleted record is referenced by a relation field without
+		// cascadeDelete, PocketBase checks the field's `required` flag. A
+		// required relation makes it refuse the delete. An optional one makes
+		// it remove the deleted id from each referencing record, saving the
+		// reference as blank.
+		//
+		// jobs.manager was required until migration
+		// 1793286261_jobs_contact_manager_optional, which made it optional so
+		// imported jobs with no manager can still be closed (validateJob now
+		// requires a manager on creates and full edits instead).
+		//
+		// PocketBase clears the reference with SaveNoValidate, which still runs
+		// the record hooks. For a project, jobGuard (below) refuses that
+		// unvalidated write, so the delete would fail regardless. For a
+		// proposal, jobGuard allows it, so without this check deleting a user
+		// would silently blank the manager on every proposal they manage. Those
+		// proposals would then fail any full edit until someone chose a new
+		// manager, and the record of who managed them would be lost.
+		//
+		// This keeps the old outcome (the delete is refused) for both job types.
+		// The check runs before e.Next(), which is where PocketBase clears
+		// references and deletes the row. A delete made in Go gets this message;
+		// a delete through the records API (including the superuser dashboard)
+		// gets PocketBase's generic delete error instead, because PocketBase
+		// replaces model-hook errors in API responses.
+		//
+		// jobs.contact needs no equivalent here: recordInUse (client_setup.go)
+		// already refuses to delete a client contact that any job references.
+		count, err := e.App.CountRecords("jobs", dbx.HashExp{"manager": e.Record.Id})
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return workflowError("user is the manager of one or more jobs")
+		}
 		return e.Next()
 	})
 	// Generic and model writes cannot change workflow-owned state.

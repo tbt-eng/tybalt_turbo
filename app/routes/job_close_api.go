@@ -177,9 +177,18 @@ func createCloseJobHandler(app core.App) func(e *core.RequestEvent) error {
 				if errors.As(err, &validationErrs) {
 					fieldErrors := make(map[string]errs.CodeError)
 					for field, fieldErr := range validationErrs {
+						// PocketBase's schema messages, such as "cannot be blank"
+						// or "Invalid value format.", don't name the field, and
+						// the UI shows only the message. Before issue #167 was
+						// fixed, a project with no contact failed here with a
+						// bare "cannot be blank". Imported data can still fail
+						// other schema rules (a malformed number, a description
+						// that is too short), so prefix the field name
+						// ("number: Invalid value format.") to say what to fix.
+						// A colon reads correctly whatever the message's case.
 						fieldErrors[field] = errs.CodeError{
 							Code:    "validation_error",
-							Message: fieldErr.Error(),
+							Message: strings.ReplaceAll(field, "_", " ") + ": " + fieldErr.Error(),
 						}
 					}
 					return &errs.HookError{

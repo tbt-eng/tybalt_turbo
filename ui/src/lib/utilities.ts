@@ -12,16 +12,21 @@ import { pb } from "$lib/pocketbase";
 import { get } from "svelte/store";
 import { globalStore } from "$lib/stores/global";
 
-type SaveErrorResponse = { message?: string; data?: Record<string, { message?: string }> };
+type SaveErrorResponse = {
+  message?: string;
+  error?: string;
+  data?: Record<string, { message?: string }>;
+};
 
 // Describe a failed save with the API's field messages when it sent any,
-// otherwise with its overall message.
+// otherwise with its overall message. Some custom routes report unexpected
+// failures as {"error": "..."} instead of {"message": "..."}.
 export function saveErrorMessage(error: unknown, fallback: string): string {
   const response = (error as { response?: SaveErrorResponse } | null)?.response;
   const fields = Object.values(response?.data ?? {})
     .map((field) => field?.message)
     .filter(Boolean);
-  return fields.length ? fields.join(" ") : response?.message || fallback;
+  return fields.length ? fields.join(" ") : response?.message || response?.error || fallback;
 }
 
 // The HTTP status of a failed PocketBase request, if it has one.

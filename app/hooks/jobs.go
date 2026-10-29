@@ -508,7 +508,8 @@ func validateJob(app core.App, record *core.Record, forceFullValidation bool) (j
 	if !isCreate && !forceFullValidation {
 		// ProcessJobCore relaxes a project write only for a retirement, which it
 		// decides before cleanJob normalizes the record. Retiring needs no billing
-		// data: no invoicing profile or project value.
+		// data (no invoicing profile or project value) and no contact or manager,
+		// which many imported projects lack.
 		if derived == jobTypeProject {
 			return derived, nil
 		}
@@ -665,6 +666,50 @@ func validateJob(app core.App, record *core.Record, forceFullValidation bool) (j
 			Data: map[string]errs.CodeError{
 				"branch": {Code: "required", Message: "branch is required"},
 			},
+		}
+	}
+
+	// All jobs must have a client contact and a manager.
+	//
+	// These were schema-level `required` flags on the jobs collection until
+	// migration 1793286261_jobs_contact_manager_optional. PocketBase applies
+	// schema validation to every save after the hooks have run, so it ignored
+	// the status-only shortcut above. Imported jobs that never had a contact or
+	// manager could not be saved at all, not even to close them, and Close
+	// project failed with a bare "cannot be blank" (issue #167).
+	//
+	// Checking the fields here keeps the requirement for creates and full edits
+	// (and for every write that uses ProcessJobCoreStrict, such as the project
+	// workflow) while letting a status-only update through: a project
+	// retirement returns above before this point, and so does a proposal
+	// status change when nothing else changed.
+	//
+	// For proposals, "nothing else changed" is judged after cleanJob, so the
+	// caveat in processJobCoreWithMode applies: cleanJob blanks fields that
+	// proposals must not carry, and most imported proposals hold an
+	// outstanding_balance_date of 1970-01-01 that it clears. Such a status
+	// change still gets full validation, which includes this check, as it did
+	// when the schema required the fields. Cancelled and No Bid go through
+	// POST /api/jobs/{id}/set-status instead, which saves without these hooks
+	// and so now works for proposals with no contact or manager.
+	//
+	// Nothing in this check fills the fields in. An imported job that lacks them
+	// still needs both before any other edit succeeds, and the error names the
+	// field so the user knows what to fix.
+	//
+	// The schema no longer stops a referenced contact or manager from being
+	// deleted, which PocketBase would otherwise allow by clearing the
+	// reference. recordInUse (client_setup.go) refuses contact deletes, and
+	// the users delete hook in AddProjectWorkflowHooks refuses manager deletes.
+	for _, field := range []string{"contact", "manager"} {
+		if record.GetString(field) == "" {
+			return 0, &errs.HookError{
+				Status:  http.StatusBadRequest,
+				Message: field + " is required",
+				Data: map[string]errs.CodeError{
+					field: {Code: "required", Message: field + " is required"},
+				},
+			}
 		}
 	}
 
