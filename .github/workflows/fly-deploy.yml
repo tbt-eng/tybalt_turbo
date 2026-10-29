@@ -7,7 +7,7 @@ on:
       - main
 
 permissions:
-  contents: write # Allow pushing commits and tags
+  contents: read # Pushes go through the deploy key, not GITHUB_TOKEN
 
 jobs:
   deploy:
@@ -17,7 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Deploy key is on the main ruleset bypass list; GITHUB_TOKEN can't bypass it
+          ssh-key: ${{ secrets.MAIN_PUSH_DEPLOY_KEY }}
           fetch-depth: 0
 
       - name: Setup Node.js for version scripts
@@ -50,7 +51,8 @@ jobs:
       - name: Commit version bump
         run: |
           git add version.json
-          git commit -m "Bump version to ${{ steps.version.outputs.full_version }}"
+          # [skip ci]: deploy-key pushes trigger workflows, unlike GITHUB_TOKEN pushes
+          git commit -m "Bump version to ${{ steps.version.outputs.full_version }} [skip ci]"
           git tag "v${{ steps.version.outputs.full_version }}"
 
       - name: Push changes
