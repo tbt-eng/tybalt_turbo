@@ -2,11 +2,13 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import PurchaseOrdersList from "$lib/components/PurchaseOrdersList.svelte";
   import { fetchVisiblePOs, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
+  import type { PurchaseOrdersResponse } from "$lib/pocketbase-types";
   import { onMount } from "svelte";
   import { localIsoDate } from "$lib/localDate";
 
   interface PurchaseOrdersListData {
     items?: VisiblePurchaseOrderResponse[];
+    createdItemIsVisible?: (record: PurchaseOrdersResponse) => boolean;
     realtime_source?: "visible" | "pending";
   }
 
@@ -35,9 +37,17 @@
     loading = true;
     errorMessage = null;
     try {
-      const result = await fetchVisiblePOs("expiring", expiringBefore);
+      const before = expiringBefore;
+      const result = await fetchVisiblePOs("expiring", before);
       listData = {
         items: result,
+        // Matches the expiring scope, so realtime events for other purchase
+        // orders the caller can see stay off the list.
+        createdItemIsVisible: (record) =>
+          record.status === "Active" &&
+          record.type === "Recurring" &&
+          record.end_date !== "" &&
+          record.end_date <= before,
         realtime_source: "visible",
       };
       listKey += 1;

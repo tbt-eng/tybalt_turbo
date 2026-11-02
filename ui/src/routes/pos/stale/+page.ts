@@ -1,3 +1,4 @@
+import type { PurchaseOrdersResponse } from "$lib/pocketbase-types";
 import type { PageLoad } from "./$types";
 import { fetchVisiblePOs } from "$lib/poVisibility";
 export const load: PageLoad = async () => {
@@ -7,6 +8,12 @@ export const load: PageLoad = async () => {
     const result = await fetchVisiblePOs("stale", staleDate);
     return {
       items: result,
+      // Matches the stale scope, so realtime events for other purchase orders
+      // the caller can see stay off the list.
+      createdItemIsVisible: (record: PurchaseOrdersResponse) =>
+        record.status === "Active" &&
+        ((record.second_approval !== "" && record.second_approval < staleDate) ||
+          record.approved < staleDate),
       realtime_source: "visible" as const,
     };
   } catch (error) {

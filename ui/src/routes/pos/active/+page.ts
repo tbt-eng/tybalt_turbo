@@ -1,3 +1,4 @@
+import type { PurchaseOrdersResponse } from "$lib/pocketbase-types";
 import type { PageLoad } from "./$types";
 import { fetchVisiblePOs } from "$lib/poVisibility";
 export const load: PageLoad = async () => {
@@ -5,6 +6,9 @@ export const load: PageLoad = async () => {
     const result = await fetchVisiblePOs("active");
     return {
       items: result,
+      // Matches the active scope, so realtime events for purchase orders the
+      // caller can see but that aren't Active stay off the list.
+      createdItemIsVisible: (record: PurchaseOrdersResponse) => record.status === "Active",
       realtime_source: "visible" as const,
     };
   } catch (error) {
