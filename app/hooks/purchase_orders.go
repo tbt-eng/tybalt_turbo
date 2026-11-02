@@ -117,7 +117,8 @@ func CleanPurchaseOrder(app core.App, purchaseOrderRecord *core.Record) error {
 	purchaseOrderRecord.Set("rejector", "")
 
 	// When a job is present, branch must always match the job's branch.
-	// Without a job, derive from the creator's default branch only when blank.
+	// Without a job, derive from the owner's default branch only when blank, so
+	// an owner without a default branch can still have a chosen branch.
 	var derivedBranchID string
 	jobId := purchaseOrderRecord.GetString("job")
 	if jobId != "" {
@@ -143,7 +144,7 @@ func CleanPurchaseOrder(app core.App, purchaseOrderRecord *core.Record) error {
 		}
 		// Enforce strict job->branch alignment.
 		purchaseOrderRecord.Set("branch", derivedBranchID)
-	} else {
+	} else if strings.TrimSpace(purchaseOrderRecord.GetString("branch")) == "" {
 		uid := purchaseOrderRecord.GetString("uid")
 		adminProfile, err := app.FindFirstRecordByFilter("admin_profiles", "uid={:uid}", dbx.Params{"uid": uid})
 		if err != nil || adminProfile == nil {
@@ -165,8 +166,6 @@ func CleanPurchaseOrder(app core.App, purchaseOrderRecord *core.Record) error {
 				},
 			}
 		}
-	}
-	if jobId == "" && strings.TrimSpace(purchaseOrderRecord.GetString("branch")) == "" {
 		purchaseOrderRecord.Set("branch", derivedBranchID)
 	}
 
@@ -782,6 +781,26 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 					},
 				},
 			}
+		}
+	}
+
+	// Only the purchase order groups route assigns po_group. A collection
+	// create can't join a group and an update can't move a PO between groups.
+	requestGroup := strings.TrimSpace(record.GetString("po_group"))
+	originalGroup := ""
+	if original := record.Original(); !record.IsNew() && original != nil {
+		originalGroup = strings.TrimSpace(original.GetString("po_group"))
+	}
+	if requestGroup != originalGroup {
+		return "", &errs.HookError{
+			Status:  http.StatusBadRequest,
+			Message: "hook error when validating po_group",
+			Data: map[string]errs.CodeError{
+				"po_group": {
+					Code:    "immutable_field",
+					Message: "po_group can only be set when a purchase order group is created",
+				},
+			},
 		}
 	}
 

@@ -2,6 +2,7 @@ import { downloadActiveJobsCsv, downloadTimeEntryBranchMismatchesCsv } from "$li
 import { canViewWIPReports } from "$lib/reports/wipReports";
 import { canViewBranchHours } from "$lib/reports/branchHours";
 import { canViewPOApprovers } from "$lib/poApprovalLimits";
+import { canViewPOGroups } from "$lib/poGroups";
 
 export interface NavButton {
   action: string | (() => void | Promise<void>);
@@ -81,6 +82,19 @@ export const navSections: NavSection[] = [
             action: "/pos/add",
             icon: "feather:plus-circle",
             title: "New PO",
+            color: "green",
+          },
+        ],
+      },
+      {
+        label: "PO Groups",
+        href: "/pos/groups",
+        canView: canViewPOGroups,
+        buttons: [
+          {
+            action: "/pos/groups/add",
+            icon: "feather:plus-circle",
+            title: "New PO Group",
             color: "green",
           },
         ],

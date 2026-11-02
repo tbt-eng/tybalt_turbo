@@ -2,7 +2,14 @@ import { pb } from "$lib/pocketbase";
 import type { PurchaseOrdersAugmentedResponse } from "$lib/pocketbase-types";
 
 export type VisiblePOScope =
-  "all" | "mine" | "active" | "rejected" | "stale" | "expiring" | "approved_by_me_awaiting_second";
+  | "all"
+  | "mine"
+  | "active"
+  | "rejected"
+  | "stale"
+  | "expiring"
+  | "approved_by_me_awaiting_second"
+  | "group";
 
 export type VisiblePurchaseOrderResponse = PurchaseOrdersAugmentedResponse & {
   branch: string;
@@ -14,6 +21,7 @@ export type VisiblePurchaseOrderResponse = PurchaseOrdersAugmentedResponse & {
   expenses_total: number;
   kind_label: string;
   kind_name: string;
+  po_group: string;
   recurring_expected_occurrences: number;
   recurring_remaining_occurrences: number;
   remaining_amount: number;
@@ -36,6 +44,14 @@ export async function fetchVisiblePOs(
     params.set("limit", String(limit));
   }
 
+  return (await pb.send(`/api/purchase_orders/visible?${params.toString()}`, {
+    method: "GET",
+  })) as VisiblePurchaseOrderResponse[];
+}
+
+// The visible purchase orders in a purchase order group.
+export async function fetchGroupPOs(groupId: string): Promise<VisiblePurchaseOrderResponse[]> {
+  const params = new URLSearchParams({ scope: "group", group: groupId });
   return (await pb.send(`/api/purchase_orders/visible?${params.toString()}`, {
     method: "GET",
   })) as VisiblePurchaseOrderResponse[];

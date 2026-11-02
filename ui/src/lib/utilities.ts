@@ -676,7 +676,15 @@ export function downloadCsvRows(
   const resolvedHeaders = headers && headers.length > 0 ? headers : Object.keys(rows[0] ?? {});
   if (resolvedHeaders.length === 0) return;
 
-  const csv = rowsToCsv(rows, resolvedHeaders);
+  saveCsv(fileName, rowsToCsv(rows, resolvedHeaders));
+}
+
+// Download a CSV with only a header row, as a template for an upload.
+export function downloadCsvHeaders(fileName: string, headers: string[]) {
+  saveCsv(fileName, rowsToCsv([], headers) + "\n");
+}
+
+function saveCsv(fileName: string, csv: string) {
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

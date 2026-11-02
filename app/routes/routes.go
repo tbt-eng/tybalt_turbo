@@ -203,6 +203,8 @@ func AddRoutes(app core.App) {
 		poGroup.GET("/approvers", createGetApproversHandler(app, false))
 		poGroup.GET("/approval_limits", createGetPOApprovalLimitsHandler(app))
 		poGroup.GET("/second_approvers", createGetApproversHandler(app, true))
+		poGroup.GET("/groups", createGetPurchaseOrderGroupsHandler(app))
+		poGroup.GET("/groups/{id}", createGetPurchaseOrderGroupHandler(app))
 
 		// PO mutation routes are gated on expenses editing via middleware
 		poMutations := se.Router.Group("/api/purchase_orders")
@@ -218,6 +220,8 @@ func AddRoutes(app core.App) {
 		poMutations.POST("/{id}/cancel", createCancelPurchaseOrderHandler(app))
 		poMutations.POST("/{id}/close", createClosePurchaseOrderHandler(app))
 		poMutations.POST("/{id}/make_cumulative", createConvertToCumulativePurchaseOrderHandler(app))
+		poMutations.POST("/groups/preview", createPreviewPurchaseOrderGroupHandler(app))
+		poMutations.POST("/groups", createCreatePurchaseOrderGroupHandler(app))
 
 		poLegacy := se.Router.Group("/api/purchase_orders/legacy")
 		poLegacy.Bind(apis.RequireAuth("users"))

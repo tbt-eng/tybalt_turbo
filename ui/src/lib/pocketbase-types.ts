@@ -749,6 +749,7 @@ export type PurchaseOrdersRecord = {
   occurrences: number;
   parent_po: RecordIdString;
   payment_type: PurchaseOrdersPaymentTypeOptions;
+  po_group: RecordIdString;
   po_number: string;
   priority_second_approver: RecordIdString;
   rejected: IsoDateString;

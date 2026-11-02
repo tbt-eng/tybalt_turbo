@@ -35,3 +35,19 @@ export const branches = createCollectionStore<BranchesResponse>(
     }));
   },
 );
+
+// The branches a user holding claimIds may choose: those with no
+// allowed_claims and those allowing one of the claims. The record's current
+// branch is always kept so a value already on the record is never hidden.
+export function branchesAllowedFor(
+  items: BranchesResponse[],
+  claimIds: string[],
+  currentBranch = "",
+): BranchesResponse[] {
+  return items.filter(
+    (branch) =>
+      branch.id === currentBranch ||
+      !branch.allowed_claims?.length ||
+      branch.allowed_claims.some((claimId) => claimIds.includes(claimId)),
+  );
+}

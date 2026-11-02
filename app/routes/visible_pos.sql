@@ -72,7 +72,8 @@ SELECT
   branch_code,
   branch_name,
   kind_name,
-  kind_label
+  kind_label,
+  po_group
 FROM visibility_base
 WHERE
   (
@@ -81,10 +82,12 @@ WHERE
     OR is_unapproved_direct_visible = 1
     OR is_unapproved_second_stage_eligible = 1
     OR is_legacy_visible = 1
+    OR is_group_visible = 1
   )
   AND (
     {:scope} = 'all'
     OR ({:scope} = 'mine' AND uid = {:userId})
+    OR ({:scope} = 'group' AND po_group = {:groupId})
     OR ({:scope} = 'active' AND status = 'Active')
     OR (
       {:scope} = 'rejected'

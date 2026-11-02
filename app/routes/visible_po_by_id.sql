@@ -72,7 +72,8 @@ SELECT
   branch_code,
   branch_name,
   kind_name,
-  kind_label
+  kind_label,
+  po_group
 FROM visibility_base
 WHERE
   id = {:id}
@@ -82,5 +83,6 @@ WHERE
     OR is_unapproved_direct_visible = 1
     OR is_unapproved_second_stage_eligible = 1
     OR is_legacy_visible = 1
+    OR is_group_visible = 1
   )
 LIMIT 1

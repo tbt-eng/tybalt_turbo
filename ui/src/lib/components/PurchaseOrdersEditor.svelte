@@ -9,7 +9,7 @@
   import Icon from "@iconify/svelte";
   import { jobs } from "$lib/stores/jobs";
   import { divisions } from "$lib/stores/divisions";
-  import { branches as branchesStore } from "$lib/stores/branches";
+  import { branchesAllowedFor, branches as branchesStore } from "$lib/stores/branches";
   import { currencies } from "$lib/stores/currencies";
   import { expenditureKinds as expenditureKindsStore } from "$lib/stores/expenditureKinds";
   import { profiles } from "$lib/stores/profiles";
@@ -197,14 +197,8 @@
     paymentTypeOptions.find((paymentType) => paymentType.id === item.payment_type),
   );
   const creatorDefaultBranch = $derived.by(() => $globalStore.profile.default_branch ?? "");
-  const currentUserClaimIds = $derived.by(() => new Set($globalStore.claimIds));
-  const branchVisibleToCurrentUser = (branch: BranchesResponse): boolean => {
-    if (branch.id === item.branch) return true;
-    if (!branch.allowed_claims || branch.allowed_claims.length === 0) return true;
-    return branch.allowed_claims.some((claimId) => currentUserClaimIds.has(claimId));
-  };
   const availableBranches = $derived.by(() =>
-    $branchesStore.items.filter((branch) => branchVisibleToCurrentUser(branch)),
+    branchesAllowedFor($branchesStore.items, $globalStore.claimIds, item.branch),
   );
   const approverRequest = $derived.by(() =>
     buildPoApproverRequest({

@@ -29,7 +29,7 @@
   import { onMount, untrack } from "svelte";
   import type { SearchResult } from "minisearch";
   import { divisions as divisionsStore } from "$lib/stores/divisions";
-  import { branches as branchesStore } from "$lib/stores/branches";
+  import { branchesAllowedFor, branches as branchesStore } from "$lib/stores/branches";
   import { globalStore } from "$lib/stores/global";
   import { resolve } from "$app/paths";
 
@@ -132,11 +132,7 @@
     isAdmin ? stagedClaimIds : originalUserClaims.map((uc) => uc.cid),
   );
   const availableBranches = $derived.by(() =>
-    $branchesStore.items.filter((branch) => {
-      if (branch.id === item.default_branch) return true;
-      if (!branch.allowed_claims || branch.allowed_claims.length === 0) return true;
-      return branch.allowed_claims.some((claimId) => effectiveSubjectClaimIds.includes(claimId));
-    }),
+    branchesAllowedFor($branchesStore.items, effectiveSubjectClaimIds, item.default_branch),
   );
 
   let allClaims = $state([] as ClaimsResponse[]);

@@ -26,6 +26,7 @@
     filter, // optional filter function to apply to search results
     multi = false,
     choose,
+    helperText = "", // a line under the field explaining it
   }: {
     value: string;
     index: MiniSearch<T>;
@@ -39,6 +40,7 @@
     filter?: (item: T) => boolean;
     multi?: boolean;
     choose?: (id: string | number) => void;
+    helperText?: string;
   } = $props();
 
   let results = $state([] as SearchResult[]);
@@ -206,6 +208,9 @@
 
     {#if errors[fieldName] !== undefined}
       <span class="text-red-600">{errors[fieldName].message}</span>
+    {/if}
+    {#if helperText}
+      <div class="text-sm text-neutral-600">{helperText}</div>
     {/if}
     {#if results.length > 0}
       <ul class="suggestions">

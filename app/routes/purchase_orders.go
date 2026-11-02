@@ -156,6 +156,7 @@ type purchaseOrderVisibilityRow struct {
 	BranchName                 string  `db:"branch_name" json:"branch_name"`
 	KindName                   string  `db:"kind_name" json:"kind_name"`
 	KindLabel                  string  `db:"kind_label" json:"kind_label"`
+	POGroup                    string  `db:"po_group" json:"po_group"`
 }
 
 func buildSecondApproversMeta(
@@ -211,6 +212,7 @@ func purchaseOrderVisibilityParams(
 		"staleBefore":     staleBefore,
 		"expiringBefore":  expiringBefore,
 		"limit":           limit,
+		"groupId":         "",
 	}
 }
 
@@ -505,7 +507,14 @@ func createApprovePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) 
 		creatorProfile := updatedPO.ExpandedOne("uid").ExpandedOne("profiles_via_uid")
 		approverProfile := updatedPO.ExpandedOne("approver").ExpandedOne("profiles_via_uid")
 
-		if !recordWasFirstApproved && recordNowFirstApproved && recordRequiresSecondApproval && updatedPO.GetString("priority_second_approver") != "" && updatedPO.GetString("status") != "Active" {
+		needsPrioritySecondApproval := !recordWasFirstApproved && recordNowFirstApproved && recordRequiresSecondApproval && updatedPO.GetString("priority_second_approver") != "" && updatedPO.GetString("status") != "Active"
+		if needsPrioritySecondApproval && updatedPO.GetString("po_group") != "" {
+			// A purchase order in a group: the priority_second_approver gets
+			// one email for the whole group rather than one per purchase order.
+			if err := notifyPurchaseOrderGroupSecondApprover(app, updatedPO, userId); err != nil {
+				return err
+			}
+		} else if needsPrioritySecondApproval {
 			// The PO is now approved but not second-approved, and the
 			// priority_second_approver is set. Create a message to the
 			// priority_second_approver alerting them that they need to approve the PO
@@ -621,11 +630,19 @@ func createGetVisiblePurchaseOrdersHandler(app core.App) func(e *core.RequestEve
 		}
 
 		switch scope {
-		case "all", "mine", "active", "rejected", "stale", "expiring", "approved_by_me_awaiting_second":
+		case "all", "mine", "active", "rejected", "stale", "expiring", "approved_by_me_awaiting_second", "group":
 		default:
 			return e.JSON(http.StatusBadRequest, map[string]string{
 				"code":    "invalid_scope",
-				"message": "scope must be one of: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second",
+				"message": "scope must be one of: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second, group",
+			})
+		}
+
+		groupID := strings.TrimSpace(e.Request.URL.Query().Get("group"))
+		if scope == "group" && groupID == "" {
+			return e.JSON(http.StatusBadRequest, map[string]string{
+				"code":    "missing_group",
+				"message": "group is required when scope=group",
 			})
 		}
 
@@ -656,10 +673,10 @@ func createGetVisiblePurchaseOrdersHandler(app core.App) func(e *core.RequestEve
 			limit = parsed
 		}
 
+		params := purchaseOrderVisibilityParams(app, auth.Id, scope, staleBefore, expiringBefore, limit)
+		params["groupId"] = groupID
 		rows := []purchaseOrderVisibilityRow{}
-		if err := app.DB().NewQuery(visiblePOsQuery).Bind(
-			purchaseOrderVisibilityParams(app, auth.Id, scope, staleBefore, expiringBefore, limit),
-		).All(&rows); err != nil {
+		if err := app.DB().NewQuery(visiblePOsQuery).Bind(params).All(&rows); err != nil {
 			return e.JSON(http.StatusInternalServerError, map[string]string{
 				"code":    "error_fetching_visible_pos",
 				"message": fmt.Sprintf("error fetching visible purchase orders: %v", err),

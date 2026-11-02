@@ -72,7 +72,8 @@ SELECT
   branch_code,
   branch_name,
   kind_name,
-  kind_label
+  kind_label,
+  po_group
 FROM visibility_base
 WHERE
   (

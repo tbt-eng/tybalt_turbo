@@ -12,7 +12,7 @@
   import { jobs } from "$lib/stores/jobs";
   import { rateRoles } from "$lib/stores/rateRoles";
   import { timeTypes } from "$lib/stores/time_types";
-  import { branches as branchesStore } from "$lib/stores/branches";
+  import { branchesAllowedFor, branches as branchesStore } from "$lib/stores/branches";
   import { timeEditingDisabledMessage, timeEditingEnabled } from "$lib/stores/appConfig";
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
@@ -214,24 +214,12 @@
   // when no job is set and the user has not yet picked a branch.
   const creatorDefaultBranch = $derived.by(() => $globalStore.profile.default_branch ?? "");
 
-  // Set of claim ids the current user holds. Used to filter the branch list
-  // by branches.allowed_claims so users only see branches they can actually
-  // post against (e.g. the "corporate" branch is hidden unless the caller
-  // holds the corporate_branch claim).
-  const currentUserClaimIds = $derived.by(() => new Set($globalStore.claimIds));
-
-  // A branch is visible if (a) it is the currently-selected branch (so we
-  // never hide a value that's already on the record), (b) it has no claim
-  // restrictions, or (c) the user holds at least one of its allowed claims.
-  const branchVisibleToCurrentUser = (branch: BranchesResponse): boolean => {
-    if (branch.id === item.branch) return true;
-    if (!branch.allowed_claims || branch.allowed_claims.length === 0) return true;
-    return branch.allowed_claims.some((claimId) => currentUserClaimIds.has(claimId));
-  };
-
+  // Users only see branches they can actually post against (e.g. the
+  // "corporate" branch is hidden unless the caller holds the corporate_branch
+  // claim), plus the branch already on the record.
   const availableBranches = $derived.by(() =>
     EXPLICIT_BRANCH_PICKER_ENABLED
-      ? $branchesStore.items.filter((branch) => branchVisibleToCurrentUser(branch))
+      ? branchesAllowedFor($branchesStore.items, $globalStore.claimIds, item.branch)
       : [],
   );
 

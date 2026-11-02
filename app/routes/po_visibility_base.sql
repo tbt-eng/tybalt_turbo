@@ -79,7 +79,17 @@ WITH caller_context AS (
           AND c1.name = 'legacy_po_create_update'
       ) THEN 1
       ELSE 0
-    END AS has_legacy_po_create_update_claim
+    END AS has_legacy_po_create_update_claim,
+    CASE
+      WHEN EXISTS (
+        SELECT 1
+        FROM user_claims uc
+        JOIN claims c1 ON c1.id = uc.cid
+        WHERE uc.uid = {:userId}
+          AND c1.name IN ('super_po', 'admin')
+      ) THEN 1
+      ELSE 0
+    END AS has_po_group_claim
 ),
 
 -- CTE: caller_approver_props
@@ -229,6 +239,7 @@ SELECT
   COALESCE(br.name, '') AS branch_name,
   COALESCE(ek_display.name, ek_display_fallback.name, '') AS kind_name,
   COALESCE(ek_display.en_ui_label, ek_display_fallback.en_ui_label, '') AS kind_label,
+  po.po_group,
 
   -- Flag: Active records are visible to any authenticated user.
   --
@@ -339,6 +350,15 @@ SELECT
     THEN 1
     ELSE 0
   END AS is_legacy_visible,
+
+  -- Flag: super_po and admin holders can follow purchase order group members
+  -- in every status. Each one belongs to the staff member it was created for,
+  -- so without this the people who create groups could not see the unapproved
+  -- or closed ones.
+  CASE
+    WHEN po.po_group != '' AND caller_context.has_po_group_claim = 1 THEN 1
+    ELSE 0
+  END AS is_group_visible,
 
   -- Flag: Actionable "pending now" semantics.
   --

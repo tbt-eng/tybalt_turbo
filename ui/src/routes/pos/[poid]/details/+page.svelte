@@ -15,6 +15,7 @@
   } from "$lib/utilities";
   import DsList from "$lib/components/DSList.svelte";
   import { globalStore } from "$lib/stores/global";
+  import { canViewPOGroups } from "$lib/poGroups";
   import { expensesEditingEnabled } from "$lib/stores/appConfig";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
@@ -193,6 +194,9 @@
         {shortDate(data.po.date, true)}
         {#if data.po.legacy_manual_entry}
           <DsLabel color="cyan">Manually created</DsLabel>
+        {/if}
+        {#if data.po.po_group && canViewPOGroups($globalStore.claims)}
+          <a class="link" href={resolve(`/pos/groups/${data.po.po_group}`)}>PO group</a>
         {/if}
         {#if hasSecondApproverAlert}
           <button

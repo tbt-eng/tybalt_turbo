@@ -21,6 +21,7 @@
     optionTemplate,
     trailing,
     disabled = false,
+    helperText = "",
   }: {
     value: string | number;
     items: T[];
@@ -31,6 +32,8 @@
     optionTemplate: Snippet<[T]>;
     trailing?: Snippet<[]>;
     disabled?: boolean;
+    // A line under the field explaining it.
+    helperText?: string;
   } = $props();
 
   function clearValue() {
@@ -38,7 +41,11 @@
   }
 </script>
 
-<div class="flex w-full gap-2 {errors[fieldName] !== undefined ? 'bg-red-200' : ''}">
+<div
+  class="flex w-full gap-2 {helperText ? 'flex-col' : ''} {errors[fieldName] !== undefined
+    ? 'bg-red-200'
+    : ''}"
+>
   <span class="flex w-full gap-2">
     <label for={`select-input-${thisId}`}>{uiName}</label>
     <select
@@ -61,5 +68,8 @@
   </span>
   {#if errors[fieldName] !== undefined}
     <span class="text-red-600">{errors[fieldName].message}</span>
+  {/if}
+  {#if helperText}
+    <div class="text-sm text-neutral-600">{helperText}</div>
   {/if}
 </div>

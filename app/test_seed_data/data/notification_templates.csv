@@ -161,3 +161,24 @@ Project / scope of work:
 {{if .ForApprover}}You approved a value for this project when its client was {{.OldClientName}}.{{else}}You manage this project or one of its subjobs.{{end}} The project now uses the contact and invoicing profile chosen for {{.NewClientName}}. View the project here:
 
 {{.ActionURL}}",2026-10-14 00:00:00.000Z
+po_group_approval_required,2026-11-02 16:00:00.000Z,Asks the approver of a purchase order group to review its purchase orders,,pogroupapprove0,Approval needed: {{.Count}} purchase orders,"Hello {{.RecipientName}},
+
+{{.UserName}} has created {{.Count}} purchase orders, one for each of several staff members, and chose you as the approver of all of them.
+
+Description: {{.Description}}
+Vendor: {{.VendorName}}
+Total of all {{.Count}}: {{.Total}}
+
+Each purchase order is approved on its own, which gives it a PO number. They are in your Pending My Approval list:
+
+{{.ActionURL}}",2026-11-02 16:00:00.000Z
+po_group_second_approval_required,2026-11-02 16:00:00.000Z,Asks the second approver of a purchase order group to give second approval,,pogroup2ndappr0,Second approval needed: purchase orders for {{.Count}} staff,"Hello {{.RecipientName}},
+
+{{.CreatorName}} created {{.Count}} purchase orders, one for each of several staff members, and chose you as their second approver. {{.UserName}} has started approving them, and those over the second approval threshold need your approval too.
+
+Description: {{.Description}}
+Vendor: {{.VendorName}}
+
+This is the only email you get for the group. Each purchase order appears in your Pending My Approval list once {{.UserName}} approves it:
+
+{{.ActionURL}}",2026-11-02 16:00:00.000Z

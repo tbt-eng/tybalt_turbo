@@ -334,6 +334,7 @@ The `visible` endpoints use broader read semantics than `pending`:
     - rejector for rejected records
     - for non-rejected records: assigned first approver (pre/post first approval) and priority second approver (post-first-approval)
   - plus policy-based second-stage visibility for eligible second-stage approvers on first-approved/not-second-approved records (not timeout-gated)
+- Purchase order group members (`po_group` set): visible in every status to `super_po` and `admin` claim holders
 
 `GET /api/purchase_orders/visible` supports `scope`:
 
@@ -343,6 +344,7 @@ The `visible` endpoints use broader read semantics than `pending`:
 - `rejected` (status `Unapproved`, `rejected != ''`, `uid = caller`)
 - `stale` (status `Active` and older than `stale_before`; uses `second_approval` when present, otherwise `approved`)
 - `expiring` (status `Active`, type `Recurring`, `end_date <= expiring_before`; requires `expiring_before` query parameter; sorted by `end_date ASC`)
+- `group` (`po_group = group`; requires `group` query parameter)
 
 Note:
 
@@ -574,6 +576,23 @@ Implemented in `app/routes/purchase_orders.go` and `app/routes/close_purchase_or
 - `GET /api/purchase_orders/pending/:id`
 - `GET /api/purchase_orders/visible`
 - `GET /api/purchase_orders/visible/:id`
+- `GET /api/purchase_orders/groups`, `GET /api/purchase_orders/groups/:id`, `POST /api/purchase_orders/groups/preview`, `POST /api/purchase_orders/groups` (see Purchase Order Groups)
+
+## Purchase Order Groups
+
+A `super_po` claim holder can create one purchase order for each of many staff at once (issue #168), such as a yearly workwear allowance, from `/pos/groups/add`. Implemented in `app/routes/purchase_order_groups.go`. The PO Groups page (`/pos/groups`) lists groups for `super_po` and `admin` holders; only `super_po` holders can create them.
+
+- The creator fills out a template (One-Time or Cumulative, no job) and ticks which fields come from a CSV upload: `total`, `description`, `division` (code) and `branch` (name or code). The `email` column, which picks each owner, is always required. The page offers a header-only template CSV for the ticked fields and explains the flow at the top.
+- After the upload, the creator chooses the approver and, when some row needs one, a priority second approver from dropdowns, as in the PO editor. The preview lists only the people who could approve every row: it intersects each row's first-stage pool (and, for rows over the second approval threshold, second-stage pool) from the same `GetPOApproverPolicy` that validation uses. The owner self-approval bypass isn't offered because the owner differs from row to row.
+- The creator sets the branch, in the template or the upload. It is never filled from the owner's default branch, and it is checked against the creator's branch claims rather than the owner's. The owner didn't choose it, so `EnsureUserCanUseRecordBranch` doesn't check it against the owner's claims either: an owner can edit their group purchase order while it keeps that branch, and charge expenses to it, even on a branch such as Corporate that they couldn't choose themselves.
+- `POST /api/purchase_orders/groups/preview` builds every row's purchase order with the same cleaning and validation as a normal create, owned by that row's staff member, and reports per-row errors (unknown, inactive or repeated email, unparseable or missing values, a branch the creator can't use, approver not valid for the amount, missing second approver) plus the active staff missing from the upload and the approvers it can offer (`approvers`, `second_approvers`, `second_approval_required`). It doesn't need an approver yet; until one is chosen, rows aren't faulted for the approvers. Creating does need one. Nothing is saved. The page asks again after each pause in editing, and a newer request cancels the one in flight.
+- `POST /api/purchase_orders/groups` repeats the checks and, only when every row passes, creates a `purchase_order_groups` record (`creator` = caller, `description` = the template's, blank when descriptions come from the upload) and one `Unapproved` purchase order per row with `po_group` set, in one transaction. The rows are checked before the transaction starts, so a large upload doesn't hold the write lock. The client generates `group_id`, so a repeated request returns `409 group_exists` and creates nothing.
+- The approver gets one `po_group_approval_required` email for the whole group, with the count, description, vendor and total, linking to Pending My Approval. The per-purchase-order `po_approval_required` email is not sent for group members.
+- Each purchase order is then approved on its own through the normal approve endpoint, which assigns its PO number and sends the owner the usual `po_active` email.
+- When the first of a group's purchase orders needing second approval is first-approved, the priority second approver gets one `po_group_second_approval_required` email for the whole group instead of a `po_priority_second_approval_required` email for each. The daily `po_second_approval_required` reminder is already one email per approver.
+- `po_group` can't be set or changed through the collection API (`ProcessPurchaseOrder` rejects it), so an owner can edit or delete their unapproved group purchase order but not move it out of the group.
+- `super_po` and `admin` holders can read every group purchase order through the collection API as well as the visibility routes, which also sends the group page realtime events. The `purchase_order_groups` collection has no API rules; groups are read through the group routes.
+- The migration adds these access clauses by wrapping each existing rule whole (`(existing) || (clause)`), so it works whatever the live rules look like, and its rollback removes the wrapper and the claim's `user_claims` records before the claim.
 
 ## PO Number Format
 

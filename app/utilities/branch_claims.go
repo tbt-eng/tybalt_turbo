@@ -14,24 +14,49 @@ import (
 )
 
 // EnsureUserCanUseRecordBranch applies EnsureUserCanUseBranch to a record's
-// branch field unless that branch is inherited from the record's job. A job
-// forces the record's branch to the job's branch, so the user did not choose
-// it and branch claims do not apply. Charging time or costs to a job on a
-// restricted branch (for example a company-wide job on the Corporate branch)
-// must not require the branch claim.
+// branch field unless the user did not choose that branch. Branch claims then
+// do not apply:
 //
-// The branch is compared with the job's rather than skipping whenever a job is
-// set because expenses linked to a purchase order take the purchase order's
-// branch, which can differ from the job's branch.
+//   - A job forces the record's branch to the job's branch. Charging time or
+//     costs to a job on a restricted branch (for example a company-wide job on
+//     the Corporate branch) must not require the branch claim. The branch is
+//     compared with the job's rather than skipping whenever a job is set
+//     because expenses linked to a purchase order take the purchase order's
+//     branch, which can differ from the job's branch.
+//   - The creator of a purchase order group chooses the branch of every
+//     purchase order in it, and the group route checks it against the
+//     creator's claims. The owner keeps that branch when editing the purchase
+//     order, and expenses against it take it from the purchase order.
 func EnsureUserCanUseRecordBranch(app core.App, record *core.Record, userID string) error {
 	branchID := strings.TrimSpace(record.GetString("branch"))
-	if jobID := strings.TrimSpace(record.GetString("job")); jobID != "" && branchID != "" {
-		job, err := app.FindRecordById("jobs", jobID)
-		if err == nil && job != nil && strings.TrimSpace(job.GetString("branch")) == branchID {
-			return nil
-		}
+	if branchID != "" && branchIsInherited(app, record, branchID) {
+		return nil
 	}
 	return EnsureUserCanUseBranch(app, branchID, userID, "branch")
+}
+
+func branchIsInherited(app core.App, record *core.Record, branchID string) bool {
+	if jobID := strings.TrimSpace(record.GetString("job")); jobID != "" {
+		job, err := app.FindRecordById("jobs", jobID)
+		if err == nil && job != nil && strings.TrimSpace(job.GetString("branch")) == branchID {
+			return true
+		}
+	}
+	// A purchase order in a group that still has the branch it was created with.
+	if strings.TrimSpace(record.GetString("po_group")) != "" && !record.IsNew() {
+		if original := record.Original(); original != nil && strings.TrimSpace(original.GetString("branch")) == branchID {
+			return true
+		}
+	}
+	// An expense against a purchase order in a group.
+	if poID := strings.TrimSpace(record.GetString("purchase_order")); poID != "" {
+		po, err := app.FindRecordById("purchase_orders", poID)
+		if err == nil && po != nil && strings.TrimSpace(po.GetString("po_group")) != "" &&
+			strings.TrimSpace(po.GetString("branch")) == branchID {
+			return true
+		}
+	}
+	return false
 }
 
 // EnsureUserCanUseBranch enforces branch-level claim restrictions for the

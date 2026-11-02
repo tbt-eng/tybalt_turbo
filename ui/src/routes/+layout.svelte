@@ -138,6 +138,9 @@
               if (btn.action === "/vendors/add") {
                 return $globalStore.claims.includes("payables_admin");
               }
+              if (btn.action === "/pos/groups/add") {
+                return $globalStore.claims.includes("super_po");
+              }
               return true;
             });
             return { ...item, buttons: gatedButtons };
