@@ -730,6 +730,10 @@ func TestPurchaseOrderGroupOwnersUseTheCreatorsBranch(t *testing.T) {
 		"total":          "100",
 		"vendor":         poGroupVendor,
 		"purchase_order": poID,
+		// An on-account expense records its vendor invoice (#153).
+		"vendor_invoice_number": "PG-100",
+		"vendor_invoice_date":   "2026-11-01",
+		"vendor_invoice_total":  "100",
 	} {
 		if err := form.WriteField(field, value); err != nil {
 			t.Fatal(err)
