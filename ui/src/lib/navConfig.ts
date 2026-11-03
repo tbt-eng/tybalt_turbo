@@ -180,7 +180,18 @@ export const navSections: NavSection[] = [
           { label: "Division", href: "/jobs/wip/division", canView: canViewWIPReports },
         ],
       },
-      { label: "Project Requests", href: "/job-requests", buttons: [] },
+      {
+        label: "Project Requests",
+        href: "/job-requests",
+        buttons: [
+          {
+            action: "/job-requests/new",
+            icon: "feather:plus-circle",
+            title: "New Project Request",
+            color: "green",
+          },
+        ],
+      },
       { label: "Request Approvals", href: "/job-requests?queue=approval", buttons: [] },
       { label: "Job Create Queue", href: "/job-requests?queue=creation", buttons: [] },
       {

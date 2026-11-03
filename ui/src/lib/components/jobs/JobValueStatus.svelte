@@ -16,8 +16,12 @@
       item.assigned_approver === pb.authStore.record?.id &&
       claims.includes("project_authorization"),
   );
-  let reviewing = $state(false),
+  let decision = $state<"approve" | "reject" | null>(null),
     confirmingDelete = $state(false);
+  function review(name: "approve" | "reject") {
+    value.error = "";
+    decision = name;
+  }
   async function deleteChange() {
     if (item && (await value.act(item, "delete"))) confirmingDelete = false;
   }
@@ -36,8 +40,9 @@
       {/if}
     </p>
     {#snippet actions()}
-      {#if isApprover}<DSActionButton variant="primary" action={() => (reviewing = true)}
-          >Review</DSActionButton
+      {#if isApprover}<DSActionButton variant="primary" action={() => review("approve")}
+          >Approve</DSActionButton
+        ><DSActionButton variant="secondary" action={() => review("reject")}>Reject</DSActionButton
         >{/if}
       {#if claims.includes("job")}<DSActionButton
           variant="secondary"
@@ -49,26 +54,11 @@
         >{/if}
     {/snippet}
   </DSCallout>
-  {#if value.error && !reviewing && !confirmingDelete}<p role="alert" class="text-sm text-red-800">
+  {#if value.error && !decision && !confirmingDelete}<p role="alert" class="text-sm text-red-800">
       {value.error}
     </p>{/if}
 
-  {#if reviewing}
-    <div class="fixed inset-0 z-9999 flex items-center justify-center bg-black/50">
-      <div class="w-full max-w-md space-y-4 rounded-lg bg-white p-6 shadow-xl">
-        <h2 class="text-xl font-bold">Review value change</h2>
-        <JobValueReview {value} {item} ondone={() => (reviewing = false)} />
-        {#if value.error}<p role="alert" class="text-sm text-red-700">{value.error}</p>{/if}
-        <div class="flex justify-end">
-          <button
-            type="button"
-            class="rounded-sm bg-neutral-200 px-4 py-2 text-neutral-700 hover:bg-neutral-300"
-            onclick={() => (reviewing = false)}>Close</button
-          >
-        </div>
-      </div>
-    </div>
-  {/if}
+  {#if isApprover}<JobValueReview {value} {item} bind:decision />{/if}
 
   <DSPopover
     bind:show={confirmingDelete}

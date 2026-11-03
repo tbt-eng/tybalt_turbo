@@ -3,9 +3,9 @@
 
   // The one map from record status to tone. Expenses have no status field;
   // pass the display status the page derives from its timestamps.
-  let { status, kind }: { status: string; kind?: "job" | "po" | "expense" } = $props();
+  let { status, kind }: { status: string; kind?: "job" | "po" | "expense" | "request" } = $props();
 
-  const tonesByKind: Record<"job" | "po" | "expense", Record<string, LabelTone>> = {
+  const tonesByKind: Record<"job" | "po" | "expense" | "request", Record<string, LabelTone>> = {
     job: {
       Active: "success",
       Awarded: "success",
@@ -27,6 +27,13 @@
       Approved: "success",
       Committed: "success",
       Submitted: "warning",
+      Rejected: "danger",
+    },
+    request: {
+      Draft: "neutral",
+      Recalled: "neutral",
+      "Awaiting approval": "warning",
+      "Awaiting creation": "info",
       Rejected: "danger",
     },
   };

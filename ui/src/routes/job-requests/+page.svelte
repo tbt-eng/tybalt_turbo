@@ -1,88 +1,97 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
+  import DSList from "$lib/components/DSList.svelte";
+  import DSTabBar, { type TabItem } from "$lib/components/DSTabBar.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
+  import DsLabel from "$lib/components/DsLabel.svelte";
   import { globalStore } from "$lib/stores/global";
   import { jobRequestsEnabled } from "$lib/stores/appConfig";
   import { wholeCAD, canViewJobCreateQueue } from "$lib/jobRequests";
+  import { shortDate } from "$lib/utilities";
   let { data } = $props();
   const titles: Record<string, string> = {
-    mine: "Project Requests",
+    mine: "My Project Requests",
     all: "All Project Requests",
-    approval: "Request Approvals",
+    approval: "Project Requests Pending My Approval",
     creation: "Job Create Queue",
-    abandoned: "Abandoned Requests",
+    abandoned: "Abandoned Project Requests",
   };
+  const claims = $derived($globalStore.claims);
+  // The lists this person may open. The nav hides them while requests are
+  // disabled, so they stay reachable here.
+  const tabs = $derived(
+    (
+      [
+        ["mine", "Mine", true],
+        ["all", "All", claims.includes("job")],
+        ["approval", "Approvals", $jobRequestsEnabled && claims.includes("project_authorization")],
+        [
+          "creation",
+          "Job create queue",
+          canViewJobCreateQueue(claims, $jobRequestsEnabled, $globalStore.attentionCounts.counts),
+        ],
+        ["abandoned", "Abandoned", claims.includes("admin")],
+      ] as const
+    )
+      .filter(([, , visible]) => visible)
+      .map(([queue, label]): TabItem => ({
+        label,
+        href: `?queue=${queue}`,
+        active: data.queue === queue,
+      })),
+  );
 </script>
 
-<div class="mx-auto max-w-6xl space-y-5 p-4">
-  <div class="flex items-center justify-between gap-4">
-    <h1 class="text-2xl font-bold">{titles[data.queue] || "Project Requests"}</h1>
-    {#if $jobRequestsEnabled && $globalStore.claims.includes("time")}<a
-        class="rounded bg-green-700 px-4 py-2 text-white"
-        href="/job-requests/new">New Project Request</a
-      >{/if}
-  </div>
-  <nav class="flex flex-wrap gap-4 text-sm" aria-label="Request lists">
-    <a class="text-blue-700 underline" href="?queue=mine">My requests</a
-    >{#if $globalStore.claims.includes("job")}<a class="text-blue-700 underline" href="?queue=all"
-        >All requests</a
-      >{/if}{#if $jobRequestsEnabled && $globalStore.claims.includes("project_authorization")}<a
-        class="text-blue-700 underline"
-        href="?queue=approval">Request approvals</a
-      >{/if}{#if canViewJobCreateQueue($globalStore.claims, $jobRequestsEnabled, $globalStore.attentionCounts.counts)}<a
-        class="text-blue-700 underline"
-        href="?queue=creation">Job Create Queue</a
-      >{/if}{#if $globalStore.claims.includes("admin")}<a
-        class="text-blue-700 underline"
-        href="?queue=abandoned">Abandoned requests</a
-      >{/if}
-  </nav>
-  {#if !$jobRequestsEnabled}<p class="rounded border border-amber-300 bg-amber-50 p-3">
+<div class="space-y-4">
+  {#if tabs.length > 1}<DSTabBar {tabs} />{/if}
+  {#if !$jobRequestsEnabled}
+    <DSCallout tone="warning">
       Request processing is disabled. Saved requests remain available.
-    </p>{/if}
-  {#if data.queue === "abandoned"}<p>
+    </DSCallout>
+  {/if}
+  {#if data.queue === "abandoned"}
+    <DSCallout tone="info">
       These requests have no saved edits in the last 60 days. Review them with the creator before
       you delete them.
-    </p>{/if}
-  {#if data.queue === "creation"}<p>
+    </DSCallout>
+  {/if}
+  {#if data.queue === "creation"}
+    <DSCallout tone="info">
       Review each approved request and its PDF. Check existing jobs and pending requests before you
       create the job.
-    </p>{/if}
-  <p class="text-sm text-neutral-600">{data.totalItems ?? data.items?.length ?? 0} requests</p>
-  <div class="overflow-x-auto rounded border border-neutral-300">
-    <table class="w-full text-left">
-      <thead class="bg-neutral-100"
-        ><tr
-          ><th>Request reference</th><th>Project / scope of work</th><th>State</th><th
-            >Project value</th
-          ></tr
-        ></thead
-      ><tbody>
-        {#each data.items ?? [] as item}<tr class="border-t border-neutral-200"
-            ><td
-              ><a class="text-blue-700 underline" href={`/job-requests/${item.id}`}>{item.id}</a
-              ></td
-            ><td
-              >{item.description || "Untitled request"}{#if item.parent}<span
-                  class="ml-2 text-sm text-neutral-500">Subjob</span
-                >{/if}</td
-            ><td>{item.status || item.state}</td><td>{wholeCAD(item.project_value)}</td></tr
-          >{:else}<tr><td colspan="4">No requests in this list.</td></tr>{/each}
-      </tbody>
-    </table>
-  </div>
-  <nav class="flex gap-4" aria-label="Request pages">
-    {#if data.page > 1}<a
-        href={`?queue=${data.queue}&page=${data.page - 1}`}
-        class="text-blue-700 underline">Previous</a
-      >{/if}{#if data.page < data.totalPages}<a
-        href={`?queue=${data.queue}&page=${data.page + 1}`}
-        class="text-blue-700 underline">Next</a
-      >{/if}
-  </nav>
-</div>
+    </DSCallout>
+  {/if}
 
-<style>
-  th,
-  td {
-    padding: 0.75rem;
-  }
-</style>
+  <DSList
+    items={data.items}
+    search={true}
+    pagination={true}
+    inListHeader={titles[data.queue] || titles.mine}
+    emptyMessage="No requests in this list."
+  >
+    {#snippet anchor(item)}
+      <a class="link" href={resolve(`/job-requests/${item.id}`)}
+        >{item.submitted ? shortDate(item.submitted, true) : "Draft"}</a
+      >
+    {/snippet}
+    {#snippet headline(item)}
+      {item.client_name || item.description || "Untitled request"}
+    {/snippet}
+    {#snippet byline(item)}
+      <span class="flex flex-wrap items-center gap-2">
+        {#if item.project_value > 0}{wholeCAD(item.project_value)}{/if}
+        {#if item.status}<DSStatusLabel status={item.status} kind="request" />{/if}
+        {#if item.parent}<DsLabel color="cyan">Subjob</DsLabel>{/if}
+      </span>
+    {/snippet}
+    {#snippet line1(item)}
+      {#if item.client_name}{item.description}{/if}
+    {/snippet}
+    {#snippet line2(item)}
+      {#if item.status === "Rejected" && item.rejection_reason}
+        <DsLabel tone="danger">{item.rejection_reason}</DsLabel>
+      {/if}
+    {/snippet}
+  </DSList>
+</div>

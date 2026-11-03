@@ -51,6 +51,7 @@
     job: ["Active", "Awarded", "Submitted", "In Progress", "Not Awarded", "Closed", "Cancelled"],
     po: ["Active", "Unapproved", "Rejected", "Closed", "Cancelled"],
     expense: ["Approved", "Committed", "Submitted", "Rejected"],
+    request: ["Draft", "Awaiting approval", "Awaiting creation", "Rejected", "Recalled"],
   } as const;
 
   // Sample form state. Nothing here is saved.
@@ -323,7 +324,7 @@
           <DSField label={`kind="${kind}"`}>
             <div class="flex flex-wrap gap-2">
               {#each list as status (status)}
-                <DSStatusLabel {status} kind={kind as "job" | "po" | "expense"} />
+                <DSStatusLabel {status} kind={kind as "job" | "po" | "expense" | "request"} />
               {/each}
             </div>
           </DSField>

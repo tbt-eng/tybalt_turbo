@@ -1,14 +1,29 @@
 <script lang="ts">
   import type { WorkflowRecord } from "$lib/clientEditors";
-  import { JobValue, valueCAD, valueDate } from "$lib/jobValue.svelte";
-  // The selected approver's review of one pending value change. Each instance
-  // keeps its own confirmation and rejection reason.
-  let { value, item, ondone }: { value: JobValue; item: WorkflowRecord; ondone?: () => void } =
-    $props();
+  import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSFieldList from "$lib/components/DSFieldList.svelte";
+  import DSField from "$lib/components/DSField.svelte";
+  import DSActionButton from "$lib/components/DSActionButton.svelte";
+  import DsCheck from "$lib/components/DsCheck.svelte";
+  import { JobValue, valueCAD } from "$lib/jobValue.svelte";
+  import { shortDate } from "$lib/utilities";
+  // The selected approver's decision on one pending value change. Set decision
+  // to open the approval or rejection dialog; each instance keeps its own
+  // confirmation and rejection reason.
+  let {
+    value,
+    item,
+    decision = $bindable(null),
+  }: {
+    value: JobValue;
+    item: WorkflowRecord;
+    decision?: "approve" | "reject" | null;
+  } = $props();
   // The revision under review. A correction, such as a replacement PDF, saves a
   // new version, which clears the confirmation and reason given for the earlier
-  // one, so approval always follows a review of the data it sends.
-  const revision = $derived(`${item.id}:${item.version}`);
+  // one, so approval always follows a review of the data it sends. Opening a
+  // dialog clears them too.
+  const revision = $derived(`${item.id}:${item.version}:${decision}`);
   let reviewed = $derived.by(() => {
       void revision;
       return false;
@@ -17,42 +32,67 @@
       void revision;
       return "";
     });
+  const noErrors = {};
   async function decide(name: "approve" | "reject") {
-    if (await value.act(item, name, name === "reject" ? reason : "")) ondone?.();
+    if (await value.act(item, name, name === "reject" ? reason : "")) decision = null;
   }
+  function close() {
+    value.error = "";
+    decision = null;
+  }
+  const job = $derived(item.job_number || "this job");
 </script>
 
-<div class="space-y-3">
-  <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-    <dt class="font-semibold">Current value</dt>
-    <dd>{valueCAD(item.effective_project_value)}</dd>
-    <dt class="font-semibold">Proposed value</dt>
-    <dd>{valueCAD(item.project_value)}</dd>
-    <dt class="font-semibold">Proposed by</dt>
-    <dd>{item.uploader_name || item.uploader} on {valueDate(item.uploaded)}</dd>
-  </dl>
-  <button type="button" class="text-sm text-blue-700 underline" onclick={() => value.pdf(item)}
-    >Open authorization PDF</button
-  >
-  <label class="flex items-start gap-2 text-sm"
-    ><input type="checkbox" class="mt-1" bind:checked={reviewed} />I reviewed this PDF and its full
-    proposed value.</label
-  >
-  <button
-    type="button"
-    disabled={value.busy || !reviewed}
-    class="rounded bg-green-700 px-3 py-2 text-white disabled:opacity-40"
-    onclick={() => decide("approve")}>Approve value</button
-  >
-  <label class="block text-sm font-semibold"
-    >Rejection reason<textarea
-      class="mt-1 block w-full rounded border border-neutral-400 p-2 font-normal"
-      bind:value={reason}></textarea></label
-  >
-  <button
-    type="button"
-    disabled={value.busy || !reason.trim()}
-    class="rounded border border-red-700 px-3 py-2 text-red-800 disabled:opacity-40"
-    onclick={() => decide("reject")}>Reject</button
-  >
-</div>
+<DSPopover
+  show={decision === "approve"}
+  title="Approve value change"
+  subtitle={`Set ${job} to ${valueCAD(item.project_value)}.`}
+  error={value.error || null}
+  submitting={value.busy}
+  submitLabel="Approve value"
+  submitDisabled={!reviewed}
+  onSubmit={() => decide("approve")}
+  onCancel={close}
+>
+  <DSFieldList>
+    <DSField label="Current value" value={valueCAD(item.effective_project_value)} />
+    <DSField label="Proposed value" value={valueCAD(item.project_value)} />
+    <DSField
+      label="Proposed by"
+      value={`${item.uploader_name || item.uploader} on ${shortDate(item.uploaded, true)}`}
+    />
+  </DSFieldList>
+  <div>
+    <DSActionButton variant="plain" icon="mdi:file-pdf-box" action={() => value.pdf(item)}
+      >Open authorization PDF</DSActionButton
+    >
+  </div>
+  <DsCheck
+    bind:value={reviewed}
+    errors={noErrors}
+    fieldName="reviewed"
+    uiName="I reviewed this PDF and its full proposed value."
+  />
+</DSPopover>
+
+<DSPopover
+  show={decision === "reject"}
+  title="Reject value change"
+  subtitle={`The value of ${job} stays ${valueCAD(item.effective_project_value)}.`}
+  error={value.error || null}
+  submitting={value.busy}
+  submitLabel="Reject"
+  danger
+  submitDisabled={!reason.trim()}
+  onSubmit={() => decide("reject")}
+  onCancel={close}
+>
+  <label class="flex flex-col gap-1">
+    <span>Rejection reason</span>
+    <textarea
+      bind:value={reason}
+      rows={3}
+      class="rounded-sm border border-neutral-300 p-2"
+      disabled={value.busy}></textarea>
+  </label>
+</DSPopover>

@@ -135,6 +135,9 @@
               ) {
                 return $globalStore.claims.includes("job");
               }
+              if (btn.action === "/job-requests/new") {
+                return $globalStore.claims.includes("time");
+              }
               if (btn.action === "/vendors/add") {
                 return $globalStore.claims.includes("payables_admin");
               }
