@@ -11,6 +11,8 @@
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
@@ -189,7 +191,9 @@
   const dateInputMax = dateInputMaxMonthsAhead(15);
   const currentUserId = $derived($authStore?.model?.id ?? "");
   const canCreateSelf = $derived($globalStore.user_claims_summary.claims.includes("time"));
-  const canCreateForOthers = $derived($globalStore.user_claims_summary.claims.includes("work_record"));
+  const canCreateForOthers = $derived(
+    $globalStore.user_claims_summary.claims.includes("work_record"),
+  );
   const canViewAll = $derived($globalStore.user_claims_summary.claims.includes("report"));
   const canEdit = $derived(detail?.can_edit ?? true);
   const canEditShared = $derived(detail?.can_edit_shared ?? true);
@@ -209,7 +213,9 @@
   const maxWorkers = $derived(selectedWorkRecordType?.max_subjects ?? 1);
   const showLaneKms = $derived(Boolean(selectedWorkRecordType?.allow_lane_kms));
   const hasPersistedRecord = $derived(Boolean(editing && id));
-  const isCreator = $derived(!editing || detail?.creator === currentUserId || form.creator === currentUserId);
+  const isCreator = $derived(
+    !editing || detail?.creator === currentUserId || form.creator === currentUserId,
+  );
   const canManageWorkers = $derived(
     isCreator &&
       showSaveButton &&
@@ -218,7 +224,9 @@
       (editing || canCreateSelf || canCreateForOthers),
   );
   const attachmentHref = $derived.by(() =>
-    id && currentAttachmentName !== "" ? pocketBaseFileHref("work_records", id, currentAttachmentName) : "",
+    id && currentAttachmentName !== ""
+      ? pocketBaseFileHref("work_records", id, currentAttachmentName)
+      : "",
   );
 
   onMount(() => {
@@ -355,9 +363,7 @@
     if (isCreator) {
       return workerForms.map(workerToPayload);
     }
-    return workerForms
-      .filter((worker) => worker.uid === currentUserId)
-      .map(workerToPayload);
+    return workerForms.filter((worker) => worker.uid === currentUserId).map(workerToPayload);
   }
 
   function workerCanEdit(worker: WorkerForm) {
@@ -378,14 +384,14 @@
   function removeWorker(index: number) {
     if (!isCreator || detail?.approved) return;
     const worker = workerForms[index];
-    if (!worker || worker.approved || worker.linked_time_entry_id || workerForms.length <= 1) return;
+    if (!worker || worker.approved || worker.linked_time_entry_id || workerForms.length <= 1)
+      return;
     workerForms = workerForms.filter((_, i) => i !== index);
   }
 
   function workerDisplayName(worker: WorkerForm) {
     const profile = worker.uid ? $profiles.index?.getStoredFields(worker.uid) : null;
-    const profileName =
-      profile && `${profile.given_name ?? ""} ${profile.surname ?? ""}`.trim();
+    const profileName = profile && `${profile.given_name ?? ""} ${profile.surname ?? ""}`.trim();
     return worker.worker_name || profileName || worker.uid || "Unassigned worker";
   }
 
@@ -464,7 +470,8 @@
       const workerField = workerErrorFields.get(field);
       if (!workerField) continue;
 
-      const targetIndex = workerForms.length === 1 ? 0 : workerForms.findIndex((worker) => workerCanEdit(worker));
+      const targetIndex =
+        workerForms.length === 1 ? 0 : workerForms.findIndex((worker) => workerCanEdit(worker));
       if (targetIndex >= 0) {
         normalized[`subjects_${targetIndex}_${workerField}`] = error;
         addedScopedWorkerError = true;
@@ -503,7 +510,9 @@
     if (saving) return;
     if (loadingConsumables) {
       errors = {
-        global: { message: "Wait for consumables to finish loading before saving this work record." },
+        global: {
+          message: "Wait for consumables to finish loading before saving this work record.",
+        },
       };
       return;
     }
@@ -615,59 +624,58 @@
       void loadTypeConsumables(typeId);
     });
   });
+
+  // ui-check-allow: marks a chosen consumable tile; a selection state, not a notice
+  const selectedTileClasses = "border-blue-300 bg-blue-50";
 </script>
 
 <form class="flex w-full flex-col gap-3 p-4">
-  <div class="flex items-center justify-between gap-2">
-    <h1 class="text-2xl font-bold">{editing ? "Edit Work Record" : "Create Work Record"}</h1>
-    <div class="flex gap-2">
+  <DSPageHeader
+    title={detail ? detail.work_record : editing ? "Edit Work Record" : "Create Work Record"}
+  >
+    {#snippet badges()}
+      {#if detail?.approved}
+        <DsLabel color="green">Approved</DsLabel>
+      {/if}
+    {/snippet}
+    {#snippet actions()}
       <DsActionButton action={cancelAction}>Cancel</DsActionButton>
       {#if showSaveButton}
         <DsActionButton action={save} color="green" loading={saving} disabled={saveDisabled}
           >Save</DsActionButton
         >
       {/if}
-    </div>
-  </div>
+    {/snippet}
+  </DSPageHeader>
 
   {#if isCopyMode && copyContext}
-    <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
+    <DSCallout tone="info">
       Copying from {copyContext.source_work_record}. Job stays locked to the source record.
-    </div>
+    </DSCallout>
   {/if}
 
-  {#if detail}
-    <div class="rounded-sm bg-neutral-100 p-3 text-sm">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="font-semibold">Number:</span>
-        <span>{detail.work_record}</span>
-        {#if detail.approved}
-          <DsLabel color="green">Approved</DsLabel>
-        {/if}
-      </div>
-    </div>
-  {:else}
-    <div class="rounded-sm bg-neutral-100 p-3 text-sm">
-      Number will be assigned after the first successful save.
-    </div>
-    <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
-      Paper copy PDF can be attached after the first successful save.
-    </div>
+  {#if !detail}
+    <DSCallout tone="info">
+      The number is assigned, and a paper copy PDF can be attached, after the first successful save.
+    </DSCallout>
   {/if}
 
   {#if errors.global}
-    <div class="rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-      {errors.global.message}
-    </div>
+    <DSCallout tone="danger">{errors.global.message}</DSCallout>
   {/if}
 
   {#if !canCreateSelf && !editing}
-    <div class="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900">
+    <DSCallout tone="info">
       Work record creators without the time claim can only create records for someone else.
-    </div>
+    </DSCallout>
   {/if}
 
-  <DsDateInput bind:value={form.date} min={DATE_INPUT_MIN} max={dateInputMax} disabled={sharedDisabled} />
+  <DsDateInput
+    bind:value={form.date}
+    min={DATE_INPUT_MIN}
+    max={dateInputMax}
+    disabled={sharedDisabled}
+  />
 
   {#if $jobs.index !== null}
     <DsAutoComplete
@@ -686,8 +694,20 @@
     class="fields-grid grid auto-cols-fr grid-flow-col gap-3"
     style="--mobile-rows: repeat(10, auto); --desktop-rows: repeat(5, auto)"
   >
-    <DsTextInput bind:value={form.location} {errors} fieldName="location" uiName="Location" disabled={sharedDisabled} />
-    <DsTextInput bind:value={form.report_to} {errors} fieldName="report_to" uiName="Report To" disabled={sharedDisabled} />
+    <DsTextInput
+      bind:value={form.location}
+      {errors}
+      fieldName="location"
+      uiName="Location"
+      disabled={sharedDisabled}
+    />
+    <DsTextInput
+      bind:value={form.report_to}
+      {errors}
+      fieldName="report_to"
+      uiName="Report To"
+      disabled={sharedDisabled}
+    />
     {#if showLaneKms}
       <DsTextInput
         bind:value={form.lane_kms}
@@ -730,9 +750,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h2 class="text-lg font-semibold">Workers</h2>
-        <p class="text-sm text-neutral-600">
-          Each worker has separate hours and vehicle usage.
-        </p>
+        <p class="text-sm text-neutral-600">Each worker has separate hours and vehicle usage.</p>
       </div>
       {#if canManageWorkers}
         <DsActionButton action={addWorker} color="green" icon="mdi:add-bold" title="Add Worker" />
@@ -740,8 +758,8 @@
     </div>
 
     {#if errors.subjects}
-      <div class="mt-3 rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-        {errors.subjects.message}
+      <div class="mt-3">
+        <DSCallout tone="danger">{errors.subjects.message}</DSCallout>
       </div>
     {/if}
 
@@ -825,7 +843,9 @@
             />
           </div>
 
-          <div class="mt-3 flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
+          <div
+            class="mt-3 flex flex-wrap items-center gap-4 max-[640px]:flex-col max-[640px]:items-start"
+          >
             <div class="flex items-center gap-2">
               <span>Vehicle</span>
               <DSToggle
@@ -862,7 +882,7 @@
             </div>
           </div>
           {#if currentAttachmentName !== ""}
-            <a href={attachmentHref} target="_blank" class="text-blue-600 hover:underline">
+            <a href={attachmentHref} target="_blank" class="link">
               <DsFileLink filename={currentAttachmentName} />
             </a>
           {:else}
@@ -939,17 +959,28 @@
         rows={2}
         bind:value={form.work_description}
         placeholder="Work Description"
-        class="flex-1 rounded border border-neutral-300 px-1"
-        disabled={sharedDisabled}
-      ></textarea>
+        class="flex-1 rounded-sm border border-neutral-300 px-1"
+        disabled={sharedDisabled}></textarea>
     </span>
     {#if errors.work_description}
       <span class="text-red-600">{errors.work_description.message}</span>
     {/if}
   </div>
 
-  <DsTextInput bind:value={form.equipment} {errors} fieldName="equipment" uiName="Equipment" disabled={sharedDisabled} />
-  <DsTextInput bind:value={form.supplies} {errors} fieldName="supplies" uiName="Supplies" disabled={sharedDisabled} />
+  <DsTextInput
+    bind:value={form.equipment}
+    {errors}
+    fieldName="equipment"
+    uiName="Equipment"
+    disabled={sharedDisabled}
+  />
+  <DsTextInput
+    bind:value={form.supplies}
+    {errors}
+    fieldName="supplies"
+    uiName="Supplies"
+    disabled={sharedDisabled}
+  />
 
   <div class="rounded-sm bg-neutral-50 p-4">
     <div class="flex items-center justify-between gap-2">
@@ -977,8 +1008,8 @@
     </div>
 
     {#if consumablesLoadError !== ""}
-      <div class="mt-3 rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-        {consumablesLoadError}
+      <div class="mt-3">
+        <DSCallout tone="danger">{consumablesLoadError}</DSCallout>
       </div>
     {/if}
 
@@ -997,7 +1028,7 @@
           {#if consumable.input_kind === "boolean"}
             <label
               class="flex cursor-pointer items-center gap-2 rounded-sm border p-3 {consumable.boolean_selected
-                ? 'border-blue-300 bg-blue-50'
+                ? selectedTileClasses
                 : 'border-neutral-200'}"
               for={`consumable_${consumable.consumable_id}`}
             >
@@ -1017,7 +1048,7 @@
               class="flex items-center gap-2 rounded-sm border p-3 {Number(
                 consumable.quantity_number,
               ) > 0
-                ? 'border-blue-300 bg-blue-50'
+                ? selectedTileClasses
                 : 'border-neutral-200'}"
             >
               <label

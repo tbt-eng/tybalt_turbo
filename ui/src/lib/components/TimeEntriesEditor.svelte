@@ -24,6 +24,7 @@
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsAutoComplete from "./DSAutoComplete.svelte";
   import DsActionButton from "./DSActionButton.svelte";
+  import DSCallout from "./DSCallout.svelte";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
   import DsLabel from "./DsLabel.svelte";
   import Icon from "@iconify/svelte";
@@ -517,9 +518,11 @@
     {/if}
 
     {#if isLegacyWorkRecordUpgrade}
-      <div class="w-full rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-        This legacy time entry still uses a text work record. Choose an existing first-class work
-        record before saving any changes.
+      <div class="w-full">
+        <DSCallout tone="warning">
+          This legacy time entry still uses a text work record. Choose an existing first-class work
+          record before saving any changes.
+        </DSCallout>
       </div>
     {/if}
   </div>
@@ -605,16 +608,16 @@
       </DsAutoComplete>
     {/if}
     {#if $linkedWorkRecordsEnabled && !data.editing && item.job && item.job !== "" && !linkedWorkRecord}
-      <div
-        class="flex w-full items-center justify-between rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900"
-      >
-        <span>
+      <div class="w-full">
+        <DSCallout tone="info">
           When a time entry needs a work record, start from the work record list or detail page so
           the link is created the right way.
-        </span>
-        <DsActionButton action="/time/work-records" color="green">
-          start from work records
-        </DsActionButton>
+          {#snippet actions()}
+            <DsActionButton action="/time/work-records" color="green">
+              Start from Work Records
+            </DsActionButton>
+          {/snippet}
+        </DSCallout>
       </div>
     {/if}
     {#if item.job && item.job !== "" && associatedJobDivisionCodes.length > 0}
@@ -707,8 +710,8 @@
         <span>{linkedWorkRecord.work_record}</span>
       </span>
       <div class="text-sm text-neutral-600">
-        Job, date, hours, and link ownership come from the work record. Edit the description here
-        if needed.
+        Job, date, hours, and link ownership come from the work record. Edit the description here if
+        needed.
       </div>
     </div>
   {:else if !$linkedWorkRecordsEnabled && item.job && item.job !== "" && item.division && isWorkTime}
@@ -741,13 +744,15 @@
     {#if loadingCompatibleWorkRecords}
       <span class="w-full text-sm text-neutral-600">Loading compatible work records...</span>
     {:else if compatibleWorkRecordsMessage}
-      <div class="w-full rounded-sm border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
-        {compatibleWorkRecordsMessage}
-        <div class="mt-2">
-          <DsActionButton action="/time/work-records" color="green">
-            Go to Work Records
-          </DsActionButton>
-        </div>
+      <div class="w-full">
+        <DSCallout tone="warning">
+          {compatibleWorkRecordsMessage}
+          {#snippet actions()}
+            <DsActionButton action="/time/work-records" color="green">
+              Go to Work Records
+            </DsActionButton>
+          {/snippet}
+        </DSCallout>
       </div>
     {/if}
   {/if}

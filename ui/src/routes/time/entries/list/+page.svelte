@@ -69,7 +69,11 @@
   }
 
   function resolvedWorkRecord(item: TimeEntriesResponse) {
-    return item.work_record || (item.expand?.work_record_subject_id as any)?.expand?.work_record?.number || "";
+    return (
+      item.work_record ||
+      (item.expand?.work_record_subject_id as any)?.expand?.work_record?.number ||
+      ""
+    );
   }
 
   function linkedWorkRecordId(item: TimeEntriesResponse) {
@@ -116,7 +120,7 @@
 </script>
 
 {#snippet anchor(item: TimeEntriesResponse)}
-  <a href={`/time/entries/${item.id}/details`} class="text-blue-600 hover:underline">{item.date}</a>
+  <a href={`/time/entries/${item.id}/details`} class="link">{item.date}</a>
 {/snippet}
 
 {#snippet headline({ expand }: TimeEntriesResponse)}
