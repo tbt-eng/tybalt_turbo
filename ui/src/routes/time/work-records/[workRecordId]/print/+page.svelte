@@ -7,7 +7,10 @@
 
   const item = $derived(data.item);
   const totalWorkerHours = $derived(
-    item.subjects.reduce((total, worker) => total + worker.hours_on_site + worker.hours_travel_time, 0),
+    item.subjects.reduce(
+      (total, worker) => total + worker.hours_on_site + worker.hours_travel_time,
+      0,
+    ),
   );
   const activeConsumables = $derived(
     item.consumables.filter((c) =>
@@ -16,10 +19,7 @@
   );
   const consumablePairs = $derived.by(() => {
     const pairs: Array<
-      [
-        (typeof activeConsumables)[number] | null,
-        (typeof activeConsumables)[number] | null,
-      ]
+      [(typeof activeConsumables)[number] | null, (typeof activeConsumables)[number] | null]
     > = [];
     for (let i = 0; i < activeConsumables.length; i += 2) {
       pairs.push([activeConsumables[i], activeConsumables[i + 1] ?? null]);
@@ -82,15 +82,27 @@
             <img src="/logo.svg" alt="TBT Engineering Limited" style="width: 3rem; height: 3rem;" />
           </td>
           <td style="vertical-align: middle;">
-            <div style="font-size: 1.1rem; font-weight: 700; letter-spacing: 0.03em;">TBT ENGINEERING</div>
-            <div style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #525252;">Consulting Group</div>
+            <div style="font-size: 1.1rem; font-weight: 700; letter-spacing: 0.03em;">
+              TBT ENGINEERING
+            </div>
+            <div
+              style="font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #525252;"
+            >
+              Consulting Group
+            </div>
           </td>
         </tr>
       </tbody>
     </table>
     <div style="overflow: hidden; margin-top: 0.5rem;">
-      <div style="float: left; font-size: 1.6rem; font-weight: 700;">{displayValue(item.work_record, "-")}</div>
-      <div style="float: right; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; padding-top: 0.4rem;">Work Record</div>
+      <div style="float: left; font-size: 1.6rem; font-weight: 700;">
+        {displayValue(item.work_record, "-")}
+      </div>
+      <div
+        style="float: right; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; padding-top: 0.4rem;"
+      >
+        Work Record
+      </div>
     </div>
   </div>
 
@@ -112,7 +124,9 @@
         <td class="label-cell">Client</td>
         <td class="value-cell">{displayValue(item.client_name)}</td>
         <td class="label-cell">Workers</td>
-        <td class="value-cell">{item.subjects.map((worker) => worker.worker_name || worker.uid).join(", ")}</td>
+        <td class="value-cell"
+          >{item.subjects.map((worker) => worker.worker_name || worker.uid).join(", ")}</td
+        >
       </tr>
       <tr>
         <td class="label-cell">Client Project No</td>
@@ -184,7 +198,9 @@
 
   <div class="print-section">
     <div class="section-label">Details</div>
-    <div class="body-text" style="min-height: 2rem;">{displayValue(item.work_description, "No work description provided.")}</div>
+    <div class="body-text" style="min-height: 2rem;">
+      {displayValue(item.work_description, "No work description provided.")}
+    </div>
   </div>
 
   <div class="print-section">
@@ -230,18 +246,26 @@
             <span>{trimmedOrEmpty(note.author_name) || note.uid}</span>
             <span style="float: right;">{formatDateTime(note.created)}</span>
           </div>
-          <div style="margin-top: 0.2rem; white-space: pre-wrap; font-size: 0.8rem; line-height: 1.5;">{note.note}</div>
+          <div
+            style="margin-top: 0.2rem; white-space: pre-wrap; font-size: 0.8rem; line-height: 1.5;"
+          >
+            {note.note}
+          </div>
         </div>
       {/each}
     </div>
   {/if}
 
-  <div style="margin-top: 1.5rem; padding-top: 0.75rem; border-top: 2px solid black; overflow: hidden;">
+  <div
+    style="margin-top: 1.5rem; padding-top: 0.75rem; border-top: 2px solid black; overflow: hidden;"
+  >
     <div style="float: right; font-size: 0.85rem;">
-      <span style="font-weight: 700;">Work Record Number:</span> {displayValue(item.work_record, "-")}
+      <span style="font-weight: 700;">Work Record Number:</span>
+      {displayValue(item.work_record, "-")}
     </div>
     <div style="font-size: 0.7rem; color: #525252;">
-      TBT Engineering Limited &nbsp; 1918 Yonge Street, Thunder Bay, ON &nbsp; P7E 6T9 &nbsp; (807) 624-5100
+      TBT Engineering Limited &nbsp; 1918 Yonge Street, Thunder Bay, ON &nbsp; P7E 6T9 &nbsp; (807)
+      624-5100
     </div>
   </div>
 </article>

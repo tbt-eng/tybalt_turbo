@@ -36,7 +36,8 @@ export const load: PageLoad = async ({ url }) => {
           report_to: draft.report_to,
           lane_kms: draft.lane_kms,
           field_book_number: draft.field_book_number,
-          field_book_page_number: draft.field_book_page_number === 0 ? "" : draft.field_book_page_number,
+          field_book_page_number:
+            draft.field_book_page_number === 0 ? "" : draft.field_book_page_number,
           sub_contractor: draft.sub_contractor,
           equipment: draft.equipment,
           supplies: draft.supplies,

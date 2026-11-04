@@ -21,7 +21,8 @@ export const load: PageLoad = async ({ params }) => {
         report_to: detail.report_to,
         lane_kms: detail.lane_kms,
         field_book_number: detail.field_book_number,
-        field_book_page_number: detail.field_book_page_number === 0 ? "" : detail.field_book_page_number,
+        field_book_page_number:
+          detail.field_book_page_number === 0 ? "" : detail.field_book_page_number,
         sub_contractor: detail.sub_contractor,
         equipment: detail.equipment,
         supplies: detail.supplies,
