@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSCallout from "$lib/components/DSCallout.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import { pb } from "$lib/pocketbase";
@@ -100,9 +101,7 @@
 
 {#if error !== ""}
   <div class="px-4">
-    <div class="rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-      {error}
-    </div>
+    <DSCallout tone="danger">{error}</DSCallout>
   </div>
 {:else if loading && records.length === 0}
   <div class="px-4">Loading…</div>
@@ -112,7 +111,7 @@
   <div class="w-full overflow-hidden">
     <DsList items={records} search={false} inListHeader="Work Records">
       {#snippet anchor(item: WorkRecordListRow)}
-        <a href={`/time/work-records/${item.id}`} class="text-blue-600 hover:underline">{item.work_record}</a>
+        <a href={`/time/work-records/${item.id}`} class="link">{item.work_record}</a>
       {/snippet}
       {#snippet headline(item: WorkRecordListRow)}{item.creator_name || item.creator}{/snippet}
       {#snippet byline(item: WorkRecordListRow)}{item.date}{/snippet}
@@ -122,9 +121,7 @@
 
     {#if page < totalPages}
       <div class="mt-4 text-center">
-        <DsActionButton action={loadMore} color="blue" loading={loading}>
-          Load More
-        </DsActionButton>
+        <DsActionButton action={loadMore} color="blue" {loading}>Load More</DsActionButton>
       </div>
     {/if}
   </div>

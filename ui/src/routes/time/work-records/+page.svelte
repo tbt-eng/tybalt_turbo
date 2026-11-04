@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSCallout from "$lib/components/DSCallout.svelte";
   import { resolve } from "$app/paths";
   import DSToggle from "$lib/components/DSToggle.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
@@ -47,7 +48,9 @@
 
   function subjectHours(subject: WorkRecordSubjectResponse) {
     const hours = subject.hours_on_site + subject.hours_travel_time;
-    return Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+    return Number.isInteger(hours)
+      ? hours.toString()
+      : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   }
 
   $effect(() => {
@@ -64,7 +67,7 @@
 </script>
 
 {#if error !== ""}
-  <div class="rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+  <DSCallout tone="danger">{error}</DSCallout>
 {/if}
 
 <DsList {items} search={true} inListHeader={listHeader} searchPlaceholder="search work records...">
@@ -80,19 +83,13 @@
   {/snippet}
 
   {#snippet anchor(item: WorkRecordListRow)}
-    <a
-      href={resolve(`/time/work-records/${encodeURIComponent(item.id)}`)}
-      class="text-blue-600 hover:underline"
-    >
+    <a href={resolve(`/time/work-records/${encodeURIComponent(item.id)}`)} class="link">
       {shortDate(item.date)}
     </a>
   {/snippet}
 
   {#snippet headline(item: WorkRecordListRow)}
-    <a
-      href={resolve(`/time/work-records/${encodeURIComponent(item.id)}`)}
-      class="text-blue-600 hover:underline"
-    >
+    <a href={resolve(`/time/work-records/${encodeURIComponent(item.id)}`)} class="link">
       {item.work_record}
     </a>
   {/snippet}
@@ -119,7 +116,7 @@
         <a
           href={pocketBaseFileHref("work_records", item.id, item.attachment)}
           target="_blank"
-          class="text-blue-600 hover:underline"
+          class="link"
         >
           <DsFileLink filename={item.attachment} />
         </a>
@@ -136,7 +133,9 @@
   {#snippet line3(item: WorkRecordListRow)}
     <span class="flex flex-wrap items-center gap-2">
       {#each item.subjects ?? [] as subject (subject.id)}
-        <span class="inline-flex flex-wrap items-center gap-1 rounded-sm border border-neutral-300 bg-white/60 px-2 py-1 text-sm">
+        <span
+          class="inline-flex flex-wrap items-center gap-1 rounded-sm border border-neutral-300 bg-white/60 px-2 py-1 text-sm"
+        >
           <span class:font-semibold={subject.uid === currentUserId}>{subjectName(subject)}</span>
           <span class="text-neutral-600">{subjectHours(subject)}h</span>
           {#if subject.approved}

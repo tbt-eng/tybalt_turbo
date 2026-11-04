@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
@@ -117,9 +119,12 @@
 </script>
 
 <div class="mx-auto max-w-6xl p-4">
-  <div class="mb-4 flex items-center justify-between gap-2">
-    <h1 class="text-2xl font-bold">Work Record Reports</h1>
-    <DsActionButton action="/time/work-records" color="blue">Open Work Records</DsActionButton>
+  <div class="mb-4">
+    <DSPageHeader title="Work Record Reports">
+      {#snippet actions()}
+        <DsActionButton action="/time/work-records" color="blue">Open Work Records</DsActionButton>
+      {/snippet}
+    </DSPageHeader>
   </div>
 
   <div class="mb-4 flex flex-wrap gap-2">
@@ -190,8 +195,8 @@
   </div>
 
   {#if error !== ""}
-    <div class="mt-4 rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-700">
-      {error}
+    <div class="mt-4">
+      <DSCallout tone="danger">{error}</DSCallout>
     </div>
   {/if}
 
@@ -206,10 +211,7 @@
     <div class="mt-4">
       <DsList items={consumableItems} search={true} inListHeader="Consumables">
         {#snippet anchor(item: WorkRecordConsumableReportRow)}
-          <a
-            href={`/time/work-records/${item.work_record_id}`}
-            class="text-blue-600 hover:underline"
-          >
+          <a href={`/time/work-records/${item.work_record_id}`} class="link">
             {item.work_record}
           </a>
         {/snippet}
@@ -231,9 +233,7 @@
     <div class="mt-4">
       <DsList items={listItems} search={true} inListHeader="Work Records">
         {#snippet anchor(item: WorkRecordListRow)}
-          <a href={`/time/work-records/${item.id}`} class="text-blue-600 hover:underline"
-            >{item.work_record}</a
-          >
+          <a href={`/time/work-records/${item.id}`} class="link">{item.work_record}</a>
         {/snippet}
         {#snippet headline(item: WorkRecordListRow)}{item.creator_name || item.creator}{/snippet}
         {#snippet byline(item: WorkRecordListRow)}{item.job_number}{/snippet}

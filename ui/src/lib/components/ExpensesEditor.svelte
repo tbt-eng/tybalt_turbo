@@ -34,6 +34,7 @@
   } from "$lib/pocketbase-types";
   import { ExpensesPaymentTypeOptions, isExpensesResponse } from "$lib/pocketbase-types";
   import DsActionButton from "./DSActionButton.svelte";
+  import DSCallout from "./DSCallout.svelte";
   import CumulativePOOverflowModal from "./CumulativePOOverflowModal.svelte";
   import VendorSelector from "./VendorSelector.svelte";
   import { jobs } from "$lib/stores/jobs";
@@ -449,29 +450,25 @@
   enctype="multipart/form-data"
   onsubmit={save}
 >
-  <div class="flex w-full flex-col gap-2">
-    <div class="flex w-full flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl font-bold text-neutral-800">
-        {#if data.editing}
-          Editing Expense
-        {:else}
-          Create Expense
-        {/if}
-      </h1>
-    </div>
-
-    {#if !data.editing}
-      <div
-        class="flex w-full items-center justify-between rounded-sm border border-green-300 bg-green-50 p-3 text-sm text-green-900"
-      >
-        <span>
-          Need a purchase order? Click the green plus icon next to your purchase order to create an
-          expense linked to it.
-        </span>
-        <DsActionButton action="/pos/list" color="green">Go to POs</DsActionButton>
-      </div>
+  <h1 class="w-full text-xl font-bold text-neutral-800">
+    {#if data.editing}
+      Editing Expense
+    {:else}
+      Create Expense
     {/if}
-  </div>
+  </h1>
+
+  {#if !data.editing}
+    <div class="w-full">
+      <DSCallout tone="info">
+        Need a purchase order? Click the green plus icon next to your purchase order to create an
+        expense linked to it.
+        {#snippet actions()}
+          <DsActionButton action="/pos/list" color="green">Go to POs</DsActionButton>
+        {/snippet}
+      </DSCallout>
+    </div>
+  {/if}
 
   {#if isEditingAnotherUsersExpense}
     <div class="w-full rounded-sm border border-amber-300 bg-amber-100 p-2 text-sm text-amber-900">
