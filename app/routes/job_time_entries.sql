@@ -39,5 +39,5 @@ AND (
   OR
   ({:category} != 'none' AND te.category = {:category})
 )
-ORDER BY date DESC
+ORDER BY te.date DESC
 LIMIT {:limit} OFFSET {:offset};
