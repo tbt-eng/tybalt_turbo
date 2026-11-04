@@ -22,14 +22,18 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params, url }) => {
   };
 
   try {
-    const workRecord = (await pb.send(`/api/work_records/${encodeURIComponent(params.workRecordId)}`, {
-      method: "GET",
-    })) as WorkRecordDetailsResponse;
+    const workRecord = (await pb.send(
+      `/api/work_records/${encodeURIComponent(params.workRecordId)}`,
+      {
+        method: "GET",
+      },
+    )) as WorkRecordDetailsResponse;
     const requestedWorkerId = url.searchParams.get("worker") ?? "";
     const worker =
       (requestedWorkerId !== ""
         ? workRecord.subjects?.find((item) => item.id === requestedWorkerId)
-        : workRecord.subjects?.find((item) => item.can_create_time_entry)) ?? workRecord.subjects?.[0];
+        : workRecord.subjects?.find((item) => item.can_create_time_entry)) ??
+      workRecord.subjects?.[0];
     if (!worker) {
       throw error(404, "Work record worker not found");
     }

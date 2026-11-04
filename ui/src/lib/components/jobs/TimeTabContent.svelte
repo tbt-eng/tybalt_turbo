@@ -35,7 +35,6 @@
     const fileName = `job_full_time_report_${jobId}.csv`;
     await downloadCSV(url, fileName);
   }
-
 </script>
 
 <div class="px-4">

@@ -25,10 +25,15 @@ export const load: PageLoad<TimeEntriesPageData> = async ({ params }) => {
     const item = await pb.collection("time_entries").getOne<TimeEntriesRecord>(params.teid);
     let linkedWorkRecord: TimeEntriesPageData["linked_work_record"] | undefined = undefined;
     if (item.work_record_subject_id) {
-      const subject = await pb.collection("work_records_subjects").getOne<any>(item.work_record_subject_id);
-      const workRecord = (await pb.send(`/api/work_records/${encodeURIComponent(subject.work_record)}`, {
-        method: "GET",
-      })) as WorkRecordDetailsResponse;
+      const subject = await pb
+        .collection("work_records_subjects")
+        .getOne<any>(item.work_record_subject_id);
+      const workRecord = (await pb.send(
+        `/api/work_records/${encodeURIComponent(subject.work_record)}`,
+        {
+          method: "GET",
+        },
+      )) as WorkRecordDetailsResponse;
       const detailSubject =
         workRecord.subjects?.find((row) => row.id === item.work_record_subject_id) ?? subject;
       linkedWorkRecord = {

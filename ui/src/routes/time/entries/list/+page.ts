@@ -12,7 +12,8 @@ export const load: PageLoad = async () => {
 
     const items = await pb.collection("time_entries").getFullList<TimeEntriesResponse>({
       filter: pb.filter("uid={:userId} && tsid=''", { userId }),
-      expand: "job,time_type,division,category,role,work_record_subject_id,work_record_subject_id.work_record",
+      expand:
+        "job,time_type,division,category,role,work_record_subject_id,work_record_subject_id.work_record",
       sort: "-date",
     });
     return {
