@@ -190,7 +190,11 @@
       inListHeader={pendingTab ? "Uncommit Requests Pending" : "Decided Uncommit Requests"}
       searchText={(row) =>
         [rowTitle(row), row.employee_name, row.requester_name, row.reason_name, row.note].join(" ")}
-      emptyMessage={pendingTab ? "No uncommit requests are waiting." : "No uncommit requests yet."}
+      emptyMessage={searchTerm.trim() !== ""
+        ? "No matching requests."
+        : pendingTab
+          ? "No uncommit requests are waiting."
+          : "No uncommit requests yet."}
     >
       {#snippet searchBarExtra()}
         {#if pendingTab && canDecide}

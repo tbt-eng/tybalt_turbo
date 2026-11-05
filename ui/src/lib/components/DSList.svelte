@@ -13,7 +13,7 @@
     page = $bindable(1),
     perPage = $bindable(20),
     onStateChange,
-    emptyMessage = "No matching items.",
+    emptyMessage,
     highlightId,
     inListHeader,
     groupHeader,
@@ -40,6 +40,8 @@
     page?: number;
     perPage?: number;
     onStateChange?: (state: { searchTerm: string; page: number; perPage: number }) => void;
+    // Shown when nothing matches. Paginated lists fall back to a default; other
+    // lists show nothing unless given a message.
     emptyMessage?: string;
     highlightId?: string;
     inListHeader?: string;
@@ -305,8 +307,8 @@
     {/each}
   {:else}
     {@render itemList(visibleItems)}
-    {#if canPaginate && processedItems.length === 0}
-      <li class="col-span-3 p-3 text-neutral-600">{emptyMessage}</li>
+    {#if processedItems.length === 0 && (canPaginate || emptyMessage !== undefined)}
+      <li class="col-span-3 p-3 text-neutral-600">{emptyMessage ?? "No matching items."}</li>
     {/if}
   {/if}
 </ul>
