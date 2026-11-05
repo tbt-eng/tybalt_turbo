@@ -52,6 +52,7 @@
     po: ["Active", "Unapproved", "Rejected", "Closed", "Cancelled"],
     expense: ["Approved", "Committed", "Submitted", "Rejected"],
     request: ["Draft", "Awaiting approval", "Awaiting creation", "Rejected", "Recalled"],
+    uncommit: ["Pending", "Approved", "Declined", "Cancelled"],
   } as const;
 
   // Sample form state. Nothing here is saved.

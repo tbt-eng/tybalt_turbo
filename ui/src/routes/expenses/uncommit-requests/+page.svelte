@@ -7,11 +7,13 @@
   import { getApiErrorMessage } from "$lib/errors";
   import { allExpensePaymentTypeOptions } from "$lib/expensePaymentTypes";
   import {
+    daysAgoLabel,
     daysSince,
     expenseUncommitBlockLabel,
     expenseUncommitBlockText,
     expenseUncommitOutcomeLabel,
     expenseUncommitReasonText,
+    expenseUncommitStatusLabel,
     isPayrollPaymentType,
   } from "$lib/expenseUncommitRequests";
   import { formatCurrencyAmount, shortDate } from "$lib/utilities";
@@ -23,6 +25,7 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
   import DSTabBar from "$lib/components/DSTabBar.svelte";
   import DSTextInput from "$lib/components/DSTextInput.svelte";
   import type { PageData } from "./$types";
@@ -149,7 +152,7 @@
   <title>Uncommit Requests</title>
 </svelte:head>
 
-<div class="mx-auto space-y-2 p-2">
+<div class="space-y-4">
   <DSTabBar
     tabs={[
       {
@@ -182,23 +185,25 @@
   <DsList
     items={data.items}
     search={true}
+    pagination={!pendingTab}
     bind:searchTerm
+    inListHeader={pendingTab ? "Uncommit Requests Pending" : "Decided Uncommit Requests"}
     searchText={(row) =>
       [rowTitle(row), row.employee_name, row.requester_name, row.reason_name, row.note].join(" ")}
     emptyMessage={pendingTab ? "No uncommit requests are waiting." : "No uncommit requests yet."}
   >
     {#snippet searchBarExtra()}
       {#if pendingTab && canDecide}
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2 max-[639px]:w-full max-[639px]:flex-wrap">
           <DSActionButton
-            variant="primary"
+            color="green"
             disabled={selectedIds.length === 0}
             action={() => openApprove(selectedIds)}
           >
             Approve selected ({selectedIds.length})
           </DSActionButton>
           <DSActionButton
-            variant="secondary"
+            color="green"
             disabled={approvable.length === 0 || searchTerm.trim() !== ""}
             title={searchTerm.trim() !== "" ? "Clear the search to approve all" : undefined}
             action={() => openApprove(approvable.map((row) => row.id))}
@@ -209,56 +214,54 @@
       {/if}
     {/snippet}
     {#snippet anchor(row: ExpenseUncommitRequestRow)}
-      {#if pendingTab && canDecide && !row.blocked}
-        <DsCheck
-          bind:value={selected[row.id]}
-          errors={{}}
-          fieldName={`select-${row.id}`}
-          uiName="Select"
-        />
-      {/if}
+      {@const label = row.po_number || shortDate(row.committed.slice(0, 10), true)}
+      <span class="flex items-center gap-2 whitespace-nowrap">
+        {#if pendingTab && canDecide}
+          <span>
+            <DsCheck
+              bind:value={selected[row.id]}
+              errors={{}}
+              fieldName={`select-${row.id}`}
+              uiName={`Select ${rowTitle(row)}`}
+              disabled={!!row.blocked}
+              hideLabel={true}
+            />
+          </span>
+        {/if}
+        {#if row.expense}
+          <a class="link" href={resolve(`/expenses/${row.expense}/details`)}>{label}</a>
+        {:else}
+          {label}
+        {/if}
+      </span>
     {/snippet}
     {#snippet headline(row: ExpenseUncommitRequestRow)}
-      {#if row.expense}
-        <a class="link" href={resolve(`/expenses/${row.expense}/details`)}>{rowTitle(row)}</a>
-      {:else}
-        {rowTitle(row)}
-      {/if}
-      <DsLabel size="sm" tone={row.outcome === "uncommit_and_reject" ? "warning" : "neutral"}>
-        {expenseUncommitOutcomeLabel(row.outcome)}
-      </DsLabel>
-      {#if row.blocked}
-        <DsLabel size="sm" tone="danger">{expenseUncommitBlockLabel(row.blocked)}</DsLabel>
-      {/if}
-      {#if !pendingTab}
-        <DsLabel
-          size="sm"
-          tone={row.status === "approved"
-            ? "success"
-            : row.status === "declined"
-              ? "danger"
-              : "neutral"}
-        >
-          {row.status}
+      {row.vendor_name || row.description || row.employee_name}
+    {/snippet}
+    {#snippet byline(row: ExpenseUncommitRequestRow)}
+      <span class="flex flex-wrap items-center gap-2">
+        {formatCurrencyAmount(row.total, row.currency_code)}
+        {#if !pendingTab}
+          <DSStatusLabel status={expenseUncommitStatusLabel(row.status)} kind="uncommit" />
+        {/if}
+        <DsLabel tone={row.outcome === "uncommit_and_reject" ? "warning" : "neutral"}>
+          {expenseUncommitOutcomeLabel(row.outcome)}
         </DsLabel>
-      {/if}
+        {#if row.blocked}
+          <DsLabel tone="danger">{expenseUncommitBlockLabel(row.blocked)}</DsLabel>
+        {:else if pendingTab && row.committed && daysSince(row.committed) > OLD_COMMIT_DAYS}
+          <DsLabel tone="warning">Committed over {OLD_COMMIT_DAYS} days ago</DsLabel>
+        {/if}
+      </span>
     {/snippet}
     {#snippet line1(row: ExpenseUncommitRequestRow)}
-      {row.employee_name}
-      · {paymentTypeLabel(row.payment_type)}
-      · {formatCurrencyAmount(row.total, row.currency_code)}
-      {#if row.committed}
-        · committed {shortDate(row.committed.slice(0, 10), true)}
-        {#if pendingTab}
-          ({daysSince(row.committed)} days ago)
-          {#if daysSince(row.committed) > OLD_COMMIT_DAYS}
-            <DsLabel size="sm" tone="warning">Over {OLD_COMMIT_DAYS} days</DsLabel>
-          {/if}
-        {/if}
-      {/if}
-      {#if row.pay_period_ending && isPayrollPaymentType(row.payment_type)}
-        · pay period {shortDate(row.pay_period_ending, true)}
-      {/if}
+      {[
+        row.vendor_name ? row.description : "",
+        row.employee_name,
+        paymentTypeLabel(row.payment_type),
+      ]
+        .filter(Boolean)
+        .join(" · ")}
     {/snippet}
     {#snippet line2(row: ExpenseUncommitRequestRow)}
       {expenseUncommitReasonText(row)}
@@ -270,11 +273,22 @@
         </div>
       {/if}
       {#if pendingTab}
-        Requested by {row.requester_name}, waiting {daysSince(row.created)} days
+        Requested by {row.requester_name}
+        {daysAgoLabel(row.created)}
+        {#if row.committed}
+          · Committed {shortDate(row.committed.slice(0, 10), true)}
+          ({daysAgoLabel(row.committed)})
+        {/if}
+        {#if row.pay_period_ending && isPayrollPaymentType(row.payment_type)}
+          · Pay period {shortDate(row.pay_period_ending, true)}
+        {/if}
       {:else}
         Requested by {row.requester_name}
         {#if row.decided_at}
-          · {row.status} by {row.decided_by_name} on {shortDate(row.decided_at.slice(0, 10), true)}
+          · {expenseUncommitStatusLabel(row.status)} by {row.decided_by_name} on {shortDate(
+            row.decided_at.slice(0, 10),
+            true,
+          )}
         {/if}
         {#if row.decision_comment}
           · {row.decision_comment}
@@ -283,13 +297,27 @@
     {/snippet}
     {#snippet actions(row: ExpenseUncommitRequestRow)}
       {#if pendingTab && canDecide}
-        <DSActionButton disabled={!!row.blocked} action={() => openApprove([row.id])}>
-          Approve
-        </DSActionButton>
-        <DSActionButton action={() => openDecline(row)}>Decline</DSActionButton>
+        <DSActionButton
+          disabled={!!row.blocked}
+          action={() => openApprove([row.id])}
+          icon="mdi:approve"
+          title={row.blocked ? expenseUncommitBlockLabel(row.blocked) : "Approve"}
+          color="green"
+        />
+        <DSActionButton
+          action={() => openDecline(row)}
+          icon="mdi:cancel"
+          title="Decline"
+          color="orange"
+        />
       {/if}
       {#if pendingTab && row.requester === viewerId && $expensesEditingEnabled}
-        <DSActionButton action={() => cancelRequest(row)}>Cancel</DSActionButton>
+        <DSActionButton
+          action={() => cancelRequest(row)}
+          icon="mdi:close"
+          title="Cancel request"
+          color="neutral"
+        />
       {/if}
     {/snippet}
   </DsList>

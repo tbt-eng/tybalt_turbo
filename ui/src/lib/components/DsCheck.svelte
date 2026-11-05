@@ -14,12 +14,15 @@
     fieldName,
     uiName,
     disabled = false,
+    hideLabel = false,
   }: {
     value: boolean;
     errors: Record<string, { message: string }>;
     fieldName: string;
     uiName: string;
     disabled?: boolean;
+    // Keeps the label for screen readers when the row around it says what it's for.
+    hideLabel?: boolean;
   } = $props();
 </script>
 
@@ -33,7 +36,7 @@
       bind:checked={value}
       {disabled}
     />
-    <label for={`checkbox-${thisId}`}>{uiName}</label>
+    <label for={`checkbox-${thisId}`} class={hideLabel ? "sr-only" : ""}>{uiName}</label>
   </span>
   {#if errors[fieldName] !== undefined}
     <span class="text-red-600">{errors[fieldName].message}</span>

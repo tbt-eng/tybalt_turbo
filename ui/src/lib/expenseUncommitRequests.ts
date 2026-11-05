@@ -40,6 +40,16 @@ export function expenseUncommitBlockText(block: ExpenseUncommitBlock): string {
   return "This expense is paid on payroll and has no pay period, so it may already have been paid.";
 }
 
+export function expenseUncommitStatusLabel(status: ExpenseUncommitRequestRow["status"]): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+export function daysAgoLabel(datetime: string, now = Date.now()): string {
+  const days = daysSince(datetime, now);
+  if (days <= 0) return "today";
+  return days === 1 ? "1 day ago" : `${days} days ago`;
+}
+
 // PocketBase datetimes have a space where Date.parse wants a T.
 export function daysSince(datetime: string, now = Date.now()): number {
   return Math.floor((now - Date.parse(datetime.replace(" ", "T"))) / 86_400_000);
