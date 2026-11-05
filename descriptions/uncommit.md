@@ -63,7 +63,7 @@ The `commit` claim alone is not enough to uncommit a record.
 
 ### Details-page authorization
 
-Holders of the `admin` claim can open details pages only for committed records.
+Holders of the `admin` claim can open details pages only for committed records, plus expenses with a row in the uncommit request history, so they can follow up what they uncommitted.
 
 For `expenses`:
 

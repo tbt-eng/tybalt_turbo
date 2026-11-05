@@ -824,3 +824,31 @@ func TestExpenseUncommitReminderGoesToAdminHoldersWhileRequestsWait(t *testing.T
 		t.Fatalf("expected no reminder for the commit holder, got %d", count)
 	}
 }
+
+// Decided rows link to the expense, which is no longer committed by then.
+func TestExpenseUncommitAdminCanOpenExpensesInTheHistory(t *testing.T) {
+	app := testutils.SetupTestApp(t)
+	adminToken := uncommitToken(t, uncommitAdminEmail)
+
+	t.Run("after approving a request", func(t *testing.T) {
+		commitExpenseToday(t, app, uncommitOnAccountExpense)
+		id := createUncommitRequest(t, app, uncommitOnAccountExpense, uncommitReasonWrongCurr, "uncommit_and_reject", "")
+		if results := approveUncommitRequests(t, app, id); !results[0].OK {
+			t.Fatalf("expected approval, got %+v", results[0])
+		}
+		res := performTestAPIRequest(t, app, http.MethodGet, "/api/expenses/details/"+uncommitOnAccountExpense, nil, adminToken)
+		mustStatus(t, res, http.StatusOK)
+	})
+
+	t.Run("after a direct uncommit", func(t *testing.T) {
+		res := performTestAPIRequest(t, app, http.MethodPost, "/api/expenses/xg2yeucklhgbs3n/uncommit", nil, adminToken)
+		mustStatus(t, res, http.StatusOK)
+		res = performTestAPIRequest(t, app, http.MethodGet, "/api/expenses/details/xg2yeucklhgbs3n", nil, adminToken)
+		mustStatus(t, res, http.StatusOK)
+	})
+
+	t.Run("not for other uncommitted expenses", func(t *testing.T) {
+		res := performTestAPIRequest(t, app, http.MethodGet, "/api/expenses/details/eqhozipupteogp8", nil, adminToken)
+		mustStatus(t, res, http.StatusNotFound)
+	})
+}

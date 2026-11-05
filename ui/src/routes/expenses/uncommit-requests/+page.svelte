@@ -37,6 +37,8 @@
   const canDecide = $derived($globalStore.claims.includes("admin") && $expensesEditingEnabled);
   const approvable = $derived(data.items.filter((row) => !row.blocked));
 
+  // Approve all acts on the whole queue, so it is off while a search hides rows.
+  let searchTerm = $state("");
   let selected = $state<Record<string, boolean>>({});
   const selectedIds = $derived(approvable.filter((row) => selected[row.id]).map((row) => row.id));
 
@@ -44,7 +46,7 @@
   let approveIds = $state<string[]>([]);
   let approving = $state(false);
   let approveError = $state<string | null>(null);
-  let failures = $state<{ label: string; message: string }[]>([]);
+  let failures = $state<{ id: string; label: string; message: string }[]>([]);
   const approveRows = $derived(data.items.filter((row) => approveIds.includes(row.id)));
   const rejectCount = $derived(
     approveRows.filter((row) => row.outcome === "uncommit_and_reject").length,
@@ -91,7 +93,10 @@
         .map((result) => {
           const row = data.items.find((candidate) => candidate.id === result.id);
           return {
-            label: row ? rowTitle(row) : result.id,
+            id: result.id,
+            label: row
+              ? `${rowTitle(row)}, ${formatCurrencyAmount(row.total, row.currency_code)}`
+              : result.id,
             message: result.message ?? "Approval failed",
           };
         });
@@ -167,7 +172,7 @@
   {#if failures.length > 0}
     <DSCallout tone="danger" title="These requests weren't approved">
       <ul class="list-disc pl-5">
-        {#each failures as failure (failure.label)}
+        {#each failures as failure (failure.id)}
           <li>{failure.label}: {failure.message}</li>
         {/each}
       </ul>
@@ -177,6 +182,7 @@
   <DsList
     items={data.items}
     search={true}
+    bind:searchTerm
     searchText={(row) =>
       [rowTitle(row), row.employee_name, row.requester_name, row.reason_name, row.note].join(" ")}
     emptyMessage={pendingTab ? "No uncommit requests are waiting." : "No uncommit requests yet."}
@@ -193,7 +199,8 @@
           </DSActionButton>
           <DSActionButton
             variant="secondary"
-            disabled={approvable.length === 0}
+            disabled={approvable.length === 0 || searchTerm.trim() !== ""}
+            title={searchTerm.trim() !== "" ? "Clear the search to approve all" : undefined}
             action={() => openApprove(approvable.map((row) => row.id))}
           >
             Approve all ({approvable.length})

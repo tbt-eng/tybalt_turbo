@@ -68,6 +68,18 @@ const (
   OR (({:has_commit} = 1) AND e.approved != '')
   OR (({:has_report} = 1) AND e.committed != '')
 `
+
+	// expenseAdminVisibilityPredicate is the extra access admin holders get on
+	// expense details: committed expenses, plus any expense with an uncommit
+	// request or direct uncommit on record, which they need to follow up what
+	// they decided once it's no longer committed. Other uncommitted expenses
+	// stay hidden from them.
+	expenseAdminVisibilityPredicate = `
+  ({:has_admin} = 1 AND (
+    e.committed != ''
+    OR EXISTS (SELECT 1 FROM expense_uncommit_requests r WHERE r.expense = e.id)
+  ))
+`
 )
 
 func buildCountQuery(whereClause string) string {
@@ -464,7 +476,7 @@ func createGetExpenseDetailsHandler(app core.App) func(e *core.RequestEvent) err
 		params["id"] = id
 		params["has_admin"] = boolToInt(hasAdmin)
 
-		query := expenseDetailsQuery + "\nAND (\n" + expenseVisibilityPredicate + "\nOR ({:has_admin} = 1 AND e.committed != '')\n)"
+		query := expenseDetailsQuery + "\nAND (\n" + expenseVisibilityPredicate + "\nOR " + expenseAdminVisibilityPredicate + "\n)"
 
 		var row ExpenseDetailsRow
 		if err := app.DB().NewQuery(query).Bind(params).One(&row); err != nil {
@@ -503,7 +515,7 @@ func createGetExpenseAttachmentHandler(app core.App) func(e *core.RequestEvent) 
 		params["id"] = id
 		params["has_admin"] = boolToInt(hasAdmin)
 
-		query := expenseDetailsQuery + "\nAND (\n" + expenseVisibilityPredicate + "\nOR ({:has_admin} = 1 AND e.committed != '')\n)"
+		query := expenseDetailsQuery + "\nAND (\n" + expenseVisibilityPredicate + "\nOR " + expenseAdminVisibilityPredicate + "\n)"
 
 		var row ExpenseDetailsRow
 		if err := app.DB().NewQuery(query).Bind(params).One(&row); err != nil {

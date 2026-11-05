@@ -59,6 +59,8 @@ Counts are the 47 requests with stated reasons, each assigned to its main reason
 
 Approval deliberately stays limited to the `admin` claim. Requests are a queue in front of the existing uncommit, not a wider grant of it.
 
+`admin` holders can normally open only committed expenses. They can also open any expense with a row in this history, so links on the Decided tab keep working after an uncommit.
+
 ## Eligibility
 
 An expense can be requested when all of these hold, and each is checked again at approval:
@@ -172,6 +174,7 @@ Follow `ui/CLAUDE.md`.
   - Each row shows PO and vendor, employee, payment type, total, committed date and age, reason and note, outcome, requester and time waiting.
   - Rows have a `DsCheck`, with `Approve selected (N)` and `Approve all`.
   - The bulk confirmation states how many will be rejected.
+  - `Approve all` is disabled while a search is active, because it acts on the whole queue, not only the rows showing.
 
 ## Notifications
 
