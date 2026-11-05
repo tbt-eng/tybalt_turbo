@@ -30,7 +30,8 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 		}
 
 		var httpResponseStatusCode int
-		var closedRequest *core.Record
+		var uncommitRequest, uncommittedExpense *core.Record
+		var rejectionReason string
 
 		err := app.RunInTransaction(func(txApp core.App) error {
 			hasAdminClaim, err := utilities.HasClaim(txApp, authRecord, "admin")
@@ -67,7 +68,7 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 			}
 
 			if collectionName == "expenses" {
-				closedRequest, err = recordDirectExpenseUncommit(txApp, record, authRecord.Id)
+				uncommitRequest, err = findOrNewDirectExpenseUncommitRequest(txApp, record, authRecord.Id)
 				if err != nil {
 					httpResponseStatusCode = http.StatusInternalServerError
 					return &CodeError{
@@ -75,6 +76,15 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 						Message: fmt.Sprintf("error recording uncommit: %v", err),
 					}
 				}
+
+				var status int
+				rejectionReason, status, err = applyExpenseUncommitRequest(txApp, uncommitRequest, record, authRecord.Id)
+				if err != nil {
+					httpResponseStatusCode = status
+					return err
+				}
+				uncommittedExpense = record
+				return nil
 			}
 
 			status, err := uncommitRecordInTransaction(txApp, record)
@@ -96,8 +106,8 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 			return e.JSON(httpResponseStatusCode, map[string]string{"error": err.Error()})
 		}
 
-		if closedRequest != nil {
-			queueExpenseUncommitDecision(app, closedRequest)
+		if uncommitRequest != nil {
+			queueExpenseUncommitApproval(app, uncommitRequest, uncommittedExpense, rejectionReason)
 		}
 
 		return e.JSON(http.StatusOK, map[string]string{"message": "Record uncommitted successfully"})

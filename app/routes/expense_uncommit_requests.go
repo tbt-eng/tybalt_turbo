@@ -553,39 +553,67 @@ func approveExpenseUncommitRequest(app core.App, requestID string, deciderID str
 			return expenseUncommitError(http.StatusBadRequest, block.Code, block.Message)
 		}
 
-		if err := setExpenseUncommitSnapshot(txApp, request, expense); err != nil {
-			return err
-		}
-
-		if _, err := uncommitRecordInTransaction(txApp, expense); err != nil {
-			return err
-		}
-
-		if request.GetString("outcome") == expenseUncommitOutcomeReject {
-			rejectionReason = expenseUncommitRejectionReason(txApp, request)
-			// The requester holds the commit claim and made this call. The admin
-			// holder approving it may hold neither reject permission.
-			if _, err := rejectRecordInTransaction(txApp, expense, rejectionReason, request.GetString("requester")); err != nil {
-				return err
-			}
-		}
-
-		request.Set("status", expenseUncommitStatusApproved)
-		request.Set("decided_by", deciderID)
-		request.Set("decided_at", time.Now())
-		return txApp.Save(request)
+		rejectionReason, _, err = applyExpenseUncommitRequest(txApp, request, expense, deciderID)
+		return err
 	})
 	if err != nil {
 		return err
 	}
 
-	queueExpenseUncommitDecision(app, request)
-	if rejectionReason != "" {
-		if err := notifications.QueueExpenseRejectedNotifications(app, expense, request.GetString("requester"), rejectionReason); err != nil {
-			app.Logger().Error("error queueing expense rejection notifications", "expense_id", expense.Id, "error", err)
+	queueExpenseUncommitApproval(app, request, expense, rejectionReason)
+	return nil
+}
+
+// applyExpenseUncommitRequest does what a request asks for and marks it
+// approved: it uncommits the expense and, for uncommit_and_reject, rejects it
+// too. Both approving from the queue and the direct uncommit button come here,
+// so a pending request gets the same result either way. It returns the rejection
+// reason, blank if there was no rejection, and on failure the status to answer
+// with.
+func applyExpenseUncommitRequest(txApp core.App, request *core.Record, expense *core.Record, deciderID string) (string, int, error) {
+	if err := setExpenseUncommitSnapshot(txApp, request, expense); err != nil {
+		return "", http.StatusInternalServerError, &CodeError{
+			Code:    "error_recording_uncommit",
+			Message: fmt.Sprintf("error recording uncommit: %v", err),
 		}
 	}
-	return nil
+
+	if status, err := uncommitRecordInTransaction(txApp, expense); err != nil {
+		return "", status, err
+	}
+
+	rejectionReason := ""
+	if request.GetString("outcome") == expenseUncommitOutcomeReject {
+		rejectionReason = expenseUncommitRejectionReason(txApp, request)
+		// The requester holds the commit claim and made this call. The admin
+		// holder approving it may hold neither reject permission.
+		if status, err := rejectRecordInTransaction(txApp, expense, rejectionReason, request.GetString("requester")); err != nil {
+			return "", status, err
+		}
+	}
+
+	request.Set("status", expenseUncommitStatusApproved)
+	request.Set("decided_by", deciderID)
+	request.Set("decided_at", time.Now())
+	if err := txApp.Save(request); err != nil {
+		return "", http.StatusInternalServerError, &CodeError{
+			Code:    "error_recording_uncommit",
+			Message: fmt.Sprintf("error recording uncommit: %v", err),
+		}
+	}
+	return rejectionReason, 0, nil
+}
+
+// queueExpenseUncommitApproval tells the requester, and the employee when the
+// expense was rejected. A rejection reason is blank when there was no rejection.
+func queueExpenseUncommitApproval(app core.App, request *core.Record, expense *core.Record, rejectionReason string) {
+	queueExpenseUncommitDecision(app, request)
+	if rejectionReason == "" {
+		return
+	}
+	if err := notifications.QueueExpenseRejectedNotifications(app, expense, request.GetString("requester"), rejectionReason); err != nil {
+		app.Logger().Error("error queueing expense rejection notifications", "expense_id", expense.Id, "error", err)
+	}
 }
 
 func expenseUncommitReasonName(app core.App, request *core.Record) string {
@@ -599,10 +627,16 @@ func expenseUncommitReasonName(app core.App, request *core.Record) string {
 func expenseUncommitRejectionReason(app core.App, request *core.Record) string {
 	name := expenseUncommitReasonName(app, request)
 	note := request.GetString("note")
-	if note == "" {
+	switch {
+	case name != "" && note != "":
+		return name + ": " + note
+	case name != "":
 		return name
+	case note != "":
+		return note
 	}
-	return name + ": " + note
+	// The reason was deleted while the request waited and there is no note.
+	return "Uncommit requested"
 }
 
 func queueExpenseUncommitDecision(app core.App, request *core.Record) {
@@ -611,38 +645,23 @@ func queueExpenseUncommitDecision(app core.App, request *core.Record) {
 	}
 }
 
-// recordDirectExpenseUncommit keeps the request history complete when an admin
-// holder uses the direct uncommit button. Call it before clearing the commit
-// fields, so the snapshot sees them. A pending request is closed and returned so
-// its requester can be told; otherwise a new row records the uncommit.
-//
-// A direct uncommit never rejects, so the outcome becomes uncommit_only.
-func recordDirectExpenseUncommit(txApp core.App, expense *core.Record, uid string) (*core.Record, error) {
+// findOrNewDirectExpenseUncommitRequest returns the request a direct uncommit
+// should apply: the expense's pending request, so its outcome is honoured, or
+// otherwise a new row recording an uncommit_only by the caller. A new row is
+// saved when it is applied.
+func findOrNewDirectExpenseUncommitRequest(txApp core.App, expense *core.Record, uid string) (*core.Record, error) {
 	request, err := findPendingExpenseUncommitRequest(txApp, expense.Id)
+	if err != nil || request != nil {
+		return request, err
+	}
+
+	collection, err := txApp.FindCollectionByNameOrId(expenseUncommitRequestsCollection)
 	if err != nil {
 		return nil, err
 	}
-
-	closed := request
-	if request == nil {
-		collection, err := txApp.FindCollectionByNameOrId(expenseUncommitRequestsCollection)
-		if err != nil {
-			return nil, err
-		}
-		request = core.NewRecord(collection)
-		request.Set("expense", expense.Id)
-		request.Set("requester", uid)
-	}
-
-	if err := setExpenseUncommitSnapshot(txApp, request, expense); err != nil {
-		return nil, err
-	}
+	request = core.NewRecord(collection)
+	request.Set("expense", expense.Id)
+	request.Set("requester", uid)
 	request.Set("outcome", expenseUncommitOutcomeOnly)
-	request.Set("status", expenseUncommitStatusApproved)
-	request.Set("decided_by", uid)
-	request.Set("decided_at", time.Now())
-	if err := txApp.Save(request); err != nil {
-		return nil, err
-	}
-	return closed, nil
+	return request, nil
 }

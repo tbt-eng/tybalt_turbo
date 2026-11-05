@@ -697,6 +697,7 @@
   <UncommitConfirmPopover
     bind:show={showUncommitConfirm}
     recordLabel="expense"
+    pendingRequest={uncommitRequest?.pending}
     submitting={uncommitSubmitting}
     error={uncommitError}
     onSubmit={uncommitExpense}

@@ -521,10 +521,10 @@ func TestExpenseUncommitQueueFlagsClosedGate(t *testing.T) {
 }
 
 func TestExpenseUncommitDirectUncommitKeepsHistory(t *testing.T) {
-	t.Run("closes a pending request as uncommit only", func(t *testing.T) {
+	t.Run("rejects when the pending request asked for it", func(t *testing.T) {
 		app := testutils.SetupTestApp(t)
 		commitExpenseToday(t, app, uncommitOnAccountExpense)
-		id := createUncommitRequest(t, app, uncommitOnAccountExpense, uncommitReasonWrongCurr, "uncommit_and_reject", "")
+		id := createUncommitRequest(t, app, uncommitOnAccountExpense, uncommitReasonWrongCurr, "uncommit_and_reject", "Should be USD")
 
 		res := performTestAPIRequest(t, app, http.MethodPost, "/api/expenses/"+uncommitOnAccountExpense+"/uncommit", nil, uncommitToken(t, uncommitAdminEmail))
 		mustStatus(t, res, http.StatusOK)
@@ -533,11 +533,73 @@ func TestExpenseUncommitDirectUncommitKeepsHistory(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if request.GetString("status") != "approved" || request.GetString("outcome") != "uncommit_only" {
-			t.Fatalf("expected approved and uncommit_only, got %v", request.PublicExport())
+		if request.GetString("status") != "approved" || request.GetString("outcome") != "uncommit_and_reject" {
+			t.Fatalf("expected approved and uncommit_and_reject, got %v", request.PublicExport())
+		}
+		if request.GetString("committed") == "" {
+			t.Fatal("expected the commit state in the snapshot")
+		}
+
+		expense, err := app.FindRecordById("expenses", uncommitOnAccountExpense)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !expense.GetDateTime("committed").IsZero() || expense.GetDateTime("rejected").IsZero() {
+			t.Fatalf("expected the expense uncommitted and rejected, got %v", expense.PublicExport())
+		}
+		if expense.GetString("rejector") != request.GetString("requester") {
+			t.Fatalf("expected the requester as rejector, got %q", expense.GetString("rejector"))
+		}
+		if got, want := expense.GetString("rejection_reason"), "Wrong currency: Should be USD"; got != want {
+			t.Fatalf("expected rejection reason %q, got %q", want, got)
 		}
 		if count := countNotifications(t, app, "expense_uncommit_approved", request.GetString("requester")); count != 1 {
 			t.Fatalf("expected the requester to be told, got %d", count)
+		}
+		if count := countNotifications(t, app, "expense_rejected", expense.GetString("uid")); count != 1 {
+			t.Fatalf("expected the employee to be told, got %d", count)
+		}
+	})
+
+	t.Run("doesn't reject when the pending request is uncommit only", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		commitExpenseToday(t, app, uncommitOnAccountExpense)
+		id := createUncommitRequest(t, app, uncommitOnAccountExpense, uncommitReasonMistake, "uncommit_only", "")
+
+		res := performTestAPIRequest(t, app, http.MethodPost, "/api/expenses/"+uncommitOnAccountExpense+"/uncommit", nil, uncommitToken(t, uncommitAdminEmail))
+		mustStatus(t, res, http.StatusOK)
+
+		request, err := app.FindRecordById("expense_uncommit_requests", id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if request.GetString("status") != "approved" {
+			t.Fatalf("expected approved, got %v", request.PublicExport())
+		}
+		expense, err := app.FindRecordById("expenses", uncommitOnAccountExpense)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !expense.GetDateTime("rejected").IsZero() {
+			t.Fatal("expected the expense not to be rejected")
+		}
+	})
+
+	t.Run("also works once the gate has closed", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		commitExpenseToday(t, app, uncommitOnAccountExpense)
+		createUncommitRequest(t, app, uncommitOnAccountExpense, uncommitReasonWrongCurr, "uncommit_and_reject", "")
+		setExpenseCommitDates(t, app, uncommitOnAccountExpense, time.Now().AddDate(0, 0, -91), "")
+
+		res := performTestAPIRequest(t, app, http.MethodPost, "/api/expenses/"+uncommitOnAccountExpense+"/uncommit", nil, uncommitToken(t, uncommitAdminEmail))
+		mustStatus(t, res, http.StatusOK)
+
+		expense, err := app.FindRecordById("expenses", uncommitOnAccountExpense)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if expense.GetDateTime("rejected").IsZero() {
+			t.Fatal("expected the expense to be rejected")
 		}
 	})
 
@@ -558,6 +620,32 @@ func TestExpenseUncommitDirectUncommitKeepsHistory(t *testing.T) {
 			t.Fatal("expected the commit state in the snapshot")
 		}
 	})
+}
+
+// A reason can be deleted while a request waits, and the note can be blank.
+func TestExpenseUncommitRejectsAfterItsReasonIsDeleted(t *testing.T) {
+	app := testutils.SetupTestApp(t)
+	commitExpenseToday(t, app, uncommitOnAccountExpense)
+	id := createUncommitRequest(t, app, uncommitOnAccountExpense, uncommitReasonWrongCurr, "uncommit_and_reject", "")
+
+	reason, err := app.FindRecordById("expense_uncommit_reasons", uncommitReasonWrongCurr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Delete(reason); err != nil {
+		t.Fatal(err)
+	}
+
+	if results := approveUncommitRequests(t, app, id); !results[0].OK {
+		t.Fatalf("expected approval, got %+v", results[0])
+	}
+	expense, err := app.FindRecordById("expenses", uncommitOnAccountExpense)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := expense.GetString("rejection_reason"); got != "Uncommit requested" {
+		t.Fatalf("unexpected rejection reason %q", got)
+	}
 }
 
 // A rejected expense on a duplicate PO has to be deleted before the PO can be

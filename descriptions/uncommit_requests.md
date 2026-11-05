@@ -109,7 +109,7 @@ The request stays in the queue, flagged `Payroll closed` or `Too old`, and can't
 
 ## Approval
 
-Approving does the following in one transaction per request:
+Approving from the queue, or using direct `Uncommit` on an expense with a pending request, does the following in one transaction per request:
 
 1. Re-check eligibility.
 2. Copy the commit state onto the request.
@@ -147,7 +147,7 @@ Collection `expense_uncommit_requests`, with no direct API access (all rules nul
 
 A partial unique index on `expense` where `status = 'pending'` prevents duplicate requests.
 
-Direct `Uncommit` also writes an `approved` row with the outcome `uncommit_only`, closing any pending request or creating one, so the history is complete.
+Direct `Uncommit` also writes to this history. With a pending request it does what the request asked for, including rejecting, and marks it approved, and its dialog says so. It skips the eligibility checks, since it's how blocked requests get handled. With no pending request it writes a new `approved` row with the outcome `uncommit_only`.
 
 ## Routes
 
@@ -208,7 +208,7 @@ Follow `ui/CLAUDE.md`.
 - **`uncommit_and_reject`:** commit fields cleared, rejection fields set, PO reopened, employee notified, and the snapshot saved.
 - **`uncommit_only`:** the expense returns to the commit queue.
 - **Bulk approve:** a mix of valid and invalid requests applies the valid ones and reports the rest.
-- **Direct uncommit:** closes a pending request and writes a row when there is none.
+- **Direct uncommit:** applies a pending request's outcome, including after its gate closed, and writes a row when there is none.
 - **Editing disabled:** all mutating routes are blocked.
 - **Companion fix:** convert and reopen, refuse when the PO is used up, and refuse when the PO was closed by a person.
 
