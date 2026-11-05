@@ -2,6 +2,8 @@
 
 ## Summary
 
+Holders of the `commit` claim can ask for an expense uncommit from a queue instead of on Teams: see [uncommit_requests.md](uncommit_requests.md). The direct uncommit described here stays, and for expenses it now also writes a row to that queue's history.
+
 This staged change adds an uncommit workflow for holders of the `admin` claim for committed `time_sheets` and `expenses` records.
 
 The goal is narrow:

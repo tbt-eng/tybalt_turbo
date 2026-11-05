@@ -82,72 +82,10 @@ func createRejectRecordHandler(app core.App, collectionName string) func(e *core
 				}
 			}
 
-			// Check if the record is submitted
-			if !record.GetBool("submitted") {
-				httpResponseStatusCode = http.StatusBadRequest
-				return &CodeError{
-					Code:    "record_not_submitted",
-					Message: "only submitted records can be rejected",
-				}
-			}
-
-			// Check if the record is committed
-			if !record.GetDateTime("committed").IsZero() {
-				httpResponseStatusCode = http.StatusBadRequest
-				return &CodeError{
-					Code:    "record_committed",
-					Message: "committed records cannot be rejected",
-				}
-			}
-
-			// Check if the record is already rejected
-			if !record.GetDateTime("rejected").IsZero() {
-				httpResponseStatusCode = http.StatusBadRequest
-				return &CodeError{
-					Code:    "record_already_rejected",
-					Message: "this record is already rejected",
-				}
-			}
-
-			// Check if the rejection reason is at least 4 characters long
-			if len(req.RejectionReason) < 4 {
-				httpResponseStatusCode = http.StatusBadRequest
-				return &CodeError{
-					Code:    "rejection_reason_too_short",
-					Message: "rejection reason must be at least 4 characters long",
-				}
-			}
-
-			// Set the rejection timestamp, reason, and rejector
-			record.Set("rejected", time.Now())
-			record.Set("rejection_reason", req.RejectionReason)
-			record.Set("rejector", userId)
-
-			if collectionName == "expenses" {
-				currencyInfo, err := utilities.ResolveCurrencyInfo(txApp, record.GetString("currency"))
-				if err != nil {
-					httpResponseStatusCode = http.StatusBadRequest
-					return &CodeError{
-						Code:    "invalid_currency",
-						Message: "referenced currency not found",
-					}
-				}
-
-				if !utilities.IsHomeCurrencyInfo(currencyInfo) &&
-					(record.GetString("payment_type") == "OnAccount" || record.GetString("payment_type") == "CorporateCreditCard") {
-					record.Set("settled_total", 0)
-					record.Set("settler", "")
-					record.Set("settled", "")
-				}
-			}
-
-			// Save the updated record
-			if err := txApp.Save(record); err != nil {
-				httpResponseStatusCode = http.StatusInternalServerError
-				return &CodeError{
-					Code:    "record_save_error",
-					Message: fmt.Sprintf("error saving record: %v", err),
-				}
+			status, err := rejectRecordInTransaction(txApp, record, req.RejectionReason, userId)
+			if err != nil {
+				httpResponseStatusCode = status
+				return err
 			}
 
 			return nil
@@ -192,4 +130,73 @@ func createRejectRecordHandler(app core.App, collectionName string) func(e *core
 
 		return e.JSON(http.StatusOK, map[string]string{"message": "record rejected successfully"})
 	}
+}
+
+// rejectRecordInTransaction checks that a record can be rejected and rejects it.
+// Who may reject is the caller's concern. On failure it returns the status to
+// answer with.
+func rejectRecordInTransaction(txApp core.App, record *core.Record, reason string, rejectorID string) (int, error) {
+	// Check if the record is submitted
+	if !record.GetBool("submitted") {
+		return http.StatusBadRequest, &CodeError{
+			Code:    "record_not_submitted",
+			Message: "only submitted records can be rejected",
+		}
+	}
+
+	// Check if the record is committed
+	if !record.GetDateTime("committed").IsZero() {
+		return http.StatusBadRequest, &CodeError{
+			Code:    "record_committed",
+			Message: "committed records cannot be rejected",
+		}
+	}
+
+	// Check if the record is already rejected
+	if !record.GetDateTime("rejected").IsZero() {
+		return http.StatusBadRequest, &CodeError{
+			Code:    "record_already_rejected",
+			Message: "this record is already rejected",
+		}
+	}
+
+	// Check if the rejection reason is at least 4 characters long
+	if len(reason) < 4 {
+		return http.StatusBadRequest, &CodeError{
+			Code:    "rejection_reason_too_short",
+			Message: "rejection reason must be at least 4 characters long",
+		}
+	}
+
+	// Set the rejection timestamp, reason, and rejector
+	record.Set("rejected", time.Now())
+	record.Set("rejection_reason", reason)
+	record.Set("rejector", rejectorID)
+
+	if record.Collection().Name == "expenses" {
+		currencyInfo, err := utilities.ResolveCurrencyInfo(txApp, record.GetString("currency"))
+		if err != nil {
+			return http.StatusBadRequest, &CodeError{
+				Code:    "invalid_currency",
+				Message: "referenced currency not found",
+			}
+		}
+
+		if !utilities.IsHomeCurrencyInfo(currencyInfo) &&
+			(record.GetString("payment_type") == "OnAccount" || record.GetString("payment_type") == "CorporateCreditCard") {
+			record.Set("settled_total", 0)
+			record.Set("settler", "")
+			record.Set("settled", "")
+		}
+	}
+
+	// Save the updated record
+	if err := txApp.Save(record); err != nil {
+		return http.StatusInternalServerError, &CodeError{
+			Code:    "record_save_error",
+			Message: fmt.Sprintf("error saving record: %v", err),
+		}
+	}
+
+	return 0, nil
 }

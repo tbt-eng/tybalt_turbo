@@ -6,6 +6,7 @@ package notifications
 
 import (
 	"fmt"
+	"strings"
 	"tybalt/utilities"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -151,6 +152,59 @@ func QueueExpenseRejectedNotifications(app core.App, expense *core.Record, rejec
 		"recipient_count", len(recipients),
 	)
 
+	return nil
+}
+
+// QueueExpenseUncommitDecisionNotification tells the requester what became of
+// their uncommit request. A direct uncommit that wrote its own row has no one
+// else to tell, so a decision by the requester themself sends nothing.
+func QueueExpenseUncommitDecisionNotification(app core.App, request *core.Record, reasonName string) error {
+	requesterUID := request.GetString("requester")
+	deciderUID := request.GetString("decided_by")
+	if requesterUID == deciderUID {
+		return nil
+	}
+
+	deciderName, _, err := getProfileDisplayName(app, deciderUID)
+	if err != nil {
+		return fmt.Errorf("error finding decider profile: %v", err)
+	}
+
+	label := []string{}
+	if poNumber := request.GetString("po_number"); poNumber != "" {
+		label = append(label, "PO "+poNumber)
+	}
+	if vendorName := request.GetString("vendor_name"); vendorName != "" {
+		label = append(label, vendorName)
+	}
+	label = append(label, fmt.Sprintf("%s %.2f", request.GetString("currency_code"), request.GetFloat("total")))
+
+	outcome := "The expense was uncommitted and is back in the commit queue."
+	if request.GetString("outcome") == "uncommit_and_reject" {
+		outcome = "The expense was uncommitted and rejected."
+	}
+
+	templateCode := "expense_uncommit_approved"
+	if request.GetString("status") == "declined" {
+		templateCode = "expense_uncommit_declined"
+	}
+
+	createAndSendToRecipients(
+		app,
+		templateCode,
+		[]string{requesterUID},
+		map[string]any{
+			"ExpenseLabel": strings.Join(label, ", "),
+			"DeciderName":  deciderName,
+			"Reason":       reasonName,
+			"Outcome":      outcome,
+			"Comment":      request.GetString("decision_comment"),
+			"ActionURL":    BuildActionURL(app, fmt.Sprintf("/expenses/%s/details", request.GetString("expense"))),
+		},
+		true,
+		"",
+		map[string]any{"request_id": request.Id},
+	)
 	return nil
 }
 

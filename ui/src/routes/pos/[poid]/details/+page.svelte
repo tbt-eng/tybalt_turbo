@@ -63,19 +63,23 @@
   const isPayablesAdmin = $derived(
     $globalStore.showAllUi || $globalStore.claims.includes("payables_admin"),
   );
-  const canConvertToCumulative = $derived(
-    isPayablesAdmin && data.po.status === "Active" && data.po.type === "One-Time",
-  );
-  // A Recurring PO closes on its count of committed expenses, not its amount.
-  const showRemainingOccurrences = $derived(
-    data.po.type === "Recurring" && data.po.recurring_expected_occurrences > 0,
-  );
   // Imported legacy POs carry closed_by_system = true with a placeholder date
   // before this cutover, so their cause of closure is unknown.
   const TURBO_CLOSURE_CUTOVER = Date.parse("2026-03-12T00:00:00Z");
   const showSystemClosureReason = $derived(
     data.po.closed_by_system &&
       Date.parse(data.po.closed.replace(" ", "T")) >= TURBO_CLOSURE_CUTOVER,
+  );
+  // A One-Time PO closes when its expense is committed. Converting reopens it.
+  const isReopenableOneTime = $derived(data.po.status === "Closed" && showSystemClosureReason);
+  const canConvertToCumulative = $derived(
+    isPayablesAdmin &&
+      data.po.type === "One-Time" &&
+      (data.po.status === "Active" || isReopenableOneTime),
+  );
+  // A Recurring PO closes on its count of committed expenses, not its amount.
+  const showRemainingOccurrences = $derived(
+    data.po.type === "Recurring" && data.po.recurring_expected_occurrences > 0,
   );
   // Commit-time auto-close leaves closer blank and sets closed_by_system. Say
   // which limit closed the PO so the owner knows why it is no longer usable.
@@ -631,6 +635,9 @@
       <ul class="mt-2 list-disc space-y-1 pl-5">
         <li>This purchase order will allow multiple expenses instead of a single expense.</li>
         <li>The total PO amount stays the same and becomes the cumulative spending limit.</li>
+        {#if isReopenableOneTime}
+          <li>The purchase order reopens, and its committed expense stays committed.</li>
+        {/if}
         <li>The updated type will display after the page refreshes.</li>
       </ul>
     </div>

@@ -1029,9 +1029,15 @@ func createCancelPurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 
 /*
 createConvertToCumulativePurchaseOrderHandler is a function that converts a
-status=Active type=One-Time purchase_orders record to a type=Cumulative
-purchase_orders record. It may only be called by a user with the
-payables_admin claim.
+type=One-Time purchase_orders record to a type=Cumulative purchase_orders
+record. It may only be called by a user with the payables_admin claim.
+
+The record must be Active, or Closed by the system. A One-Time PO closes as soon
+as an expense is committed against it, so without the second case the only way
+to convert it would be to uncommit a correct expense. A converted PO reopens,
+which needs the committed total to be below the PO total. Imported POs are
+refused because the import tool sets closed_by_system on all of them, so their
+real cause of closure is unknown.
 */
 func createConvertToCumulativePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -1051,12 +1057,13 @@ func createConvertToCumulativePurchaseOrderHandler(app core.App) func(e *core.Re
 				}
 			}
 
-			// Check if the purchase order is active
-			if po.Get("status") != "Active" {
+			// Check if the purchase order is active or was closed by the system
+			closedBySystem := po.Get("status") == "Closed" && po.GetBool("closed_by_system") && !po.GetBool("_imported")
+			if po.Get("status") != "Active" && !closedBySystem {
 				httpResponseStatusCode = http.StatusBadRequest
 				return &CodeError{
 					Code:    "po_not_active",
-					Message: "only active purchase orders can be converted to Cumulative",
+					Message: "only active or automatically closed purchase orders can be converted to Cumulative",
 				}
 			}
 
@@ -1084,6 +1091,29 @@ func createConvertToCumulativePurchaseOrderHandler(app core.App) func(e *core.Re
 					Code:    "unauthorized_conversion",
 					Message: "you are not authorized to convert this purchase order to Cumulative",
 				}
+			}
+
+			if closedBySystem {
+				committedTotal, err := utilities.CumulativeTotalExpensesForPurchaseOrder(txApp, po, true)
+				if err != nil {
+					httpResponseStatusCode = http.StatusInternalServerError
+					return &CodeError{
+						Code:    "error_totalling_expenses",
+						Message: fmt.Sprintf("error totalling committed expenses: %v", err),
+					}
+				}
+				// Compare whole cents: a float sum can land a hair below an exact total.
+				if utilities.CurrencyAmountToCents(committedTotal) >= utilities.CurrencyAmountToCents(po.GetFloat("total")) {
+					httpResponseStatusCode = http.StatusBadRequest
+					return &CodeError{
+						Code:    "po_total_used",
+						Message: "committed expenses already use the full purchase order total, so there is no room for another invoice",
+					}
+				}
+				po.Set("status", "Active")
+				po.Set("closed", "")
+				po.Set("closer", "")
+				po.Set("closed_by_system", false)
 			}
 
 			// Update the type to Cumulative

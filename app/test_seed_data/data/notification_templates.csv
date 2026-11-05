@@ -182,3 +182,26 @@ Vendor: {{.VendorName}}
 This is the only email you get for the group. Each purchase order appears in your Pending My Approval list once {{.UserName}} approves it:
 
 {{.ActionURL}}",2026-11-02 16:00:00.000Z
+expense_uncommit_approved,2026-11-05 16:00:00.000Z,Tells the requester their expense uncommit request was approved,,uncommitapprove,Uncommit approved: {{.ExpenseLabel}},"Hello {{.RecipientName}},
+
+{{.DeciderName}} approved your uncommit request.
+
+Expense: {{.ExpenseLabel}}
+Reason: {{.Reason}}
+Result: {{.Outcome}}
+
+{{.ActionURL}}",2026-11-05 16:00:00.000Z
+expense_uncommit_declined,2026-11-05 16:00:00.000Z,Tells the requester their expense uncommit request was declined,,uncommitdecline,Uncommit declined: {{.ExpenseLabel}},"Hello {{.RecipientName}},
+
+{{.DeciderName}} declined your uncommit request. The expense is still committed.
+
+Expense: {{.ExpenseLabel}}
+Reason: {{.Reason}}
+Why it was declined: {{.Comment}}
+
+{{.ActionURL}}",2026-11-05 16:00:00.000Z
+expense_uncommit_reminder,2026-11-05 16:00:00.000Z,Reminds admin holders that expense uncommit requests are waiting,,uncommitreminde,Uncommit requests waiting: {{.Count}},"Hello {{.RecipientName}},
+
+{{.Count}} expense uncommit requests are waiting for a decision:
+
+{{.ActionURL}}",2026-11-05 16:00:00.000Z

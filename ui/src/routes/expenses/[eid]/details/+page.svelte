@@ -7,6 +7,13 @@
   import StoredFileHashRepairPopover from "$lib/components/StoredFileHashRepairPopover.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import UncommitConfirmPopover from "$lib/components/UncommitConfirmPopover.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import ExpenseUncommitRequestPopover from "$lib/components/ExpenseUncommitRequestPopover.svelte";
+  import {
+    expenseUncommitBlockText,
+    expenseUncommitOutcomeLabel,
+    expenseUncommitReasonText,
+  } from "$lib/expenseUncommitRequests";
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
   import { advanceExpenseApprovalQueue } from "$lib/expenseApprovalQueue";
@@ -39,7 +46,10 @@
   let showHashRepairPopover = false;
   let uncommitSubmitting = false;
   let uncommitError: string | null = null;
+  let showUncommitRequest = false;
 
+  $: uncommitRequest = expense.uncommit_request;
+  $: holdsCommitClaim = $globalStore.claims.includes("commit");
   $: hasCommitAccess = $globalStore.showAllUi || $globalStore.claims.includes("commit");
   $: hasAdminAccess = $globalStore.showAllUi || $globalStore.claims.includes("admin");
   $: hasBookKeeperAccess = $globalStore.claims.includes("book_keeper");
@@ -153,6 +163,20 @@
     showUncommitConfirm = false;
   }
 
+  async function uncommitRequested() {
+    await globalStore.refreshAttentionCounts();
+    await refreshExpense();
+  }
+
+  async function cancelUncommitRequest(id: string) {
+    try {
+      await pb.send(`/api/expense_uncommit_requests/${id}/cancel`, { method: "POST" });
+      await uncommitRequested();
+    } catch (error) {
+      globalStore.addError(getApiErrorMessage(error, "Cancel failed"));
+    }
+  }
+
   function openHashRepairPopover() {
     showHashRepairPopover = true;
   }
@@ -229,6 +253,14 @@
             color="orange"
           />
         {/if}
+        {#if uncommitRequest?.can_request}
+          <DsActionButton
+            action={() => (showUncommitRequest = true)}
+            icon="mdi:undo"
+            title="Request uncommit"
+            color="orange"
+          />
+        {/if}
 
         <!-- Owner draft actions: an unsubmitted expense can still be edited and submitted. -->
         {#if isOwner && !expense.submitted}
@@ -298,6 +330,26 @@
       {/if}
     {/snippet}
   </DSPageHeader>
+
+  {#if uncommitRequest?.pending}
+    <DSCallout tone="info" title="Uncommit requested">
+      {uncommitRequest.pending.requester_name} asked for
+      {expenseUncommitOutcomeLabel(uncommitRequest.pending.outcome).toLowerCase()}.
+      {expenseUncommitReasonText(uncommitRequest.pending)}.
+      <a class="link" href={resolve("/expenses/uncommit-requests")}>View the queue</a>
+      {#snippet actions()}
+        {#if uncommitRequest?.pending?.requester === viewerId && $expensesEditingEnabled}
+          <DsActionButton action={() => cancelUncommitRequest(uncommitRequest.pending.id)}>
+            Cancel request
+          </DsActionButton>
+        {/if}
+      {/snippet}
+    </DSCallout>
+  {:else if uncommitRequest?.blocked && holdsCommitClaim}
+    <DSCallout tone="warning" title="Uncommit can't be requested here">
+      {expenseUncommitBlockText(uncommitRequest.blocked)} Message Dean on Teams.
+    </DSCallout>
+  {/if}
 
   <div class="space-y-2 rounded-sm bg-neutral-100 p-4">
     {#if expense.creator && expense.creator !== expense.uid}
@@ -637,6 +689,11 @@
   </div>
 
   <RejectModal collectionName="expenses" bind:this={rejectModal} on:refresh={handleRejected} />
+  <ExpenseUncommitRequestPopover
+    bind:show={showUncommitRequest}
+    expenseId={expense.id}
+    onRequested={uncommitRequested}
+  />
   <UncommitConfirmPopover
     bind:show={showUncommitConfirm}
     recordLabel="expense"

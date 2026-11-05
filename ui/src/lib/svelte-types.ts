@@ -245,3 +245,54 @@ export interface WorkRecordEntryRow {
   given_name: string;
   timesheet_id: string;
 }
+
+export type ExpenseUncommitOutcome = "uncommit_and_reject" | "uncommit_only";
+
+export type ExpenseUncommitReason = {
+  id: string;
+  name: string;
+  default_outcome: ExpenseUncommitOutcome;
+  note_prompt: string;
+  note_required: boolean;
+};
+
+export type ExpenseUncommitBlock = {
+  code: "payroll_closed" | "too_old";
+  message: string;
+  pay_period_ending?: string;
+  pay_date?: string;
+  limit_days?: number;
+};
+
+export type ExpenseUncommitRequestRow = {
+  id: string;
+  // Blank once the expense has been deleted.
+  expense: string;
+  status: "pending" | "approved" | "declined" | "cancelled";
+  outcome: ExpenseUncommitOutcome;
+  note: string;
+  created: string;
+  requester: string;
+  decided_at: string;
+  decision_comment: string;
+  employee_name: string;
+  po_number: string;
+  vendor_name: string;
+  description: string;
+  currency_code: string;
+  payment_type: string;
+  total: number;
+  committed: string;
+  pay_period_ending: string;
+  // Blank on rows written by a direct uncommit.
+  reason_name: string;
+  requester_name: string;
+  decided_by_name: string;
+  blocked?: ExpenseUncommitBlock;
+};
+
+export type ExpenseUncommitRequestState = {
+  can_request: boolean;
+  blocked?: ExpenseUncommitBlock;
+  pending?: ExpenseUncommitRequestRow;
+};

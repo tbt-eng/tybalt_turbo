@@ -143,6 +143,7 @@ func AddRoutes(app core.App) {
 		expensesGroup.POST("/{id}/reject", createRejectRecordHandler(app, "expenses"))
 		expensesGroup.POST("/{id}/commit", createCommitRecordHandler(app, "expenses"))
 		expensesGroup.POST("/{id}/uncommit", createUncommitRecordHandler(app, "expenses"))
+		expensesGroup.POST("/{id}/uncommit_requests", createCreateExpenseUncommitRequestHandler(app))
 		expensesGroup.GET("/list", createGetExpensesListHandler(app))
 		expensesGroup.GET("/details/{id}", createGetExpenseDetailsHandler(app))
 		expensesGroup.GET("/attachment/{id}", createGetExpenseAttachmentHandler(app))
@@ -162,6 +163,14 @@ func AddRoutes(app core.App) {
 		// The caller's own expenses repaid on payroll, grouped by pay period.
 		expensesGroup.GET("/reimbursements", createExpenseReimbursementPeriodsHandler(app))
 		expensesGroup.GET("/reimbursements/{payPeriodEnding}", createExpenseReimbursementsListHandler(app))
+
+		uncommitRequestsGroup := se.Router.Group("/api/expense_uncommit_requests")
+		uncommitRequestsGroup.Bind(apis.RequireAuth("users"))
+		uncommitRequestsGroup.GET("", createGetExpenseUncommitRequestsHandler(app))
+		uncommitRequestsGroup.GET("/reasons", createGetExpenseUncommitReasonsHandler(app))
+		uncommitRequestsGroup.POST("/approve", createApproveExpenseUncommitRequestsHandler(app))
+		uncommitRequestsGroup.POST("/{id}/decline", createDeclineExpenseUncommitRequestHandler(app))
+		uncommitRequestsGroup.POST("/{id}/cancel", createCancelExpenseUncommitRequestHandler(app))
 
 		timeAmendmentsGroup := se.Router.Group("/api/time_amendments")
 		timeAmendmentsGroup.Bind(apis.RequireAuth("users"))

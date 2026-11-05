@@ -204,6 +204,8 @@ type ExpenseDetailsRow struct {
 	POUID              string  `db:"po_uid" json:"po_uid"`
 	POUIDName          string  `db:"po_uid_name" json:"po_uid_name"`
 	POOwnerUIDMismatch bool    `json:"po_owner_uid_mismatch"`
+	// Set for commit and admin holders viewing a committed expense.
+	UncommitRequest *expenseUncommitRequestState `db:"-" json:"uncommit_request,omitempty"`
 }
 
 type PaginatedExpensesResponse struct {
@@ -469,6 +471,10 @@ func createGetExpenseDetailsHandler(app core.App) func(e *core.RequestEvent) err
 			return e.Error(http.StatusNotFound, "expense not found or not authorized", err)
 		}
 		row.POOwnerUIDMismatch = expensePurchaseOrderOwnerUIDMismatch(row.UID, row.POUID)
+		row.UncommitRequest, err = loadExpenseUncommitRequestState(app, auth, id)
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "error loading uncommit request state", err)
+		}
 
 		return e.JSON(http.StatusOK, row)
 	}

@@ -35,6 +35,8 @@ Controls expense, PO, and vendor editing, plus expense validation thresholds.
 |-----------------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `create_edit_absorb`        | bool   | `true`    | Enables expense, purchase order, and vendor creation/updating/absorb. When `false`, these operations return HTTP 403.                  |
 | `no_po_expense_limit`       | number | `100.0`   | Dollar threshold above which a non-exempt expense requires a PO. Set to `0` to require a PO for all non-exempt expenses. Must be >= 0. |
+| `uncommit_payroll_lock_days` | number | `7` | Days after `pay_period_ending` that a payroll-paid expense can still be requested for uncommit. See [uncommit_requests.md](uncommit_requests.md). Must be >= 0. |
+| `uncommit_non_payroll_lock_days` | number | `90` | Days after commit that any other expense can still be requested for uncommit. Must be >= 0. |
 | `po_expense_allowed_excess` | object | see below | Controls how much total expenses on a PO can exceed the PO total.                                                                      |
 
 ### `po_expense_allowed_excess` sub-object
@@ -92,6 +94,9 @@ Toggles individual notification templates on/off. Each property key is a templat
 | `po_rejected`                          | PO has been rejected                        |
 | `expense_rejected`                     | Expense has been rejected                   |
 | `expense_approval_reminder`            | Reminder to approve pending expenses        |
+| `expense_uncommit_approved`            | Uncommit request was approved               |
+| `expense_uncommit_declined`            | Uncommit request was declined               |
+| `expense_uncommit_reminder`            | Reminder that uncommit requests are waiting |
 | `timesheet_submission_reminder`        | Reminder to submit timesheet                |
 | `timesheet_approval_reminder`          | Reminder to approve pending timesheets      |
 | `timesheet_rejected`                   | Timesheet has been rejected                 |

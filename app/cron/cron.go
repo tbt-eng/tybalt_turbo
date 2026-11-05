@@ -43,6 +43,12 @@ func AddCronJobs(app core.App) {
 		notifications.QueueTimesheetApprovalReminders(app, true)
 	})
 
+	// send expense_uncommit_reminder notifications at 1pm UTC on weekdays.
+	// These notifications remind admin holders that uncommit requests are waiting.
+	app.Cron().MustAdd("expense_uncommit_request_reminders", "0 13 * * 1-5", func() {
+		notifications.QueueExpenseUncommitRequestReminders(app, true)
+	})
+
 	// Refresh foreign-exchange rates on weekday evenings after the Bank of Canada
 	// business-day feed is expected to be published.
 	app.Cron().MustAdd("currency_rate_sync", "0 22 * * 1-5", func() {

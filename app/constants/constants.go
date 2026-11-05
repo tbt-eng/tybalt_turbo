@@ -57,3 +57,15 @@ const (
 
 // The epoch date for the payroll, initialized as a variable.
 var PAYROLL_EPOCH = time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
+
+const (
+	// PAY_DATE_DAYS_AFTER_PERIOD_ENDING is the gap between a Saturday
+	// pay_period_ending and its Friday pay day.
+	PAY_DATE_DAYS_AFTER_PERIOD_ENDING = 13
+	// UNCOMMIT_PAYROLL_LOCK_DAYS is how many days after pay_period_ending a
+	// payroll-paid expense can still be requested for uncommit.
+	UNCOMMIT_PAYROLL_LOCK_DAYS = 7
+	// UNCOMMIT_NON_PAYROLL_LOCK_DAYS is how many days after commit any other
+	// expense can still be requested for uncommit.
+	UNCOMMIT_NON_PAYROLL_LOCK_DAYS = 90
+)

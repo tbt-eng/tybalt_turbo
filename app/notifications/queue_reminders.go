@@ -212,6 +212,37 @@ func QueueExpenseApprovalReminders(app core.App, send bool) error {
 	return nil
 }
 
+// QueueExpenseUncommitRequestReminders reminds admin holders while uncommit
+// requests are waiting for a decision. They would otherwise see only the nav
+// count.
+func QueueExpenseUncommitRequestReminders(app core.App, send bool) error {
+	job := ReminderJob{
+		Name:         "expense uncommit request reminders",
+		TemplateCode: "expense_uncommit_reminder",
+		Query: `
+			SELECT
+				uc.uid AS admin_uid,
+				(SELECT COUNT(*) FROM expense_uncommit_requests r WHERE r.status = 'pending') AS pending_count
+			FROM user_claims uc
+			INNER JOIN claims c ON c.id = uc.cid
+			WHERE c.name = 'admin'
+			  AND EXISTS (SELECT 1 FROM expense_uncommit_requests r WHERE r.status = 'pending')
+		`,
+		RecipientCol: "admin_uid",
+		Dedupe: DedupeSpec{
+			Where: "datetime(n.created) > datetime('now', '-1 day')",
+		},
+		BuildData: func(row dbx.NullStringMap) map[string]any {
+			return map[string]any{
+				"Count":     rowStringValue(row, "pending_count"),
+				"ActionURL": BuildActionURL(app, "/expenses/uncommit-requests"),
+			}
+		},
+	}
+
+	return queueReminderJob(app, job, send)
+}
+
 func queueReminderJob(app core.App, job ReminderJob, send bool) error {
 	notificationTemplate, err := app.FindFirstRecordByFilter("notification_templates", "code = {:code}", dbx.Params{
 		"code": job.TemplateCode,

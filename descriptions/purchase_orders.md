@@ -563,6 +563,8 @@ Automatic closure rules:
 
 Automatic close sets `status = Closed`, `closed` to the commit timestamp of the closing expense and `closed_by_system = true`, and leaves `closer` blank. The PO details page shows it as closed automatically and names the limit that was reached. Uncommitting an expense that reopens the PO clears all three fields. It does not use the manual pending-expense check and can still leave other expenses pending when the amount or recurrence limit is reached.
 
+A `payables_admin` holder can convert a One-Time PO to Cumulative while it is `Active`, or after an automatic close. Converting an automatically closed PO reopens it and leaves its committed expense alone. It is refused when committed expenses already use the full PO total, and for imported POs, whose real cause of closure is unknown.
+
 ## API Endpoints (Non-approver-list)
 
 Implemented in `app/routes/purchase_orders.go` and `app/routes/close_purchase_order.go`, and registered in `app/routes/routes.go`.

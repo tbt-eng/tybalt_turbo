@@ -129,6 +129,12 @@ export const navSections: NavSection[] = [
       { label: "Tracking", href: "/expenses/tracking", buttons: [] },
       { label: "Settlement", href: "/expenses/settlement", buttons: [] },
       { label: "Commit Queue", href: "/reports/expense/queue", buttons: [] },
+      {
+        label: "Uncommit Requests",
+        href: "/expenses/uncommit-requests",
+        buttons: [],
+        canView: (claims) => claims.includes("commit") || claims.includes("admin"),
+      },
     ],
   },
   {

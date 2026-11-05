@@ -30,6 +30,7 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 		}
 
 		var httpResponseStatusCode int
+		var closedRequest *core.Record
 
 		err := app.RunInTransaction(func(txApp core.App) error {
 			hasAdminClaim, err := utilities.HasClaim(txApp, authRecord, "admin")
@@ -65,33 +66,21 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 				}
 			}
 
-			record.Set("committed", "")
-			record.Set("committer", "")
-
-			if record.Collection().Fields.GetByName("committed_week_ending") != nil {
-				record.Set("committed_week_ending", "")
-			}
-
 			if collectionName == "expenses" {
-				record.Set("pay_period_ending", "")
-			}
-
-			if err := txApp.Save(record); err != nil {
-				httpResponseStatusCode = http.StatusInternalServerError
-				return &CodeError{
-					Code:    "error_saving_record",
-					Message: fmt.Sprintf("error saving record: %v", err),
-				}
-			}
-
-			if collectionName == "expenses" {
-				if err := maybeReopenPurchaseOrderAfterExpenseUncommit(txApp, record); err != nil {
+				closedRequest, err = recordDirectExpenseUncommit(txApp, record, authRecord.Id)
+				if err != nil {
 					httpResponseStatusCode = http.StatusInternalServerError
 					return &CodeError{
-						Code:    "error_recalculating_purchase_order",
-						Message: fmt.Sprintf("error recalculating purchase order: %v", err),
+						Code:    "error_recording_uncommit",
+						Message: fmt.Sprintf("error recording uncommit: %v", err),
 					}
 				}
+			}
+
+			status, err := uncommitRecordInTransaction(txApp, record)
+			if err != nil {
+				httpResponseStatusCode = status
+				return err
 			}
 
 			return nil
@@ -107,8 +96,47 @@ func createUncommitRecordHandler(app core.App, collectionName string) func(e *co
 			return e.JSON(httpResponseStatusCode, map[string]string{"error": err.Error()})
 		}
 
+		if closedRequest != nil {
+			queueExpenseUncommitDecision(app, closedRequest)
+		}
+
 		return e.JSON(http.StatusOK, map[string]string{"message": "Record uncommitted successfully"})
 	}
+}
+
+// uncommitRecordInTransaction clears a record's commit fields, leaving it
+// approved and uncommitted, and reopens an expense's purchase order if that
+// leaves it with room. On failure it returns the status to answer with.
+func uncommitRecordInTransaction(txApp core.App, record *core.Record) (int, error) {
+	record.Set("committed", "")
+	record.Set("committer", "")
+
+	if record.Collection().Fields.GetByName("committed_week_ending") != nil {
+		record.Set("committed_week_ending", "")
+	}
+
+	isExpense := record.Collection().Name == "expenses"
+	if isExpense {
+		record.Set("pay_period_ending", "")
+	}
+
+	if err := txApp.Save(record); err != nil {
+		return http.StatusInternalServerError, &CodeError{
+			Code:    "error_saving_record",
+			Message: fmt.Sprintf("error saving record: %v", err),
+		}
+	}
+
+	if isExpense {
+		if err := maybeReopenPurchaseOrderAfterExpenseUncommit(txApp, record); err != nil {
+			return http.StatusInternalServerError, &CodeError{
+				Code:    "error_recalculating_purchase_order",
+				Message: fmt.Sprintf("error recalculating purchase order: %v", err),
+			}
+		}
+	}
+
+	return 0, nil
 }
 
 func maybeReopenPurchaseOrderAfterExpenseUncommit(app core.App, expenseRecord *core.Record) error {

@@ -15,6 +15,7 @@ const (
 	navPurchaseOrdersPendingHref = "/pos/pending"
 	navExpenseCommitQueueHref    = "/reports/expense/queue"
 	navExpenseSettlementHref     = "/expenses/settlement"
+	navExpenseUncommitQueueHref  = "/expenses/uncommit-requests"
 )
 
 var navPendingPurchaseOrdersCountQuery string
@@ -129,6 +130,22 @@ func createGetNavBadgesHandler(app core.App) func(e *core.RequestEvent) error {
 				return e.Error(http.StatusInternalServerError, "failed to count expense settlement queue", err)
 			}
 			counts[navExpenseSettlementHref] = settlementCount
+		}
+
+		hasAdmin, err := utilities.HasClaim(app, e.Auth, "admin")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to check admin claim", err)
+		}
+		if hasAdmin {
+			uncommitRequestsCount, err := countNavRows(app, `
+				SELECT COUNT(*)
+				FROM expense_uncommit_requests
+				WHERE status = 'pending'
+			`, dbx.Params{})
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to count expense uncommit requests", err)
+			}
+			counts[navExpenseUncommitQueueHref] = uncommitRequestsCount
 		}
 
 		return e.JSON(http.StatusOK, counts)
