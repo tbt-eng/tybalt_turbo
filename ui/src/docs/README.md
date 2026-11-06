@@ -20,6 +20,10 @@ Write only what a person does and what happens next. Add a rule only if staff ne
 
 Don't mention uncommitting a record, or requests to uncommit. The docs treat a commit as final.
 
+## Pages under other pages
+
+Help lists pages by title. To list a page under another page, add it to `childDocPages` in `src/lib/docsFormat.ts`, with a short label. Its URL and title don't change.
+
 ## Style
 
 We use the writing rules of Simplified Technical English (ASD-STE100), plus our own word list in `glossary.md`.

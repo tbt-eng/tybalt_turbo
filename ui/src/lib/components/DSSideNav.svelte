@@ -5,6 +5,9 @@
     label: string;
     href: string;
     active?: boolean;
+    // Lists this link under the one before it. A phone wraps the links in rows, so
+    // only the column indents.
+    indent?: boolean;
   }
   let { title, items }: { title: string; items: SideNavItem[] } = $props();
 </script>
@@ -17,7 +20,7 @@
   <h2 class="px-3 pt-4 pb-2 text-lg font-semibold">{title}</h2>
   <ul class="flex flex-wrap gap-1 px-1 pb-2 md:flex-col md:flex-nowrap">
     {#each items as item (item.href)}
-      <li>
+      <li class={item.indent ? "md:ml-3" : undefined}>
         <!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass any href -->
         <a
           href={item.href}

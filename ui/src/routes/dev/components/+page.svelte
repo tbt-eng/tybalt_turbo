@@ -435,8 +435,9 @@
       <DSSideNav
         title="Help"
         items={[
-          { label: "Selected page", href: "#", active: true },
-          { label: "Other page", href: "#" },
+          { label: "Selected page", href: "#selected-page", active: true },
+          { label: "Child page", href: "#child-page", indent: true },
+          { label: "Other page", href: "#other-page" },
         ]}
       />
     </DSSection>

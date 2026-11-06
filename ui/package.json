@@ -18,6 +18,7 @@
     "test:time-summary-browser": "node tests/timeSummary.browser.mjs",
     "test:docs": "node --test --experimental-strip-types tests/docs.test.ts",
     "test:docs-browser": "node tests/docsHelp.browser.mjs",
+    "test:docs-nav-browser": "node tests/docsNav.browser.mjs",
     "test:wip": "node --test --experimental-strip-types tests/wip.test.ts",
     "test:local-date": "node --test --experimental-strip-types tests/localDate.test.ts",
     "test:wip-browser": "node tests/wip.browser.mjs",

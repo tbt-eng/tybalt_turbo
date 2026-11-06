@@ -134,10 +134,29 @@ export function parseDoc(slug: string, source: string): DocPage {
   };
 }
 
-// Help lists pages by title, with Start here first and What's new last.
+// Pages that Help lists under another page, with a shorter label.
+const childDocPages: Record<string, { parent: string; label: string }> = {
+  "revise-a-purchase-order": { parent: "purchase-orders", label: "Revisions" },
+};
+
+// Help lists pages by title, with Start here first and What's new last. A child
+// page follows its parent.
 export function orderDocPages(pages: DocPage[]): DocPage[] {
   const rank = ({ slug }: DocPage) => (slug === "start-here" ? 0 : slug === "whats-new" ? 2 : 1);
-  return [...pages].sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title));
+  const byRank = (a: DocPage, b: DocPage) => rank(a) - rank(b) || a.title.localeCompare(b.title);
+  return pages
+    .filter(({ slug }) => !childDocPages[slug])
+    .sort(byRank)
+    .flatMap((page) => [
+      page,
+      ...pages.filter(({ slug }) => childDocPages[slug]?.parent === page.slug).sort(byRank),
+    ]);
+}
+
+// What Help shows for a page in its side navigation.
+export function docNavEntry({ slug, title }: Pick<DocPage, "slug" | "title">) {
+  const child = childDocPages[slug];
+  return { slug, label: child?.label ?? title, indent: Boolean(child) };
 }
 
 // A help popover sits over a form, so its links must not leave unsaved work.

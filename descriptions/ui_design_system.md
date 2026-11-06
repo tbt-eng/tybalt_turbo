@@ -179,7 +179,7 @@ The one help popover. Pass `doc="page#section"` to show a section of the user do
 
 #### `DSSideNav`
 
-A second navigation column for one area of the app, beside the main menu. It takes a `title` and `items` with `label`, `href` and `active`. The Help pages use it. On a phone, the links wrap above the content.
+A second navigation column for one area of the app, beside the main menu. It takes a `title` and `items` with `label`, `href`, `active` and `indent`, which lists a link under the one before it. The Help pages use it. On a phone, the links wrap above the content and nothing indents.
 
 #### `DSCallout`
 

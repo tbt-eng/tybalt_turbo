@@ -7,8 +7,9 @@
 
   const currentSlug = $derived(page.params.slug ?? "start-here");
   const items = $derived(
-    data.pages.map(({ slug, title }) => ({
-      label: title,
+    data.pages.map(({ slug, label, indent }) => ({
+      label,
+      indent,
       href: resolve(`/docs/${slug}`),
       active: slug === currentSlug,
     })),

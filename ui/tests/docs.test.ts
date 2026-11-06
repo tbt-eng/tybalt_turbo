@@ -7,6 +7,7 @@ import { needsDocsWarning } from "../scripts/check-docs-commit.mjs";
 import {
   commitUrl,
   countWords,
+  docNavEntry,
   findSection,
   orderDocPages,
   parseDoc,
@@ -177,11 +178,30 @@ test("Help lists Start here first and What's new last", () => {
   const titles = orderDocPages(pages).map((page) => page.slug);
   assert.equal(titles[0], "start-here");
   assert.equal(titles.at(-1), "whats-new");
-  const middle = orderDocPages(pages).slice(1, -1);
+  const middle = orderDocPages(pages)
+    .slice(1, -1)
+    .filter((page) => !docNavEntry(page).indent);
   assert.deepEqual(
     middle.map((page) => page.title),
     middle.map((page) => page.title).sort((a, b) => a.localeCompare(b)),
   );
+});
+
+test("Help lists every page, with a child page after its parent", () => {
+  const ordered = orderDocPages(pages);
+  assert.equal(ordered.length, pages.length);
+  const slugs = ordered.map((page) => page.slug);
+  assert.equal(slugs.indexOf("revise-a-purchase-order"), slugs.indexOf("purchase-orders") + 1);
+  assert.deepEqual(docNavEntry({ slug: "revise-a-purchase-order", title: "Revise" }), {
+    slug: "revise-a-purchase-order",
+    label: "Revisions",
+    indent: true,
+  });
+  assert.deepEqual(docNavEntry({ slug: "time", title: "Time" }), {
+    slug: "time",
+    label: "Time",
+    indent: false,
+  });
 });
 
 test("What's new has complete weeks, newest first, within 12 weeks", () => {
