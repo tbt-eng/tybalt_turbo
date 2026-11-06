@@ -3,7 +3,7 @@
   import Icon from "@iconify/svelte";
   import type { Snippet } from "svelte";
   import DSDoc from "$lib/components/DSDoc.svelte";
-  import { withNewTabLinks, type DocSection } from "$lib/docsFormat";
+  import type { DocSection } from "$lib/docsFormat";
 
   let {
     label,
@@ -47,7 +47,7 @@
     let current = true;
     docFailed = false;
     import("$lib/docs")
-      .then(({ findDocSection }) => findDocSection(ref)?.section ?? null)
+      .then(({ findHelpSection }) => findHelpSection(ref))
       // An open tab can outlast its docs chunk when a new version deploys.
       .catch(() => null)
       .then((section) => {
@@ -163,7 +163,7 @@
     <div class="space-y-2">
       {#if doc}
         {#if docSection}
-          <DSDoc blocks={withNewTabLinks(docSection.blocks)} />
+          <DSDoc blocks={docSection.blocks} />
         {:else if docFailed}
           <p>Turbo can't load this help.</p>
         {/if}

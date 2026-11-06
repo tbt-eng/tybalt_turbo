@@ -250,7 +250,7 @@
   <section class="space-y-3 rounded border p-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="font-semibold">Authorization evidence</h2>
-      {#if $jobRequestsEnabled}<DSHelp doc="project-requests#upload-and-submit" label="Help" />{/if}
+      <DSHelp doc="project-requests#upload-and-submit" label="Help" />
     </div>
     {#if detail.attachment}<button class="text-blue-700 underline" disabled={busy} onclick={openPDF}
         >Open authorization PDF</button

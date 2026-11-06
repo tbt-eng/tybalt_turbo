@@ -65,5 +65,6 @@ Both actions clear the approval, so the request needs a new approval. You must e
 1. Open the job and select **Propose new value**. Only procurement can do this.
 2. Enter the new value and select an approver.
 3. Upload the new PDF.
+4. Select **Save proposed value**.
 
 The approver then opens **Value Approvals** and approves or rejects. The project value stays the same until the approver approves the change.

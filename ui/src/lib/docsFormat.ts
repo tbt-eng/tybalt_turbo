@@ -1,5 +1,7 @@
 // Parses the user docs in src/docs. This file has no Vite or Svelte imports, so
 // tests can run it directly. See src/docs/README.md for the format.
+// Outside the docs routes, import only types from here, because it loads the
+// Markdown parser. Load anything else through a dynamic import of $lib/docs.
 import { Marked, type Token, type TokensList } from "marked";
 
 export interface FlowStep {

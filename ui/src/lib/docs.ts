@@ -1,7 +1,14 @@
 // The user docs, loaded from src/docs. Import this module only from the docs
 // routes, or dynamically, so that the docs and the Markdown parser stay out of
 // the main bundle.
-import { findSection, orderDocPages, parseDoc, type DocPage } from "$lib/docsFormat";
+import {
+  findSection,
+  orderDocPages,
+  parseDoc,
+  withNewTabLinks,
+  type DocPage,
+  type DocSection,
+} from "$lib/docsFormat";
 
 const files = import.meta.glob(["/src/docs/*.md", "!/src/docs/README.md"], {
   query: "?raw",
@@ -22,6 +29,8 @@ export function findDoc(slug: string): DocPage | undefined {
   return docPages.find((page) => page.slug === slug);
 }
 
-export function findDocSection(ref: string) {
-  return findSection(docPages, ref);
+// The section that a help popover shows.
+export function findHelpSection(ref: string): DocSection | null {
+  const section = findSection(docPages, ref)?.section;
+  return section ? { ...section, blocks: withNewTabLinks(section.blocks) } : null;
 }

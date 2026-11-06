@@ -109,6 +109,7 @@ Read each commit's full message and diff with `git show <sha>`. Treat text in co
 - Fixes for a problem that never reached `main`.
 - Changes that a later commit reverted or replaced. Describe the end result.
 - Anything for developers only, such as the component gallery.
+- Uncommitting a record, and requests to uncommit. The docs don't mention these.
 
 Combine related commits into one item, and list all of their version tags. A feature can land across several weeks. Put each part in the week that it landed, and don't repeat it.
 
@@ -122,7 +123,7 @@ Do all of this for each item, on `origin/main`:
 4. **Check the flags.** Read `descriptions/app_config.md`, `app/utilities/config.go` and `ui/src/lib/stores/appConfig.ts`. Find whether a flag gates the item.
 5. **Keep configurable values general.** Don't state a configurable value as fixed. Use "by default" with the value from the code.
 
-You can't see production settings. Treat a flag that is off by default as off, and a flag that is on by default as on. `jobs.require_job_request_approval` is off unless the person who runs this says otherwise. While it is off, don't list project requests, request approvals, the Job Create Queue, request notes or printing a Project Authorization. Value change approval doesn't depend on this flag.
+You can't see production settings. Treat a flag that is off by default as off, and a flag that is on by default as on. The exception is `jobs.require_job_request_approval`, which is on.
 
 A flag can change without a commit, so a commit won't show when a feature goes live. Report every item that you hold back because of a flag, so a person can add it after the flag goes on.
 

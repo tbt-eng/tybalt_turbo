@@ -18,6 +18,8 @@ If a page doesn't fit, split it into two topics. Don't raise the limits.
 
 Write only what a person does and what happens next. Add a rule only if staff need it to finish the task. Don't write background, history or how the code works.
 
+Don't mention uncommitting a record, or requests to uncommit. The docs treat a commit as final.
+
 ## Style
 
 We use the writing rules of Simplified Technical English (ASD-STE100), plus our own word list in `glossary.md`.
