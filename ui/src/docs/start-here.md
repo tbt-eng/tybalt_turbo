@@ -26,6 +26,10 @@ Only procurement can create a [proposal](/docs/proposals) in Turbo. Ask procurem
 
 Create a [project request](/docs/project-requests). An approver checks it, then procurement creates the job.
 
+## Invoice a client
+
+Invoicing staff record each [client invoice](/docs/client-invoices) in Turbo. They then link the billed-back costs to it.
+
 ## Check a word
 
 The [glossary](/docs/glossary) defines the words that Turbo uses.
