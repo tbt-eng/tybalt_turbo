@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { untrack, type Snippet } from "svelte";
   import {
     DATE_INPUT_MIN,
     applyDefaultDivisionOnce,
@@ -92,7 +92,7 @@
     branchesStore.init();
   }
 
-  let { data }: { data: TimeEntriesPageData } = $props();
+  let { data, help }: { data: TimeEntriesPageData; help?: Snippet } = $props();
 
   const trainingTokensInDescriptionWhileRegularHours = $derived.by(() => {
     if (item.time_type !== undefined && item.description !== undefined) {
@@ -410,13 +410,16 @@
 <form
   class="flex w-full flex-col items-center gap-2 p-2 max-lg:[&_button]:text-base max-lg:[&_input]:text-base max-lg:[&_label]:text-base max-lg:[&_select]:text-base max-lg:[&_textarea]:text-base"
 >
-  <h1 class="w-full text-xl font-bold text-neutral-800">
-    {#if data.editing}
-      Editing Time Entry
-    {:else}
-      Create Time Entry
-    {/if}
-  </h1>
+  <div class="flex w-full items-center gap-2">
+    <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
+      {#if data.editing}
+        Editing Time Entry
+      {:else}
+        Create Time Entry
+      {/if}
+    </h1>
+    {@render help?.()}
+  </div>
 
   <span class="flex w-full gap-2">
     <label for="date">Date</label>

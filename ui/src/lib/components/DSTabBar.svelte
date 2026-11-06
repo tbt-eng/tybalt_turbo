@@ -8,7 +8,7 @@
   let { tabs, rightContent }: { tabs: TabItem[]; rightContent?: Snippet } = $props();
 </script>
 
-<div class="flex items-center gap-4 rounded-t bg-neutral-100 px-2 py-1">
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-t bg-neutral-100 px-2 py-1">
   {#each tabs as t (t.href + t.label)}
     <!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass any href -->
     <a

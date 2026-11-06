@@ -52,7 +52,7 @@
   import DSFieldList from "./DSFieldList.svelte";
   import PoSecondApproverStatus from "./PoSecondApproverStatus.svelte";
   import VendorSelector from "./VendorSelector.svelte";
-  import { onDestroy, untrack } from "svelte";
+  import { onDestroy, untrack, type Snippet } from "svelte";
   import { expensesEditingEnabled, legacyPOCreateUpdateEnabled } from "$lib/stores/appConfig";
   import { globalStore } from "$lib/stores/global";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
@@ -67,9 +67,11 @@
   let {
     data,
     legacyMode = false,
+    help,
   }: {
     data: PurchaseOrdersPageData;
     legacyMode?: boolean;
+    help?: Snippet;
   } = $props();
 
   let errors = $state({} as any);
@@ -1002,19 +1004,22 @@
   enctype="multipart/form-data"
   onsubmit={save}
 >
-  <h1 class="w-full text-xl font-bold text-neutral-800">
-    {#if data.editing}
-      {#if isRevision}
-        Revising {item.po_number}
-      {:else if item.po_number}
-        Editing {item.po_number}
+  <div class="flex w-full items-center gap-2">
+    <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
+      {#if data.editing}
+        {#if isRevision}
+          Revising {item.po_number}
+        {:else if item.po_number}
+          Editing {item.po_number}
+        {:else}
+          Editing Purchase Order
+        {/if}
       {:else}
-        Editing Purchase Order
+        Create Purchase Order
       {/if}
-    {:else}
-      Create Purchase Order
-    {/if}
-  </h1>
+    </h1>
+    {@render help?.()}
+  </div>
 
   {#if legacyMode}
     <div class="w-full rounded-sm border border-cyan-300 bg-cyan-100 p-2 text-sm text-cyan-950">

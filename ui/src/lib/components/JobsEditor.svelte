@@ -893,20 +893,22 @@
     enctype="multipart/form-data"
     onsubmit={save}
   >
-    <h1 class="w-full text-xl font-bold text-neutral-800">
-      {#if data.editing && item.number}
-        {managerAllocationsOnly ? "Edit allocations for" : "Editing"} {item.number}
-      {:else}
-        Create Job
+    <div class="flex w-full items-center gap-2">
+      <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
+        {#if data.editing && item.number}
+          {managerAllocationsOnly ? "Edit allocations for" : "Editing"} {item.number}
+        {:else}
+          Create Job
+        {/if}
+      </h1>
+      {#if isProposal && !managerAllocationsOnly}
+        {#if isNewJob}
+          <DSHelp doc="proposals#create-a-proposal" label="Help" />
+        {:else}
+          <DSHelp doc="proposals#change-a-proposal" label="Help" />
+        {/if}
       {/if}
-    </h1>
-    {#if isProposal && !managerAllocationsOnly}
-      {#if isNewJob}
-        <DSHelp doc="proposals#create-a-proposal" label="Help" />
-      {:else}
-        <DSHelp doc="proposals#change-a-proposal" label="Help" />
-      {/if}
-    {/if}
+    </div>
 
     {#if managerAllocationsOnly}
       <p class="w-full">{item.description}</p>

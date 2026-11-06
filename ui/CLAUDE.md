@@ -54,6 +54,9 @@ source in src/routes/dev/components/+page.svelte).
   formatCurrencyAmount() (src/lib/utilities.ts). Never print raw date
   strings or numbers.
 - Hide empty fields rather than printing "No X" or a blank label.
+- Page help sits at the far right of an existing row and never gets its own:
+  the tab bar (`rightContent`), the list search bar (`searchBarExtra`), or the
+  title row.
 - A detail page's title is the record itself (its number or name), not
   "X Details".
 

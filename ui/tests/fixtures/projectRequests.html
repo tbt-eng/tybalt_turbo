@@ -15,6 +15,7 @@
       import { globalStore } from "$lib/stores/global";
       import { pb } from "$lib/pocketbase";
       import Editor from "../../src/lib/components/jobs/RequestEditor.svelte";
+      import RequestList from "../../src/routes/job-requests/+page.svelte";
       import "/src/app.css";
       const query = new URLSearchParams(location.search);
       const request = {
@@ -107,6 +108,15 @@
               allocations: [{ division: "division1", hours: 10 }],
             },
           },
+        });
+      } else if (query.has("list")) {
+        globalStore.set({
+          claims: query.has("solo") ? ["time"] : ["time", "job"],
+          attentionCounts: { counts: {} },
+        });
+        mount(RequestList, {
+          target: document.getElementById("app"),
+          props: { data: { queue: "mine", items: [] } },
         });
       } else if (query.has("editor")) {
         globalStore.set({

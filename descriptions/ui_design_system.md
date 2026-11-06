@@ -173,6 +173,8 @@ Semantic `<dl>` / `<dt>` / `<dd>`. This replaces every hand-written `<span class
 
 The one help popover. Pass `doc="page#section"` to show a section of the user docs in `ui/src/docs`, with a link to the full page. Pass `title` and children only for help that depends on the data on screen.
 
+Page help sits at the far right of an existing row and never gets its own: the tab bar (`rightContent`), the list search bar (`searchBarExtra`), or the title row.
+
 #### `DSFlow` and `DSDoc`
 
 `DSDoc` renders parsed user docs, and `DSDocPage` renders a full page of them. `DSFlow` draws a `flow` block as cards. See `ui/src/docs/README.md` for the format.

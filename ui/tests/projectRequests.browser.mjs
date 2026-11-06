@@ -371,6 +371,20 @@ await runBrowserHarness(
     assert.equal(saves.at(-1).request.time_and_materials, true);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: "/tmp/project-request-form-mobile.png", fullPage: true });
+    // Help shares a row, at its far right: the tabs, or the search bar with no tabs.
+    await page.setViewportSize({ width: 1000, height: 900 });
+    const sameRow = async (first, second) => {
+      const [a, b] = [await first.boundingBox(), await second.boundingBox()];
+      assert.ok(a.y < b.y + b.height && b.y < a.y + a.height, "help has its own row");
+      assert.ok(a.x > b.x, "help is not to the right");
+    };
+    const listHelp = page.getByRole("button", { name: /^Help/ });
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?list`);
+    await listHelp.waitFor();
+    await sameRow(listHelp, page.getByRole("link", { name: "All", exact: true }));
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?list&solo`);
+    await listHelp.waitFor();
+    await sameRow(listHelp, page.getByRole("searchbox"));
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?values`);
     const review = page.getByRole("button", { name: "Approve", exact: true });
     const historyButton = page.getByRole("button", { name: "Value history", exact: true });

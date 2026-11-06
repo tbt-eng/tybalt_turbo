@@ -25,9 +25,6 @@
 </script>
 
 <div class="space-y-4">
-  <div class="flex justify-end">
-    <DSHelp doc="project-requests#change-a-projects-value" label="Help" />
-  </div>
   {#if value.error && !decision}<DSCallout tone="danger">{value.error}</DSCallout>{/if}
 
   <DSList
@@ -39,6 +36,9 @@
       ? "Loading value changes…"
       : "No value changes are waiting for your approval."}
   >
+    {#snippet searchBarExtra()}
+      <DSHelp doc="project-requests#change-a-projects-value" label="Help" />
+    {/snippet}
     {#snippet anchor(item)}
       <a class="link" href={resolve(`/jobs/${item.job}/details`)}>{item.job_number || item.job}</a>
     {/snippet}

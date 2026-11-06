@@ -37,7 +37,7 @@
   import CumulativePOOverflowModal from "./CumulativePOOverflowModal.svelte";
   import VendorSelector from "./VendorSelector.svelte";
   import { jobs } from "$lib/stores/jobs";
-  import { untrack } from "svelte";
+  import { untrack, type Snippet } from "svelte";
   import { expensesEditingEnabled } from "$lib/stores/appConfig";
   import { globalStore } from "$lib/stores/global";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
@@ -52,7 +52,7 @@
   divisions.init();
   currencies.init();
   expenditureKindsStore.init();
-  let { data }: { data: ExpensesPageData } = $props();
+  let { data, help }: { data: ExpensesPageData; help?: Snippet } = $props();
 
   type EditableExpenseFields = Pick<
     ExpensesRecord,
@@ -449,13 +449,16 @@
   enctype="multipart/form-data"
   onsubmit={save}
 >
-  <h1 class="w-full text-xl font-bold text-neutral-800">
-    {#if data.editing}
-      Editing Expense
-    {:else}
-      Create Expense
-    {/if}
-  </h1>
+  <div class="flex w-full items-center gap-2">
+    <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
+      {#if data.editing}
+        Editing Expense
+      {:else}
+        Create Expense
+      {/if}
+    </h1>
+    {@render help?.()}
+  </div>
 
   {#if isEditingAnotherUsersExpense}
     <div class="w-full rounded-sm border border-amber-300 bg-amber-100 p-2 text-sm text-amber-900">

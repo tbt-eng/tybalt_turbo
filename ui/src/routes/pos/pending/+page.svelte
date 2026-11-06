@@ -27,10 +27,11 @@
 </script>
 
 <div class="space-y-8">
-  <div class="flex justify-end px-2 pt-2">
-    <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
-  </div>
-  <PurchaseOrdersList inListHeader="Purchase Orders Pending My Approval" data={data.pendingData} />
+  <PurchaseOrdersList inListHeader="Purchase Orders Pending My Approval" data={data.pendingData}>
+    {#snippet searchBarExtra()}
+      <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
+    {/snippet}
+  </PurchaseOrdersList>
 
   <PurchaseOrdersList
     inListHeader="Approved By Me, Awaiting Second Approval"

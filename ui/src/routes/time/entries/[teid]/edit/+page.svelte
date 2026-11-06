@@ -5,7 +5,8 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<div class="flex justify-end px-2 pt-2">
-  <DSHelp doc="time#enter-time" label="Help" />
-</div>
-<TimeEntriesEditor {data} />
+<TimeEntriesEditor {data}>
+  {#snippet help()}
+    <DSHelp doc="time#enter-time" label="Help" />
+  {/snippet}
+</TimeEntriesEditor>

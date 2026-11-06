@@ -28,10 +28,10 @@
   }
 </script>
 
-<div class="flex justify-end px-2 pt-2">
-  <DSHelp doc="time#approve-a-time-sheet" label="Help" />
-</div>
 <DsList items={items as TimeSheetTallyQueryRow[]} search={true} inListHeader="Pending Time Sheets">
+  {#snippet searchBarExtra()}
+    <DSHelp doc="time#approve-a-time-sheet" label="Help" />
+  {/snippet}
   {#snippet anchor({ id, week_ending }: TimeSheetTallyQueryRow)}
     <a class="font-bold hover:underline" href={`/time/sheets/${id}/details`}
       >{shortDate(week_ending, true)}</a

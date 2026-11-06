@@ -5,7 +5,8 @@
   let { data }: { data: PageData } = $props();
 </script>
 
-<div class="flex justify-end px-2 pt-2">
-  <DSHelp doc="purchase-orders#create-a-po" label="Help" />
-</div>
-<PurchaseOrdersEditor {data} />
+<PurchaseOrdersEditor {data}>
+  {#snippet help()}
+    <DSHelp doc="purchase-orders#create-a-po" label="Help" />
+  {/snippet}
+</PurchaseOrdersEditor>

@@ -265,9 +265,6 @@
     />
   </div>
 {/snippet}
-<div class="flex justify-end px-2 pt-2">
-  <DSHelp doc="time#submit-a-week" label="Help" />
-</div>
 {#if !$timeEditingEnabled}
   <DsEditingDisabledBanner message={timeEditingDisabledMessage} />
 {/if}
@@ -275,6 +272,7 @@
   items={items as TimeEntriesResponse[]}
   search={true}
   inListHeader="Time Entries"
+  {searchBarExtra}
   groupField="week_ending"
   {groupHeader}
   {groupFooter}
@@ -287,3 +285,6 @@
   {line3}
   {actions}
 />
+{#snippet searchBarExtra()}
+  <DSHelp doc="time#submit-a-week" label="Help" />
+{/snippet}

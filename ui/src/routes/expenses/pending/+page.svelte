@@ -5,12 +5,13 @@
   let { data }: { data: ExpensesListData } = $props();
 </script>
 
-<div class="flex justify-end px-2 pt-2">
-  <DSHelp doc="expenses#approve-an-expense" label="Help" />
-</div>
 <ExpensesList
   inListHeader="Expenses Pending My Approval"
   {data}
   endpoint="/api/expenses/pending"
   showInlineAllowanceApprove
-/>
+>
+  {#snippet searchBarExtra()}
+    <DSHelp doc="expenses#approve-an-expense" label="Help" />
+  {/snippet}
+</ExpensesList>
