@@ -276,19 +276,13 @@
           {/if}
           {#if isOwner && $expensesEditingEnabled && !data.po.legacy_manual_entry}
             <div class="mt-2 flex gap-2">
-              <DsActionButton
-                action={`/pos/${data.po.id}/edit`}
-                icon="mdi:pencil"
-                title="Edit and Resubmit"
-                color="red"
-              />
+              <DsActionButton action={`/pos/${data.po.id}/edit`} color="red">
+                Edit and Resubmit
+              </DsActionButton>
               {#if canCancelRejectedRevision}
-                <DsActionButton
-                  action={() => (showCancelRevisionPopover = true)}
-                  icon="mdi:cancel"
-                  title="Cancel Purchase Order"
-                  color="gray"
-                />
+                <DsActionButton action={() => (showCancelRevisionPopover = true)} color="gray">
+                  Cancel Purchase Order
+                </DsActionButton>
               {/if}
             </div>
           {/if}
@@ -590,26 +584,13 @@
   {#if data.po.status === "Unapproved" && $expensesEditingEnabled}
     <div class="flex flex-wrap gap-2">
       {#if isOwner && !data.po.legacy_manual_entry}
-        <DsActionButton
-          action={`/pos/${data.po.id}/edit`}
-          icon="mdi:pencil"
-          title={isRejected ? "Edit and Resubmit" : "Edit Purchase Order"}
-          color="blue"
-        />
+        <DsActionButton action={`/pos/${data.po.id}/edit`} color="blue">
+          {isRejected ? "Edit and Resubmit" : "Edit Purchase Order"}
+        </DsActionButton>
       {/if}
       {#if canApproveOrReject && !isRejected}
-        <DsActionButton
-          action={() => approvePo()}
-          icon="mdi:approve"
-          title="Approve"
-          color="green"
-        />
-        <DsActionButton
-          action={() => openRejectModal()}
-          icon="mdi:cancel"
-          title="Reject"
-          color="orange"
-        />
+        <DsActionButton action={() => approvePo()} color="green">Approve</DsActionButton>
+        <DsActionButton action={() => openRejectModal()} color="orange">Reject</DsActionButton>
         <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
       {/if}
     </div>
@@ -631,25 +612,12 @@
       <h3 class="font-bold text-neutral-800">Admin Actions</h3>
       <div class="mt-2 flex gap-2">
         {#if canConvertToCumulative}
-          <DsActionButton
-            action={openConvertPopover}
-            icon="mdi:sigma"
-            title="Convert to Cumulative"
-            color="cyan"
-          />
+          <DsActionButton action={openConvertPopover} color="cyan">
+            Convert to Cumulative
+          </DsActionButton>
         {/if}
-        <DsActionButton
-          action={cancelPo}
-          icon="mdi:cancel"
-          title="Cancel Purchase Order"
-          color="red"
-        />
-        <DsActionButton
-          action={closePo}
-          icon="mdi:lock"
-          title="Close Purchase Order"
-          color="gray"
-        />
+        <DsActionButton action={cancelPo} color="red">Cancel Purchase Order</DsActionButton>
+        <DsActionButton action={closePo} color="gray">Close Purchase Order</DsActionButton>
       </div>
     </div>
   {/if}
