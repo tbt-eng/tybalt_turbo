@@ -33,6 +33,7 @@ await runBrowserHarness(
         effective_project_value: 120000,
         version: 4,
         document_hash: "hash123",
+        uploaded: "2026-10-14 10:00:00.000Z",
       },
     ];
     const errors = [];
@@ -334,7 +335,7 @@ await runBrowserHarness(
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: "/tmp/project-request-form-mobile.png", fullPage: true });
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?values`);
-    const review = page.getByRole("button", { name: "Review", exact: true });
+    const review = page.getByRole("button", { name: "Approve", exact: true });
     const historyButton = page.getByRole("button", { name: "Value history", exact: true });
     const deleteLatest = page.getByRole("button", { name: "Delete latest approval", exact: true });
     const currentPdf = page.getByRole("button", {

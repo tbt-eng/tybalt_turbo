@@ -12,6 +12,7 @@ await runBrowserHarness(async (page, origin) => {
     version: 1,
     document_hash: `hash${id}`,
     current_review_token: `token${id}`,
+    uploaded: "2026-10-14 10:00:00.000Z",
   }));
   const actions = [];
   const errors = [];
@@ -39,25 +40,36 @@ await runBrowserHarness(async (page, origin) => {
     });
   });
   await page.goto(`${origin}/tests/fixtures/projectRequests.html?values&queue`);
-  const card = (id) => page.locator("article").filter({ hasText: `Project ${id}` });
-  const reason = (id) => card(id).getByLabel("Rejection reason", { exact: true });
-  const reject = (id) => card(id).getByRole("button", { name: "Reject", exact: true });
-  await reason("A").fill("A needs the signed appendix.");
-  assert.equal(await reason("B").inputValue(), "");
-  assert.equal(await reject("B").isDisabled(), true);
-  await reason("B").fill("B has the wrong value.");
-  assert.equal(await reason("A").inputValue(), "A needs the signed appendix.");
+  const row = (id) => page.getByRole("listitem").filter({ hasText: `Project ${id}` });
+  const dialog = page.getByRole("dialog", { name: "Reject value change" });
+  const reason = dialog.getByLabel("Rejection reason", { exact: true });
+  const submit = dialog.getByRole("button", { name: "Reject", exact: true });
+  const open = (id) => row(id).getByRole("button", { name: "Reject", exact: true }).click();
 
-  await reject("A").click();
-  await page.getByRole("alert").filter({ hasText: "Rejection failed. Try again." }).waitFor();
-  assert.equal(await reason("A").inputValue(), "A needs the signed appendix.");
-  assert.equal(await reason("B").inputValue(), "B has the wrong value.");
+  // Each opening starts with an empty reason, and rejection needs one.
+  await open("B");
+  assert.equal(await submit.isDisabled(), true);
+  await reason.fill("Not this one yet.");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await open("B");
+  assert.equal(await reason.inputValue(), "");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  await reject("A").click();
-  await card("A").waitFor({ state: "hidden" });
-  assert.equal(await reason("B").inputValue(), "B has the wrong value.");
-  await reject("B").click();
-  await card("B").waitFor({ state: "hidden" });
+  // A failed rejection keeps the reason, so the approver can try again.
+  await open("A");
+  assert.equal(await reason.inputValue(), "");
+  await reason.fill("A needs the signed appendix.");
+  await submit.click();
+  await dialog.getByText("Rejection failed. Try again.").waitFor();
+  assert.equal(await reason.inputValue(), "A needs the signed appendix.");
+  await submit.click();
+  await row("A").waitFor({ state: "hidden" });
+
+  await open("B");
+  assert.equal(await reason.inputValue(), "");
+  await reason.fill("B has the wrong value.");
+  await submit.click();
+  await row("B").waitFor({ state: "hidden" });
   assert.deepEqual(
     actions,
     ["A", "A", "B"].map((id) => ({
@@ -72,4 +84,6 @@ await runBrowserHarness(async (page, origin) => {
   );
   assert.deepEqual(errors, []);
 });
-console.log("Value rejection checks passed: separate reasons, failed retry, and queue refresh.");
+console.log(
+  "Value rejection checks passed: a reason per opening, failed retry, and queue refresh.",
+);

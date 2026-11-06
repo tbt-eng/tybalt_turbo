@@ -39,6 +39,10 @@
   function close() {
     value.error = "";
     decision = null;
+    // A closed dialog doesn't read revision, so reopening the same item alone
+    // wouldn't reset these.
+    reviewed = false;
+    reason = "";
   }
   const job = $derived(item.job_number || "this job");
 </script>
