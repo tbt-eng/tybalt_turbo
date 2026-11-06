@@ -7,11 +7,10 @@ import {
   billingAddress,
   wholeCAD,
   emptyChecklist,
-  requestChecklist,
-  requestChecklistVersion,
   type RequestDetail,
 } from "../src/lib/jobRequests.ts";
 const complete = (): RequestDetail => ({
+  checklist: { version: 1, questions: [] },
   request: {
     id: "request1",
     version: 2,
@@ -106,15 +105,15 @@ test("unknown and fractional values are not printed as zero or rounded", () => {
     assert.equal(wholeCAD(value), "Not provided");
   assert.equal(wholeCAD(120000), "$120,000");
 });
-test("all seven named confirmations start unchecked on each review", () => {
-  const first = emptyChecklist();
-  assert.equal(requestChecklistVersion, 2);
-  assert.equal(Object.keys(first).length, 7);
-  assert.equal(first.rate_sheet_correct, false);
-  assert.deepEqual(Object.keys(first), Object.keys(requestChecklist));
-  assert.ok(Object.values(first).every((value) => value === false));
+test("every checklist question starts unchecked on each review", () => {
+  const questions = [
+    { key: "pdf_sufficient", text: "The PDF is sufficient." },
+    { key: "rate_sheet_correct", text: "The rate sheet is correct." },
+  ];
+  const first = emptyChecklist(questions);
+  assert.deepEqual(first, { pdf_sufficient: false, rate_sheet_correct: false });
   first.pdf_sufficient = true;
-  assert.equal(emptyChecklist().pdf_sufficient, false);
+  assert.equal(emptyChecklist(questions).pdf_sufficient, false);
 });
 
 test("creation queue navigation requires current server eligibility even when count is zero", () => {

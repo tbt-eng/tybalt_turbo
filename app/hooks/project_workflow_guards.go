@@ -3,6 +3,7 @@ package hooks
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"reflect"
@@ -193,6 +194,26 @@ func AddProjectWorkflowHooks(app core.App) {
 		}
 		return e.Next()
 	})
+	// An approval refers to a question set by its version, so a saved set never
+	// changes. Changing a question means adding the next version.
+	app.OnRecordCreate("request_checklists").BindFunc(func(e *core.RecordEvent) error {
+		latest, err := utilities.LatestRequestChecklistVersion(e.App)
+		if err != nil {
+			return err
+		}
+		if e.Record.GetInt("version") != latest+1 {
+			return workflowError(fmt.Sprintf("the next request checklist version is %d", latest+1))
+		}
+		if _, err := utilities.RequestChecklistQuestions(e.Record); err != nil {
+			return workflowError(err.Error())
+		}
+		return e.Next()
+	})
+	refuseChecklistChange := func(e *core.RecordEvent) error {
+		return workflowError("a saved request checklist cannot change; add the next version")
+	}
+	app.OnRecordUpdate("request_checklists").BindFunc(refuseChecklistChange)
+	app.OnRecordDelete("request_checklists").BindFunc(refuseChecklistChange)
 	// Generic and model writes cannot change workflow-owned state.
 	for _, collection := range []string{"job_requests", "job_request_allocations", "job_attachments"} {
 		guard := func(e *core.RecordEvent) error {

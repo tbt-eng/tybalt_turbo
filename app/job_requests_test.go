@@ -140,7 +140,7 @@ func uploadRequestDocument(t *testing.T, app *tests.TestApp, id string) {
 	workflowUpload(t, app, "/api/job_requests/"+id+"/document", workflowAuthor, "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF", map[string]string{"version": fmt.Sprint(r.GetInt("version"))}, http.StatusOK)
 }
 
-// requestChecklistKeys are the answers of approval checklist version 2.
+// requestChecklistKeys are the questions of request checklist version 2.
 var requestChecklistKeys = []string{"fn_agreement_reviewed", "no_known_conflict", "no_executive_restriction", "no_duplicate_work", "pdf_sufficient", "rate_sheet_correct", "allocations_complete"}
 
 func requestActionData(t *testing.T, app *tests.TestApp, id string) map[string]any {
@@ -151,7 +151,7 @@ func requestActionData(t *testing.T, app *tests.TestApp, id string) map[string]a
 	for _, key := range requestChecklistKeys {
 		answers[key] = true
 	}
-	result := map[string]any{"version": r.GetInt("version"), "review_token": detail["review_token"], "checklist_version": 2, "checklist_answers": answers, "duplicate_work_checked": true}
+	result := map[string]any{"version": r.GetInt("version"), "review_token": detail["review_token"], "checklist_version": 2, "checklist_answers": answers}
 	attachment, err := app.FindFirstRecordByData("job_attachments", "request", id)
 	if err == nil {
 		result["document_hash"] = attachment.GetString("document_hash")
@@ -292,11 +292,26 @@ func TestJobRequestApprovalCreationLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	hash, filename, approvedAt := before.GetString("document_hash"), before.GetString("document"), before.GetString("approved")
-	noCheck := requestActionData(t, app, id)
-	noCheck["duplicate_work_checked"] = false
-	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, noCheck, http.StatusBadRequest)
+	for _, key := range requestChecklistKeys {
+		data := requestActionData(t, app, id)
+		data["checklist_answers"].(map[string]any)[key] = false
+		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, data, http.StatusBadRequest)
+		delete(data["checklist_answers"].(map[string]any), key)
+		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, data, http.StatusBadRequest)
+	}
+	outdatedCreate := requestActionData(t, app, id)
+	outdatedCreate["checklist_version"] = 1
+	delete(outdatedCreate["checklist_answers"].(map[string]any), "rate_sheet_correct")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, outdatedCreate, http.StatusConflict)
+	if a := workflowRecord(t, app, "job_attachments", before.Id); a.GetInt("creation_checklist_version") != 0 || a.GetString("job") != "" {
+		t.Fatal("a refused creation changed the approval evidence")
+	}
 	result := clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
 	jobID, _ := result["job_id"].(string)
+	created := workflowRecord(t, app, "job_attachments", before.Id)
+	if created.GetInt("creation_checklist_version") != 2 || created.GetInt("checklist_version") != 2 {
+		t.Fatal("creation did not store both checklist versions")
+	}
 	job := workflowRecord(t, app, "jobs", jobID)
 	if job.GetFloat("project_value") != 10000 || job.GetString("number") == "" || strings.HasPrefix(job.GetString("number"), "P") {
 		t.Fatal("creation did not preserve value and assign project number")
@@ -706,15 +721,17 @@ func TestJobRequestCreationRetainsValidApprovalAfterAuthorityRemoval(t *testing.
 }
 
 // An approval recorded under an earlier checklist version remains valid
-// evidence for job creation, as long as all of that version's answers are true.
+// evidence for job creation, as long as that version exists. The job holder
+// answers the current version.
 func TestJobRequestCreationAcceptsEarlierChecklistVersion(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
-		answers string
+		version int
 		status  int
 	}{
-		{"complete", `{"fn_agreement_reviewed":true,"no_known_conflict":true,"no_executive_restriction":true,"no_duplicate_work":true,"pdf_sufficient":true,"allocations_complete":true}`, http.StatusOK},
-		{"incomplete", `{"fn_agreement_reviewed":true,"no_known_conflict":true,"no_executive_restriction":true,"no_duplicate_work":true,"pdf_sufficient":true}`, http.StatusBadRequest},
+		{"earlier version", 1, http.StatusOK},
+		{"no version", 0, http.StatusBadRequest},
+		{"unknown version", 99, http.StatusBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app := newWorkflowTestApp(t, true)
@@ -724,14 +741,93 @@ func TestJobRequestCreationAcceptsEarlierChecklistVersion(t *testing.T) {
 			if a := workflowRecord(t, app, "job_attachments", "paattachment001"); a.GetInt("checklist_version") != 2 {
 				t.Fatalf("approval stored checklist version %d; want 2", a.GetInt("checklist_version"))
 			}
-			// Store the approval as version 1 recorded it, before the rate sheet statement.
-			if _, err := app.DB().NewQuery("UPDATE job_attachments SET checklist_version=1, checklist_answers={:answers} WHERE id='paattachment001'").Bind(dbx.Params{"answers": tc.answers}).Execute(); err != nil {
+			if _, err := app.DB().NewQuery("UPDATE job_attachments SET checklist_version={:version} WHERE id='paattachment001'").Bind(dbx.Params{"version": tc.version}).Execute(); err != nil {
 				t.Fatal(err)
 			}
 			clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), tc.status)
-			if a := workflowRecord(t, app, "job_attachments", "paattachment001"); tc.status == http.StatusOK && (a.GetString("job") == "" || a.GetInt("checklist_version") != 1) {
-				t.Fatal("creation did not keep the version 1 approval")
+			a := workflowRecord(t, app, "job_attachments", "paattachment001")
+			if tc.status == http.StatusOK && (a.GetString("job") == "" || a.GetInt("checklist_version") != 1 || a.GetInt("creation_checklist_version") != 2) {
+				t.Fatal("creation did not keep the version 1 approval and record the current version")
 			}
 		})
+	}
+}
+
+func saveRequestChecklist(app core.App, version int, questions any) error {
+	collection, err := app.FindCollectionByNameOrId("request_checklists")
+	if err != nil {
+		return err
+	}
+	record := core.NewRecord(collection)
+	record.Set("version", version)
+	record.Set("questions", questions)
+	return app.Save(record)
+}
+
+// A new version takes effect at once. Open pages must reload, and approval and
+// creation require its questions.
+func TestJobRequestChecklistUsesTheLatestVersion(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const id = "parequest000001"
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", "time@test.com", requestActionData(t, app, id), http.StatusOK)
+	stale := requestActionData(t, app, id)
+	if err := saveRequestChecklist(app, 3, []map[string]string{{"key": "only_question", "text": "The only question."}}); err != nil {
+		t.Fatal(err)
+	}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, stale, http.StatusConflict)
+	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowApprover, nil, http.StatusOK)
+	checklist := detail["checklist"].(map[string]any)
+	questions := checklist["questions"].([]any)
+	if checklist["version"] != float64(3) || len(questions) != 1 || questions[0].(map[string]any)["text"] != "The only question." {
+		t.Fatalf("detail did not return the latest checklist: %v", checklist)
+	}
+	current := requestActionData(t, app, id)
+	current["checklist_version"] = 3
+	current["checklist_answers"] = map[string]any{"only_question": false}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, current, http.StatusBadRequest)
+	current["checklist_answers"] = map[string]any{"only_question": true}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, current, http.StatusOK)
+	if a := workflowRecord(t, app, "job_attachments", "paattachment001"); a.GetInt("checklist_version") != 3 {
+		t.Fatalf("approval stored checklist version %d; want 3", a.GetInt("checklist_version"))
+	}
+}
+
+// Approvals refer to a question set by version, so a saved set never changes.
+func TestRequestChecklistsCannotChange(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	saved, err := app.FindFirstRecordByData("request_checklists", "version", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := saved.GetString("questions")
+	saved.Set("questions", []map[string]string{{"key": "reworded", "text": "Reworded."}})
+	if err := app.Save(saved); err == nil {
+		t.Fatal("a saved checklist was edited")
+	}
+	if err := app.Delete(saved); err == nil {
+		t.Fatal("a saved checklist was deleted")
+	}
+	stored, err := app.FindFirstRecordByData("request_checklists", "version", 2)
+	if err != nil || stored.GetString("questions") != text {
+		t.Fatalf("a refused change altered the checklist: %v", err)
+	}
+	question := []map[string]string{{"key": "only_question", "text": "The only question."}}
+	for name, bad := range map[string]struct {
+		version   int
+		questions any
+	}{
+		"same version": {2, question},
+		"skipped":      {4, question},
+		"empty":        {3, []map[string]string{}},
+		"not a list":   {3, map[string]string{"key": "only_question"}},
+		"no text":      {3, []map[string]string{{"key": "only_question", "text": " "}}},
+		"repeated key": {3, []map[string]string{question[0], question[0]}},
+	} {
+		if err := saveRequestChecklist(app, bad.version, bad.questions); err == nil {
+			t.Fatalf("%s: an invalid checklist was saved", name)
+		}
+	}
+	if err := saveRequestChecklist(app, 3, question); err != nil {
+		t.Fatal(err)
 	}
 }

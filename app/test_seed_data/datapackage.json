@@ -3551,11 +3551,6 @@
             "x-sqlite-type": "NUMERIC"
           },
           {
-            "name": "checklist_answers",
-            "type": "string",
-            "x-sqlite-type": "TEXT"
-          },
-          {
             "name": "rejector",
             "type": "string",
             "x-sqlite-type": "TEXT"
@@ -3574,6 +3569,11 @@
             "name": "review_token",
             "type": "string",
             "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "creation_checklist_version",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
           }
         ]
       },

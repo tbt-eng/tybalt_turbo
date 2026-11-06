@@ -5,14 +5,7 @@
   import { globalStore } from "$lib/stores/global";
   import { jobRequestsEnabled } from "$lib/stores/appConfig";
   import RequestEditor from "$lib/components/jobs/RequestEditor.svelte";
-  import {
-    emptyChecklist,
-    requestChecklist,
-    requestChecklistVersion,
-    contactEmail,
-    fullName,
-    wholeCAD,
-  } from "$lib/jobRequests";
+  import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { clientLabel } from "$lib/clientWorkspace";
   let { data } = $props();
@@ -22,15 +15,17 @@
     printing = $state(false),
     // Notes may be internal, so the printout leaves them out unless chosen.
     printNotes = $state(false);
-  let checklist = $state(emptyChecklist()),
-    duplicateChecked = $state(false),
+  let checklist = $state<Record<string, boolean>>({}),
     rejectionReason = $state("");
   let editor: RequestEditor | undefined = $state();
   const detail = $derived(data.detail),
     request = $derived(detail.request),
     permission = $derived(detail.permissions),
     related = $derived(detail.related);
-  const allChecked = $derived(Object.values(checklist).every(Boolean));
+  const questions = $derived(detail.checklist.questions);
+  const allChecked = $derived(
+    questions.length > 0 && questions.every((question) => checklist[question.key]),
+  );
   // The page is reused when a link opens another request. Ask again there,
   // but keep the choice when this request reloads, as Save and print does.
   const requestId = $derived(request.id);
@@ -40,11 +35,11 @@
   });
   $effect(() => {
     // The server digest includes submission_token. Resubmission changes it even
-    // when the request version/PDF are unchanged; require six fresh answers.
+    // when the request version/PDF are unchanged; require fresh answers. Every
+    // reload resets them, so a job holder who also approved answers again.
     detail.review_token;
     request.version;
-    checklist = emptyChecklist();
-    duplicateChecked = false;
+    checklist = emptyChecklist(detail.checklist.questions);
   });
   async function refresh() {
     await Promise.all([invalidateAll(), globalStore.refreshAttentionCounts()]);
@@ -64,10 +59,9 @@
             // an old page must fail after recall and resubmission.
             review_token: detail.review_token,
             document_hash: detail.attachment?.document_hash,
-            checklist_version: requestChecklistVersion,
+            checklist_version: detail.checklist.version,
             checklist_answers: checklist,
             rejection_reason: rejectionReason,
-            duplicate_work_checked: duplicateChecked,
           },
         },
       );
@@ -310,24 +304,29 @@
           <DSHelp doc="project-requests#change-a-request" label="Help" />
         {/if}
       </div>
+      {#snippet checklistAnswers()}
+        {#each questions as question (question.key)}<label class="flex items-start gap-2"
+            ><input
+              type="checkbox"
+              bind:checked={checklist[question.key]}
+              class="mt-1"
+            />{question.text}</label
+          >{/each}
+      {/snippet}
       {#if permission.can_approve}<div class="space-y-3">
-          {#each Object.entries(requestChecklist) as [key, label]}<label
-              class="flex items-start gap-2"
-              ><input type="checkbox" bind:checked={checklist[key]} class="mt-1" />{label}</label
-            >{/each}<button
+          {@render checklistAnswers()}<button
             disabled={busy || dirty || !allChecked}
             class="rounded bg-green-700 px-4 py-2 text-white disabled:opacity-40"
             onclick={() => action("approve")}>Approve request</button
           >
         </div>{/if}
-      {#if permission.can_create}<label class="flex gap-2"
-          ><input type="checkbox" bind:checked={duplicateChecked} />I checked existing jobs and
-          other pending requests. This job does not duplicate existing work.</label
-        ><button
-          disabled={busy || !duplicateChecked}
-          class="rounded bg-green-700 px-4 py-2 text-white disabled:opacity-40"
-          onclick={() => action("create")}>Create Job</button
-        >{/if}
+      {#if permission.can_create}<div class="space-y-3">
+          {@render checklistAnswers()}<button
+            disabled={busy || !allChecked}
+            class="rounded bg-green-700 px-4 py-2 text-white disabled:opacity-40"
+            onclick={() => action("create")}>Create Job</button
+          >
+        </div>{/if}
       {#if permission.can_submit}<button
           disabled={busy || dirty}
           class="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-40"

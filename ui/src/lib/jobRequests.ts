@@ -1,30 +1,23 @@
 // Shared request rules. The server checks these rules again on each action.
 import type { WorkflowRecord } from "./clientEditors";
 
+export interface RequestChecklistQuestion {
+  key: string;
+  text: string;
+}
 export interface RequestDetail {
   request: WorkflowRecord;
   allocations: WorkflowRecord[];
   attachment?: WorkflowRecord;
   related: Record<string, any>;
   review_token: string;
+  // The questions of the current version. Each must be answered true to continue.
+  checklist: { version: number; questions: RequestChecklistQuestion[] };
   permissions: Record<string, boolean>;
   enabled?: boolean;
 }
-// The server requires this version and every answer below for approval.
-export const requestChecklistVersion = 2;
-export const requestChecklist = {
-  fn_agreement_reviewed: "I reviewed the First Nations agreement answer.",
-  no_known_conflict: "I am not aware of a company conflict of interest for this project.",
-  no_executive_restriction:
-    "There is no executive restriction or moratorium that prevents this work.",
-  no_duplicate_work:
-    "I checked existing jobs and this request does not duplicate work already represented by a job.",
-  pdf_sufficient: "The attached PDF is sufficient to authorize this project and its stated value.",
-  rate_sheet_correct: "The selected rate sheet is correct for this client and project.",
-  allocations_complete: "All necessary division allocations are present.",
-};
-export function emptyChecklist(): Record<string, boolean> {
-  return Object.fromEntries(Object.keys(requestChecklist).map((key) => [key, false]));
+export function emptyChecklist(questions: RequestChecklistQuestion[]): Record<string, boolean> {
+  return Object.fromEntries(questions.map((question) => [question.key, false]));
 }
 // A contact's email address, or a note that the client has none.
 export function contactEmail(contact?: WorkflowRecord): string {

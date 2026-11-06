@@ -181,11 +181,15 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 		editable := r.GetString("creator") == e.Auth.Id && (r.GetString("status") == "Draft" || r.GetString("status") == "Recalled" || r.GetString("status") == "Rejected")
 		submitted := r.GetString("status") == "Awaiting approval" || r.GetString("status") == "Awaiting creation"
 		_, authorityErr := utilities.ProjectAuthorizationLimit(tx, e.Auth.Id, r.GetFloat("project_value"))
+		checklistVersion, checklistQuestions, err := utilities.CurrentRequestChecklist(tx)
+		if err != nil {
+			return err
+		}
 		attachment := recordPublic(a)
 		if a != nil {
 			attachment["document_url"] = "/api/job_attachments/" + a.Id + "/document"
 		}
-		result = map[string]any{"request": r, "allocations": allocs, "attachment": attachment, "related": related, "review_token": token, "enabled": enabled, "permissions": map[string]bool{"can_edit": enabled && editable, "can_submit": enabled && editable && r.GetString("status") != "Rejected", "can_recall": enabled && submitted && r.GetString("creator") == e.Auth.Id, "can_reject": enabled && submitted && hasPA && r.GetString("approver") == e.Auth.Id, "can_approve": enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr == nil, "can_create": enabled && hasJob && r.GetString("status") == "Awaiting creation", "can_delete": hasAdmin && abandonedRequest(r)}}
+		result = map[string]any{"request": r, "allocations": allocs, "attachment": attachment, "related": related, "review_token": token, "checklist": map[string]any{"version": checklistVersion, "questions": checklistQuestions}, "enabled": enabled, "permissions": map[string]bool{"can_edit": enabled && editable, "can_submit": enabled && editable && r.GetString("status") != "Rejected", "can_recall": enabled && submitted && r.GetString("creator") == e.Auth.Id, "can_reject": enabled && submitted && hasPA && r.GetString("approver") == e.Auth.Id, "can_approve": enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr == nil, "can_create": enabled && hasJob && r.GetString("status") == "Awaiting creation", "can_delete": hasAdmin && abandonedRequest(r)}}
 		return nil
 	})
 	if err != nil {

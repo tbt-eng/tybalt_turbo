@@ -6,7 +6,7 @@ Every new project and subjob starts as a request. An approver checks it, then pr
 You | Create the request | Enter the details, division hours and approver.
 You | Upload and submit | Upload one signed PDF that authorizes the project.
 Approver | Approve or reject | Check for duplicates and confirm the checklist.
-Procurement | Create the job | Check the request again, then create the job.
+Procurement | Create the job | Confirm the checklist again, then create the job.
 Note: Rejected? Edit the request and submit it again.
 ```
 
@@ -39,8 +39,8 @@ To decline, enter a rejection reason and select **Reject**.
 ## Create the job
 
 1. Open **Job Create Queue**. Open the request.
-2. Check the request, the PDF, existing jobs and other pending requests.
-3. Confirm that the job doesn't duplicate existing work.
+2. Check the request, the PDF and existing jobs.
+3. Confirm all seven checklist statements.
 4. Select **Create Job**. Turbo assigns the job number.
 
 ## Change a request

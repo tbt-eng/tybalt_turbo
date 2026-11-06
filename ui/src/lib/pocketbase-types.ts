@@ -1578,7 +1578,7 @@ export type JobAttachmentsRecord = {
   version: number;
   initial_approval: boolean;
   checklist_version: number;
-  checklist_answers: Record<string, boolean>;
+  creation_checklist_version: number;
   rejector: RecordIdString;
   rejected: IsoDateString;
   rejection_reason: string;

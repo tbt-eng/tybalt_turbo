@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Job request review</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { mount } from "svelte";
+      import { pb } from "$lib/pocketbase";
+      import { appConfig } from "$lib/stores/appConfig";
+      import "/src/app.css";
+      import Harness from "./JobRequestReviewHarness.svelte";
+
+      const detail = (status, permissions) => ({
+        request: { id: "request1", version: 3, status },
+        allocations: [],
+        attachment: { id: "attachment1", document_hash: "hash1" },
+        related: {},
+        review_token: "token1",
+        checklist: {
+          version: 2,
+          questions: Array.from({ length: 7 }, (_, index) => ({
+            key: `question${index}`,
+            text: `Statement ${index}`,
+          })),
+        },
+        permissions,
+      });
+      window.requestData = (status = "Awaiting approval", permissions = { can_approve: true }) => ({
+        detail: detail(status, permissions),
+        duplicates: { jobs: [], requests: [] },
+      });
+      pb.authStore.save("test-token", { id: "user1" });
+      await appConfig.init();
+      mount(Harness, { target: document.getElementById("app") });
+    </script>
+  </body>
+</html>
