@@ -90,6 +90,16 @@ await runBrowserHarness(
             divisions: [{ id: "division1", name: "Engineering", code: "ENG", active: true }],
           }),
         });
+      if (path === "/api/clients")
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify([
+            { id: "client1", name: "Example Client", alias: "" },
+            { id: "client2", name: "Other Client", alias: "" },
+          ]),
+        });
+      if (path === "/api/jobs")
+        return route.fulfill({ contentType: "application/json", body: JSON.stringify([]) });
       if (path === "/api/project_authorization/approvers")
         return route.fulfill({
           contentType: "application/json",
@@ -254,7 +264,7 @@ await runBrowserHarness(
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor`);
     await page.getByRole("heading", { name: "Invoicing profile", exact: true }).waitFor();
     await page
-      .getByLabel("Project / scope of work", { exact: true })
+      .getByLabel("Description", { exact: true })
       .fill("Keep this draft while creating invoices.");
     assert.equal(
       await page.getByRole("combobox", { name: "Invoicing profile", exact: true }).count(),
@@ -308,16 +318,38 @@ await runBrowserHarness(
     assert.equal(await value.evaluate((input) => input.validity.stepMismatch), true);
     await value.fill("120000");
     assert.equal(await value.evaluate((input) => input.checkValidity()), true);
-    assert.deepEqual(
-      await page.getByLabel("Intended project status").locator("option").allTextContents(),
-      ["Active", "Closed"],
-    );
+    // Long lists are searched, not scrolled: nothing lists until a person types.
+    await page.getByRole("button", { name: "Clear", exact: true }).first().click();
+    assert.equal(await page.getByText("Other Client", { exact: true }).count(), 0);
+    await page.getByLabel("Client", { exact: true }).fill("Other");
+    await page.getByText("Other Client", { exact: true }).click();
+    assert.equal(await page.getByLabel("Client Contact", { exact: true }).inputValue(), "");
+    await page.getByRole("button", { name: "Clear", exact: true }).first().click();
+    await page.getByLabel("Client", { exact: true }).fill("Example");
+    await page.getByText("Example Client", { exact: true }).click();
+    await page.getByLabel("Client Contact", { exact: true }).selectOption("contact1");
+    await page.getByLabel("Invoicing profile", { exact: true }).selectOption("profile1");
+    // A requester without the job claim can't list other profiles, so managers
+    // come from the request options. No profiles request is answered here.
+    await page.getByLabel("Manager", { exact: true }).fill("Tier");
+    await page.getByText("Two, Tier", { exact: true }).click();
+    // Two-way choices are toggles.
+    for (const group of ["First Nations agreement", "Status", "Fee basis"])
+      assert.equal(await page.getByRole("radiogroup", { name: group, exact: true }).count(), 1);
+    await page
+      .getByRole("radiogroup", { name: "First Nations agreement", exact: true })
+      .getByRole("radio", { name: "Yes", exact: true })
+      .click();
     await page.getByRole("button", { name: "Save request", exact: true }).click();
     await page.waitForFunction(
-      () => document.querySelector("button[type=submit]")?.textContent === "Save request",
+      () => document.querySelector("button[type=submit]")?.textContent.trim() === "Save request",
     );
     assert.equal(saves.length, 1);
     assert.equal(saves[0].request.time_and_materials, false);
+    assert.equal(saves[0].request.client, "client1");
+    assert.equal(saves[0].request.contact, "contact1");
+    assert.equal(saves[0].request.manager, "reviewer");
+    assert.equal(saves[0].request.fn_agreement_answer, "Yes");
     assert.equal(Object.hasOwn(saves[0].request, "time_and_materials_set"), false);
     assert.equal(saves[0].request.rate_sheet, "rate1");
     assert.equal(
@@ -325,6 +357,10 @@ await runBrowserHarness(
       "Legal description: Part 2, Plan 55R-1234, City of Example",
     );
     assert.equal(saves[0].version, 3);
+    await page
+      .getByRole("radiogroup", { name: "Fee basis", exact: true })
+      .getByRole("radio", { name: "Time and materials", exact: true })
+      .click();
     await value.fill("130000");
     await page.getByRole("button", { name: "Save request", exact: true }).click();
     await page
@@ -332,6 +368,7 @@ await runBrowserHarness(
       .filter({ hasText: "Selected approver limit is insufficient." })
       .waitFor();
     assert.equal(await value.inputValue(), "130000", "failed edits preserve form input");
+    assert.equal(saves.at(-1).request.time_and_materials, true);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: "/tmp/project-request-form-mobile.png", fullPage: true });
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?values`);

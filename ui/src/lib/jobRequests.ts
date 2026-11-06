@@ -55,7 +55,7 @@ export function printMissing(detail: RequestDetail): string[] {
     d = detail.related;
   const missing: string[] = [];
   if (!d.client?.name?.trim()) missing.push("Client name");
-  if (!r.description?.trim()) missing.push("Project / scope of work");
+  if (!r.description?.trim()) missing.push("Description");
   if (
     !r.location?.trim() ||
     !/^[23456789CFGHJMPQRVWX]{8}\+[23456789CFGHJMPQRVWX]{2,3}$/i.test(r.location.trim())

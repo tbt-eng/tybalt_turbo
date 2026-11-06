@@ -23,7 +23,6 @@
     "src/lib/components/jobs/JobValueLine.svelte": 2,
     "src/lib/components/jobs/JobValueProposal.svelte": 2,
     "src/lib/components/jobs/POsTabContent.svelte": 1,
-    "src/lib/components/jobs/RequestEditor.svelte": 3,
     "src/lib/components/jobs/TimeSummaryTable.svelte": 5,
     "src/lib/components/jobs/TimeSummaryValue.svelte": 1,
     "src/lib/components/jobs/TimeTabContent.svelte": 2,
@@ -87,7 +86,6 @@
     "src/lib/components/clients/InvoicingEditor.svelte": 2,
     "src/lib/components/jobs/JobValueLine.svelte": 1,
     "src/lib/components/jobs/JobValueProposal.svelte": 5,
-    "src/lib/components/jobs/RequestEditor.svelte": 4,
     "src/lib/components/jobs/WIPSummary.svelte": 1,
     "src/routes/+page.svelte": 1,
     "src/routes/claims/project-authorization-limits/+page.svelte": 3,
@@ -116,7 +114,6 @@
     "src/lib/components/jobs/ChangeClientPopover.svelte": 4,
     "src/lib/components/jobs/ExpensesTabContent.svelte": 1,
     "src/lib/components/jobs/JobValueProposal.svelte": 2,
-    "src/lib/components/jobs/RequestEditor.svelte": 1,
     "src/lib/components/jobs/TimeTabContent.svelte": 1,
     "src/lib/components/jobs/TimeValuationNote.svelte": 1,
     "src/lib/components/jobs/WIPReportTable.svelte": 1,
@@ -174,7 +171,6 @@
     "src/lib/components/jobs/JobValueLine.svelte": 1,
     "src/lib/components/jobs/JobValueProposal.svelte": 2,
     "src/lib/components/jobs/JobValueStatus.svelte": 1,
-    "src/lib/components/jobs/RequestEditor.svelte": 1,
     "src/lib/components/jobs/WIPReport.svelte": 1,
     "src/routes/admin_profiles/po_approvers/+page.svelte": 1,
     "src/routes/attachment_audit/+page.svelte": 5,
@@ -234,5 +230,6 @@
     "src/routes/time/sheets/[id]/details/+page.svelte": 1,
     "src/routes/time/work-records/[workRecord]/+page.svelte": 1,
     "src/routes/vendors/[vid]/details/+page.svelte": 1
-  }
+  },
+  "replaced-word": {}
 }

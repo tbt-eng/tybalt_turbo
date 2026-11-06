@@ -4,10 +4,23 @@
   import { fullName } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { untrack } from "svelte";
+  import MiniSearch from "minisearch";
   import DSLocationPicker from "$lib/components/DSLocationPicker.svelte";
+  import DSActionButton from "$lib/components/DSActionButton.svelte";
+  import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import DsDateInput from "$lib/components/DSDateInput.svelte";
+  import DsSelector from "$lib/components/DSSelector.svelte";
+  import DsTextInput from "$lib/components/DSTextInput.svelte";
+  import DSToggle from "$lib/components/DSToggle.svelte";
   import { globalStore } from "$lib/stores/global";
+  import { clients } from "$lib/stores/clients";
+  import { divisions } from "$lib/stores/divisions";
+  import { jobs } from "$lib/stores/jobs";
+  import { rateSheets } from "$lib/stores/rateSheets";
+  import { formatJobLabel } from "$lib/utilities";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
-  import { canCreateInvoicingProfile } from "$lib/clientWorkspace";
+  import { canCreateInvoicingProfile, clientLabel } from "$lib/clientWorkspace";
   import {
     type ClientWorkflowTarget,
     clearClientWorkflowDraft,
@@ -27,6 +40,10 @@
     dirty?: boolean;
     onsaved?: () => Promise<void>;
   } = $props();
+  clients.init();
+  jobs.init();
+  divisions.init();
+  rateSheets.init();
   const restored = untrack(() =>
     readClientWorkflowDraft<{
       item: WorkflowRecord;
@@ -35,7 +52,13 @@
       saved: string;
     }>(`request:${request.id || "new"}`, pb.authStore.record?.id || ""),
   );
-  let item = $state<WorkflowRecord>(untrack(() => ({ ...(restored?.item || request) })));
+  let item = $state<WorkflowRecord>(
+    untrack(() => ({
+      project_award_date: "",
+      project_completion_date: "",
+      ...(restored?.item || request),
+    })),
+  );
   let allocations = $state<WorkflowRecord[]>(
     untrack(() =>
       (restored?.allocations || initialAllocations).map((row) => ({
@@ -72,6 +95,61 @@
         ["In Progress", "Submitted", "Awarded"].includes(record.status),
     ),
   );
+  const proposalIds = $derived(new Set(proposals.map((record: WorkflowRecord) => record.id)));
+  // From the request options, not the profiles store: a requester without the
+  // job claim can only list their own profile and their direct reports.
+  const managerIndex = $derived.by(() => {
+    const index = new MiniSearch<WorkflowRecord>({
+      fields: ["surname", "given_name", "name"],
+      storeFields: ["surname", "given_name", "name"],
+      searchOptions: { combineWith: "AND" },
+    });
+    index.addAll(options.users || []);
+    return index;
+  });
+  const activeDivisionIds = $derived(
+    new Set(
+      (options.divisions || [])
+        .filter((record: WorkflowRecord) => record.active)
+        .map((record: WorkflowRecord) => record.id),
+    ),
+  );
+  const approverItems = $derived([
+    { id: "", name: "Select approver" },
+    ...(item.approver && !approvers.some((row) => row.id === item.approver)
+      ? [{ id: item.approver, name: "Current approver — check authority" }]
+      : []),
+    ...approvers.map((row) => ({
+      id: row.id,
+      name: `${row.name} — up to $${row.max_value.toLocaleString("en-CA")}`,
+    })),
+  ]);
+  const noFieldErrors: Record<string, { message: string }> = {};
+  const feeOptions = [
+    { id: "fixed", label: "Fixed fee" },
+    { id: "tm", label: "Time and materials" },
+  ];
+  const answerOptions = [
+    { id: "Yes", label: "Yes" },
+    { id: "No", label: "No" },
+  ];
+  const statusOptions = [
+    { id: "Active", label: "Active" },
+    { id: "Closed", label: "Closed" },
+  ];
+  function managerLabel(row: WorkflowRecord) {
+    if (row.surname) return `${row.surname}, ${row.given_name}`;
+    return row.name || "Inactive person";
+  }
+  function invoicingProfileLabel(row: WorkflowRecord) {
+    const name =
+      row.name ||
+      fullName(
+        (options.contacts || []).find((contact: WorkflowRecord) => contact.id === row.contact),
+      ) ||
+      row.id;
+    return row.invoicing_instructions ? `${name} — ${row.invoicing_instructions}` : name;
+  }
   $effect(() => {
     dirty = JSON.stringify({ item, allocations, fee }) !== saved;
   });
@@ -124,7 +202,9 @@
       openingClient = false;
     }
   }
-  function clientChanged() {
+  function setClient(client: string) {
+    if (client === item.client) return;
+    item.client = client;
     item.contact = "";
     item.invoicing_information = "";
     item.proposal = "";
@@ -184,43 +264,65 @@
 </script>
 
 <form
-  class="space-y-5"
+  class="flex flex-col gap-4"
   onsubmit={(event) => {
     event.preventDefault();
     save();
   }}
 >
-  {#if error}<p class="rounded border border-red-300 bg-red-50 p-3 text-red-800" role="alert">
-      {error}
-    </p>{/if}
-  <fieldset disabled={saving} class="grid gap-4 md:grid-cols-2">
-    <label class="md:col-span-2"
-      >Project / scope of work<textarea rows="4" bind:value={item.description}></textarea></label
+  {#if error}<div role="alert"><DSCallout tone="danger">{error}</DSCallout></div>{/if}
+  <fieldset disabled={saving} class="flex flex-col gap-2">
+    <span class="flex w-full items-center gap-2">
+      <label for="project_award_date">Project Award Date</label>
+      <DsDateInput
+        class="flex-1 md:flex-none"
+        name="project_award_date"
+        bind:value={item.project_award_date}
+      />
+    </span>
+    <span class="flex w-full items-center gap-2">
+      <label for="project_completion_date">Project Completion Date</label>
+      <DsDateInput
+        class="flex-1 md:flex-none"
+        name="project_completion_date"
+        bind:value={item.project_completion_date}
+      />
+    </span>
+    <DSLocationPicker bind:value={item.location} errors={{}} fieldName="location" />
+    <DsTextInput
+      bind:value={item.description}
+      errors={noFieldErrors}
+      fieldName="description"
+      uiName="Description"
+    />
+    {#if $clients.index !== null}
+      <DsAutoComplete
+        bind:value={() => item.client, setClient}
+        index={$clients.index}
+        errors={noFieldErrors}
+        fieldName="client"
+        uiName="Client"
+        disabled={!!item.parent}
+      >
+        {#snippet resultTemplate(row)}{clientLabel({ name: row.name, alias: row.alias })}{/snippet}
+      </DsAutoComplete>
+    {/if}
+    <DsSelector
+      bind:value={item.contact}
+      items={[{ id: "" }, ...contacts]}
+      errors={noFieldErrors}
+      fieldName="contact"
+      uiName="Client Contact"
+      disabled={!item.client}
     >
-    <label class="md:col-span-2"
-      >Notes (optional)<textarea rows="3" maxlength="1000" bind:value={item.notes}></textarea><span
-        class="text-xs font-normal text-neutral-600"
-        >For example, a property's legal description. You can include the notes when printing the
-        Project Authorization. They become the job's first note when the job is created. 10 to 1000
-        characters.</span
-      ></label
-    >
-    <label
-      >Client<select bind:value={item.client} disabled={!!item.parent} onchange={clientChanged}
-        ><option value="">Select client</option>{#each options.clients || [] as row}<option
-            value={row.id}>{row.name}</option
-          >{/each}</select
-      ></label
-    >
-    <label
-      >Project contact<select bind:value={item.contact}
-        ><option value="">Select project contact</option>{#each contacts as row}<option
-            value={row.id}>{fullName(row)} — {row.email}</option
-          >{/each}</select
-      ></label
-    >
+      {#snippet optionTemplate(row: WorkflowRecord)}{row.id
+          ? `${fullName(row)}${row.email ? ` — ${row.email}` : ""}`
+          : item.client
+            ? "Select a contact"
+            : "Select a client first"}{/snippet}
+    </DsSelector>
     {#if item.client && !profiles.length}
-      <div class="flex flex-col gap-1 md:col-span-2">
+      <div class="flex flex-col gap-1">
         <h3 class="text-sm font-semibold">Invoicing profile</h3>
         <InvoicingProfileEmptyState
           canCreate={canCreateInvoicingProfile($globalStore.claims)}
@@ -231,173 +333,207 @@
         />
       </div>
     {:else}
-      <label
-        >Invoicing profile<select bind:value={item.invoicing_information}
-          ><option value="">Select invoicing profile</option>{#each profiles as row}<option
-              value={row.id}
-              >{row.name ||
-                fullName(
-                  (options.contacts || []).find(
-                    (contact: WorkflowRecord) => contact.id === row.contact,
-                  ),
-                ) ||
-                row.id}{row.invoicing_instructions
-                ? ` — ${row.invoicing_instructions}`
-                : ""}</option
-            >{/each}</select
-        ></label
+      <DsSelector
+        bind:value={item.invoicing_information}
+        items={[{ id: "" }, ...profiles]}
+        errors={noFieldErrors}
+        fieldName="invoicing_information"
+        uiName="Invoicing profile"
+        disabled={!item.client}
       >
+        {#snippet optionTemplate(row: WorkflowRecord)}{row.id
+            ? invoicingProfileLabel(row)
+            : item.client
+              ? "Select an invoicing profile"
+              : "Select a client first"}{/snippet}
+      </DsSelector>
       {#if item.client}<a
-          class="text-sm text-blue-700 underline"
+          class="link"
           href={`/clients/${item.client}/details?project_contact=${encodeURIComponent(item.contact || "")}`}
           onclick={(event) => manageClient("workspace", event)}
           >Manage client contacts and invoicing</a
         >{/if}
     {/if}
-    <label
-      >Project owner (optional)<select bind:value={item.job_owner}
-        ><option value="">No owner selected</option>{#each options.clients || [] as row}<option
-            value={row.id}>{row.name}</option
-          >{/each}</select
-      ></label
+    <DsAutoComplete
+      bind:value={item.manager}
+      index={managerIndex}
+      errors={noFieldErrors}
+      fieldName="manager"
+      uiName="Manager"
     >
-    <label
-      >Project manager<select bind:value={item.manager}
-        ><option value="">Select manager</option>{#each options.users || [] as row}<option
-            value={row.id}>{fullName(row)}</option
-          >{/each}</select
-      ></label
+      {#snippet resultTemplate(row)}{managerLabel(row)}{/snippet}
+    </DsAutoComplete>
+    <DsAutoComplete
+      bind:value={item.alternate_manager}
+      index={managerIndex}
+      errors={noFieldErrors}
+      fieldName="alternate_manager"
+      uiName="Alternate Manager"
     >
-    <label
-      >Alternate manager (optional)<select bind:value={item.alternate_manager}
-        ><option value="">No alternate manager</option>{#each options.users || [] as row}<option
-            value={row.id}>{fullName(row)}</option
-          >{/each}</select
-      ></label
-    >
-    <label
-      >Branch<select bind:value={item.branch}
-        ><option value="">Select branch</option>{#each options.branches || [] as row}<option
-            value={row.id}>{row.name}</option
-          >{/each}</select
-      ></label
-    >
-    <label
-      >Intended project status<select bind:value={item.project_status}
-        ><option>Active</option><option>Closed</option></select
-      ></label
-    >
-    <div class="md:col-span-2">
-      <DSLocationPicker bind:value={item.location} errors={{}} fieldName="location" />
+      {#snippet resultTemplate(row)}{managerLabel(row)}{/snippet}
+    </DsAutoComplete>
+    <div class="flex w-full items-center gap-2">
+      <span id="request-fn-agreement">First Nations agreement</span>
+      <DSToggle
+        bind:value={item.fn_agreement_answer}
+        options={answerOptions}
+        ariaLabelledBy="request-fn-agreement"
+      />
     </div>
-    <label>Project award date<input type="date" bind:value={item.project_award_date} /></label>
-    <label
-      >Project completion date<input type="date" bind:value={item.project_completion_date} /></label
-    >
-    <label
-      >Project value (CAD, before tax)<input
-        type="number"
-        min="1"
-        step="1"
-        bind:value={item.project_value}
-      /></label
-    >
-    <label
-      >Fee basis<select bind:value={fee}
-        >{#if !request.time_and_materials_set}<option value="">Select fee basis</option>{/if}<option
-          value="fixed">Fixed fee</option
-        ><option value="tm">Time and materials</option></select
-      ></label
-    >
-    <label
-      >Rate sheet<select bind:value={item.rate_sheet}
-        ><option value="">Select rate sheet</option
-        >{#each (options.rate_sheets || []).filter((row: WorkflowRecord) => row.active) as row}<option
-            value={row.id}>{row.name} — Rev. {row.revision}</option
-          >{/each}</select
-      ></label
-    >
-    <label
-      >First Nations agreement<select bind:value={item.fn_agreement_answer}
-        ><option value="">Select an answer</option><option>Yes</option><option>No</option></select
-      ></label
-    >
-    <label
-      >Proposal (optional)<select bind:value={item.proposal}
-        ><option value="">No proposal</option>{#each proposals as row}<option value={row.id}
-            >{row.number} — {row.description} ({row.status})</option
-          >{/each}</select
-      ></label
-    >
-    <label>Client PO (optional)<input bind:value={item.client_po} /></label>
-    <label
-      >Client reference number (optional)<input bind:value={item.client_reference_number} /></label
-    >
-    <label
-      >Selected approver<select bind:value={item.approver}
-        ><option value="">Select approver</option
-        >{#if item.approver && !approvers.some((row) => row.id === item.approver)}<option
-            value={item.approver}>Current approver — check authority</option
-          >{/if}{#each approvers as row}<option value={row.id}
-            >{row.name} — up to ${row.max_value.toLocaleString("en-CA")}</option
-          >{/each}</select
-      ></label
-    >
+    <div class="flex w-full items-center gap-2">
+      <span id="request-status">Status</span>
+      <DSToggle
+        bind:value={item.project_status}
+        options={statusOptions}
+        ariaLabelledBy="request-status"
+      />
+    </div>
+    <DsTextInput
+      bind:value={item.project_value}
+      type="number"
+      min={1}
+      step={1}
+      errors={noFieldErrors}
+      fieldName="project_value"
+      uiName="Project value (CAD, before tax)"
+    />
+    <div class="flex w-full items-center gap-2">
+      <span id="request-fee-basis">Fee basis</span>
+      <DSToggle bind:value={fee} options={feeOptions} ariaLabelledBy="request-fee-basis" />
+    </div>
+    <DsTextInput
+      bind:value={item.client_po}
+      errors={noFieldErrors}
+      fieldName="client_po"
+      uiName="Client PO"
+    />
+    <DsTextInput
+      bind:value={item.client_reference_number}
+      errors={noFieldErrors}
+      fieldName="client_reference_number"
+      uiName="Client Reference Number"
+    />
+    {#if $rateSheets.index !== null}
+      <DsAutoComplete
+        bind:value={item.rate_sheet}
+        index={$rateSheets.index}
+        filter={(sheet) => sheet.active}
+        errors={noFieldErrors}
+        fieldName="rate_sheet"
+        uiName="Rate Sheet"
+      >
+        {#snippet resultTemplate(row)}{row.name} (rev. {row.revision}) - {row.effective_date}{/snippet}
+      </DsAutoComplete>
+    {/if}
+    {#if $jobs.index !== null}
+      <DsAutoComplete
+        bind:value={item.proposal}
+        index={$jobs.index}
+        filter={(job) => proposalIds.has(job.id)}
+        errors={noFieldErrors}
+        fieldName="proposal"
+        uiName="Proposal"
+        disabled={!item.client}
+      >
+        {#snippet resultTemplate(row)}{formatJobLabel(row)}{/snippet}
+      </DsAutoComplete>
+    {/if}
   </fieldset>
-  {#if approverError}<p role="alert" class="text-red-700">{approverError}</p>{/if}
-  <fieldset disabled={saving} class="space-y-3">
-    <legend class="font-semibold">Division allocations</legend>
-    {#each allocations as allocation, index}<div class="flex items-end gap-3">
-        <label class="grow"
-          >Division<select bind:value={allocation.division}
-            ><option value="">Select division</option
-            >{#each (options.divisions || []).filter((row: WorkflowRecord) => row.active) as row}<option
-                value={row.id}>{row.code} — {row.name}</option
-              >{/each}</select
-          ></label
-        ><label>Hours<input type="number" min="0" step="1" bind:value={allocation.hours} /></label
-        ><button
-          type="button"
-          class="rounded border px-3 py-2"
-          onclick={() => (allocations = allocations.filter((_, i) => i !== index))}>Remove</button
-        >
-      </div>{/each}
-    <button
-      type="button"
-      class="rounded border px-3 py-2"
-      onclick={() => (allocations = [...allocations, { division: "", hours: 0 }])}
-      >Add division</button
+  <fieldset disabled={saving} class="flex flex-col gap-2">
+    <legend class="font-semibold">Divisions</legend>
+    {#if $divisions.index !== null}
+      {#each allocations as allocation, index}
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="min-w-[280px] flex-1">
+            <DsAutoComplete
+              bind:value={allocation.division}
+              index={$divisions.index}
+              filter={(division) => activeDivisionIds.has(division.id)}
+              errors={noFieldErrors}
+              fieldName={`allocation_division_${index}`}
+              uiName="Division"
+            >
+              {#snippet resultTemplate(row)}{row.code} - {row.name}{/snippet}
+            </DsAutoComplete>
+          </div>
+          <div class="w-56">
+            <DsTextInput
+              bind:value={allocation.hours}
+              type="number"
+              step={1}
+              errors={noFieldErrors}
+              fieldName={`allocation_hours_${index}`}
+              uiName="Hours"
+            />
+          </div>
+          <DSActionButton action={() => (allocations = allocations.filter((_, i) => i !== index))}
+            >Remove</DSActionButton
+          >
+        </div>
+      {/each}
+    {/if}
+    <div>
+      <DSActionButton
+        action={() => (allocations = [...allocations, { division: "", hours: 0 }])}
+        icon="feather:plus-circle"
+        color="green">Add division</DSActionButton
+      >
+    </div>
+  </fieldset>
+  <fieldset disabled={saving} class="flex flex-col gap-2">
+    {#if $clients.index !== null}
+      <DsAutoComplete
+        bind:value={item.job_owner}
+        index={$clients.index}
+        errors={noFieldErrors}
+        fieldName="job_owner"
+        uiName="Job Owner"
+      >
+        {#snippet resultTemplate(row)}{clientLabel({ name: row.name, alias: row.alias })}{/snippet}
+      </DsAutoComplete>
+    {/if}
+    <DsSelector
+      bind:value={item.branch}
+      items={[{ id: "", name: "Select a branch" }, ...(options.branches || [])]}
+      errors={noFieldErrors}
+      fieldName="branch"
+      uiName="Branch"
     >
+      {#snippet optionTemplate(row: WorkflowRecord)}{row.code ?? row.name}{/snippet}
+    </DsSelector>
+    <label class="flex flex-col gap-1">
+      Notes (optional)
+      <textarea
+        rows="3"
+        maxlength="1000"
+        class="rounded-sm border border-neutral-300 p-2"
+        bind:value={item.notes}></textarea>
+      <span class="text-xs text-neutral-600"
+        >For example, a property's legal description. You can include the notes when printing the
+        Project Authorization. They become the job's first note when the job is created. 10 to 1000
+        characters.</span
+      >
+    </label>
+    <DsSelector
+      bind:value={item.approver}
+      items={approverItems}
+      errors={noFieldErrors}
+      fieldName="approver"
+      uiName="Selected approver"
+    >
+      {#snippet optionTemplate(row)}{row.name}{/snippet}
+    </DsSelector>
+    {#if approverError}<div role="alert">
+        <DSCallout tone="danger">{approverError}</DSCallout>
+      </div>{/if}
   </fieldset>
   <p class="text-sm text-neutral-600">
     Drafts can be incomplete. Submission checks all required data, the PDF, allocations, and
     approval authority.
   </p>
-  <button disabled={saving} class="rounded bg-blue-700 px-4 py-2 text-white" type="submit"
-    >{saving ? "Saving…" : "Save request"}</button
-  >
+  <div>
+    <DSActionButton variant="primary" type="submit" disabled={saving}
+      >{saving ? "Saving…" : "Save request"}</DSActionButton
+    >
+  </div>
 </form>
-
-<style>
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-  input,
-  select,
-  textarea {
-    width: 100%;
-    border: 1px solid #a3a3a3;
-    border-radius: 0.2rem;
-    padding: 0.5rem;
-    background: white;
-    color: #171717;
-    font-weight: 400;
-  }
-  :disabled {
-    opacity: 0.65;
-  }
-</style>
