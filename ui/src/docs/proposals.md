@@ -31,7 +31,7 @@ Procurement opens the proposal and selects **Edit Job**.
 
 The proposal's manager or alternate manager can select **Edit allocations** to change the division hours.
 
-Nobody can change a **Cancelled** proposal.
+Procurement can still change a **No Bid** proposal. Nobody can change a **Cancelled** proposal.
 
 ## Set the status
 
@@ -55,11 +55,11 @@ Anyone who enters time can [create a project request from a proposal](/docs/proj
 
 ## Proposal statuses
 
-| Status      | What it means                                 |
-| ----------- | --------------------------------------------- |
-| In Progress | Procurement prepares it.                      |
-| Submitted   | The company submitted it to the client.       |
-| Awarded     | The client awarded the work.                  |
-| Not Awarded | The client didn't award the work.             |
-| No Bid      | The company decided not to submit a proposal. |
-| Cancelled   | It stopped. This status is final.             |
+| Status      | What it means                                                                  |
+| ----------- | ------------------------------------------------------------------------------ |
+| In Progress | Procurement prepares it.                                                       |
+| Submitted   | The company submitted it to the client.                                        |
+| Awarded     | The client awarded the work.                                                   |
+| Not Awarded | The client didn't award the work.                                              |
+| No Bid      | The company decided not to submit a proposal. Procurement can still change it. |
+| Cancelled   | It stopped. This status is final.                                              |
