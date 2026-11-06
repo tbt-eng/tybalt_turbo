@@ -266,7 +266,7 @@
         other sufficient authorization evidence.
       </p>{/if}
   </section>
-  {#if permission.can_approve || permission.can_create}
+  {#if permission.can_create}
     <section class="space-y-3 rounded border p-4">
       <h2 class="font-semibold">Duplicate-work review</h2>
       <p class="text-sm">
@@ -282,13 +282,13 @@
           </p>
           <p class="text-sm text-neutral-600">{(job.reasons || []).join("; ")}</p>
         </div>{:else}<p>No possible matching jobs found.</p>{/each}
-      {#if permission.can_create}<h3 class="font-semibold">Other pending requests</h3>
-        {#each data.duplicates.requests || [] as other}<div>
-            <a class="text-blue-700 underline" href={`/job-requests/${other.id}`}
-              >{other.id} — {other.description}</a
-            >
-            <p>{(other.reasons || []).join("; ")}</p>
-          </div>{:else}<p>No possible matching requests found.</p>{/each}{/if}
+      <h3 class="font-semibold">Other pending requests</h3>
+      {#each data.duplicates.requests || [] as other}<div>
+          <a class="text-blue-700 underline" href={`/job-requests/${other.id}`}
+            >{other.id} — {other.description}</a
+          >
+          <p>{(other.reasons || []).join("; ")}</p>
+        </div>{:else}<p>No possible matching requests found.</p>{/each}
     </section>
   {/if}
   {#if $jobRequestsEnabled}<section class="space-y-4 rounded border p-4">

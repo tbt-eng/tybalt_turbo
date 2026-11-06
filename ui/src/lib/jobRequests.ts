@@ -11,7 +11,8 @@ export interface RequestDetail {
   attachment?: WorkflowRecord;
   related: Record<string, any>;
   review_token: string;
-  // The questions of the current version. Each must be answered true to continue.
+  // The current questions for the request's stage: approval, or job creation
+  // once approved. Each must be answered true to continue.
   checklist: { version: number; questions: RequestChecklistQuestion[] };
   permissions: Record<string, boolean>;
   enabled?: boolean;

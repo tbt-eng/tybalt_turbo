@@ -248,7 +248,7 @@ user as well as the applicable claim or ownership rule.
 | Select or change a request's approver | Its creator only, under the same edit-state rules. |
 | Approve a request | Its selected approver, with `project_authorization` and a limit that covers the full value. |
 | Approve one's own request | Allowed when the creator is the selected approver and meets the same authority checks. |
-| Reject a request before job creation | Its selected approver only, with a reason. |
+| Reject a request before job creation | Its selected approver, or a holder of `job` once it is `Awaiting creation`, with a reason. |
 | Create a job from an approved request | A holder of `job`. |
 | View the Job Create Queue and its badge | Active holders of `job`, when the request workflow is enabled. |
 | Create an invoicing profile using an existing client contact | Active holders of `time` or `job`. No separate profile approval is required. |
@@ -298,8 +298,8 @@ users. The editor keeps generic read access and saves through the job route.
 
 Use the same action names as expenses and timesheets. **Recall** is the creator's
 action to take a submitted or approved request back for editing. **Reject** is
-the selected approver's action to decline it with a reason. Both actions are
-available before job creation.
+the selected approver's action to decline it with a reason, and a `job` holder's
+once it is `Awaiting creation`. Both actions are available before job creation.
 
 The normal flow is:
 
@@ -310,8 +310,9 @@ The normal flow is:
 valid data and a selected, qualified approver.
 
 Only the creator can recall the request, edit it, or select a different
-approver. Only the selected approver can reject it. Recall and rejection apply
-in `Awaiting approval` and `Awaiting creation`. They clear any current request
+approver. The selected approver can reject it in `Awaiting approval` and
+`Awaiting creation`, and a `job` holder can reject it in `Awaiting creation`. The
+creator can recall it in both. Recall and rejection clear any current request
 approval and prevent creation until a fresh approval occurs.
 
 A rejected request cannot be submitted unchanged. A successful creator edit
@@ -372,10 +373,16 @@ that employee creates a new request.
 ### Approval Checks And Duplicate Work
 
 The PDF is the evidence on which the approver authorizes the project and its
-value. Show one required checkbox for each statement below. All boxes start
-unchecked; the selected approver must check each one for the current review.
-`request_checklists` holds each version's questions, and the highest version is
-current. These are the seven questions of version 2:
+value. Approval and job creation each show one required checkbox for each
+statement of their own checklist. All boxes start unchecked; the person acting
+must check each one for the current review. `request_checklists` holds each
+version's questions under a scope, `approval` or `creation`, and each scope's
+highest version is current.
+
+On November 6, 2026, the existing versions became `creation` versions. A request
+cannot be approved until an `approval` version is saved. The duplicate-work
+statement belongs to `creation`, not `approval`. These are the seven questions of
+`creation` version 2:
 
 | Question key | Checkbox statement |
 | --- | --- |
@@ -389,10 +396,11 @@ current. These are the seven questions of version 2:
 
 On October 13, 2026, `rate_sheet_correct` was added so the approver confirms
 the rate sheet the requester selected. Version 1 had the other six questions.
-Approval requires the current version and a Boolean `true` for each of its
-questions; a page that sends an earlier version must be reloaded. Job creation
-accepts an approval stored under any saved version, so an earlier approval
-remains valid evidence. Missing, false, or invalid answers prevent approval. An
+Approval and creation each require their scope's current version and a Boolean
+`true` for each of its questions; a page that sends an earlier version must be
+reloaded. A new version of one scope does not affect pages open on the other. Job
+creation accepts an approval stored under any saved `approval` version, so an
+earlier approval remains valid evidence. Missing, false, or invalid answers prevent approval. An
 unchecked box does not
 automatically reject the request; the selected approver can reject it with a
 reason. Do not permit approval while a known conflict or an executive
@@ -402,14 +410,13 @@ The First Nations checkbox confirms review, not a `Yes` answer to the request's
 First Nations question. Store only the checklist version with the approval,
 written after every question is answered true. An answer could only ever be true,
 so storing the answers would record nothing the version doesn't. Recall or
-rejection clears the version; a fresh approval requires a fresh checklist. This
-checklist applies to request approval and job creation.
+rejection clears the version; a fresh approval requires a fresh checklist.
 Existing-job value changes retain the separate approval rules below.
 
-On November 6, 2026, job creation was added so the `job` holder answers the same
-statements. They answer the current version even when the approval was stored
-under an earlier one. Their version is stored separately from the approver's, in
-`creation_checklist_version`. Boxes start unchecked for each person, including one who both approved the
+On November 6, 2026, job creation was added so the `job` holder answers a
+checklist too. They answer the current `creation` version, whichever `approval`
+version the approver answered. Their version is stored separately from the
+approver's, in `creation_checklist_version`. Boxes start unchecked for each person, including one who both approved the
 request and creates the job.
 
 #### Submission Identity And Old Review Pages
@@ -448,22 +455,22 @@ Refuse a request that duplicates work already represented by a job. Show recent
 jobs for the client and highlight jobs linked to the selected proposal. Show number, description,
 client, status, manager, and parent, with links to details. Also show possible
 matches by description, location, and client PO/reference number. For subjobs,
-show the parent and existing subjobs. The approver compares against existing
-jobs, not requests submitted to other approvers. Do not show unassigned requests
-or require the approver to investigate other people's pending work.
+show the parent and existing subjobs. Show this review to the `job` holder, who
+confirms the request does not duplicate an existing job. Do not show it to the
+approver.
 
 Identify why each result appears. A possible match is not proof of duplication.
 Do not block approval merely because a proposal has another linked job.
 
-Before creation, the `job` holder checks existing jobs again and does not create
+Before creation, the `job` holder checks existing jobs and does not create
 a job that duplicates an existing job. Other pending requests are listed for
 information, and no confirmation covers them: a request does not represent work
 until it becomes a job, so whichever overlapping request is created first appears
 as an existing job when the next one is reviewed. The holder can coordinate an
 overlap with the creators. A possible match in another request does not cause
 automatic rejection.
-This responsibility does not grant request recall or rejection permissions;
-those remain with the creator and selected approver respectively.
+The holder can reject a request that duplicates an existing job, with a reason.
+Recall remains with the creator.
 
 ### PDF Storage And Duplicate Files
 
@@ -871,7 +878,7 @@ not undo the action. Each event has its own notification template and switch.
 | --- | --- | --- |
 | Request submitted | Selected approver | Requester, client, project value, scope of work, and a link to review the request and PDF. If this approver was sent the request before, it says this replaces that version. |
 | Request approved | Requester | Approver, client, project value, scope of work, and that the project will be created and its number sent by email. |
-| Request rejected | Requester | Approver, client, the reason, scope of work, and a link to correct and resubmit. Rejecting an approved request says the approval was withdrawn and the project will not be created. |
+| Request rejected | Requester | Approver, client, the reason, scope of work, and a link to correct and resubmit. The approver rejecting an approved request says the approval was withdrawn and the project will not be created. |
 | Job created from request | Requester and project manager | Who created it, the new project number, client, and scope of work. For an `Active` project, that time, expenses and purchase orders can now be recorded; for a `Closed` one, that they cannot. A link to the project. |
 | Value change saved | Selected approver | Who saved it, project number, client, current and proposed values, the project description, and a link to review it. If the approver is unchanged from the earlier version, it says this replaces it. |
 | Value change approved | Uploader of the change's PDF | Approver, project number and client, previous and new values, and that the new value is in effect. |
@@ -953,8 +960,8 @@ In a database transaction, check the flag, actor, approval authority, request
 state, selected approver identity, and the version reviewed. Reload and validate
 the complete request, related records, PDF/hash, and allocations. Check the
 proposal status, cleared rejection fields, and required checklist answers. Fail
-if reviewed data changed. Validate the answers against the current version in
-`request_checklists`; UI checkbox validation alone is not sufficient.
+if reviewed data changed. Validate the answers against the current `approval`
+version in `request_checklists`; UI checkbox validation alone is not sufficient.
 
 Record approval against the exact attachment and project value. Retain the
 approver's limit at approval and the checklist version. Move the request
@@ -1192,14 +1199,15 @@ in `job_attachments`.
 
 ### New Table: `request_checklists`
 
-Holds one row for each version of the request checklist. The highest version is
-current, so adding a row changes the checklist at once and pages already open must
-reload. Only superusers can reach this table directly; request details return the
+Holds one row for each version of each request checklist. A scope's highest
+version is current, so adding a row changes that checklist at once and pages already
+open on it must reload. Only superusers can reach this table directly; request details return the
 current questions.
 
 | Field | Definition |
 | --- | --- |
-| `version` | `NUMERIC` integer; unique, and each new row must be the next number. |
+| `scope` | PocketBase single-select; `approval` or `creation`, the stage that answers the checklist. |
+| `version` | `NUMERIC` integer; unique within a scope, and each new row must be that scope's next number. |
 | `questions` | PocketBase JSON field; a list of objects with a unique `key` and its `text`. |
 
 Hooks refuse updates and deletes: an approval refers to its questions by version,
@@ -1226,8 +1234,8 @@ job. No separate revision or value-change request table is needed.
 | `request_version` | `NUMERIC`; approved request version, retained after request deletion. |
 | `approval_sequence` | `NUMERIC`; server-owned order within a job. Set at creation or value-change approval. Do not order only by timestamps. |
 | `initial_approval` | `BOOLEAN`; true only for the approval used to create the job. Protected from admin deletion. |
-| `checklist_version` | `NUMERIC` integer; the `request_checklists` version the approver answered. Earlier approvals may store version 1. Value-change approval leaves it empty and records the new PDF, full value, and authority. |
-| `creation_checklist_version` | `NUMERIC` integer; the `request_checklists` version answered by the `job` holder who created the job. Empty on value changes and on jobs created before November 6, 2026. |
+| `checklist_version` | `NUMERIC` integer; the `approval` version in `request_checklists` that the approver answered. Earlier approvals may store version 1. Value-change approval leaves it empty and records the new PDF, full value, and authority. |
+| `creation_checklist_version` | `NUMERIC` integer; the `creation` version in `request_checklists` answered by the `job` holder who created the job. Empty on value changes and on jobs created before November 6, 2026. |
 | `rejector`, `rejected`, `rejection_reason` | `TEXT`; user relation, date, and required rejection reason. |
 
 Enforce one current request attachment and at most one unapproved value-change

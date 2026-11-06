@@ -10,11 +10,13 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 	"tybalt/internal/testutils"
+	"tybalt/utilities"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -29,6 +31,13 @@ func newWorkflowTestApp(t *testing.T, enabled bool) *tests.TestApp {
 	app := testutils.SetupTestApp(t)
 	t.Cleanup(app.Cleanup)
 	setJobRequestFlag(t, app, enabled)
+	questions := []map[string]string{}
+	for _, key := range requestApprovalKeys {
+		questions = append(questions, map[string]string{"key": key, "text": "Statement " + key})
+	}
+	if err := saveRequestChecklist(app, utilities.RequestChecklistScopeApproval, 1, questions); err != nil {
+		t.Fatal(err)
+	}
 	return app
 }
 
@@ -140,18 +149,22 @@ func uploadRequestDocument(t *testing.T, app *tests.TestApp, id string) {
 	workflowUpload(t, app, "/api/job_requests/"+id+"/document", workflowAuthor, "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF", map[string]string{"version": fmt.Sprint(r.GetInt("version"))}, http.StatusOK)
 }
 
-// requestChecklistKeys are the questions of request checklist version 2.
-var requestChecklistKeys = []string{"fn_agreement_reviewed", "no_known_conflict", "no_executive_restriction", "no_duplicate_work", "pdf_sufficient", "rate_sheet_correct", "allocations_complete"}
+// requestApprovalKeys are the questions of the approval checklist these tests save.
+var requestApprovalKeys = []string{"fn_agreement_reviewed", "no_known_conflict", "no_executive_restriction", "pdf_sufficient", "rate_sheet_correct", "allocations_complete"}
+
+// requestCreationKeys are the questions of creation checklist version 2.
+var requestCreationKeys = []string{"fn_agreement_reviewed", "no_known_conflict", "no_executive_restriction", "no_duplicate_work", "pdf_sufficient", "rate_sheet_correct", "allocations_complete"}
 
 func requestActionData(t *testing.T, app *tests.TestApp, id string) map[string]any {
 	t.Helper()
 	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowAuthor, nil, http.StatusOK)
 	r := workflowRecord(t, app, "job_requests", id)
+	checklist := detail["checklist"].(map[string]any)
 	answers := map[string]any{}
-	for _, key := range requestChecklistKeys {
-		answers[key] = true
+	for _, question := range checklist["questions"].([]any) {
+		answers[question.(map[string]any)["key"].(string)] = true
 	}
-	result := map[string]any{"version": r.GetInt("version"), "review_token": detail["review_token"], "checklist_version": 2, "checklist_answers": answers}
+	result := map[string]any{"version": r.GetInt("version"), "review_token": detail["review_token"], "checklist_version": int(checklist["version"].(float64)), "checklist_answers": answers}
 	attachment, err := app.FindFirstRecordByData("job_attachments", "request", id)
 	if err == nil {
 		result["document_hash"] = attachment.GetString("document_hash")
@@ -271,7 +284,7 @@ func TestJobRequestApprovalCreationLifecycle(t *testing.T) {
 		t.Fatal("printing changed edit time")
 	}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
-	for _, key := range requestChecklistKeys {
+	for _, key := range requestApprovalKeys {
 		data := requestActionData(t, app, id)
 		data["checklist_answers"].(map[string]any)[key] = false
 		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, data, http.StatusBadRequest)
@@ -292,7 +305,7 @@ func TestJobRequestApprovalCreationLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	hash, filename, approvedAt := before.GetString("document_hash"), before.GetString("document"), before.GetString("approved")
-	for _, key := range requestChecklistKeys {
+	for _, key := range requestCreationKeys {
 		data := requestActionData(t, app, id)
 		data["checklist_answers"].(map[string]any)[key] = false
 		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, data, http.StatusBadRequest)
@@ -309,7 +322,7 @@ func TestJobRequestApprovalCreationLifecycle(t *testing.T) {
 	result := clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
 	jobID, _ := result["job_id"].(string)
 	created := workflowRecord(t, app, "job_attachments", before.Id)
-	if created.GetInt("creation_checklist_version") != 2 || created.GetInt("checklist_version") != 2 {
+	if created.GetInt("creation_checklist_version") != 2 || created.GetInt("checklist_version") != 1 {
 		t.Fatal("creation did not store both checklist versions")
 	}
 	job := workflowRecord(t, app, "jobs", jobID)
@@ -689,11 +702,12 @@ func TestJobRequestDraftRelationsAndChecklistShape(t *testing.T) {
 		mutation(data)
 		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+ready+"/approve", workflowApprover, data, http.StatusBadRequest)
 	}
-	// A page opened before the rate sheet statement was added sends the six
-	// version 1 answers. The approver must reload and confirm all seven.
+	// A page opened before a new version sends the earlier answers. The approver
+	// must reload and confirm the new statements.
 	outdated := requestActionData(t, app, ready)
-	outdated["checklist_version"] = 1
-	delete(outdated["checklist_answers"].(map[string]any), "rate_sheet_correct")
+	if err := saveRequestChecklist(app, utilities.RequestChecklistScopeApproval, 2, []map[string]string{{"key": "only_question", "text": "The only question."}}); err != nil {
+		t.Fatal(err)
+	}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+ready+"/approve", workflowApprover, outdated, http.StatusConflict)
 	reviewed := requestActionData(t, app, ready)
 	// Change the fixture billing instructions after the review, before approval.
@@ -736,6 +750,9 @@ func TestJobRequestCreationAcceptsEarlierChecklistVersion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			app := newWorkflowTestApp(t, true)
 			const id = "parequest000001"
+			if err := saveRequestChecklist(app, utilities.RequestChecklistScopeApproval, 2, []map[string]string{{"key": "only_question", "text": "The only question."}}); err != nil {
+				t.Fatal(err)
+			}
 			clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", "time@test.com", requestActionData(t, app, id), http.StatusOK)
 			clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
 			if a := workflowRecord(t, app, "job_attachments", "paattachment001"); a.GetInt("checklist_version") != 2 {
@@ -753,12 +770,13 @@ func TestJobRequestCreationAcceptsEarlierChecklistVersion(t *testing.T) {
 	}
 }
 
-func saveRequestChecklist(app core.App, version int, questions any) error {
+func saveRequestChecklist(app core.App, scope string, version int, questions any) error {
 	collection, err := app.FindCollectionByNameOrId("request_checklists")
 	if err != nil {
 		return err
 	}
 	record := core.NewRecord(collection)
+	record.Set("scope", scope)
 	record.Set("version", version)
 	record.Set("questions", questions)
 	return app.Save(record)
@@ -771,24 +789,123 @@ func TestJobRequestChecklistUsesTheLatestVersion(t *testing.T) {
 	const id = "parequest000001"
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", "time@test.com", requestActionData(t, app, id), http.StatusOK)
 	stale := requestActionData(t, app, id)
-	if err := saveRequestChecklist(app, 3, []map[string]string{{"key": "only_question", "text": "The only question."}}); err != nil {
+	if err := saveRequestChecklist(app, utilities.RequestChecklistScopeApproval, 2, []map[string]string{{"key": "only_question", "text": "The only question."}}); err != nil {
 		t.Fatal(err)
 	}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, stale, http.StatusConflict)
 	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowApprover, nil, http.StatusOK)
 	checklist := detail["checklist"].(map[string]any)
 	questions := checklist["questions"].([]any)
-	if checklist["version"] != float64(3) || len(questions) != 1 || questions[0].(map[string]any)["text"] != "The only question." {
+	if checklist["version"] != float64(2) || len(questions) != 1 || questions[0].(map[string]any)["text"] != "The only question." {
 		t.Fatalf("detail did not return the latest checklist: %v", checklist)
 	}
 	current := requestActionData(t, app, id)
-	current["checklist_version"] = 3
 	current["checklist_answers"] = map[string]any{"only_question": false}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, current, http.StatusBadRequest)
 	current["checklist_answers"] = map[string]any{"only_question": true}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, current, http.StatusOK)
-	if a := workflowRecord(t, app, "job_attachments", "paattachment001"); a.GetInt("checklist_version") != 3 {
-		t.Fatalf("approval stored checklist version %d; want 3", a.GetInt("checklist_version"))
+	if a := workflowRecord(t, app, "job_attachments", "paattachment001"); a.GetInt("checklist_version") != 2 {
+		t.Fatalf("approval stored checklist version %d; want 2", a.GetInt("checklist_version"))
+	}
+}
+
+func requestChecklistKeysFrom(t *testing.T, detail map[string]any) []string {
+	t.Helper()
+	keys := []string{}
+	for _, question := range detail["checklist"].(map[string]any)["questions"].([]any) {
+		keys = append(keys, question.(map[string]any)["key"].(string))
+	}
+	return keys
+}
+
+// Each stage answers its own list, and a new version of one list leaves pages
+// open on the other valid.
+func TestJobRequestChecklistFollowsTheStage(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const id = "parequest000001"
+	path := "/api/job_requests/" + id
+	clientSetupJSON(t, app, http.MethodPost, path+"/submit", "time@test.com", requestActionData(t, app, id), http.StatusOK)
+	approval := clientSetupJSON(t, app, http.MethodGet, path, workflowApprover, nil, http.StatusOK)
+	if got := requestChecklistKeysFrom(t, approval); !slices.Equal(got, requestApprovalKeys) {
+		t.Fatalf("approval showed %v", got)
+	}
+	clientSetupJSON(t, app, http.MethodPost, path+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
+	creation := clientSetupJSON(t, app, http.MethodGet, path, workflowAuthor, nil, http.StatusOK)
+	if got := requestChecklistKeysFrom(t, creation); !slices.Equal(got, requestCreationKeys) {
+		t.Fatalf("creation showed %v", got)
+	}
+	open := requestActionData(t, app, id)
+	if err := saveRequestChecklist(app, utilities.RequestChecklistScopeApproval, 2, []map[string]string{{"key": "only_question", "text": "The only question."}}); err != nil {
+		t.Fatal(err)
+	}
+	clientSetupJSON(t, app, http.MethodPost, path+"/create", workflowAuthor, open, http.StatusOK)
+}
+
+// Requests stay readable while a stage has no checklist, but its action waits.
+func TestJobRequestApprovalNeedsASavedChecklist(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const id = "parequest000001"
+	path := "/api/job_requests/" + id
+	if _, err := app.DB().NewQuery("DELETE FROM request_checklists WHERE scope='approval'").Execute(); err != nil {
+		t.Fatal(err)
+	}
+	clientSetupJSON(t, app, http.MethodPost, path+"/submit", "time@test.com", requestActionData(t, app, id), http.StatusOK)
+	data := requestActionData(t, app, id)
+	if data["checklist_version"] != 0 || len(data["checklist_answers"].(map[string]any)) != 0 {
+		t.Fatalf("expected an empty checklist, got %v", data)
+	}
+	clientSetupJSON(t, app, http.MethodPost, path+"/approve", workflowApprover, data, http.StatusBadRequest)
+	if status := workflowRecord(t, app, "job_requests", id).GetString("status"); status != "Awaiting approval" {
+		t.Fatalf("approval ran without a checklist: %s", status)
+	}
+}
+
+// A job holder confirms that a request duplicates no job, so a job holder can
+// reject it once approved, and not before.
+func TestJobRequestJobHolderCanRejectAtCreation(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const id = "parequest000001"
+	path := "/api/job_requests/" + id
+	canReject := func(email string) bool {
+		t.Helper()
+		detail := clientSetupJSON(t, app, http.MethodGet, path, email, nil, http.StatusOK)
+		return detail["permissions"].(map[string]any)["can_reject"] == true
+	}
+	clientSetupJSON(t, app, http.MethodPost, path+"/submit", "time@test.com", requestActionData(t, app, id), http.StatusOK)
+	data := requestActionData(t, app, id)
+	data["rejection_reason"] = "Duplicates an existing job."
+	if canReject(workflowAuthor) {
+		t.Fatal("a job holder could reject before approval")
+	}
+	clientSetupJSON(t, app, http.MethodPost, path+"/reject", workflowAuthor, data, http.StatusForbidden)
+	if !canReject(workflowApprover) {
+		t.Fatal("the selected approver could not reject")
+	}
+
+	clientSetupJSON(t, app, http.MethodPost, path+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
+	if !canReject(workflowAuthor) || !canReject(workflowApprover) {
+		t.Fatal("a job holder and the selected approver should both be able to reject")
+	}
+	// Tester Time created the request and holds no job claim.
+	if canReject("time@test.com") {
+		t.Fatal("a user without the job claim could reject")
+	}
+	data = requestActionData(t, app, id)
+	clientSetupJSON(t, app, http.MethodPost, path+"/reject", "time@test.com", map[string]any{"version": data["version"], "rejection_reason": "No."}, http.StatusForbidden)
+	clientSetupJSON(t, app, http.MethodPost, path+"/reject", workflowAuthor, data, http.StatusBadRequest)
+	data["rejection_reason"] = "Duplicates an existing job."
+	clientSetupJSON(t, app, http.MethodPost, path+"/reject", workflowAuthor, data, http.StatusOK)
+
+	r := workflowRecord(t, app, "job_requests", id)
+	holder, err := app.FindAuthRecordByEmail("users", workflowAuthor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.GetString("status") != "Rejected" || r.GetString("rejector") != holder.Id || r.GetString("rejection_reason") != "Duplicates an existing job." {
+		t.Fatalf("the rejection was not recorded: %s %s", r.GetString("status"), r.GetString("rejector"))
+	}
+	if a := workflowRecord(t, app, "job_attachments", "paattachment001"); a.GetString("approved") != "" || a.GetInt("checklist_version") != 0 || a.GetString("status") != "Rejected" {
+		t.Fatal("the rejection did not clear the approval")
 	}
 }
 
@@ -823,11 +940,14 @@ func TestRequestChecklistsCannotChange(t *testing.T) {
 		"no text":      {3, []map[string]string{{"key": "only_question", "text": " "}}},
 		"repeated key": {3, []map[string]string{question[0], question[0]}},
 	} {
-		if err := saveRequestChecklist(app, bad.version, bad.questions); err == nil {
+		if err := saveRequestChecklist(app, utilities.RequestChecklistScopeCreation, bad.version, bad.questions); err == nil {
 			t.Fatalf("%s: an invalid checklist was saved", name)
 		}
 	}
-	if err := saveRequestChecklist(app, 3, question); err != nil {
+	if err := saveRequestChecklist(app, "", 1, question); err == nil {
+		t.Fatal("a checklist without a scope was saved")
+	}
+	if err := saveRequestChecklist(app, utilities.RequestChecklistScopeCreation, 3, question); err != nil {
 		t.Fatal(err)
 	}
 }

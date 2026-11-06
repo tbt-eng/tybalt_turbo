@@ -34,22 +34,27 @@ await runBrowserHarness(
     const create = page.getByRole("button", { name: "Create Job", exact: true });
     await approve.waitFor();
 
-    // The approver confirms the seven statements.
-    assert.equal(await boxes.count(), 7);
+    // The approver confirms the approval checklist and has no duplicate review.
+    const duplicateReview = page.getByRole("heading", { name: "Duplicate-work review" });
+    assert.equal(await boxes.count(), 6);
+    assert.equal(await duplicateReview.count(), 0);
     assert.equal(await approve.isDisabled(), true);
     for (const box of await boxes.all()) await box.check();
     assert.equal(await approve.isDisabled(), false);
     await approve.click();
     await page.waitForFunction(() => !document.querySelector("button[disabled]"));
     assert.equal(actions[0].path, "/api/job_requests/request1/approve");
+    assert.equal(actions[0].body.checklist_version, 1);
+    assert.equal(Object.keys(actions[0].body.checklist_answers).length, 6);
 
-    // Approval keeps the version and review token. A job holder who also
-    // approved the request still starts from empty boxes.
+    // Approval keeps the version and review token. A job holder answers the
+    // creation checklist, from empty boxes even if they also approved the request.
     await page.evaluate(() =>
       window.setRequestData(window.requestData("Awaiting creation", { can_create: true })),
     );
     await create.waitFor();
     assert.equal(await boxes.count(), 7);
+    assert.equal(await duplicateReview.count(), 1);
     for (const box of await boxes.all()) assert.equal(await box.isChecked(), false);
     assert.equal(await create.isDisabled(), true);
 

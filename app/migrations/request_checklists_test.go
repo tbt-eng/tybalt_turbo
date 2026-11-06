@@ -22,6 +22,63 @@ func requestChecklistsItem(t *testing.T) *core.Migration {
 	return nil
 }
 
+// Existing versions become creation checklists, leaving no approval checklist.
+// Scope and version together identify a checklist, and going down drops approval
+// checklists whose numbers could collide.
+func TestRequestChecklistScopeMigration(t *testing.T) {
+	app := newMigratedApp(t)
+	var item *core.Migration
+	for _, candidate := range core.AppMigrations.Items() {
+		if strings.HasSuffix(candidate.File, "_request_checklist_scope.go") {
+			item = candidate
+		}
+	}
+	if item == nil {
+		t.Fatal("request checklist scope migration is not registered")
+	}
+	count := func(scope string) int {
+		t.Helper()
+		var total int
+		if err := app.DB().NewQuery("SELECT COUNT(*) FROM request_checklists WHERE scope={:scope}").Bind(dbx.Params{"scope": scope}).Row(&total); err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	if count("creation") != 2 || count("approval") != 0 {
+		t.Fatalf("got %d creation and %d approval checklists", count("creation"), count("approval"))
+	}
+	checklists, err := app.FindCollectionByNameOrId("request_checklists")
+	if err != nil {
+		t.Fatal(err)
+	}
+	approval := core.NewRecord(checklists)
+	approval.Set("scope", "approval")
+	approval.Set("version", 2)
+	approval.Set("questions", []map[string]string{{"key": "only_question", "text": "The only question."}})
+	if err := app.Save(approval); err != nil {
+		t.Fatalf("scope and version together should identify a checklist: %v", err)
+	}
+	if err := item.Down(app); err != nil {
+		t.Fatal(err)
+	}
+	if checklists, err = app.FindCollectionByNameOrId("request_checklists"); err != nil {
+		t.Fatal(err)
+	}
+	if checklists.Fields.GetByName("scope") != nil || checklists.GetIndex("idx_request_checklists_version") == "" {
+		t.Fatal("down did not restore the version index")
+	}
+	var remaining int
+	if err := app.DB().NewQuery("SELECT COUNT(*) FROM request_checklists").Row(&remaining); err != nil || remaining != 2 {
+		t.Fatalf("down left %d checklists: %v", remaining, err)
+	}
+	if err := item.Up(app); err != nil {
+		t.Fatal(err)
+	}
+	if count("creation") != 2 {
+		t.Fatal("up did not scope the saved checklists")
+	}
+}
+
 // Each version keeps the exact statements approvers were shown.
 func TestRequestChecklistsMigrationSavesEachVersion(t *testing.T) {
 	app := newMigratedApp(t)

@@ -9,6 +9,13 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+// A request checklist belongs to the stage that answers it. Each scope numbers
+// its own versions.
+const (
+	RequestChecklistScopeApproval = "approval"
+	RequestChecklistScopeCreation = "creation"
+)
+
 // RequestChecklistQuestion is one statement of a project request checklist. An
 // approver or job holder must answer it true to continue.
 type RequestChecklistQuestion struct {
@@ -38,10 +45,10 @@ func RequestChecklistQuestions(record *core.Record) ([]RequestChecklistQuestion,
 	return questions, nil
 }
 
-// LatestRequestChecklistVersion returns the highest saved version, or zero when
-// none is saved.
-func LatestRequestChecklistVersion(app core.App) (int, error) {
-	records, err := app.FindRecordsByFilter("request_checklists", "", "-version", 1, 0)
+// LatestRequestChecklistVersion returns the highest version saved for a scope,
+// or zero when none is saved.
+func LatestRequestChecklistVersion(app core.App, scope string) (int, error) {
+	records, err := app.FindRecordsByFilter("request_checklists", "scope = {:scope}", "-version", 1, 0, dbx.Params{"scope": scope})
 	if err != nil {
 		return 0, err
 	}
@@ -51,15 +58,16 @@ func LatestRequestChecklistVersion(app core.App) (int, error) {
 	return records[0].GetInt("version"), nil
 }
 
-// CurrentRequestChecklist returns the questions approvers and job holders answer
-// now, which are those of the highest version.
-func CurrentRequestChecklist(app core.App) (int, []RequestChecklistQuestion, error) {
-	records, err := app.FindRecordsByFilter("request_checklists", "", "-version", 1, 0)
+// CurrentRequestChecklist returns the questions a scope answers now, which are
+// those of its highest version. With none saved it returns version zero and no
+// questions, so a request can still be viewed but its action cannot proceed.
+func CurrentRequestChecklist(app core.App, scope string) (int, []RequestChecklistQuestion, error) {
+	records, err := app.FindRecordsByFilter("request_checklists", "scope = {:scope}", "-version", 1, 0, dbx.Params{"scope": scope})
 	if err != nil {
 		return 0, nil, err
 	}
 	if len(records) == 0 {
-		return 0, nil, errors.New("no request checklist is saved")
+		return 0, []RequestChecklistQuestion{}, nil
 	}
 	questions, err := RequestChecklistQuestions(records[0])
 	if err != nil {
@@ -68,9 +76,10 @@ func CurrentRequestChecklist(app core.App) (int, []RequestChecklistQuestion, err
 	return records[0].GetInt("version"), questions, nil
 }
 
-// RequestChecklistVersionExists reports whether a version has saved questions.
-func RequestChecklistVersionExists(app core.App, version int) (bool, error) {
-	count, err := app.CountRecords("request_checklists", dbx.HashExp{"version": version})
+// RequestChecklistVersionExists reports whether a scope's version has saved
+// questions.
+func RequestChecklistVersionExists(app core.App, scope string, version int) (bool, error) {
+	count, err := app.CountRecords("request_checklists", dbx.HashExp{"scope": scope, "version": version})
 	if err != nil {
 		return false, err
 	}

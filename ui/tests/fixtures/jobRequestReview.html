@@ -13,19 +13,21 @@
       import "/src/app.css";
       import Harness from "./JobRequestReviewHarness.svelte";
 
+      const statements = (length) =>
+        Array.from({ length }, (_, index) => ({
+          key: `question${index}`,
+          text: `Statement ${index}`,
+        }));
       const detail = (status, permissions) => ({
         request: { id: "request1", version: 3, status },
         allocations: [],
         attachment: { id: "attachment1", document_hash: "hash1" },
         related: {},
         review_token: "token1",
-        checklist: {
-          version: 2,
-          questions: Array.from({ length: 7 }, (_, index) => ({
-            key: `question${index}`,
-            text: `Statement ${index}`,
-          })),
-        },
+        checklist:
+          status === "Awaiting creation"
+            ? { version: 2, questions: statements(7) }
+            : { version: 1, questions: statements(6) },
         permissions,
       });
       window.requestData = (status = "Awaiting approval", permissions = { can_approve: true }) => ({

@@ -197,12 +197,16 @@ func AddProjectWorkflowHooks(app core.App) {
 	// An approval refers to a question set by its version, so a saved set never
 	// changes. Changing a question means adding the next version.
 	app.OnRecordCreate("request_checklists").BindFunc(func(e *core.RecordEvent) error {
-		latest, err := utilities.LatestRequestChecklistVersion(e.App)
-		if err != nil {
-			return err
-		}
-		if e.Record.GetInt("version") != latest+1 {
-			return workflowError(fmt.Sprintf("the next request checklist version is %d", latest+1))
+		// A migration saves the first versions before the scope field exists.
+		if e.Record.Collection().Fields.GetByName("scope") != nil {
+			scope := e.Record.GetString("scope")
+			latest, err := utilities.LatestRequestChecklistVersion(e.App, scope)
+			if err != nil {
+				return err
+			}
+			if e.Record.GetInt("version") != latest+1 {
+				return workflowError(fmt.Sprintf("the next %s request checklist version is %d", scope, latest+1))
+			}
 		}
 		if _, err := utilities.RequestChecklistQuestions(e.Record); err != nil {
 			return workflowError(err.Error())

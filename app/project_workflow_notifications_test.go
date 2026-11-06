@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"tybalt/notifications"
@@ -199,6 +200,20 @@ The project will now be created and given a number. You will receive another ema
 		before := len(app.TestMailer.Messages())
 		reject(t, app)
 		expectWorkflowEmails(t, app, before, rejected("withdrew approval of", "The project will not be created. "))
+	})
+	t.Run("job holder rejects an approved request", func(t *testing.T) {
+		app := newWorkflowTestApp(t, true)
+		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", testerTimeEmail, requestActionData(t, app, id), http.StatusOK)
+		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
+		before := len(app.TestMailer.Messages())
+		rejection := requestActionData(t, app, id)
+		rejection["rejection_reason"] = "Revise the signed scope."
+		clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/reject", horaceEmail, rejection, http.StatusOK)
+		// A job holder did not give the approval, so cannot have withdrawn it.
+		messages := app.TestMailer.Messages()
+		if len(messages) != before+1 || !strings.Contains(messages[before].Text, " rejected your project request") || strings.Contains(messages[before].Text, "withdrew") {
+			t.Fatalf("unexpected rejection emails: %v", describeEmails(messages[before:]))
+		}
 	})
 	t.Run("own approval sends nothing", func(t *testing.T) {
 		app := newWorkflowTestApp(t, true)

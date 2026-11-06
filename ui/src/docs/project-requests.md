@@ -5,8 +5,8 @@ Every new project and subjob starts as a request. An approver checks it, then pr
 ```flow
 You | Create the request | Start from a proposal if one exists. Enter the details, division hours and approver.
 You | Upload and submit | Upload one signed PDF that authorizes the project.
-Approver | Approve or reject | Check for duplicates and confirm the checklist.
-Procurement | Create the job | Confirm the checklist again, then create the job.
+Approver | Approve or reject | Confirm the checklist.
+Procurement | Create or reject | Check for duplicates and confirm the checklist.
 Note: Rejected? Edit the request and submit it again.
 ```
 
@@ -44,9 +44,8 @@ Include the rate appendix for time and materials work. Save your edits before yo
 ## Approve a request
 
 1. Open **Request Approvals**. Open the request.
-2. Review the possible duplicate jobs.
-3. Confirm all seven checklist statements.
-4. Select **Approve request**.
+2. Confirm all checklist statements.
+3. Select **Approve request**.
 
 To decline, enter a rejection reason and select **Reject**.
 
@@ -54,25 +53,28 @@ To decline, enter a rejection reason and select **Reject**.
 
 1. Open **Job Create Queue**. Open the request.
 2. Check the request, the PDF and existing jobs.
-3. Confirm all seven checklist statements.
+3. Confirm all checklist statements.
 4. Select **Create Job**. Turbo assigns the job number.
+
+If the request duplicates a job, enter a rejection reason and select **Reject**.
 
 ## Change a request
 
 - **You:** select **Recall for editing**. This works until procurement creates the job.
 - **Approver:** enter a reason and select **Reject**.
+- **Procurement:** after approval, enter a reason and select **Reject**.
 
-Both actions clear the approval, so the request needs a new approval. You must edit a rejected request before you submit it again.
+These actions clear the approval, so the request needs a new approval. You must edit a rejected request before you submit it again.
 
 ## Request statuses
 
-| Status            | What happens next                      |
-| ----------------- | -------------------------------------- |
-| Draft             | You edit and submit it.                |
-| Awaiting approval | The approver approves or rejects.      |
-| Awaiting creation | Procurement creates the job.           |
-| Rejected          | You edit it and submit it again.       |
-| Recalled          | You can edit it, then submit it again. |
+| Status            | What happens next                                   |
+| ----------------- | --------------------------------------------------- |
+| Draft             | You edit and submit it.                             |
+| Awaiting approval | The approver approves or rejects.                   |
+| Awaiting creation | Procurement creates the job or rejects the request. |
+| Rejected          | You edit it and submit it again.                    |
+| Recalled          | You can edit it, then submit it again.              |
 
 ## Change a project's value
 

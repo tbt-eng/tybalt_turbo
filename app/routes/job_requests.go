@@ -509,19 +509,50 @@ func requestSaveHandler(app core.App) func(*core.RequestEvent) error {
 	}
 }
 
-// validateChecklist requires a true answer to every question of the current
-// checklist. The caller records input.ChecklistVersion, never the answers.
-func validateChecklist(app core.App, input workflowAction) error {
-	version, questions, err := utilities.CurrentRequestChecklist(app)
+// requestChecklistScope names the checklist that a request's next action answers.
+func requestChecklistScope(r *core.Record) string {
+	if r.GetString("status") == "Awaiting creation" {
+		return utilities.RequestChecklistScopeCreation
+	}
+	return utilities.RequestChecklistScopeApproval
+}
+
+// canRejectRequest allows the selected approver until the job is created. A job
+// holder can reject once the request is approved, because a job holder confirms
+// that it does not duplicate an existing job.
+func canRejectRequest(app core.App, r *core.Record, auth *core.Record) (bool, error) {
+	state := r.GetString("status")
+	if state != "Awaiting approval" && state != "Awaiting creation" {
+		return false, nil
+	}
+	if r.GetString("approver") == auth.Id {
+		ok, err := utilities.HasClaim(app, auth, "project_authorization")
+		if ok || err != nil {
+			return ok, err
+		}
+	}
+	if state != "Awaiting creation" {
+		return false, nil
+	}
+	return utilities.HasClaim(app, auth, "job")
+}
+
+// validateChecklist requires a true answer to every question of the scope's
+// current checklist. The caller records input.ChecklistVersion, never the answers.
+func validateChecklist(app core.App, scope string, input workflowAction) error {
+	version, questions, err := utilities.CurrentRequestChecklist(app, scope)
 	if err != nil {
 		return err
+	}
+	if version == 0 {
+		return workflowError("No " + scope + " checklist is saved.")
 	}
 	if input.ChecklistVersion < 1 || input.ChecklistVersion > version {
 		return workflowError(fmt.Sprintf("Checklist version %d is not supported.", input.ChecklistVersion))
 	}
 	// A page opened before a checklist change shows the old statements.
 	if input.ChecklistVersion != version {
-		return apis.NewApiError(http.StatusConflict, "The approval checklist changed. Reload the request and review it again.", nil)
+		return apis.NewApiError(http.StatusConflict, "The checklist changed. Reload the request and review it again.", nil)
 	}
 	if len(input.ChecklistAnswers) != len(questions) {
 		return workflowError(fmt.Sprintf("Use only the %d checklist answers for version %d.", len(questions), version))
@@ -596,11 +627,15 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 					r.Set("status", "Recalled")
 					clearRequestRejection(r)
 				} else {
-					if err = workflowClaim(tx, e.Auth, "project_authorization"); err != nil {
+					if err = workflowActive(tx, e.Auth); err != nil {
 						return err
 					}
-					if r.GetString("approver") != e.Auth.Id {
-						return apis.NewForbiddenError("Only the selected approver can reject this request.", nil)
+					canReject, err := canRejectRequest(tx, r, e.Auth)
+					if err != nil {
+						return err
+					}
+					if !canReject {
+						return apis.NewForbiddenError("Only the selected approver, or a job holder once the request is approved, can reject this request.", nil)
 					}
 					if strings.TrimSpace(input.RejectionReason) == "" {
 						return workflowError("Enter a rejection reason.")
@@ -639,7 +674,7 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				if err != nil {
 					return err
 				}
-				if err = validateChecklist(tx, input); err != nil {
+				if err = validateChecklist(tx, utilities.RequestChecklistScopeApproval, input); err != nil {
 					return err
 				}
 				a, err = validateRequestComplete(tx, r, true)
@@ -675,7 +710,7 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				if r.GetString("submission_token") == "" {
 					return apis.NewApiError(http.StatusConflict, "This request has no submission token. Recall and submit it again.", nil)
 				}
-				if err = validateChecklist(tx, input); err != nil {
+				if err = validateChecklist(tx, utilities.RequestChecklistScopeCreation, input); err != nil {
 					return err
 				}
 				a, err = validateRequestComplete(tx, r, false)
@@ -692,7 +727,7 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				if a.GetString("approver") != r.GetString("approver") || a.GetString("approved") == "" || a.GetFloat("approval_max_value") < r.GetFloat("project_value") || a.GetString("rejected") != "" || r.GetString("rejected") != "" {
 					return workflowError("The saved approval is incomplete. Recall the request for a new approval.")
 				}
-				approvedChecklist, err := utilities.RequestChecklistVersionExists(tx, a.GetInt("checklist_version"))
+				approvedChecklist, err := utilities.RequestChecklistVersionExists(tx, utilities.RequestChecklistScopeApproval, a.GetInt("checklist_version"))
 				if err != nil {
 					return err
 				}
@@ -723,7 +758,9 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				return err
 			}
 			if event := map[string]string{"submit": "submitted", "approve": "approved", "reject": "rejected"}[action]; event != "" {
-				if notices, err = queueRequestNotice(tx, r, event, e.Auth.Id, nil, action == "reject" && state == "Awaiting creation"); err != nil {
+				// Only the approver can withdraw an approval; a job holder rejects.
+				withdrawn := action == "reject" && state == "Awaiting creation" && r.GetString("approver") == e.Auth.Id
+				if notices, err = queueRequestNotice(tx, r, event, e.Auth.Id, nil, withdrawn); err != nil {
 					return err
 				}
 			}
