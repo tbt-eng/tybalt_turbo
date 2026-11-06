@@ -6,11 +6,14 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
 | Approver              | A person who approves a time sheet, expense, purchase order, project request or project value change. See **Who approves what**.                    |                 |
 | Authorization PDF     | The signed PDF that authorizes a project or a value change. It must legally bind the company and the client.                                        |                 |
+| Billed-back cost      | An expense or PO cost that the company billed to a client on a client invoice.                                                                      |                 |
 | Category              | A group of costs within one job.                                                                                                                    |                 |
+| Client invoice        | An invoice that the company sends to a client. Invoicing staff record it in Turbo.                                                                  |                 |
 | Committer             | Staff who commit time sheets and expenses. Commit is the final step.                                                                                |                 |
 | Default branch        | The branch that an admin sets on your profile. Turbo uses it when a record has no job or PO.                                                        |                 |
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
 | Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
+| Invoicing staff       | Staff who record client invoices and billed-back costs.                                                                                             |                 |
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
 | Payables staff        | Staff who can cancel, close or convert a purchase order.                                                                                            |                 |
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
