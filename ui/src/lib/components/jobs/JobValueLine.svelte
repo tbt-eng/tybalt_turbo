@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { globalStore } from "$lib/stores/global";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
@@ -79,6 +80,7 @@
   <DsActionButton color="yellow" action={() => value.openProposal(null)}
     >Propose new value</DsActionButton
   >
+  <DSHelp doc="project-requests#change-a-projects-value" iconOnly />
 {/if}
 {#if value.error && !confirmingDelete}<span role="alert" class="text-sm text-red-800"
     >{value.error}</span

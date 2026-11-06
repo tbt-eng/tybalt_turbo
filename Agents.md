@@ -2,6 +2,13 @@
 
 ## Repository expectations
 
+## User docs
+
+1. All user docs live in `ui/src/docs/`.
+2. A change that alters what a user sees or does updates those docs in the same commit, including the glossary and any `DSHelp` reference.
+3. Follow the limits and style in `ui/src/docs/README.md`. Brevity comes first.
+4. If a user-facing commit needs no docs change, add a `Docs: none` line to its message.
+
 ## Test fixtures
 
 1. Use fixtures whenever possible, in the csv files, for testing.

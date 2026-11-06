@@ -31,10 +31,12 @@ Full rationale and component APIs: ../descriptions/ui_design_system.md.
 | Chip or tag                         | DsLabel (`tone` for meaning, `color` for categories, `size="sm"`)                                                                      |
 | Job, PO or expense status           | DSStatusLabel                                                                                                                          |
 | Show/hide block                     | DSCollapsible                                                                                                                          |
+| Second navigation column            | DSSideNav                                                                                                                              |
 | Tabs                                | DSTabBar                                                                                                                               |
 | Lists of records                    | DSList / DSSearchList                                                                                                                  |
 | Inputs                              | DSTextInput, DSSelector, DSAutoComplete, DSDateInput, DSCurrencyInput, DSToggle, DsCheck, DsFileSelect, DSLocationPicker, DSTokenInput |
 | Files                               | DsFileLink, DsFileSelect                                                                                                               |
+| Help on a page                      | DSHelp with `doc="page#section"`; write the text in src/docs                                                                           |
 | Editing-disabled notice             | DsEditingDisabledBanner                                                                                                                |
 
 Every component is shown in each variant at /dev/components (admins only;
@@ -66,8 +68,9 @@ source in src/routes/dev/components/+page.svelte).
 ## The check
 
 `npm run check:ui` (also the first step of `npm run lint`) runs
-scripts/check-ui.mjs. It fails when a file gains a pattern above the
-recorded baseline in scripts/check-ui-baseline.json. Run it after UI changes.
+scripts/check-ui.mjs, scripts/check-docs-style.mjs and tests/docs.test.ts. The
+first fails when a file gains a pattern above the recorded baseline in
+scripts/check-ui-baseline.json. Run it after UI changes.
 
 - Fix a failure by using the component it names.
 - A deliberate exception needs `ui-check-allow: <reason>` on the same line
@@ -82,3 +85,4 @@ recorded baseline in scripts/check-ui-baseline.json. Run it after UI changes.
 - Generated PocketBase types: src/lib/pocketbase-types.ts
 - Formatting helpers: src/lib/utilities.ts
 - Global CSS and the `link` utility: src/app.css
+- User docs: src/docs (format and style rules in src/docs/README.md)

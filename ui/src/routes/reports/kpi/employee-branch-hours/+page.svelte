@@ -88,7 +88,7 @@
       };
       loaded = true;
     } catch (error) {
-      console.error("Failed to load employee branch hours report:", error);
+      console.error("Failed to load staff branch hours report:", error);
       errorMessage = "The report could not be loaded. Try again.";
       report = { columns: [], rows: [] };
       loaded = true;
@@ -119,16 +119,16 @@
 </script>
 
 <svelte:head>
-  <title>Employee Branch Hours</title>
+  <title>Staff Branch Hours</title>
 </svelte:head>
 
 <main class="mx-auto max-w-full p-4 sm:p-6">
   <div class="mb-5">
     <a class="text-sm text-blue-700 hover:underline" href={resolve("/reports/kpi")}>← KPI Reports</a
     >
-    <h1 class="mt-1 text-3xl font-bold text-neutral-900">Employee Branch Hours</h1>
+    <h1 class="mt-1 text-3xl font-bold text-neutral-900">Staff Branch Hours</h1>
     <p class="mt-2 text-neutral-600">
-      Regular and training hours assigned to jobs and no-job work, grouped by employee and branch.
+      Regular and training hours assigned to jobs and no-job work, grouped by staff member and branch.
     </p>
   </div>
 
@@ -209,7 +209,7 @@
       </div>
     {:else if loaded && report.rows.length === 0}
       <div class="rounded-lg border border-neutral-200 bg-white p-6 text-neutral-500 shadow-sm">
-        No employees have qualifying hours in this period.
+        No staff have qualifying hours in this period.
       </div>
     {:else if report.rows.length > 0}
       <section class="report-table rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">

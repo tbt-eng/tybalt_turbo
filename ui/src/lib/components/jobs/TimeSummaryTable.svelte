@@ -2,7 +2,7 @@
   import DSActionButton from "$lib/components/DSActionButton.svelte";
   import { downloadCsvRows } from "$lib/utilities";
   import TimeValuationNote from "./TimeValuationNote.svelte";
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import TimeSummaryValue from "./TimeSummaryValue.svelte";
   import {
     summaryCell,
@@ -64,26 +64,26 @@
 <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
   <div>
     {#if noRateSheet}
-      <TimeSummaryHelp
+      <DSHelp
         label={allTotals.estimated_hours > 0
-          ? "No rate sheet · employee rates used"
+          ? "No rate sheet · staff rates used"
           : "No rate sheet"}
         title="No rate sheet assigned"
         warning={true}
       >
         <p>
-          This job has no rate sheet. Employee default charge-out rates are used when they are
+          This job has no rate sheet. Staff default charge-out rates are used when they are
           greater than zero.
         </p>
         {#if allTotals.estimated_hours > 0}<p>
-            {allTotals.estimated_hours.toFixed(2)} hours use employee defaults. Their estimated value
+            {allTotals.estimated_hours.toFixed(2)} hours use staff defaults. Their estimated value
             is included in the total.
           </p>{/if}
         {#if allTotals.unpriced_hours > 0}<p>
             {allTotals.unpriced_hours.toFixed(2)} hours cannot be priced. Affected amounts are marked
             Partial.
           </p>{/if}
-      </TimeSummaryHelp>
+      </DSHelp>
     {/if}
   </div>
   <TimeValuationNote {rateSheet} />

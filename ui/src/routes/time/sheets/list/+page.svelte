@@ -26,7 +26,7 @@
   const viewerId = pb.authStore.record?.id ?? "";
   const hasCommitAccess = () => $globalStore.showAllUi || $globalStore.claims.includes("commit");
 
-  // Initialize the timesheets store when component mounts
+  // Initialize the time sheets store when component mounts
   onMount(async () => {
     try {
       // TODO: This runs every time the page is loaded which defeats the purpose
@@ -35,7 +35,7 @@
       await timesheets.init();
     } catch (error) {
       console.error("Failed to initialize timesheets:", error);
-      globalStore.addError("Failed to load timesheets");
+      globalStore.addError("Failed to load time sheets");
     }
   });
 
@@ -49,7 +49,7 @@
       });
       await globalStore.refreshAttentionCounts();
 
-      // navigate to the time entries list to show the unbundled time entries
+      // navigate to the time entries list to show the recalled time entries
       goto(`/time/entries/list`);
     } catch (error: any) {
       globalStore.addError(getApiErrorMessage(error, "Recall failed"));

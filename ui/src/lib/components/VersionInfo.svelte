@@ -86,7 +86,7 @@
 </script>
 
 {#if loading}
-  <div class="flex items-center text-xs text-neutral-400">
+  <div class="flex items-center text-xs text-neutral-300">
     <span>Loading...</span>
   </div>
 {:else if error}
@@ -97,7 +97,7 @@
   <div class="relative">
     <button
       onclick={toggleDetails}
-      class="flex items-center gap-1 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+      class="flex items-center gap-1 text-xs text-neutral-300 transition-colors hover:text-neutral-100"
       title="Click for version details"
     >
       <span>v{versionInfo.fullVersion}</span>

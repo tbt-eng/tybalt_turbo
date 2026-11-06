@@ -123,7 +123,7 @@ func validateProjectJobWrite(app core.App, job, actor *core.Record) error {
 			return err
 		}
 		if enabled && operation != ProjectWorkflowMutationCreateJob {
-			return workflowError("create projects through an approved job request")
+			return workflowError("create projects through an approved project request")
 		}
 	}
 	if !job.IsNew() {
@@ -273,7 +273,7 @@ func AddProjectWorkflowHooks(app core.App) {
 				return err
 			}
 			if enabled && op != ProjectWorkflowMutationCreateJob {
-				return workflowError("create projects through an approved job request")
+				return workflowError("create projects through an approved project request")
 			}
 		}
 		if !r.IsNew() {

@@ -113,6 +113,12 @@ Records with `_imported=true` originated from MySQL. Locally-created records hav
 
 ---
 
+## User Docs
+
+All user docs live in `ui/src/docs/`. A change that alters what a user sees or does updates those docs in the same commit, including the glossary and any `DSHelp` reference. Follow the limits and style in `ui/src/docs/README.md`. Brevity comes first. If a user-facing commit needs no docs change, add a `Docs: none` line to its message.
+
+---
+
 ## Key Business Concepts
 
 **Purchase Orders (POs)**: Central to the approval workflow. Approval authority is determined by `po_approver_props` per user, with limits varying by expenditure kind (`capital`, `project`, `sponsorship`, `staff_and_social`, `media_and_event`, `computer`). See the Authority Matrix section in `descriptions/purchase_orders.md` for the full matrix.

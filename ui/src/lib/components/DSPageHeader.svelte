@@ -12,6 +12,7 @@
     context,
     actions,
     menu,
+    keepInPrint = false,
   }: {
     title: string;
     subtitle?: string;
@@ -24,10 +25,15 @@
     // Rare and admin actions as DSMenuItems in a "⋯" flyout. The button only
     // shows when at least one item renders.
     menu?: Snippet;
+    // Page headers hide when printing, unless the title is the document's title.
+    keepInPrint?: boolean;
   } = $props();
 </script>
 
-<header class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+<header
+  data-print-keep={keepInPrint || undefined}
+  class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+>
   <div class="min-w-0 space-y-1">
     <div class="flex flex-wrap items-center gap-2">
       <h1 class="text-2xl font-bold break-words">{title}</h1>

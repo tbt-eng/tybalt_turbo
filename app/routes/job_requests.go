@@ -110,7 +110,7 @@ func workflowActive(app core.App, auth *core.Record) error {
 		return err
 	}
 	if !active {
-		return apis.NewForbiddenError("An active employee is required.", nil)
+		return apis.NewForbiddenError("An active staff member is required.", nil)
 	}
 	return nil
 }

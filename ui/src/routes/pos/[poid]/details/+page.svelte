@@ -3,6 +3,7 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import Icon from "@iconify/svelte";
   import POPrintButton from "$lib/components/POPrintButton.svelte";
@@ -582,6 +583,7 @@
           title="Reject"
           color="orange"
         />
+        <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
       {/if}
     </div>
   {/if}

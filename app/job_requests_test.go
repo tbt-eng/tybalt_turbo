@@ -28,7 +28,14 @@ func newWorkflowTestApp(t *testing.T, enabled bool) *tests.TestApp {
 	t.Helper()
 	app := testutils.SetupTestApp(t)
 	t.Cleanup(app.Cleanup)
-	// Change only the feature flag to exercise both supported release states.
+	setJobRequestFlag(t, app, enabled)
+	return app
+}
+
+// setJobRequestFlag changes only the feature flag to exercise both supported
+// release states.
+func setJobRequestFlag(t *testing.T, app *tests.TestApp, enabled bool) {
+	t.Helper()
 	config, err := app.FindFirstRecordByData("app_config", "key", "jobs")
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +49,6 @@ func newWorkflowTestApp(t *testing.T, enabled bool) *tests.TestApp {
 	if err = app.Save(config); err != nil {
 		t.Fatal(err)
 	}
-	return app
 }
 
 func workflowToken(t *testing.T, app *tests.TestApp, email string) string {
@@ -158,6 +164,79 @@ func TestJobRequestFeatureFlagAndCreatePermissions(t *testing.T) {
 	body := map[string]any{"request": map[string]any{"description": "Draft"}}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests", workflowAuthor, body, http.StatusForbidden)
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests", "", body, http.StatusUnauthorized)
+}
+
+// The flag must block direct creation of a project or subjob through either API.
+// With it off, the same requests must succeed, so a refusal can only come from
+// the flag. A superuser has no job claim, so it can't create one in either state.
+func TestJobRequestFlagBlocksDirectProjectCreation(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+			app := setupJobsWithBillingFixtures(t)
+			t.Cleanup(app.Cleanup)
+			setJobRequestFlag(t, app, enabled)
+			fixture, err := app.FindRecordById("jobs", "pcactivedated01")
+			if err != nil {
+				t.Fatal(err)
+			}
+			project := map[string]any{"status": "Active", "project_value": 1, "time_and_materials": false}
+			for _, field := range []string{"invoicing_information", "description", "client", "contact", "manager", "branch", "location", "project_award_date", "project_completion_date", "rate_sheet"} {
+				project[field] = fixture.GetString(field)
+			}
+			subjob := map[string]any{"parent": fixture.Id}
+			for field, value := range project {
+				subjob[field] = value
+			}
+			allocations := []map[string]any{{"division": "fy4i9poneukvq9u", "hours": 10}}
+			superuser, err := testutils.GenerateRecordToken("_superusers", "test@example.com")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, body := range []map[string]any{project, subjob} {
+				before, err := app.CountRecords("jobs")
+				if err != nil {
+					t.Fatal(err)
+				}
+				mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/collections/jobs/records", superuser, body), http.StatusForbidden)
+				if after, err := app.CountRecords("jobs"); err != nil || after != before {
+					t.Fatalf("superuser changed the job count from %d to %d: %v", before, after, err)
+				}
+			}
+			for _, tc := range []struct {
+				name, path string
+				body       any
+			}{
+				{"custom API project", "/api/jobs", map[string]any{"job": project, "allocations": allocations}},
+				{"collection API project", "/api/collections/jobs/records", project},
+				{"custom API subjob", "/api/jobs", map[string]any{"job": subjob, "allocations": allocations}},
+				{"collection API subjob", "/api/collections/jobs/records", subjob},
+			} {
+				before, err := app.CountRecords("jobs")
+				if err != nil {
+					t.Fatal(err)
+				}
+				response := performJSONRequest(t, app, http.MethodPost, tc.path, workflowToken(t, app, workflowAuthor), tc.body)
+				after, err := app.CountRecords("jobs")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if enabled {
+					mustStatus(t, response, http.StatusBadRequest)
+					if !strings.Contains(response.Body.String(), "create projects through an approved project request") {
+						t.Fatalf("%s: wrong refusal: %s", tc.name, response.Body.String())
+					}
+					if after != before {
+						t.Fatalf("%s: created a job while refusing it", tc.name)
+					}
+				} else {
+					mustStatus(t, response, http.StatusOK)
+					if after != before+1 {
+						t.Fatalf("%s: job count went from %d to %d", tc.name, before, after)
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestJobRequestDraftValidationAndVersion(t *testing.T) {

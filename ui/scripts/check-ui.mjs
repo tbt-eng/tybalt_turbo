@@ -71,6 +71,13 @@ const rules = [
     pattern: /<h1\b/g,
     use: "DSPageHeader",
   },
+  {
+    // The glossary's "Don't use" words. Code names like jobRequests don't match.
+    id: "replaced-word",
+    pattern:
+      /(?<![\w./$-]|\{ )(?:[Jj]ob [Rr]equests?|[Bb]illing [Pp]rofiles?|PAs?|[Uu]nbundl(?:e|ed|ing)|[Tt]imesheets?|[Ee]mployees?)(?![\w(.:=`/-])/g,
+    use: "the word in src/docs/glossary.md",
+  },
 ];
 
 // Shared DS components own the styling, so they are not scanned.

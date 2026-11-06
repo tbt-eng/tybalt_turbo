@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatCurrency } from "$lib/utilities";
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { displayValue, pricingAnomaly } from "./timeSummary";
 
   let {
@@ -23,7 +23,7 @@
   const amount = $derived(displayValue({ value, hours, unpriced_hours: unpricedHours }));
   const anomaly = $derived(pricingAnomaly(estimatedHours, unpricedHours, noRateSheet));
   const title = $derived(
-    anomaly === "Partial" ? `${context}: unpriced hours` : `${context}: employee rates used`,
+    anomaly === "Partial" ? `${context}: unpriced hours` : `${context}: staff rates used`,
   );
 </script>
 
@@ -41,10 +41,10 @@
     <span class="whitespace-nowrap">{amount === null ? "—" : formatCurrency(amount)}</span>
   {/if}
   {#if anomaly}
-    <TimeSummaryHelp label={anomaly} {title} warning={true}>
+    <DSHelp label={anomaly} {title} warning={true}>
       {#if unpricedHours > 0}
         <p>
-          {unpricedHours.toFixed(2)} of {hours.toFixed(2)} hours have no matching job rate and no employee
+          {unpricedHours.toFixed(2)} of {hours.toFixed(2)} hours have no matching job rate and no staff
           default rate greater than zero.
         </p>
         <p>
@@ -54,10 +54,10 @@
       {/if}
       {#if estimatedHours > 0}
         <p>
-          {estimatedHours.toFixed(2)} of {hours.toFixed(2)} hours use employee default charge-out rates
+          {estimatedHours.toFixed(2)} of {hours.toFixed(2)} hours use staff default charge-out rates
           because no job rate matches. Their estimated value is included.
         </p>
       {/if}
-    </TimeSummaryHelp>
+    </DSHelp>
   {/if}
 </div>

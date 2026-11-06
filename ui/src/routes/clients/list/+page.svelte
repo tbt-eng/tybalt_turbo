@@ -11,7 +11,7 @@
   clients.init();
 
   async function del(id: string, label: string): Promise<void> {
-    const inUse = `${label} could not be deleted because jobs, job requests, invoicing profiles or notes use it. Absorb it into another client instead.`;
+    const inUse = `${label} could not be deleted because jobs, project requests, invoicing profiles or notes use it. Absorb it into another client instead.`;
     try {
       await pb.collection("clients").delete(id);
       // Remove the row now instead of waiting for the realtime delete event.
@@ -35,7 +35,7 @@
     }
     // PocketBase answers 404 both when the client is gone and when the delete
     // rule refuses the request: the user lacks the job claim or an active admin
-    // profile, or a job, job request or invoicing profile uses the client.
+    // profile, or a job, project request or invoicing profile uses the client.
     // Reload the client to tell which.
     const fresh = await clients.reloadClient(id).catch(() => undefined);
     if (fresh === null) return; // already deleted, and now removed from the list

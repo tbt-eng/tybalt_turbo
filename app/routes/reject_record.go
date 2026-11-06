@@ -111,7 +111,7 @@ func createRejectRecordHandler(app core.App, collectionName string) func(e *core
 				// Log error but don't fail the request if notification fails
 				if notifErr := notifications.QueueTimesheetRejectedNotifications(app, rejectedRecord, userId, req.RejectionReason); notifErr != nil {
 					app.Logger().Error(
-						"error queueing timesheet rejection notifications",
+						"error queueing time sheet rejection notifications",
 						"timesheet_id", id,
 						"error", notifErr,
 					)

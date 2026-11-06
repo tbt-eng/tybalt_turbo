@@ -68,7 +68,7 @@ func checkAuthorizationHash(app core.App, hash, except string) error {
 			return err
 		}
 		if abandonedRequest(r) {
-			return workflowError("This PDF belongs to abandoned job request " + id + ". Give this request ID to an admin to resolve the duplicate.")
+			return workflowError("This PDF belongs to abandoned project request " + id + ". Give this request ID to an admin to resolve the duplicate.")
 		}
 	}
 	return workflowError("This PDF already belongs to a project request or job approval.")

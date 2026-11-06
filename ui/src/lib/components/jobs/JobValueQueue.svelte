@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
   import type { WorkflowRecord } from "$lib/clientEditors";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DSList from "$lib/components/DSList.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSActionButton from "$lib/components/DSActionButton.svelte";
@@ -24,6 +25,9 @@
 </script>
 
 <div class="space-y-4">
+  <div class="flex justify-end">
+    <DSHelp doc="project-requests#change-a-projects-value" label="Help" />
+  </div>
   {#if value.error && !decision}<DSCallout tone="danger">{value.error}</DSCallout>{/if}
 
   <DSList

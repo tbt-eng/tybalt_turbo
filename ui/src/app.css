@@ -57,8 +57,8 @@
   /* Hide sidebar, mobile header, navigation bars, overlays */
   aside.flex,
   aside,
-  header.flex,
-  header,
+  header.flex:not([data-print-keep]),
+  header:not([data-print-keep]),
   [data-print-hide] {
     display: none !important;
   }

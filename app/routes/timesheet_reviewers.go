@@ -86,7 +86,7 @@ LIMIT 1`
 			Bind(dbx.Params{"timesheetId": timesheetId}).
 			One(&meta); err != nil {
 			return e.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "failed to fetch timesheet metadata: " + err.Error(),
+				"error": "failed to fetch time sheet metadata: " + err.Error(),
 			})
 		}
 

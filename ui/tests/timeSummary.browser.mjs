@@ -74,12 +74,12 @@ await runBrowserHarness(async (page, origin) => {
   }
   await scenario("mixed");
   const estimated = page.getByRole("button", {
-    name: "Estimated: Alex Morgan: employee rates used",
+    name: "Estimated: Alex Morgan: staff rates used",
     exact: true,
   });
   await estimated.click();
   const estimatedDialog = page.getByRole("dialog", {
-    name: "Alex Morgan: employee rates used",
+    name: "Alex Morgan: staff rates used",
     exact: true,
   });
   await estimatedDialog.waitFor();
@@ -89,7 +89,7 @@ await runBrowserHarness(async (page, origin) => {
   await page.getByRole("button", { name: "Close explanation", exact: true }).click();
   await scenario("no-sheet");
   assert.equal(await page.getByRole("button", { name: /^Estimated:/ }).count(), 0);
-  await page.getByRole("button", { name: /^No rate sheet · employee rates used/ }).click();
+  await page.getByRole("button", { name: /^No rate sheet · staff rates used/ }).click();
   assert.match(await page.getByRole("dialog").innerText(), /24\.00 hours/);
   await page.keyboard.press("Escape");
   await scenario("partial");

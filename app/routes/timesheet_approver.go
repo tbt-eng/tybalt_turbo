@@ -55,7 +55,7 @@ func createTimesheetApproverHandler(app core.App) func(e *core.RequestEvent) err
 	return func(e *core.RequestEvent) error {
 		timesheetId := e.Request.PathValue("id")
 		if timesheetId == "" {
-			return e.Error(http.StatusBadRequest, "timesheet id is required", nil)
+			return e.Error(http.StatusBadRequest, "time sheet id is required", nil)
 		}
 		result, err := getTimesheetApproverInfo(app, timesheetId)
 		if err != nil {

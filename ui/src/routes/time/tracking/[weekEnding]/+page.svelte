@@ -63,7 +63,7 @@
       ignored = ignoredRes;
       notExpected = notExpectedRes;
     } catch (error: any) {
-      globalStore.addError(error?.response?.error || "Failed to load timesheets");
+      globalStore.addError(error?.response?.error || "Failed to load time sheets");
     } finally {
       isLoading = false;
     }

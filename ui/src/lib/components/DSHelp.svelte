@@ -1,10 +1,14 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
   import Icon from "@iconify/svelte";
   import type { Snippet } from "svelte";
+  import DSDoc from "$lib/components/DSDoc.svelte";
+  import { withNewTabLinks, type DocSection } from "$lib/docsFormat";
 
   let {
     label,
     title,
+    doc,
     children,
     warning = false,
     iconOnly = false,
@@ -13,8 +17,11 @@
     trigger,
   }: {
     label?: string;
-    title: string;
-    children: Snippet;
+    title?: string;
+    // A section of the user docs, such as "project-requests#approve-a-request".
+    // The popover shows that section and links to the full page.
+    doc?: string;
+    children?: Snippet;
     warning?: boolean;
     iconOnly?: boolean;
     icon?: string;
@@ -29,6 +36,29 @@
   // Build contents on first use, then retain loaded details between opens.
   let activated = $state(false);
   let position = $state({ top: 0, left: 0 });
+  let docSection = $state<DocSection | null>(null);
+  let docFailed = $state(false);
+  const heading = $derived(title ?? docSection?.title ?? "Help");
+
+  // Load the docs on first use, so they stay out of the main bundle.
+  $effect(() => {
+    if (!activated || !doc) return;
+    const ref = doc;
+    let current = true;
+    docFailed = false;
+    import("$lib/docs")
+      .then(({ findDocSection }) => findDocSection(ref)?.section ?? null)
+      // An open tab can outlast its docs chunk when a new version deploys.
+      .catch(() => null)
+      .then((section) => {
+        if (!current) return;
+        docSection = section;
+        docFailed = !section;
+      });
+    return () => {
+      current = false;
+    };
+  });
 
   function placePanel() {
     const anchor = button.getBoundingClientRect();
@@ -75,11 +105,12 @@
   });
 </script>
 
+<!-- ui-check-allow: popovertarget needs a native button. -->
 <button
   bind:this={button}
   type="button"
   popovertarget={id}
-  aria-label={label ? `${label}: ${title}` : title}
+  aria-label={label && label !== heading ? `${label}: ${heading}` : heading}
   aria-haspopup="dialog"
   aria-controls={id}
   aria-expanded={open}
@@ -108,16 +139,17 @@
   {id}
   popover="auto"
   role="dialog"
-  aria-label={title}
+  aria-label={heading}
   ontoggle={onToggle}
   style:top={`${position.top}px`}
   style:left={`${position.left}px`}
   style:visibility={open ? "visible" : "hidden"}
-  class="fixed inset-auto m-0 max-h-[calc(100dvh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-md border border-neutral-300 bg-white p-4 text-left text-sm font-normal whitespace-normal text-neutral-800 shadow-lg"
+  class="fixed inset-auto m-0 max-h-[calc(100dvh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-sm border border-neutral-300 bg-white p-4 text-left text-sm font-normal whitespace-normal text-neutral-800 shadow-lg"
 >
   {#if activated}
     <div class="mb-2 flex items-start justify-between gap-3">
-      <span class="font-semibold">{title}</span>
+      <span class="font-semibold">{heading}</span>
+      <!-- ui-check-allow: popovertarget needs a native button. -->
       <button
         type="button"
         popovertarget={id}
@@ -128,6 +160,18 @@
         <Icon icon="mdi:close" width="18" aria-hidden="true" />
       </button>
     </div>
-    <div class="space-y-2">{@render children()}</div>
+    <div class="space-y-2">
+      {#if doc}
+        {#if docSection}
+          <DSDoc blocks={withNewTabLinks(docSection.blocks)} />
+        {:else if docFailed}
+          <p>Turbo can't load this help.</p>
+        {/if}
+        <a class="link block" href={resolve(`/docs/${doc}`)} target="_blank" rel="noopener"
+          >Open the full page</a
+        >
+      {/if}
+      {@render children?.()}
+    </div>
   {/if}
 </div>

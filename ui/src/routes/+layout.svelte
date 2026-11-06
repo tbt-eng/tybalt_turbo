@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from "@iconify/svelte";
+  import { resolve } from "$app/paths";
   import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
@@ -231,23 +233,36 @@
   <div class="h-screen w-screen overflow-hidden">
     <!-- Mobile header with hamburger -->
     <header
-      class="relative flex h-10 w-full items-center justify-between bg-neutral-700 px-3 text-white lg:hidden"
+      class="relative flex h-10 w-full items-center justify-between bg-neutral-600 px-3 text-white lg:hidden"
     >
-      <button onclick={toggleSidebar} class="text-white" aria-label="Toggle Menu">
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4 6h16M4 12h16M4 18h16"
-          />
-        </svg>
-      </button>
+      <div class="flex items-center gap-3">
+        <button onclick={toggleSidebar} class="text-white" aria-label="Toggle Menu">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+        {#if $authStore?.isValid}
+          <a
+            href={resolve("/docs")}
+            class="flex items-center gap-1 rounded-sm px-1 py-0.5 text-sm hover:bg-neutral-500"
+          >
+            <Icon icon="mdi:help-circle-outline" width="16" aria-hidden="true" />
+            Help
+          </a>
+        {/if}
+      </div>
       <span class="absolute left-1/2 -translate-x-1/2 transform text-lg font-semibold">𝕋𝕌ℝ𝔹𝕆</span>
       <div class="ml-auto flex items-center gap-2">
         <VersionInfo />
         {#if $authStore?.isValid}
-          <div class="[&_svg]:h-8 [&_svg]:w-8 lg:[&_svg]:h-6 lg:[&_svg]:w-6">
+          <div
+            class="[&_svg]:h-8 [&_svg]:w-8 [&_svg]:text-neutral-200 lg:[&_svg]:h-6 lg:[&_svg]:w-6"
+          >
             <DsActionButton
               action={authStore.logout}
               icon="feather:log-out"
@@ -279,24 +294,38 @@
         } z-1100`}
       >
         <div class="h-full overflow-x-hidden overflow-y-auto">
-          <!-- Desktop brand header -->
-          <div class="hidden h-10 items-center justify-between px-4 text-lg font-semibold lg:flex">
-            <a href="/" class="text-white">𝕋𝕌ℝ𝔹𝕆</a>
-            <VersionInfo />
-          </div>
-          <!-- Mobile close/header -->
-          <div class="flex h-12 items-center justify-between px-4 lg:hidden">
-            <span class="text-xl font-semibold">𝕋𝕌ℝ𝔹𝕆</span>
-            <button onclick={toggleSidebar} aria-label="Close Menu">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+          <!-- Stays in view while the menu scrolls -->
+          <div class="sticky top-0 z-10 bg-neutral-600">
+            <!-- Desktop brand header -->
+            <div
+              class="hidden h-10 items-center justify-between px-4 text-lg font-semibold lg:flex"
+            >
+              <a href="/" class="text-white">𝕋𝕌ℝ𝔹𝕆</a>
+              <VersionInfo />
+            </div>
+            <!-- Mobile close/header -->
+            <div class="flex h-12 items-center justify-between px-4 lg:hidden">
+              <span class="text-xl font-semibold">𝕋𝕌ℝ𝔹𝕆</span>
+              <button onclick={toggleSidebar} aria-label="Close Menu">
+                <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            {#if $authStore?.isValid}
+              <a
+                href={resolve("/docs")}
+                class="flex h-12 items-center gap-2 px-4 text-xl hover:bg-neutral-500 lg:h-8 lg:text-sm"
+              >
+                <Icon icon="mdi:help-circle-outline" width="18" aria-hidden="true" />
+                Help
+              </a>
+            {/if}
           </div>
           <nav class="mt-2 px-1">
             {#each navSections as section (section.title)}

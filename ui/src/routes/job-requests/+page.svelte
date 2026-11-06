@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { resolve } from "$app/paths";
   import DSList from "$lib/components/DSList.svelte";
   import DSTabBar, { type TabItem } from "$lib/components/DSTabBar.svelte";
@@ -45,6 +46,19 @@
 
 <div class="space-y-4">
   {#if tabs.length > 1}<DSTabBar {tabs} />{/if}
+  {#if $jobRequestsEnabled}
+    <div class="flex justify-end">
+      {#if data.queue === "approval"}
+        <DSHelp doc="project-requests#approve-a-request" label="Help" />
+      {:else if data.queue === "creation"}
+        <DSHelp doc="project-requests#create-the-job" label="Help" />
+      {:else if data.queue === "mine"}
+        <DSHelp doc="project-requests#create-a-request" label="Help" />
+      {:else}
+        <DSHelp doc="project-requests#request-statuses" label="Help" />
+      {/if}
+    </div>
+  {/if}
   {#if !$jobRequestsEnabled}
     <DSCallout tone="warning">
       Request processing is disabled. Saved requests remain available.

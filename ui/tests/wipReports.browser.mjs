@@ -177,7 +177,7 @@ await runBrowserHarness(async (page, origin) => {
   const explanation = await timeDetails.innerText();
   assert.match(explanation, /60.00 hours have no role recorded/);
   assert.match(explanation, /40.00 hours have a role with no matching rate/);
-  assert.match(explanation, /100.00 hours use employee default/);
+  assert.match(explanation, /100.00 hours use staff default/);
   assert.doesNotMatch(explanation, /cannot be priced/);
   assert.equal(missingRateRequests.length, 0, "opening the popup must not fetch role details");
   const missingRates = timeDetails.getByRole("button", { name: "missing rates", exact: true });
@@ -333,7 +333,7 @@ await runBrowserHarness(async (page, origin) => {
     .getByTestId("report-partial")
     .getByRole("button", { name: /No rate sheet/ })
     .click();
-  await page.getByRole("dialog", { name: "Time uses employee defaults" }).waitFor();
+  await page.getByRole("dialog", { name: "Time uses staff defaults" }).waitFor();
   await page.keyboard.press("Escape");
 
   for (const access of ["ordinary", "manager", "admin", "kpi"]) {
@@ -473,9 +473,9 @@ await runBrowserHarness(async (page, origin) => {
   const amountBounds = await timeCell.getByText("$40,000.00", { exact: true }).boundingBox();
   assert.ok(nrBounds.x + nrBounds.width <= amountBounds.x, "NR precedes the time amount");
   await noSheet.click();
-  const noSheetDialog = page.getByRole("dialog", { name: "Time uses employee defaults" });
+  const noSheetDialog = page.getByRole("dialog", { name: "Time uses staff defaults" });
   await noSheetDialog.waitFor();
-  assert.match(await noSheetDialog.innerText(), /400.00 hours use employee default/);
+  assert.match(await noSheetDialog.innerText(), /400.00 hours use staff default/);
   assert.doesNotMatch(
     await noSheetDialog.innerText(),
     /cannot be priced|no role recorded|no matching rate/,

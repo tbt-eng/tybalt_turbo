@@ -43,7 +43,7 @@ await runBrowserHarness(async (page, origin) => {
   await timeExplanation.waitFor();
   assert.match(
     await timeExplanation.innerText(),
-    /Hours × job rate, with employee defaults where needed/,
+    /Hours × job rate, with staff defaults where needed/,
   );
   await page.keyboard.press("Escape");
   assert.equal(await timeHelp.evaluate((el) => el === document.activeElement), true);

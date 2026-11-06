@@ -4,6 +4,10 @@
   import { resolve } from "$app/paths";
   import { globalStore } from "$lib/stores/global";
   import DSActionButton from "$lib/components/DSActionButton.svelte";
+  import DSDoc from "$lib/components/DSDoc.svelte";
+  import DSSideNav from "$lib/components/DSSideNav.svelte";
+  import DSFlow from "$lib/components/DSFlow.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSCard from "$lib/components/DSCard.svelte";
   import DSCardGrid from "$lib/components/DSCardGrid.svelte";
@@ -386,6 +390,53 @@
           { label: "Active tab", href: "/dev/components", active: true },
           { label: "Other tab", href: "/dev/components" },
           { label: "Third tab", href: "/dev/components" },
+        ]}
+      />
+    </DSSection>
+
+    <DSSection title="DSHelp">
+      <div class="flex gap-4">
+        <DSHelp doc="project-requests#approve-a-request" label="From the docs" />
+        <DSHelp title="Inline text" label="With its own text">A short explanation.</DSHelp>
+      </div>
+    </DSSection>
+
+    <DSSection title="DSFlow">
+      <DSFlow
+        steps={[
+          { actor: "You", step: "Create it", detail: "One line of detail." },
+          { actor: "Approver", step: "Approve it", detail: "One line of detail." },
+          { actor: "Procurement", step: "Finish it", detail: "One line of detail." },
+        ]}
+        notes={["Rejected? Edit it and submit it again."]}
+      />
+    </DSSection>
+
+    <DSSection title="DSDoc">
+      <DSDoc
+        blocks={[
+          {
+            kind: "html",
+            html: "<p>Text from a docs section.</p><ol><li>First step.</li><li>Second step.</li></ol><ul><li>One point.</li></ul><table><thead><tr><th>Status</th><th>What happens next</th></tr></thead><tbody><tr><td>Draft</td><td>You edit it.</td></tr></tbody></table>",
+          },
+          {
+            kind: "flow",
+            steps: [
+              { actor: "You", step: "Create it", detail: "One line of detail." },
+              { actor: "Approver", step: "Approve it", detail: "One line of detail." },
+            ],
+            notes: [],
+          },
+        ]}
+      />
+    </DSSection>
+
+    <DSSection title="DSSideNav">
+      <DSSideNav
+        title="Help"
+        items={[
+          { label: "Selected page", href: "#", active: true },
+          { label: "Other page", href: "#" },
         ]}
       />
     </DSSection>

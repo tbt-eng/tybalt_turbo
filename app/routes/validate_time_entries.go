@@ -87,7 +87,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 			if len(entries) > 1 {
 				return &CodeError{
 					Code:    "multiple_OW_entries",
-					Message: "if present, an OW entry must be the only entry on a timesheet",
+					Message: "if present, an OW entry must be the only entry on a time sheet",
 				}
 			}
 			// Return an error immediately if the entry is of type OW (off rotation week)
@@ -97,7 +97,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 			if offRotationWeekEntryCount > 1 {
 				return &CodeError{
 					Code:    "multiple_off_rotation_week_entries",
-					Message: "only one off-rotation week entry can exist on a timesheet",
+					Message: "only one off-rotation week entry can exist on a time sheet",
 				}
 			}
 		case "OTO":
@@ -115,7 +115,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 			if payoutRequestCount > 1 {
 				return &CodeError{
 					Code:    "multiple_payout_request_entries",
-					Message: "only one payout request entry can exist on a timesheet",
+					Message: "only one payout request entry can exist on a time sheet",
 				}
 			}
 		case "RB":
@@ -133,7 +133,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 			if bankEntriesCount > 1 {
 				return &CodeError{
 					Code:    "multiple_overtime_banking_entries",
-					Message: "only one overtime banking entry can exist on a timesheet",
+					Message: "only one overtime banking entry can exist on a time sheet",
 				}
 			}
 			bankedHours += entryHours
@@ -168,7 +168,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 	if bankedHours > 0 && jobHours+nonJobHours-bankedHours < 44 {
 		return &CodeError{
 			Code:    "too_many_banked_hours",
-			Message: "banked hours cannot bring your total worked hours below 44 hours on a timesheet",
+			Message: "banked hours cannot bring your total worked hours below 44 hours on a time sheet",
 		}
 	}
 
@@ -287,7 +287,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 	if discretionaryTimeOff > 0 && openingDateAsTime.After(weekEndingAsTime) {
 		return &CodeError{
 			Code:    "timesheet_prior_to_opening_date",
-			Message: fmt.Sprintf("your opening balances were set effective %v but you are submitting a timesheet for a prior period, contact support", openingDate),
+			Message: fmt.Sprintf("your opening balances were set effective %v but you are submitting a time sheet for a prior period, contact support", openingDate),
 		}
 	}
 
@@ -304,7 +304,7 @@ func validateTimeEntries(txApp core.App, admin_profile *core.Record, payrollYear
 	if discretionaryTimeOff > 0 && payrollYearEndDateAsTime.After(openingDateAsTime) {
 		return &CodeError{
 			Code:    "opening_balances_out_of_date",
-			Message: fmt.Sprintf("your opening balances were set effective %v but you are submitting a timesheet for the time-off accounting period beginning on %v. contact accounting to have your opening balances updated for the new period prior to submitting a timesheet", openingDate, payrollYearEndDateAsTime.Format("2006-01-02")),
+			Message: fmt.Sprintf("your opening balances were set effective %v but you are submitting a time sheet for the time-off accounting period beginning on %v. contact accounting to have your opening balances updated for the new period prior to submitting a time sheet", openingDate, payrollYearEndDateAsTime.Format("2006-01-02")),
 		}
 	}
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PageData } from "./$types";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import PurchaseOrdersList from "$lib/components/PurchaseOrdersList.svelte";
   import { fetchVisiblePOs } from "$lib/poVisibility";
   import type {
@@ -26,6 +27,9 @@
 </script>
 
 <div class="space-y-8">
+  <div class="flex justify-end px-2 pt-2">
+    <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
+  </div>
   <PurchaseOrdersList inListHeader="Purchase Orders Pending My Approval" data={data.pendingData} />
 
   <PurchaseOrdersList

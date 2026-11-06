@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { pb } from "$lib/pocketbase";
   import { authStore } from "$lib/stores/auth";
   import { get } from "svelte/store";
@@ -264,6 +265,9 @@
     />
   </div>
 {/snippet}
+<div class="flex justify-end px-2 pt-2">
+  <DSHelp doc="time#submit-a-week" label="Help" />
+</div>
 {#if !$timeEditingEnabled}
   <DsEditingDisabledBanner message={timeEditingDisabledMessage} />
 {/if}

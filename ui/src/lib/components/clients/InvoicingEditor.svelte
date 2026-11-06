@@ -397,7 +397,7 @@
       {/if}
       {#if clientAlias || item.billing_name === "alias"}
         <fieldset class="flex flex-col gap-1">
-          <legend class="mb-1">Name on PAs and invoices</legend>
+          <legend class="mb-1">Name on Project Authorizations and invoices</legend>
           <label class="flex items-center gap-2">
             <input type="radio" name="billing_name" value="" bind:group={item.billing_name} />
             {client.name}
@@ -418,7 +418,8 @@
         </fieldset>
       {:else}
         <p class="text-sm text-neutral-600">
-          PAs and invoices use the client name. To use a different name, add an alias to the client.
+          Project Authorizations and invoices use the client name. To use a different name, add an
+          alias to the client.
         </p>
       {/if}
       {#if recipient}

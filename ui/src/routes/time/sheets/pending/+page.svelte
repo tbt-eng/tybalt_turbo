@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import { pb } from "$lib/pocketbase";
@@ -27,6 +28,9 @@
   }
 </script>
 
+<div class="flex justify-end px-2 pt-2">
+  <DSHelp doc="time#approve-a-time-sheet" label="Help" />
+</div>
 <DsList items={items as TimeSheetTallyQueryRow[]} search={true} inListHeader="Pending Time Sheets">
   {#snippet anchor({ id, week_ending }: TimeSheetTallyQueryRow)}
     <a class="font-bold hover:underline" href={`/time/sheets/${id}/details`}

@@ -158,7 +158,7 @@
       });
       await globalStore.refreshAttentionCounts();
 
-      // navigate to the time entries list to show the unbundled time entries
+      // navigate to the time entries list to show the recalled time entries
       goto(`/time/entries/list`);
     } catch (error: any) {
       globalStore.addError(getApiErrorMessage(error, "Recall failed"));

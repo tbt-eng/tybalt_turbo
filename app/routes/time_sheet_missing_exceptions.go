@@ -54,11 +54,11 @@ func requireCommitClaim(app core.App, auth *core.Record) error {
 	if !hasCommitClaim {
 		return &errs.HookError{
 			Status:  http.StatusForbidden,
-			Message: "you are not authorized to update missing timesheet exceptions",
+			Message: "you are not authorized to update missing time sheet exceptions",
 			Data: map[string]errs.CodeError{
 				"global": {
 					Code:    "unauthorized",
-					Message: "you are not authorized to update missing timesheet exceptions",
+					Message: "you are not authorized to update missing time sheet exceptions",
 				},
 			},
 		}

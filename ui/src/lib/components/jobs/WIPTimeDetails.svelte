@@ -48,7 +48,7 @@
 
 <p><strong>{data.hours.toFixed(2)}</strong> recorded hours.</p>
 {#if data.no_rate_sheet}
-  <p>This job has no rate sheet. Time uses employee default charge-out rates where available.</p>
+  <p>This job has no rate sheet. Time uses staff default charge-out rates where available.</p>
 {:else}
   {#if data.missing_role_hours > 0}
     <p>
@@ -107,13 +107,13 @@
 {/if}
 {#if data.estimated_hours > 0}
   <p>
-    <strong>{data.estimated_hours.toFixed(2)}</strong> hours use employee default charge-out rates. Their
+    <strong>{data.estimated_hours.toFixed(2)}</strong> hours use staff default charge-out rates. Their
     value is estimated.
   </p>
 {/if}
 {#if data.unpriced_hours > 0}
   <p>
     <strong>{data.unpriced_hours.toFixed(2)}</strong> hours cannot be priced because no sheet rate or
-    positive employee default rate is available. Their value is excluded.
+    positive staff default rate is available. Their value is excluded.
   </p>
 {/if}

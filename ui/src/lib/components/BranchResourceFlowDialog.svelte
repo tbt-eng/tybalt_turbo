@@ -315,7 +315,7 @@
         <div class="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {#if view === "matrix"}
             <p class="mb-3 text-sm text-neutral-600">
-              Rows are employee default branches. Columns are the branches where job hours were
+              Rows are staff default branches. Columns are the branches where job hours were
               recorded.
             </p>
             <div
@@ -574,7 +574,7 @@
                     {detailTitle(detailSelection)}
                   </h3>
                   <p class="text-sm text-neutral-600">
-                    {formatHours(detailHours)} hours across {selectedEmployees.length} employee{selectedEmployees.length ===
+                    {formatHours(detailHours)} hours across {selectedEmployees.length} staff member{selectedEmployees.length ===
                     1
                       ? ""
                       : "s"}.
@@ -598,14 +598,13 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {#each selectedEmployees as employee (`${employee.payrollId}-${employee.surname}-${employee.givenName}`)}
+                    {#each selectedEmployees as person (`${person.payrollId}-${person.surname}-${person.givenName}`)}
                       <tr class="border-t border-neutral-200 odd:bg-white even:bg-neutral-50">
-                        <td class="px-3 py-2">{employee.payrollId}</td>
-                        <td class="px-3 py-2">{employee.surname}</td>
-                        <td class="px-3 py-2">{employee.givenName}</td>
-                        <td class="px-3 py-2">{employee.defaultBranch}</td>
-                        <td class="px-3 py-2 text-right font-medium"
-                          >{formatHours(employee.hours)}</td
+                        <td class="px-3 py-2">{person.payrollId}</td>
+                        <td class="px-3 py-2">{person.surname}</td>
+                        <td class="px-3 py-2">{person.givenName}</td>
+                        <td class="px-3 py-2">{person.defaultBranch}</td>
+                        <td class="px-3 py-2 text-right font-medium">{formatHours(person.hours)}</td
                         >
                       </tr>
                     {/each}

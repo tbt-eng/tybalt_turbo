@@ -6,7 +6,7 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel, { type LabelShade } from "$lib/components/DsLabel.svelte";
-  import HelpPopover from "$lib/components/jobs/TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DSTabBar from "$lib/components/DSTabBar.svelte";
   import ClientWorkspaceShell from "$lib/components/ClientWorkspaceShell.svelte";
   import ClientsEditor from "$lib/components/ClientsEditor.svelte";
@@ -296,7 +296,7 @@
           {#if timeDivisions.length}<div class="sm:col-span-2 xl:col-span-4">
               <div class="flex items-center gap-1">
                 <h3 class="text-sm font-semibold text-neutral-600">Divisions</h3>
-                <HelpPopover title="About these divisions" iconOnly>
+                <DSHelp title="About these divisions" iconOnly>
                   <p>
                     Each division shown has at least one committed time entry on a job for this
                     client. Projects and proposals both count. Each job counts toward its own
@@ -307,7 +307,7 @@
                     owner do not.
                   </p>
                   <p>
-                    Time on timesheets that have not been committed, and entries without hours, are
+                    Time on time sheets that have not been committed, and entries without hours, are
                     left out. Select a division to see its name and committed hours.
                   </p>
                   <p>Darker divisions have a larger share of this client's hours:</p>
@@ -316,16 +316,16 @@
                       <DsLabel shade={(i + 1) as LabelShade} size="sm">{band.label}</DsLabel>
                     {/each}
                   </div>
-                </HelpPopover>
+                </DSHelp>
               </div>
               <div class="flex flex-wrap gap-2">
                 {#each timeDivisions as division (division.id)}
-                  <HelpPopover title={`${division.code} · ${division.name}`}>
+                  <DSHelp title={`${division.code} · ${division.name}`}>
                     {#snippet trigger()}<DsLabel shade={divisionShade(division.hours)}
                         >{division.code}</DsLabel
                       >{/snippet}
                     <p>{shareText(division.hours)}</p>
-                  </HelpPopover>
+                  </DSHelp>
                 {/each}
               </div>
             </div>{/if}
@@ -412,7 +412,7 @@
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1">
               <h2 class="font-semibold">Invoicing profiles ({profiles.length})</h2>
-              <HelpPopover title="About invoicing profiles" iconOnly>
+              <DSHelp title="About invoicing profiles" iconOnly>
                 <p>
                   An invoicing profile sets who receives invoices for this client and any invoice
                   instructions. The billing address comes from that contact, or from the client if
@@ -428,7 +428,7 @@
                   Changes apply to all jobs and requests that use the profile. Create a separate
                   profile when one job needs different invoice details.
                 </p>
-              </HelpPopover>
+              </DSHelp>
             </div>
             {#if canCreateProfile && contacts.length > 0}<DsActionButton
                 action={editorHref("invoicing/add")}
@@ -488,7 +488,7 @@
                   >{:else}{contactName(contact)}{/if}
               {/if}
               {#if data.client.alias?.trim()}<p class="text-sm">
-                  Name on PAs and invoices: {billingName(data.client, profile)}
+                  Name on Project Authorizations and invoices: {billingName(data.client, profile)}
                 </p>{/if}
             {/snippet}
             {#snippet line2(profile)}

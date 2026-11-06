@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docs help browser checks</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { mount } from "svelte";
+      import DSHelp from "../../src/lib/components/DSHelp.svelte";
+      const doc = new URLSearchParams(location.search).get("doc");
+      mount(DSHelp, { target: document.getElementById("app"), props: { doc, label: "Help" } });
+    </script>
+  </body>
+</html>

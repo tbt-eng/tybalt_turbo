@@ -68,7 +68,7 @@
     action={() => {
       fetchTimeSummaryByEmployee(week_ending);
     }}
-    title="Time Summary by Employee"
+    title="Time Summary by Staff"
     color="orange">Time Summary</DsActionButton
   >
   <div class="flex items-center gap-2">

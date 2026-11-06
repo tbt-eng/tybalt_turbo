@@ -1,6 +1,6 @@
 <script lang="ts">
   import WIPTimeDetails from "./WIPTimeDetails.svelte";
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import type { JobWIP, wipView } from "./wip";
   let {
     data,
@@ -17,7 +17,7 @@
 
 <!-- NR covers employee-rate estimates when no sheet is assigned. -->
 {#if row.partial || (row.estimated && !(compact && row.key === "time" && data.no_rate_sheet))}
-  <TimeSummaryHelp
+  <DSHelp
     label={row.partial ? "Partial" : "Estimated"}
     title={`${row.name}: value details`}
     warning
@@ -42,5 +42,5 @@
         </p>
       {/if}
     {/if}
-  </TimeSummaryHelp>
+  </DSHelp>
 {/if}

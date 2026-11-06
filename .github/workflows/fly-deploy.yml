@@ -26,6 +26,10 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Warn about user-facing changes without docs
+        continue-on-error: true
+        run: node ui/scripts/check-docs-commit.mjs "${{ github.event.before }}..${{ github.sha }}"
+
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 

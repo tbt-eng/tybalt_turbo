@@ -4,7 +4,7 @@
   import WIPNoRateSheet from "./WIPNoRateSheet.svelte";
   import WIPFactorNotice from "./WIPFactorNotice.svelte";
   import WIPHelp from "./WIPHelp.svelte";
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { wipView, type JobWIP } from "./wip";
   let { data, jobId }: { data: JobWIP; jobId: string } = $props();
   let includeExpenses = $state(true);
@@ -125,9 +125,9 @@
                 aria-hidden="true"
               ></span>{row.name}
               {#if row.key === "time"}
-                <TimeSummaryHelp title="How time value is calculated">
-                  <p>Hours × job rate, with employee defaults where needed.</p>
-                </TimeSummaryHelp>
+                <DSHelp title="How time value is calculated">
+                  <p>Hours × job rate, with staff defaults where needed.</p>
+                </DSHelp>
               {/if}
               {#if !row.included}<span class="ml-2 text-xs">Excluded</span>{/if}
             </th>

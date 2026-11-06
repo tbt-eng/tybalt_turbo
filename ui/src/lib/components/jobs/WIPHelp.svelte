@@ -1,14 +1,14 @@
 <script lang="ts">
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
 </script>
 
-<TimeSummaryHelp title="How WIP is calculated">
+<DSHelp title="How WIP is calculated">
   <p>
     WIP compares recorded time, included expenses, and remaining active PO commitments with the
     project value. It does not measure work completed or cash paid.
   </p>
   <p>
-    Time uses the same job rates and employee defaults as the Staff and Divisions summaries,
+    Time uses the same job rates and staff defaults as the Staff and Divisions summaries,
     including committed and uncommitted entries. Meal hours, amendments, and overtime billing are
     excluded.
   </p>
@@ -32,4 +32,4 @@
     amounts over the project value. The checkboxes select which amounts to include. The optional Job
     Details chart shows shares of that total. Each job’s WIP excludes its parent and child jobs.
   </p>
-</TimeSummaryHelp>
+</DSHelp>

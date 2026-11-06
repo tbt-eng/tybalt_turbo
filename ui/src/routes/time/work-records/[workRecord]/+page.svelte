@@ -25,7 +25,7 @@
     columnLabels: {
       work_record: "Work Record",
       week_ending: "Week Ending",
-      employee_name: "Employee",
+      employee_name: "Staff member",
       hours: "Hours",
       job_number: "Job",
       description: "Description",

@@ -4,7 +4,7 @@
   import type { POApprovalLimitField, POApprovalLimitsResponse } from "$lib/poApprovalLimits";
 
   import DSActionButton from "$lib/components/DSActionButton.svelte";
-  import TimeSummaryHelp from "$lib/components/jobs/TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
 
   let data = $state<POApprovalLimitsResponse | null>(null);
   let loading = $state(true);
@@ -154,7 +154,7 @@
       <h1>PO Approvers</h1>
       <div class="flex items-center gap-2 text-sm">
         <span>Maximum approval · CAD</span>
-        <TimeSummaryHelp label="Help" title="How limits apply">
+        <DSHelp label="Help" title="How limits apply">
           <div class="mt-2 space-y-2">
             <p>
               Each amount is the person's final approval limit for that spending category. $0.00
@@ -185,7 +185,7 @@
               {/each}
             </ul>
           </div>
-        </TimeSummaryHelp>
+        </DSHelp>
       </div>
     </div>
 

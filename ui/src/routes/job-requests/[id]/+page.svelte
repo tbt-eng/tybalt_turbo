@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
@@ -247,7 +248,10 @@
     </section>
   {/if}
   <section class="space-y-3 rounded border p-4">
-    <h2 class="font-semibold">Authorization evidence</h2>
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="font-semibold">Authorization evidence</h2>
+      {#if $jobRequestsEnabled}<DSHelp doc="project-requests#upload-and-submit" label="Help" />{/if}
+    </div>
     {#if detail.attachment}<button class="text-blue-700 underline" disabled={busy} onclick={openPDF}
         >Open authorization PDF</button
       >
@@ -294,7 +298,18 @@
     </section>
   {/if}
   {#if $jobRequestsEnabled}<section class="space-y-4 rounded border p-4">
-      <h2 class="font-semibold">Workflow actions</h2>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">Workflow actions</h2>
+        {#if permission.can_approve}
+          <DSHelp doc="project-requests#approve-a-request" label="Help" />
+        {:else if permission.can_create}
+          <DSHelp doc="project-requests#create-the-job" label="Help" />
+        {:else if permission.can_submit}
+          <DSHelp doc="project-requests#upload-and-submit" label="Help" />
+        {:else}
+          <DSHelp doc="project-requests#change-a-request" label="Help" />
+        {/if}
+      </div>
       {#if permission.can_approve}<div class="space-y-3">
           {#each Object.entries(requestChecklist) as [key, label]}<label
               class="flex items-start gap-2"

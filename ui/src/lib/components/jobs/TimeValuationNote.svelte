@@ -1,11 +1,11 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import type { RateSheet } from "./timeSummary";
   let { rateSheet }: { rateSheet?: RateSheet } = $props();
 </script>
 
-<TimeSummaryHelp title="How time values are calculated">
+<DSHelp title="How time values are calculated">
   {#if rateSheet?.id}
     <p>
       Rate sheet: <a
@@ -17,10 +17,10 @@
   {/if}
   <p>
     Each entry uses the regular rate for its role from the job's assigned sheet. If no job rate
-    matches, an employee default charge-out rate greater than zero is used.
+    matches, a staff default charge-out rate greater than zero is used.
   </p>
   <p>
-    Estimated amounts include employee defaults. Partial amounts exclude hours that cannot be
+    Estimated amounts include staff defaults. Partial amounts exclude hours that cannot be
     priced. If no hours can be priced, the value is shown as —.
   </p>
   <p>
@@ -35,5 +35,5 @@
     Click column headings to sort and table values to filter. The total follows the visible rows;
     the CSV always includes the full date range and all pricing details.
   </p>
-  <p>Changes to the assigned sheet, job rates, or employee defaults recalculate past values.</p>
-</TimeSummaryHelp>
+  <p>Changes to the assigned sheet, job rates, or staff defaults recalculate past values.</p>
+</DSHelp>

@@ -121,6 +121,7 @@ The top of every detail page. It replaces "X Details" titles: the title is the t
   context?: Snippet;        // one muted line: "Subjob of 25-100 · from proposal P25-033"
   actions?: Snippet;        // frequent actions, right-aligned DSActionButtons
   menu?: Snippet;           // rare and admin actions, shown in a "⋯" DSFlyout as DSMenuItems
+  keepInPrint?: boolean;    // print the header; page headers hide in print by default
 }
 ```
 
@@ -167,6 +168,18 @@ Semantic `<dl>` / `<dt>` / `<dd>`. This replaces every hand-written `<span class
   children?: Snippet;               // custom value (chips, buttons) instead of value
 }
 ```
+
+#### `DSHelp`
+
+The one help popover. Pass `doc="page#section"` to show a section of the user docs in `ui/src/docs`, with a link to the full page. Pass `title` and children only for help that depends on the data on screen.
+
+#### `DSFlow` and `DSDoc`
+
+`DSDoc` renders parsed user docs, and `DSDocPage` renders a full page of them. `DSFlow` draws a `flow` block as cards. See `ui/src/docs/README.md` for the format.
+
+#### `DSSideNav`
+
+A second navigation column for one area of the app, beside the main menu. It takes a `title` and `items` with `label`, `href` and `active`. The Help pages use it. On a phone, the links wrap above the content.
 
 #### `DSCallout`
 

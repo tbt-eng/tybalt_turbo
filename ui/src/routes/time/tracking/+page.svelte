@@ -82,7 +82,7 @@
   {#snippet actions(r: Row)}
     <DsActionButton action={() => downloadWeeklyTime(r.week_ending)}>Weekly Time</DsActionButton>
     <DsActionButton action={() => downloadWeeklyByEmployee(r.week_ending)}
-      >By Employee</DsActionButton
+      >By Staff</DsActionButton
     >
   {/snippet}
 </DsList>

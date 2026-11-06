@@ -683,7 +683,7 @@ func AddHooks(app core.App) {
 		timesheet, err := app.FindRecordById("time_sheets", timesheetId)
 		if err != nil {
 			app.Logger().Error(
-				"error finding timesheet for reviewer notification",
+				"error finding time sheet for reviewer notification",
 				"timesheet_id", timesheetId,
 				"error", err,
 			)
@@ -697,7 +697,7 @@ func AddHooks(app core.App) {
 		// Queue notification for the new reviewer
 		if notifErr := notifications.QueueTimesheetSharedNotifications(app, timesheet, sharerUID, []string{reviewerUID}); notifErr != nil {
 			app.Logger().Error(
-				"error queueing timesheet shared notification",
+				"error queueing time sheet shared notification",
 				"timesheet_id", timesheetId,
 				"reviewer_uid", reviewerUID,
 				"error", notifErr,

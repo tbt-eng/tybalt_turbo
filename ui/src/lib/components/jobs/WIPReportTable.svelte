@@ -2,7 +2,7 @@
   import { resolve } from "$app/paths";
   import { formatCurrency } from "$lib/utilities";
   import type { rankWIP } from "$lib/reports/wipReports";
-  import TimeSummaryHelp from "./TimeSummaryHelp.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import WIPFactorNotice from "./WIPFactorNotice.svelte";
   import WIPPercentage from "./WIPPercentage.svelte";
   import WIPNoRateSheet from "./WIPNoRateSheet.svelte";
@@ -47,10 +47,7 @@
                 class="font-semibold text-blue-700 underline"
                 href={resolve("/jobs/[jid]/details", { jid: data.id })}>{data.number}</a
               >
-              <TimeSummaryHelp
-                title={`Project details: ${data.number}`}
-                icon="mdi:text-box-outline"
-              >
+              <DSHelp title={`Project details: ${data.number}`} icon="mdi:text-box-outline">
                 <p class="font-medium">{data.description}</p>
                 <dl class="space-y-1">
                   <div>
@@ -66,7 +63,7 @@
                     <dd class="inline">{data.branch || "No branch"}</dd>
                   </div>
                 </dl>
-              </TimeSummaryHelp>
+              </DSHelp>
             </span>
           </th>
           <td class="px-2 py-0"

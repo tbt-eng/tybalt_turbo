@@ -23,9 +23,9 @@
     >
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h2 class="text-lg font-semibold text-neutral-900">Employee Branch Hours</h2>
+          <h2 class="text-lg font-semibold text-neutral-900">Staff Branch Hours</h2>
           <p class="mt-1 text-sm text-neutral-600">
-            Compare job and no-job regular hours for each employee and branch.
+            Compare job and no-job regular hours for each staff member and branch.
           </p>
         </div>
         <span class="text-2xl text-blue-600" aria-hidden="true">→</span>

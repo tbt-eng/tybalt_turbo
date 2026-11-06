@@ -24,7 +24,7 @@
     {item.opening_op}
     <span class="opacity-30">Used</span>
     {item.used_op}
-    <span class="opacity-30">({item.timesheet_op} on timesheets)</span>
+    <span class="opacity-30">({item.timesheet_op} on time sheets)</span>
     <span class="opacity-30">As of</span>
     {item.last_op}
   {/snippet}
@@ -35,7 +35,7 @@
     {item.opening_ov}
     <span class="opacity-30">Used</span>
     {item.used_ov}
-    <span class="opacity-30">({item.timesheet_ov} on timesheets)</span>
+    <span class="opacity-30">({item.timesheet_ov} on time sheets)</span>
     <span class="opacity-30">As of</span>
     {item.last_ov}
   {/snippet}

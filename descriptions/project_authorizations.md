@@ -475,7 +475,7 @@ request in the error. Tell the user to give the request identity to an admin,
 who can resolve the conflict by deleting the abandoned request. Do not bypass
 the duplicate check or transfer its document automatically.
 
-Example: "This PDF belongs to abandoned job request {id}. Give this request ID
+Example: "This PDF belongs to abandoned project request {id}. Give this request ID
 to an admin to resolve the duplicate."
 
 Different PDF files can describe the same work. A unique hash does not replace
