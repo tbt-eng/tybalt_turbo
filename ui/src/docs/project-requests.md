@@ -14,7 +14,7 @@ Note: Rejected? Edit the request and submit it again.
 
 This is the preferred start. Turbo copies the proposal's details and links the proposal to the request.
 
-1. Open the proposal.
+1. Open the [proposal](/docs/proposals).
 2. Select **Create Project Request from Proposal**.
 3. Check the copied details and the project value. Add any missing details.
 4. Enter the division hours and select an approver.

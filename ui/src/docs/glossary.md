@@ -16,6 +16,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
 | Project Authorization | The agreement that Turbo prints for signatures. You can use it as the authorization PDF, or use another document.                                   | PA              |
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
+| Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
 | Revise                | Change the total of an approved purchase order.                                                                                                     |                 |

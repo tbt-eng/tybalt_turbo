@@ -18,6 +18,10 @@ Get approval first. Create a [purchase order](/docs/purchase-orders). Make the p
 
 Create an [expense](/docs/expenses) and submit it. Your manager approves it.
 
+## Start a proposal
+
+Only procurement can create a [proposal](/docs/proposals) in Turbo. Ask procurement to create it.
+
 ## Start a new project
 
 Create a [project request](/docs/project-requests). An approver checks it, then procurement creates the job.

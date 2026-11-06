@@ -7,6 +7,7 @@
   import DSTextInput from "$lib/components/DSTextInput.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import CloseProjectConfirmPopover from "$lib/components/CloseProjectConfirmPopover.svelte";
   import ChangeClientPopover from "$lib/components/jobs/ChangeClientPopover.svelte";
   import AdoptSubjobsPopover from "$lib/components/jobs/AdoptSubjobsPopover.svelte";
@@ -271,6 +272,7 @@
       >{/if}
   {/snippet}
   {#snippet actions()}
+    {#if isProposal}<DSHelp doc="proposals#proposal-statuses" label="Help" />{/if}
     {#if isProposal && canStartProject && job.status !== "Awarded"}
       <DSActionButton
         action={createReferencingProject}

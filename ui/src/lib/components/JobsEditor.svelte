@@ -24,6 +24,7 @@
   import DsActionButton from "./DSActionButton.svelte";
   import ChangeClientPopover from "./jobs/ChangeClientPopover.svelte";
   import DSLocationPicker from "./DSLocationPicker.svelte";
+  import DSHelp from "./DSHelp.svelte";
   import DSPopover from "./DSPopover.svelte";
   import { profiles } from "$lib/stores/profiles";
   import { clients } from "$lib/stores/clients";
@@ -899,6 +900,13 @@
         Create Job
       {/if}
     </h1>
+    {#if isProposal && !managerAllocationsOnly}
+      {#if isNewJob}
+        <DSHelp doc="proposals#create-a-proposal" label="Help" />
+      {:else}
+        <DSHelp doc="proposals#change-a-proposal" label="Help" />
+      {/if}
+    {/if}
 
     {#if managerAllocationsOnly}
       <p class="w-full">{item.description}</p>
