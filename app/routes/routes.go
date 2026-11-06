@@ -229,6 +229,7 @@ func AddRoutes(app core.App) {
 		poMutations.POST("/{id}/cancel", createCancelPurchaseOrderHandler(app))
 		poMutations.POST("/{id}/close", createClosePurchaseOrderHandler(app))
 		poMutations.POST("/{id}/make_cumulative", createConvertToCumulativePurchaseOrderHandler(app))
+		poMutations.POST("/{id}/revise", createRevisePurchaseOrderHandler(app))
 		poMutations.POST("/groups/preview", createPreviewPurchaseOrderGroupHandler(app))
 		poMutations.POST("/groups", createCreatePurchaseOrderGroupHandler(app))
 

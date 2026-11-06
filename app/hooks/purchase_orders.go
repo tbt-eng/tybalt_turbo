@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"tybalt/constants"
@@ -365,9 +366,11 @@ func ValidatePurchaseOrder(app core.App, purchaseOrderRecord *core.Record, legac
 			purchaseOrderRecord.Set("currency", parentPO.GetString("currency"))
 		}
 
-		// Validate that other child POs with status "Unapproved" do not exist
-		otherChildPOs, err := app.FindRecordsByFilter("purchase_orders", "parent_po = {:parentId} && status != 'Closed' && status != 'Cancelled'", "", 0, 0, dbx.Params{
+		// Validate that other child POs with status "Unapproved" do not exist.
+		// Exclude this record so that an existing child can be edited or revised.
+		otherChildPOs, err := app.FindRecordsByFilter("purchase_orders", "parent_po = {:parentId} && status != 'Closed' && status != 'Cancelled' && id != {:id}", "", 0, 0, dbx.Params{
 			"parentId": parentPO.Id,
+			"id":       purchaseOrderRecord.Id,
 		})
 		if err != nil {
 			return &errs.HookError{
@@ -644,6 +647,36 @@ func purchaseOrderHasMeaningfulChanges(record *core.Record) bool {
 	return utilities.RecordHasMeaningfulChanges(record, purchaseOrderMeaningfulChangeSkipFields...)
 }
 
+// purchaseOrderRevisionEditableFields are the fields the creator may change on
+// a revision. The rest of the purchase order was approved before and keeps its
+// number, so it must not change. Computed fields are listed because
+// CleanPurchaseOrder overwrites whatever the request sends for them. The update
+// rule refuses changes to the skip fields.
+var purchaseOrderRevisionEditableFields = append([]string{
+	"total",
+	"approver",
+	"priority_second_approver",
+	"approval_total",
+	"approval_total_home",
+	"occurrences",
+}, purchaseOrderMeaningfulChangeSkipFields...)
+
+// lockedRevisionFieldChange returns the first field outside
+// purchaseOrderRevisionEditableFields that differs from the original record,
+// or "" when only editable fields changed.
+func lockedRevisionFieldChange(record *core.Record) string {
+	original := record.Original()
+	for _, fieldName := range record.Collection().Fields.FieldNames() {
+		if fieldName == "created" || fieldName == "updated" || slices.Contains(purchaseOrderRevisionEditableFields, fieldName) {
+			continue
+		}
+		if fmt.Sprintf("%v", record.Get(fieldName)) != fmt.Sprintf("%v", original.Get(fieldName)) {
+			return fieldName
+		}
+	}
+	return ""
+}
+
 func shouldResetPurchaseOrderApprovals(record *core.Record) bool {
 	if record.IsNew() {
 		return false
@@ -662,8 +695,54 @@ func shouldResetPurchaseOrderApprovals(record *core.Record) bool {
 	if strings.TrimSpace(original.GetString("approved")) == "" {
 		return false
 	}
+	// Resubmitting a rejected revision starts its approval again, even with
+	// nothing changed, so that its first approver is asked and told.
+	if utilities.IsPurchaseOrderRevision(original) && strings.TrimSpace(original.GetString("rejected")) != "" {
+		return true
+	}
 
 	return purchaseOrderHasMeaningfulChanges(record)
+}
+
+// revisionChangeNeedsApproverEmail reports whether an update to a revision that
+// has no first approval changes what its approver must do or was told: a
+// resubmission after rejection, a new approver or a new total.
+func revisionChangeNeedsApproverEmail(record *core.Record) bool {
+	original := record.Original()
+	if record.IsNew() || original == nil || !utilities.IsPurchaseOrderRevision(original) {
+		return false
+	}
+	return strings.TrimSpace(original.GetString("rejected")) != "" ||
+		original.GetString("approver") != record.GetString("approver") ||
+		original.GetFloat("total") != record.GetFloat("total")
+}
+
+// RevisionApprovalNotification builds the email that asks a revision's approver
+// to approve it again. po_approval_required says the purchase order was just
+// created, which would mislead an approver about a number that already exists.
+func RevisionApprovalNotification(app core.App, po *core.Record, actorID string, mode notifications.DeliveryMode) notifications.DispatchArgs {
+	vendorName := ""
+	if vendor, err := app.FindRecordById("vendors", po.GetString("vendor")); err == nil {
+		vendorName = vendor.GetString("name")
+	}
+	currencyCode := utilities.EffectiveCurrencyCode(app, po.GetString("currency"))
+	return notifications.DispatchArgs{
+		TemplateCode: "po_revision_approval_required",
+		RecipientUID: strings.TrimSpace(po.GetString("approver")),
+		Data: map[string]any{
+			"POId":        po.Id,
+			"PONumber":    po.GetString("po_number"),
+			"Description": po.GetString("description"),
+			"VendorName":  vendorName,
+			// approval_total is what the approver approves. On a recurring purchase
+			// order, total is only one occurrence.
+			"Total":     utilities.FormatCurrencyAmount(po.GetFloat("approval_total"), currencyCode),
+			"ActionURL": notifications.BuildActionURL(app, fmt.Sprintf("/pos/%s/details", po.Id)),
+		},
+		System:   false,
+		ActorUID: actorID,
+		Mode:     mode,
+	}
 }
 
 // createPOApprovalRequiredNotification creates a notification record for the
@@ -674,6 +753,9 @@ func createPOApprovalRequiredNotification(app core.App, purchaseOrderRecord *cor
 	approverID := strings.TrimSpace(purchaseOrderRecord.GetString("approver"))
 	if approverID == "" {
 		return "", nil
+	}
+	if utilities.IsPurchaseOrderRevision(purchaseOrderRecord) {
+		return notifications.DispatchNotification(app, RevisionApprovalNotification(app, purchaseOrderRecord, actorID, notifications.DeliveryDeferred))
 	}
 
 	return notifications.DispatchNotification(app, notifications.DispatchArgs{
@@ -780,6 +862,23 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 						Message: "only unapproved purchase orders can be edited",
 					},
 				},
+			}
+		}
+
+		// This check runs before CleanPurchaseOrder so it compares the submitted
+		// values, not the cleaned ones.
+		if utilities.IsPurchaseOrderRevision(original) {
+			if field := lockedRevisionFieldChange(record); field != "" {
+				return "", &errs.HookError{
+					Status:  http.StatusBadRequest,
+					Message: "hook error when validating revised purchase order",
+					Data: map[string]errs.CodeError{
+						field: {
+							Code:    "revision_field_locked",
+							Message: "only the total and approvers can change on a revised purchase order",
+						},
+					},
+				}
 			}
 		}
 	}
@@ -908,7 +1007,7 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 		}
 		return nid, nil
 	}
-	if shouldResetApprovals {
+	if shouldResetApprovals || revisionChangeNeedsApproverEmail(record) {
 		nid, err := createPOApprovalRequiredNotification(app, record, authRecord.Id)
 		if err != nil {
 			return "", err

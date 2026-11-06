@@ -11,7 +11,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"regexp"
 	"slices"
@@ -661,17 +660,6 @@ func createPreviewPurchaseOrderGroupHandler(app core.App) func(e *core.RequestEv
 	}
 }
 
-// purchaseOrderGroupAmount formats a group total for the approver's email, for
-// example "12,345.60 CAD".
-func purchaseOrderGroupAmount(value float64, currencyCode string) string {
-	cents := int64(math.Round(value * 100))
-	whole := strconv.FormatInt(cents/100, 10)
-	for i := len(whole) - 3; i > 0; i -= 3 {
-		whole = whole[:i] + "," + whole[i:]
-	}
-	return fmt.Sprintf("%s.%02d %s", whole, cents%100, currencyCode)
-}
-
 // purchaseOrderGroupEmailDescription is the description an approver's email
 // shows for a group.
 func purchaseOrderGroupEmailDescription(description string) string {
@@ -697,7 +685,7 @@ func createPurchaseOrderGroupNotification(app core.App, req *purchaseOrderGroupR
 			"Count":       preview.Count,
 			"Description": purchaseOrderGroupEmailDescription(group.GetString("description")),
 			"VendorName":  vendorName,
-			"Total":       purchaseOrderGroupAmount(preview.Total, preview.CurrencyCode),
+			"Total":       utilities.FormatCurrencyAmount(preview.Total, preview.CurrencyCode),
 			"ActionURL":   notifications.BuildActionURL(app, "/pos/pending"),
 		},
 		ActorUID: group.GetString("creator"),

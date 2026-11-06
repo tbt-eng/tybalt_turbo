@@ -1,9 +1,12 @@
 <script lang="ts">
   import DsList from "$lib/components/DSList.svelte";
+  import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
+  import { isPORevision } from "$lib/poVisibility";
 
   interface JobPOEntry {
     id: string;
     po_number: string;
+    status: string;
     date: string;
     total: number;
     type: string;
@@ -29,7 +32,13 @@
     <span class="text-sm text-gray-500">
       Purchase orders referencing a job belong to the branch of the job they reference.
     </span>
-    <div><span class="font-semibold">Total:</span> {summary.total_amount ?? 0}</div>
+    <div>
+      <span class="font-semibold">Total:</span>
+      {summary.total_amount ?? 0}
+      {#if summary.revision_count > 0}
+        (excludes {summary.revision_count} under revision)
+      {/if}
+    </div>
     {#if summary.earliest_po}
       <div>
         <span class="font-semibold">Date Range:</span>
@@ -42,13 +51,21 @@
 {#if listLoading && items.length === 0}
   <div class="px-4">Loading…</div>
 {:else if items.length === 0}
-  <div class="px-4">No <i>Active</i> purchase orders found.</div>
+  <div class="px-4">No <i>Active</i> or under-revision purchase orders found.</div>
 {:else}
   <div class="w-full overflow-hidden">
     <DsList {items} search={false} inListHeader="Purchase Orders">
       {#snippet anchor(item: JobPOEntry)}{item.date}{/snippet}
       {#snippet headline(item: JobPOEntry)}{item.po_number}{/snippet}
-      {#snippet byline(item: JobPOEntry)}{item.given_name} {item.surname}{/snippet}
+      {#snippet byline(item: JobPOEntry)}
+        <span class="flex items-center gap-2">
+          {item.given_name}
+          {item.surname}
+          {#if isPORevision(item)}
+            <PORevisionStatus poId={item.id} />
+          {/if}
+        </span>
+      {/snippet}
       {#snippet line1(item: JobPOEntry)}
         <span class="font-bold">{item.division_code}</span>
         <span class="font-bold">{item.type}</span>

@@ -174,6 +174,7 @@ Direct record deletion is allowed only when all of the following are true:
 
 - Caller is the PO creator (`uid = @request.auth.id`)
 - `status = Unapproved`
+- `po_number = ""` (a revised PO keeps its number and cannot be deleted; see Revision)
 
 Create-path guardrails (collection API rules):
 
@@ -195,7 +196,8 @@ Implications:
 | `Unapproved`, `approved = ""`, `second_approval = ""` | Yes | Draft / pending first approval |
 | `Unapproved`, `approved != ""`, `second_approval = ""` | Yes | First-approved, pending second approval |
 | `Unapproved`, `second_approval != ""` | No | Final approval complete; update rule blocks |
-| `Active` | No | Use approve/cancel/close lifecycle actions |
+| `Unapproved`, `po_number != ""` | Total and approvers only | A revision awaiting approval or rejected; see Revision |
+| `Active` | No | Use approve/cancel/close lifecycle actions, or revise the total |
 | `Cancelled` | No | Terminal |
 | `Closed` | No | Terminal |
 
@@ -335,12 +337,13 @@ The `visible` endpoints use broader read semantics than `pending`:
     - for non-rejected records: assigned first approver (pre/post first approval) and priority second approver (post-first-approval)
   - plus policy-based second-stage visibility for eligible second-stage approvers on first-approved/not-second-approved records (not timeout-gated)
 - Purchase order group members (`po_group` set): visible in every status to `super_po` and `admin` claim holders
+- Revisions (`Unapproved` with a `po_number`): visible to any authenticated user, because they were visible while `Active`; see Revision
 
 `GET /api/purchase_orders/visible` supports `scope`:
 
 - `all` (default)
 - `mine` (where `uid = caller`)
-- `active` (status `Active`)
+- `active` (status `Active`, plus revisions)
 - `rejected` (status `Unapproved`, `rejected != ''`, `uid = caller`)
 - `stale` (status `Active` and older than `stale_before`; uses `second_approval` when present, otherwise `approved`)
 - `expiring` (status `Active`, type `Recurring`, `end_date <= expiring_before`; requires `expiring_before` query parameter; sorted by `end_date ASC`)
@@ -348,7 +351,7 @@ The `visible` endpoints use broader read semantics than `pending`:
 
 Note:
 
-- Collection `list/view` rules are direct-only for unapproved records; the broader policy-based second-stage visibility above is implemented by the custom `/visible*` SQL endpoints.
+- Collection `list/view` rules are direct-only for unapproved records, except revisions that are not rejected; the broader policy-based second-stage visibility above is implemented by the custom `/visible*` SQL endpoints.
 
 ## priority_second_approver
 
@@ -392,7 +395,43 @@ Current canonical views:
 2. Stage 1 performed by the assigned first approver, the final-qualified requester, or the combined-approval fast path
 3. If dual-required, pending queue ownership is priority-owner first, then broader pool after timeout; final approval authorization remains any second-stage-eligible approver
 4. PO becomes `Active` only when approval requirements are fully satisfied
-5. Active PO is later cancelled/closed per existing status rules
+5. Active PO is later cancelled/closed per existing status rules, or revised back to `Unapproved` while it has no expenses
+
+## Revision
+
+Route: `POST /api/purchase_orders/:id/revise` with body `{ "total": number, "approver"?: id, "priority_second_approver"?: id }`
+
+The creator of an `Active` PO can change its total. In one transaction the PO returns to `Unapproved`, keeps its `po_number`, and goes through approval again. An approval only matters once an expense uses it, so a PO with no expenses loses nothing by being approved again.
+
+Conditions (otherwise HTTP 4xx and the PO is unchanged):
+
+- Caller is the creator (`unauthorized_revision`).
+- PO is `Active` (`po_not_active`).
+- PO is not a legacy manual entry or an imported record (`legacy_po_not_revisable`).
+- PO has no expenses (`po_has_expenses`) and no child POs that are not `Cancelled` (`po_has_child_pos`).
+- The total differs from the current total (`total_unchanged`).
+- The PO passes the same cleaning and validation as an edit, including approver checks for the new total. Omitted approvers keep their current values.
+
+On success:
+
+- `total`, `approval_total` and `approval_total_home` reflect the new total.
+- `status = Unapproved`; `approved`, `second_approval`, `second_approver` and the rejection fields are cleared.
+- The assigned first approver gets a `po_revision_approval_required` email, which says the total was revised and gives the PO number, description, vendor and approval total. If the email can't be created, the revision still succeeds and the error is logged.
+
+While a revision awaits approval:
+
+- No expenses can be added, because expenses require an `Active` PO.
+- The creator can edit only `total`, `approver` and `priority_second_approver`. The update hook rejects any other change with code `revision_field_locked`.
+- An edit that changes the total or the approver sends the approver the same email. So does resubmitting after a rejection, which also clears any first approval.
+- The approve route keeps the existing `po_number` when it activates the PO.
+- A grouped PO gets the single-PO second-approval email, not the group email.
+- The PO is not exported to the legacy system, which exports only non-`Unapproved` POs, so the legacy copy keeps its last approved values until the revision is approved.
+- Any signed-in user can still see it, so that it doesn't look deleted. It appears on the job POs tab, the vendor page, Search (under Active), `/pos/active`, and by direct link, with an "Under revision" status that opens a popup saying who it is waiting on. It stays out of the pending queue for anyone who can't act on it, the stale and expiring lists, the payables spreadsheet and the legacy export. The job PO summary leaves it out of the total and reports it in `revision_count`.
+- `rejection_reason` is returned only to the creator, the approver and the rejector. The `/visible*` SQL blanks it. The collection `list/view` rules leave out a rejected revision for anyone else, because the collection API can't hide a field from filters. That also leaves it off the vendor page for them.
+
+If the revision is rejected, the creator can edit and resubmit it, or cancel it after confirming (see Cancellation). It cannot be deleted.
+
+`GET /api/purchase_orders/visible/:id` returns `revisable`, which says whether the route can accept this PO. The UI shows **Revise Total** only to the creator of a revisable PO.
 
 ## Purchase Order Types and Behaviors
 
@@ -524,6 +563,7 @@ Route: `POST /api/purchase_orders/:id/cancel`
 - Caller must have `payables_admin` claim.
 - PO must be `Active`.
 - PO must have no associated expenses.
+- Exception: the creator (and only the creator) may cancel a rejected revision, an `Unapproved` PO with a `po_number` and a `rejected` timestamp.
 - On success:
   - `canceller` is set
   - `cancelled` timestamp is set

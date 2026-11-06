@@ -4,6 +4,8 @@
   import DsFileLink from "$lib/components/DsFileLink.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSSearchList from "$lib/components/DSSearchList.svelte";
+  import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
+  import { isPORevision } from "$lib/poVisibility";
   import DSToggle from "$lib/components/DSToggle.svelte";
   import { pb } from "$lib/pocketbase";
   import type { POSearchApiResponse } from "$lib/stores/poSearch";
@@ -88,7 +90,11 @@
     }
   }
 
-  const statusFilter = $derived((po: POSearchApiResponse) => po.status === selectedStatus);
+  // A purchase order under revision was Active, so it is found under Active.
+  const statusFilter = $derived(
+    (po: POSearchApiResponse) =>
+      po.status === selectedStatus || (selectedStatus === "Active" && isPORevision(po)),
+  );
 </script>
 
 {#if $poSearch.index !== null}
@@ -139,7 +145,9 @@
         {#if item.legacy_manual_entry}
           <DsLabel color="cyan">Manually created</DsLabel>
         {/if}
-        {#if item.status !== "Active"}
+        {#if isPORevision(item)}
+          <PORevisionStatus poId={item.id} />
+        {:else if item.status !== "Active"}
           <DsLabel color={poStatusColor(item.status)}>
             {item.status}
           </DsLabel>

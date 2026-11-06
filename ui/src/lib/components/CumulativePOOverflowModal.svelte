@@ -54,7 +54,10 @@
               2,
             )}.
           </p>
-          <p>Would you like to create a child PO for the overflow amount?</p>
+          <p>
+            Would you like to create a child PO? Set its total to the full expense, because one
+            expense can't use two purchase orders.
+          </p>
           <div class="flex gap-4">
             <DsActionButton action={handleCreateChild} color="green">
               Create Child PO

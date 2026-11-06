@@ -1,4 +1,5 @@
 import { pb } from "$lib/pocketbase";
+import { poRevisionFilter } from "$lib/poVisibility";
 import type { PageLoad } from "./$types";
 import { error } from "@sveltejs/kit";
 
@@ -14,7 +15,9 @@ export const load: PageLoad = async ({ params, url }) => {
     const vendor = await pb.collection("vendors").getOne(vendorId);
 
     // filters
-    const poFilter = `vendor='${vendorId}' && (status='Active' || status='Closed')`;
+    // The collection rules leave a rejected revision out unless the caller is
+    // involved in it.
+    const poFilter = `vendor='${vendorId}' && (status='Active' || status='Closed' || ${poRevisionFilter})`;
     const expFilter = `vendor='${vendorId}' && committed != ''`;
 
     // decide which collection & filter to run for active tab

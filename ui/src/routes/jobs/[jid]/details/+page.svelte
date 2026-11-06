@@ -45,7 +45,7 @@
   let tabs: TabItem[] = $derived([
     { label: "Time", href: "#time", active: activeTab === "time" },
     { label: "Expenses", href: "#expenses", active: activeTab === "expenses" },
-    { label: "Active POs", href: "#pos", active: activeTab === "pos" },
+    { label: "POs", href: "#pos", active: activeTab === "pos" },
     { label: "WIP", href: "#wip", active: activeTab === "wip" },
   ]);
 

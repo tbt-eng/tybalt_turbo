@@ -12,14 +12,17 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
 | Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
+| Payables staff        | Staff who can cancel, close or convert a purchase order.                                                                                            |                 |
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
 | Project Authorization | The agreement that Turbo prints for signatures. You can use it as the authorization PDF, or use another document.                                   | PA              |
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
+| Revise                | Change the total of an approved purchase order.                                                                                                     |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |
 | Subjob                | A project under a parent project. It has its parent's client. Its number is its parent's number plus a suffix, such as 25-123-01.                   |                 |
 | Time sheet            | Your time entries for one week.                                                                                                                     | timesheet       |
+| Under revision        | A purchase order with a new total that waits for approval.                                                                                          |                 |
 
 ## Who approves what
 

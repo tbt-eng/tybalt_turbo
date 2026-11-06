@@ -1,8 +1,9 @@
--- List active purchase orders for a job with optional filters and pagination
+-- List active and under-revision purchase orders for a job with optional filters and pagination
 -- Branch, division, and profile can be missing, so blank their codes and
 -- names; the Go row fields are plain strings and cannot hold NULL.
 SELECT po.id,
        po.po_number,
+       po.status,
        po.date,
        po.total,
        po.type,
@@ -14,7 +15,7 @@ FROM   purchase_orders po
 LEFT   JOIN branches b ON po.branch = b.id
 LEFT   JOIN divisions d ON po.division = d.id
 LEFT   JOIN profiles  p ON po.uid      = p.uid
-WHERE  po.status = 'Active'
+WHERE  (po.status = 'Active' OR __PO_IS_REVISION__)
   AND  po.job = {:id}
   AND  ({:branch}   IS NULL OR {:branch}   = '' OR po.branch   = {:branch})
   AND  ({:division} IS NULL OR {:division} = '' OR po.division = {:division})

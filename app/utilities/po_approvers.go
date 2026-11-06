@@ -213,3 +213,13 @@ func GetPOApproverPolicy(
 
 	return policy, nil
 }
+
+// IsPurchaseOrderRevision reports whether a purchase order is under revision:
+// an Active purchase order sent back for approval with the number it already
+// has. The SQL queries use poRevisionCondition in the routes package, and the UI
+// uses isPORevision in poVisibility.ts.
+func IsPurchaseOrderRevision(po *core.Record) bool {
+	return po.GetString("status") == "Unapproved" &&
+		strings.TrimSpace(po.GetString("po_number")) != "" &&
+		!po.GetBool("legacy_manual_entry")
+}

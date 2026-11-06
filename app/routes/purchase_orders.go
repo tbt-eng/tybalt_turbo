@@ -20,8 +20,20 @@ import (
 
 const poVisibilityBaseToken = "__PO_VISIBILITY_BASE__"
 
+// poRevisionCondition is the SQL test for a purchase order under revision. It
+// replaces poRevisionToken in the queries, which all call purchase_orders po.
+// utilities.IsPurchaseOrderRevision is the same test for a record.
+const (
+	poRevisionToken     = "__PO_IS_REVISION__"
+	poRevisionCondition = "(po.status = 'Unapproved' AND po.po_number != '' AND po.legacy_manual_entry = 0)"
+)
+
 //go:embed po_visibility_base.sql
-var poVisibilityBaseQuery string
+var poVisibilityBaseTemplate string
+
+// This is a package variable because other files' init functions read it, and
+// those can run before this file's.
+var poVisibilityBaseQuery = strings.ReplaceAll(poVisibilityBaseTemplate, poRevisionToken, poRevisionCondition)
 
 //go:embed pending_pos.sql
 var pendingPOsQueryTemplate string
@@ -47,6 +59,10 @@ var (
 )
 
 func init() {
+	jobPOsQuery = strings.ReplaceAll(jobPOsQuery, poRevisionToken, poRevisionCondition)
+	jobPOsCountQuery = strings.ReplaceAll(jobPOsCountQuery, poRevisionToken, poRevisionCondition)
+	jobPOSummaryQuery = strings.ReplaceAll(jobPOSummaryQuery, poRevisionToken, poRevisionCondition)
+
 	pendingPOsQuery = strings.ReplaceAll(pendingPOsQueryTemplate, poVisibilityBaseToken, poVisibilityBaseQuery)
 	pendingPOByIDQuery = strings.ReplaceAll(pendingPOByIDQueryTemplate, poVisibilityBaseToken, poVisibilityBaseQuery)
 	visiblePOsQuery = strings.ReplaceAll(visiblePOsQueryTemplate, poVisibilityBaseToken, poVisibilityBaseQuery)
@@ -135,6 +151,7 @@ type purchaseOrderVisibilityRow struct {
 	RecurringRemainingCount    int     `db:"recurring_remaining_occurrences" json:"recurring_remaining_occurrences"`
 	RemainingAmount            float64 `db:"remaining_amount" json:"remaining_amount"`
 	PrintMaxAmount             float64 `db:"print_max_amount" json:"print_max_amount"`
+	Revisable                  bool    `db:"revisable" json:"revisable"`
 	UIDName                    string  `db:"uid_name" json:"uid_name"`
 	ApproverName               string  `db:"approver_name" json:"approver_name"`
 	SecondApproverName         string  `db:"second_approver_name" json:"second_approver_name"`
@@ -508,9 +525,11 @@ func createApprovePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) 
 		approverProfile := updatedPO.ExpandedOne("approver").ExpandedOne("profiles_via_uid")
 
 		needsPrioritySecondApproval := !recordWasFirstApproved && recordNowFirstApproved && recordRequiresSecondApproval && updatedPO.GetString("priority_second_approver") != "" && updatedPO.GetString("status") != "Active"
-		if needsPrioritySecondApproval && updatedPO.GetString("po_group") != "" {
+		if needsPrioritySecondApproval && updatedPO.GetString("po_group") != "" && updatedPO.GetString("po_number") == "" {
 			// A purchase order in a group: the priority_second_approver gets
 			// one email for the whole group rather than one per purchase order.
+			// A revised purchase order already has a number. It is approved on
+			// its own, so it falls through to the single-PO email below.
 			if err := notifyPurchaseOrderGroupSecondApprover(app, updatedPO, userId); err != nil {
 				return err
 			}
@@ -946,29 +965,44 @@ func createCancelPurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 				}
 			}
 
-			// Check if the purchase order is active
-			if po.Get("status") != "Active" {
-				httpResponseStatusCode = http.StatusBadRequest
-				return &CodeError{
-					Code:    "po_not_active",
-					Message: "only active purchase orders can be cancelled",
-				}
-			}
+			// A rejected revision keeps its po_number but has no approval. Its
+			// creator may cancel it rather than resubmit it. Revised purchase
+			// orders have no expenses, which the check below confirms.
+			isRejectedRevision := utilities.IsPurchaseOrderRevision(po) && !po.GetDateTime("rejected").IsZero()
 
-			// Check if the user is authorized to cancel the purchase order
-			hasPayablesAdminClaim, err := utilities.HasClaim(txApp, authRecord, "payables_admin")
-			if err != nil {
-				httpResponseStatusCode = http.StatusInternalServerError
-				return &CodeError{
-					Code:    "error_fetching_user_claims",
-					Message: fmt.Sprintf("error fetching user claims: %v", err),
+			if isRejectedRevision {
+				if po.GetString("uid") != userId {
+					httpResponseStatusCode = http.StatusForbidden
+					return &CodeError{
+						Code:    "unauthorized_cancellation",
+						Message: "only the creator can cancel a rejected revision",
+					}
 				}
-			}
-			if !hasPayablesAdminClaim {
-				httpResponseStatusCode = http.StatusForbidden
-				return &CodeError{
-					Code:    "unauthorized_cancellation",
-					Message: "you are not authorized to cancel this purchase order",
+			} else {
+				// Check if the purchase order is active
+				if po.Get("status") != "Active" {
+					httpResponseStatusCode = http.StatusBadRequest
+					return &CodeError{
+						Code:    "po_not_active",
+						Message: "only active purchase orders can be cancelled",
+					}
+				}
+
+				// Check if the user is authorized to cancel the purchase order
+				hasPayablesAdminClaim, err := utilities.HasClaim(txApp, authRecord, "payables_admin")
+				if err != nil {
+					httpResponseStatusCode = http.StatusInternalServerError
+					return &CodeError{
+						Code:    "error_fetching_user_claims",
+						Message: fmt.Sprintf("error fetching user claims: %v", err),
+					}
+				}
+				if !hasPayablesAdminClaim {
+					httpResponseStatusCode = http.StatusForbidden
+					return &CodeError{
+						Code:    "unauthorized_cancellation",
+						Message: "you are not authorized to cancel this purchase order",
+					}
 				}
 			}
 

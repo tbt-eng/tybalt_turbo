@@ -25,6 +25,9 @@
     - Direct visibility (creator, assigned first approver, and priority second
       approver for post-first-approval records).
     - Policy-based second-stage visibility (eligible second approvers).
+    - Revisions (an Unapproved PO with a po_number) are visible to any
+      authenticated user, because they were visible while Active. Their
+      rejection_reason is blank for anyone but the creator, approver and rejector.
   - Actionability (pending queue) is intentionally narrower than visibility:
     - Stage 1 assigned-primary-approver path, including the requester exception.
     - Stage 2 priority owner path.
@@ -164,7 +167,13 @@ SELECT
   po.attachment,
   po.rejector,
   po.rejected,
-  po.rejection_reason,
+  CASE
+    WHEN
+      __PO_IS_REVISION__
+      AND {:userId} NOT IN (po.uid, po.approver, po.rejector)
+    THEN ''
+    ELSE po.rejection_reason
+  END AS rejection_reason,
   po.approver,
   po.approved,
   po.second_approver,
@@ -342,6 +351,15 @@ SELECT
     THEN 1
     ELSE 0
   END AS is_unapproved_second_stage_eligible,
+
+  -- Flag: Revision visibility. A revision is an Active PO returned to Unapproved
+  -- with its po_number. It stays visible while it is approved again, so that it
+  -- does not look deleted. Actionability below is not affected.
+  CASE
+    WHEN __PO_IS_REVISION__
+    THEN 1
+    ELSE 0
+  END AS is_revision_visible,
 
   CASE
     WHEN

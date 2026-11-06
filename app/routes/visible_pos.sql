@@ -81,6 +81,7 @@ WHERE
     OR is_closed_cancelled_visible = 1
     OR is_unapproved_direct_visible = 1
     OR is_unapproved_second_stage_eligible = 1
+    OR is_revision_visible = 1
     OR is_legacy_visible = 1
     OR is_group_visible = 1
   )
@@ -88,7 +89,7 @@ WHERE
     {:scope} = 'all'
     OR ({:scope} = 'mine' AND uid = {:userId})
     OR ({:scope} = 'group' AND po_group = {:groupId})
-    OR ({:scope} = 'active' AND status = 'Active')
+    OR ({:scope} = 'active' AND (status = 'Active' OR is_revision_visible = 1))
     OR (
       {:scope} = 'rejected'
       AND status = 'Unapproved'

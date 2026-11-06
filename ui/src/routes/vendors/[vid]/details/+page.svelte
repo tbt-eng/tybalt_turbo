@@ -6,6 +6,8 @@
   import Icon from "@iconify/svelte";
   import { shortDate, trimmedOrEmpty } from "$lib/utilities";
   import DSTabBar, { type TabItem } from "$lib/components/DSTabBar.svelte";
+  import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
+  import { isPORevision } from "$lib/poVisibility";
 
   export let data: PageData;
 </script>
@@ -79,6 +81,8 @@
             {shortDate(po.date)}
             {#if po.status === "Active"}
               <DsLabel style="inverted" color="green">{po.status}</DsLabel>
+            {:else if isPORevision( { status: po.status, po_number: po.po_number, legacy_manual_entry: po.legacy_manual_entry } )}
+              <PORevisionStatus poId={po.id} />
             {/if}
             {#if po.type === "Cumulative"}
               <DsLabel color="teal"><Icon icon="mdi:sigma" width="20" /></DsLabel>

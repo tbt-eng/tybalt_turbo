@@ -1,10 +1,12 @@
 import { createCollectionStore } from "./collectionStore";
 import { pb } from "$lib/pocketbase";
+import { isPORevision } from "$lib/poVisibility";
 
 export interface POSearchApiResponse {
   id: string;
   po_number: string;
-  status: "Active" | "Closed" | "Cancelled";
+  // Unapproved only ever appears for a purchase order under revision.
+  status: "Active" | "Closed" | "Cancelled" | "Unapproved";
   uid: string;
   uid_name: string;
   legacy_manual_entry: boolean;
@@ -41,7 +43,12 @@ async function fetchSearchEligiblePO(id: string): Promise<POSearchApiResponse | 
       method: "GET",
     })) as POSearchApiResponse & { status: string };
 
-    if (po.status !== "Active" && po.status !== "Closed" && po.status !== "Cancelled") {
+    if (
+      po.status !== "Active" &&
+      po.status !== "Closed" &&
+      po.status !== "Cancelled" &&
+      !isPORevision(po)
+    ) {
       return null;
     }
 

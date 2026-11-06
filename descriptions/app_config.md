@@ -88,6 +88,7 @@ Toggles individual notification templates on/off. Each property key is a templat
 | Template Code                          | Description                                 |
 |----------------------------------------|---------------------------------------------|
 | `po_approval_required`                 | PO requires first-approver action           |
+| `po_revision_approval_required`        | Revised PO requires first-approver action   |
 | `po_second_approval_required`          | PO requires second-approver action          |
 | `po_priority_second_approval_required` | PO requires priority second-approver action |
 | `po_active`                            | PO has been approved and is now active      |

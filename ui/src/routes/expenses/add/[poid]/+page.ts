@@ -1,7 +1,8 @@
 import type { ExpensesRecord } from "$lib/pocketbase-types";
 import type { PageLoad } from "./$types";
 import type { ExpensesPageData } from "$lib/svelte-types";
-import { fetchVisiblePO, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
+import { fetchVisiblePO, isPORevision, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
+import { redirect } from "@sveltejs/kit";
 import { localIsoDate } from "$lib/localDate";
 
 export const load: PageLoad<ExpensesPageData> = async ({ params, url }) => {
@@ -27,6 +28,10 @@ export const load: PageLoad<ExpensesPageData> = async ({ params, url }) => {
   // item
   if (params.poid) {
     const result: VisiblePurchaseOrderResponse = await fetchVisiblePO(params.poid);
+    // The details page explains why no expenses can be added yet.
+    if (isPORevision(result)) {
+      throw redirect(303, `/pos/${params.poid}/details`);
+    }
     defaultItem.division = result.division;
     defaultItem.description = result.description;
     defaultItem.payment_type = result.payment_type;

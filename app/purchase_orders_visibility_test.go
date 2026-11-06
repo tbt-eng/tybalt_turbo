@@ -1021,7 +1021,7 @@ func TestPurchaseOrdersSearchEndpoint(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "regular user search only includes visible active statuses and excludes closed cancelled and unapproved records they cannot see",
+			Name:   "regular user search only includes visible active statuses and excludes closed cancelled and unnumbered unapproved records they cannot see",
 			Method: http.MethodGet,
 			URL:    "/api/purchase_orders/search",
 			Headers: map[string]string{
@@ -1031,9 +1031,6 @@ func TestPurchaseOrdersSearchEndpoint(t *testing.T) {
 			ExpectedContent: []string{
 				`"id":"2plsetqdxht7esg"`,
 				`"status":"Active"`,
-			},
-			NotExpectedContent: []string{
-				`"status":"Unapproved"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {
@@ -1051,7 +1048,7 @@ func TestPurchaseOrdersSearchEndpoint(t *testing.T) {
 			},
 		},
 		{
-			Name:   "creator search includes their visible closed and cancelled records while still excluding unapproved records",
+			Name:   "creator search includes their visible closed and cancelled records while still excluding unnumbered unapproved records",
 			Method: http.MethodGet,
 			URL:    "/api/purchase_orders/search",
 			Headers: map[string]string{
@@ -1063,9 +1060,6 @@ func TestPurchaseOrdersSearchEndpoint(t *testing.T) {
 				`"status":"Closed"`,
 				`"id":"1cqrvp4mna33k2b"`,
 				`"status":"Cancelled"`,
-			},
-			NotExpectedContent: []string{
-				`"status":"Unapproved"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, _ *tests.TestApp, res *http.Response) {

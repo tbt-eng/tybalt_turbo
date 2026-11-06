@@ -23,7 +23,8 @@
   } from "$lib/utilities";
   import { onMount, onDestroy, untrack, type Snippet } from "svelte";
   import { expensesEditingEnabled } from "$lib/stores/appConfig";
-  import { fetchPendingPO, fetchVisiblePO } from "$lib/poVisibility";
+  import { fetchPendingPO, fetchVisiblePO, isPORevision } from "$lib/poVisibility";
+  import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
   // import { toastStore, type ToastSettings } from "@skeletonlabs/skeleton";
 
   const collectionId = "purchase_orders";
@@ -198,7 +199,8 @@
   function poMayBeDeletedByUser(po: VisiblePurchaseOrderResponse): boolean {
     if (deactivateButtonHiding) return true;
     const currentUserId = $authStore?.model?.id ?? "";
-    return po.status === "Unapproved" && po.uid === currentUserId;
+    // A revised purchase order keeps its po_number and cannot be deleted.
+    return po.status === "Unapproved" && po.po_number === "" && po.uid === currentUserId;
   }
 
   function poIsOwnedByCurrentUser(po: VisiblePurchaseOrderResponse): boolean {
@@ -298,7 +300,7 @@
           </DsLabel>
         {:else if item.status === "Unapproved"}
           <a href={`/pos/${item.id}/details`} class="text-blue-600 hover:underline">
-            {item.date}
+            {item.po_number || shortDate(item.date, true)}
           </a>
         {:else}
           <a href={`/pos/${item.id}/details`} class="text-blue-600 hover:underline">
@@ -345,7 +347,9 @@
         {#if item.legacy_manual_entry}
           <DsLabel color="cyan">Manually created</DsLabel>
         {/if}
-        {#if item.status !== "Active"}
+        {#if isPORevision(item)}
+          <PORevisionStatus poId={item.id} />
+        {:else if item.status !== "Active"}
           <DsLabel color={poStatusColor(item)}>
             {poDisplayStatus(item)}
           </DsLabel>
@@ -380,9 +384,8 @@
         {#if poIsRejected(item)}
           <DsLabel color="red" title={`${shortDate(item.rejected)}: ${item.rejection_reason}`}>
             <Icon icon="mdi:cancel" width="20px" class="inline-block" />
-            {item.rejector_name} ({shortDate(item.rejected)}) - {rejectionReasonPreview(
-              item.rejection_reason,
-            )}
+            {item.rejector_name} ({shortDate(item.rejected)}){#if item.rejection_reason}
+              - {rejectionReasonPreview(item.rejection_reason)}{/if}
           </DsLabel>
         {/if}
         <!-- if the item is cumulative, show the sigma icon -->

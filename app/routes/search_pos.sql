@@ -80,8 +80,9 @@ WHERE
     is_active_visible = 1
     OR is_closed_cancelled_visible = 1
     OR is_legacy_visible = 1
+    OR is_revision_visible = 1
   )
-  AND status IN ('Active', 'Closed', 'Cancelled')
+  AND (status IN ('Active', 'Closed', 'Cancelled') OR is_revision_visible = 1)
 ORDER BY
   date DESC,
   updated DESC

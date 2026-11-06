@@ -2,6 +2,9 @@
   import type { PageData } from "./$types";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
+  import { isPORevision, poRevisionWaitingOn } from "$lib/poVisibility";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
@@ -27,6 +30,7 @@
   let showSecondApproverWhy = $state(false);
   let showBudgetCoverageHelp = $state(false);
   let showConvertPopover = $state(false);
+  let showCancelRevisionPopover = $state(false);
   let convertError = $state<string | null>(null);
   let isConvertingToCumulative = $state(false);
   const formatAmount = (value: number) =>
@@ -57,6 +61,13 @@
           : data.po.status,
   );
   const isOwner = $derived(data.po.uid === viewerId);
+  // A revision returns an Active PO to Unapproved but keeps its po_number.
+  const isRevisionPending = $derived(isPORevision(data.po));
+  const revisionWaitingOn = $derived(poRevisionWaitingOn(data.po));
+  const canRevise = $derived(isOwner && $expensesEditingEnabled && data.po.revisable);
+  const canCancelRejectedRevision = $derived(
+    isOwner && isRejected && isRevisionPending && $expensesEditingEnabled,
+  );
   const canApproveOrReject = $derived(data.canApproveOrReject);
   const hasProjectJob = $derived.by(() =>
     Boolean(data.po.job && data.po.job_number && !data.po.job_number.toUpperCase().startsWith("P")),
@@ -223,7 +234,9 @@
             color="green"
           />
         {/if}
-        {#if data.po.status}
+        {#if isRevisionPending}
+          <PORevisionStatus poId={data.po.id} showDetailsLink={false} />
+        {:else if data.po.status}
           <DsLabel
             color={displayStatus === "Active"
               ? "green"
@@ -242,6 +255,12 @@
     </div>
 
     <div class="space-y-2 bg-neutral-100 p-4">
+      {#if isRevisionPending && !isRejected}
+        <DSCallout tone="info" title="Revision awaiting approval">
+          {data.po.po_number} keeps its number, but no expenses can be added to it until the revised total
+          is approved. Waiting on {revisionWaitingOn.name} for {revisionWaitingOn.reason.toLowerCase()}.
+        </DSCallout>
+      {/if}
       {#if isRejected}
         <div class="rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-900">
           <div class="font-semibold">This purchase order was rejected.</div>
@@ -256,13 +275,21 @@
             </div>
           {/if}
           {#if isOwner && $expensesEditingEnabled && !data.po.legacy_manual_entry}
-            <div class="mt-2">
+            <div class="mt-2 flex gap-2">
               <DsActionButton
                 action={`/pos/${data.po.id}/edit`}
                 icon="mdi:pencil"
                 title="Edit and Resubmit"
                 color="red"
               />
+              {#if canCancelRejectedRevision}
+                <DsActionButton
+                  action={() => (showCancelRevisionPopover = true)}
+                  icon="mdi:cancel"
+                  title="Cancel Purchase Order"
+                  color="gray"
+                />
+              {/if}
             </div>
           {/if}
         </div>
@@ -591,6 +618,14 @@
   {#if data.po.status === "Active"}
     <div class="flex flex-wrap gap-2">
       <POPrintButton poId={data.po.id} />
+      {#if canRevise}
+        <DsActionButton
+          action={`/pos/${data.po.id}/revise`}
+          icon="mdi:pencil"
+          title="Revise Total"
+          color="blue"
+        />
+      {/if}
     </div>
   {/if}
 
@@ -621,6 +656,19 @@
       </div>
     </div>
   {/if}
+
+  <DSPopover
+    bind:show={showCancelRevisionPopover}
+    title="Cancel {data.po.po_number}?"
+    submitLabel="Cancel Purchase Order"
+    danger={true}
+    onSubmit={() => {
+      showCancelRevisionPopover = false;
+      void cancelPo();
+    }}
+  >
+    <p>You can't undo this. Its number can't be used again.</p>
+  </DSPopover>
 
   <DSPopover
     bind:show={showConvertPopover}

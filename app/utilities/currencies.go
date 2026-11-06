@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/pocketbase/dbx"
@@ -221,4 +222,15 @@ func EffectiveApprovalTotalHome(record *core.Record) float64 {
 	}
 
 	return record.GetFloat("approval_total")
+}
+
+// FormatCurrencyAmount formats an amount for an email, for example
+// "12,345.60 CAD".
+func FormatCurrencyAmount(value float64, currencyCode string) string {
+	cents := int64(math.Round(value * 100))
+	whole := strconv.FormatInt(cents/100, 10)
+	for i := len(whole) - 3; i > 0; i -= 3 {
+		whole = whole[:i] + "," + whole[i:]
+	}
+	return fmt.Sprintf("%s.%02d %s", whole, cents%100, currencyCode)
 }

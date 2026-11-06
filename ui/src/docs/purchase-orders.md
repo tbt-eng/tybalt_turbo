@@ -43,18 +43,33 @@ Expenses against the PO use its branch.
 
 ## Change a PO
 
-You can edit your PO until it has final approval. If you make a meaningful change, the approvals reset and the PO goes back for approval. You can also delete your PO until it has final approval.
+You can edit or delete your PO until it has final approval. If you make a meaningful change, the approvals reset and the PO goes back for approval.
+
+After final approval, you can't delete your PO. If it has no expenses, you can [revise its total](/docs/revise-a-purchase-order).
 
 ## Spend more than the PO total
 
 - **One-Time or Recurring:** an expense can go over by a small amount. The default is the lesser of 5% or $100.
 - **Cumulative:** the expenses together can't go over the total.
 
+## Convert a One-Time PO
+
+Payables staff can change a One-Time PO to Cumulative. It then accepts several expenses, up to its total.
+
+1. Under **Purchase Orders**, open **Search**.
+2. Find the PO and open it.
+3. Select **Convert to Cumulative**.
+4. Review the changes.
+5. Select **Convert**.
+
+You can also convert a One-Time PO that Turbo closed since March 12, 2026. Its committed expenses must total less than the PO total.
+
 ## PO statuses
 
-| Status     | What it means                                           |
-| ---------- | ------------------------------------------------------- |
-| Unapproved | It waits for approval, or the approver rejected it.     |
-| Active     | You can buy and record expenses against it.             |
-| Closed     | It is complete. Turbo or payables staff closed it.      |
-| Cancelled  | Payables staff cancelled it before it had any expenses. |
+| Status         | What it means                                                                      |
+| -------------- | ---------------------------------------------------------------------------------- |
+| Unapproved     | It waits for approval, or the approver rejected it.                                |
+| Under revision | Its creator revised the total. It waits for approval, or the approver rejected it. |
+| Active         | You can buy and record expenses against it.                                        |
+| Closed         | It is complete. Turbo or payables staff closed it.                                 |
+| Cancelled      | Payables staff cancelled it before it had any expenses.                            |

@@ -15,16 +15,17 @@ var jobPOSummaryQuery string
 
 // poSummaryRow maps the result from job_po_summary.sql
 type poSummaryRow struct {
-	TotalAmount sql.NullString `db:"total_amount"`
-	EarliestPO  sql.NullString `db:"earliest_po"`
-	LatestPO    sql.NullString `db:"latest_po"`
-	Branches    sql.NullString `db:"branches"`
-	Divisions   sql.NullString `db:"divisions"`
-	Types       sql.NullString `db:"types"`
-	Names       sql.NullString `db:"names"`
+	TotalAmount   sql.NullString `db:"total_amount"`
+	RevisionCount sql.NullInt64  `db:"revision_count"`
+	EarliestPO    sql.NullString `db:"earliest_po"`
+	LatestPO      sql.NullString `db:"latest_po"`
+	Branches      sql.NullString `db:"branches"`
+	Divisions     sql.NullString `db:"divisions"`
+	Types         sql.NullString `db:"types"`
+	Names         sql.NullString `db:"names"`
 }
 
-// createGetJobPOSummaryHandler returns handler for summary of active purchase orders for a job
+// createGetJobPOSummaryHandler returns handler for summary of active and under-revision purchase orders for a job
 // Optional query params:
 //   - division (division id)
 //   - type     (purchase order type)
@@ -71,13 +72,14 @@ func createGetJobPOSummaryHandler(app core.App) func(e *core.RequestEvent) error
 		}
 
 		resp := map[string]any{
-			"total_amount": total,
-			"earliest_po":  ns(row.EarliestPO),
-			"latest_po":    ns(row.LatestPO),
-			"branches":     ns(row.Branches),
-			"divisions":    ns(row.Divisions),
-			"types":        ns(row.Types),
-			"names":        ns(row.Names),
+			"total_amount":   total,
+			"revision_count": row.RevisionCount.Int64,
+			"earliest_po":    ns(row.EarliestPO),
+			"latest_po":      ns(row.LatestPO),
+			"branches":       ns(row.Branches),
+			"divisions":      ns(row.Divisions),
+			"types":          ns(row.Types),
+			"names":          ns(row.Names),
 		}
 
 		return e.JSON(http.StatusOK, resp)

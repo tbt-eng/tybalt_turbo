@@ -46,6 +46,10 @@
   } from "$lib/poApprovers";
   import DsActionButton from "./DSActionButton.svelte";
   import DsLabel from "./DsLabel.svelte";
+  import DSCallout from "./DSCallout.svelte";
+  import DSHelp from "./DSHelp.svelte";
+  import DSField from "./DSField.svelte";
+  import DSFieldList from "./DSFieldList.svelte";
   import PoSecondApproverStatus from "./PoSecondApproverStatus.svelte";
   import VendorSelector from "./VendorSelector.svelte";
   import { onDestroy, untrack } from "svelte";
@@ -99,6 +103,14 @@
       (item.approved ?? "") !== "" &&
       (item.second_approval ?? "") === "",
   );
+
+  // A non-legacy purchase order with a po_number is a revision: an Active PO
+  // about to be revised, or an Unapproved revision awaiting approval. The
+  // server only lets the total and approvers change, so only those show.
+  const isRevision = $derived.by(
+    () => !legacyMode && data.editing && (data.item.po_number ?? "") !== "",
+  );
+  const isNewRevision = $derived.by(() => isRevision && data.item.status === "Active");
 
   let categories = $state([] as CategoriesResponse[]);
   const syncCategoriesForJob = createJobCategoriesSync((rows) => {
@@ -282,7 +294,7 @@
   const selectedCurrency = $derived.by(() =>
     $currencies.items.find((row) => row.id === item.currency),
   );
-  const currencySelectionDisabled = $derived.by(() => isChildPO || legacyMode);
+  const currencySelectionDisabled = $derived.by(() => isChildPO || legacyMode || isRevision);
   const isEditingAnotherUsersPO = $derived.by(
     () =>
       !legacyMode &&
@@ -851,6 +863,11 @@
       }
     }
 
+    if (isRevision && data.id !== null) {
+      await saveRevision(data.id);
+      return;
+    }
+
     try {
       const saved = legacyMode
         ? data.editing && data.id !== null
@@ -879,45 +896,95 @@
         return;
       }
       goto(resolve("/pos/list"));
-    } catch (error: any) {
-      const fieldErrors = error?.response?.data ?? error?.data?.data;
-      if (fieldErrors && typeof fieldErrors === "object" && Object.keys(fieldErrors).length > 0) {
-        errors = fieldErrors;
+    } catch (error) {
+      errors = await saveErrors(error, "Failed to save purchase order.");
+    }
+  }
+
+  // Turns a failed save into the errors the form shows.
+  async function saveErrors(error: any, fallbackMessage: string) {
+    const fieldErrors = error?.response?.data ?? error?.data?.data;
+    if (fieldErrors && typeof fieldErrors === "object" && Object.keys(fieldErrors).length > 0) {
+      return fieldErrors;
+    }
+
+    const rawMessage =
+      error?.response?.message ?? error?.data?.message ?? error?.message ?? fallbackMessage;
+    const message = typeof rawMessage === "string" ? rawMessage : fallbackMessage;
+    let resolvedMessage = message;
+    if (
+      data.editing &&
+      data.id !== null &&
+      error?.status === 404 &&
+      message.toLowerCase().includes("requested resource wasn't found")
+    ) {
+      try {
+        const latestRecord = await pb.collection("purchase_orders").getOne(data.id, {
+          requestKey: null,
+        });
+        const latestOwnerId = (latestRecord?.uid ?? "").trim();
+        resolvedMessage =
+          latestOwnerId !== "" && latestOwnerId !== authUserID
+            ? nonOwnerEditMessage
+            : "This purchase order is no longer editable in its current approval state. Refresh and try again.";
+      } catch {
+        resolvedMessage =
+          "This purchase order could not be loaded. It may have been removed or you may no longer have access.";
+      }
+    }
+
+    return {
+      global: {
+        code: "save_failed",
+        message: resolvedMessage,
+      },
+    };
+  }
+
+  // Send only the fields a revision may change, so that values the editor
+  // derives for hidden fields can't reach the server.
+  async function saveRevision(id: string) {
+    const body = {
+      total: item.total,
+      approver: item.approver,
+      priority_second_approver: item.priority_second_approver,
+    };
+    try {
+      if (isNewRevision) {
+        await pb.send(`/api/purchase_orders/${id}/revise`, { method: "POST", body });
+      } else {
+        await pb.collection("purchase_orders").update(id, body);
+      }
+      errors = {};
+      if (isEditingFirstApprovedPendingSecond) {
+        showApprovalResetSuccess = true;
+        showApprovalResetToast = true;
+        resetSuccessTimeout = setTimeout(() => {
+          goto(resolve(`/pos/${id}/details`));
+        }, 1250);
         return;
       }
-
-      const fallbackMessage = "Failed to save purchase order.";
-      const rawMessage =
-        error?.response?.message ?? error?.data?.message ?? error?.message ?? fallbackMessage;
-      const message = typeof rawMessage === "string" ? rawMessage : fallbackMessage;
-      let resolvedMessage = message;
-      if (
-        data.editing &&
-        data.id !== null &&
-        error?.status === 404 &&
-        message.toLowerCase().includes("requested resource wasn't found")
-      ) {
-        try {
-          const latestRecord = await pb.collection("purchase_orders").getOne(data.id, {
-            requestKey: null,
-          });
-          const latestOwnerId = (latestRecord?.uid ?? "").trim();
-          resolvedMessage =
-            latestOwnerId !== "" && latestOwnerId !== authUserID
-              ? nonOwnerEditMessage
-              : "This purchase order is no longer editable in its current approval state. Refresh and try again.";
-        } catch {
-          resolvedMessage =
-            "This purchase order could not be loaded. It may have been removed or you may no longer have access.";
-        }
-      }
-
-      errors = {
-        global: {
-          code: "save_failed",
-          message: resolvedMessage,
-        },
-      };
+      goto(resolve(`/pos/${id}/details`));
+    } catch (error) {
+      const fieldErrors = await saveErrors(error, "Failed to save revision.");
+      // The revision form hides most fields, so an error on one of them (a
+      // closed job, say) has to show in the global error instead.
+      const shownFields = ["total", "currency", "global"];
+      if (showApproverField) shownFields.push("approver");
+      if (showSecondApproverField) shownFields.push("priority_second_approver");
+      const hiddenMessages = Object.entries(fieldErrors as Record<string, { message: string }>)
+        .filter(([field]) => !shownFields.includes(field))
+        .map(([, fieldError]) => fieldError.message);
+      errors =
+        hiddenMessages.length > 0
+          ? {
+              ...fieldErrors,
+              global: {
+                code: "revision_blocked",
+                message: `This revision can't be saved: ${hiddenMessages.join("; ")}`,
+              },
+            }
+          : fieldErrors;
     }
   }
 </script>
@@ -935,7 +1002,9 @@
 >
   <h1 class="w-full text-xl font-bold text-neutral-800">
     {#if data.editing}
-      {#if item.po_number}
+      {#if isRevision}
+        Revising {item.po_number}
+      {:else if item.po_number}
         Editing {item.po_number}
       {:else}
         Editing Purchase Order
@@ -986,6 +1055,27 @@
   {#if isEditingFirstApprovedPendingSecond}
     <div class="w-full rounded-sm border border-amber-300 bg-amber-100 p-2 text-sm text-amber-900">
       Editing this purchase order will reset approvals and resend it for approval.
+    </div>
+  {/if}
+
+  {#if isNewRevision}
+    <div class="w-full">
+      <DSCallout tone="info">
+        Saving a new total sends {item.po_number} back for approval. It keeps its number, but no expenses
+        can be added to it until it is approved again.
+        {#snippet actions()}
+          <DSHelp doc="revise-a-purchase-order#revise-the-total" label="Help" />
+        {/snippet}
+      </DSCallout>
+    </div>
+  {:else if isRevision}
+    <div class="w-full">
+      <DSCallout tone="info">
+        This is a revision of {item.po_number}. Only the total and approvers can change.
+        {#snippet actions()}
+          <DSHelp doc="revise-a-purchase-order#change-a-revision-before-approval" label="Help" />
+        {/snippet}
+      </DSCallout>
     </div>
   {/if}
 
@@ -1058,54 +1148,65 @@
       </div>
     {/if}
 
-    <div class="flex w-full flex-col gap-1 {errors.type !== undefined ? 'bg-red-200' : ''}">
-      {#if isChildPO || (legacyMode && isLegacyLocked)}
-        <span>Type</span>
-        <DsLabel color="cyan">{selectedType?.label ?? "One-Time"}</DsLabel>
-      {:else}
+    {#if isRevision}
+      <div class="w-full">
+        <DSFieldList columns={2}>
+          <DSField label="Type" value={item.type} />
+          <DSField label="Description" value={item.description} />
+        </DSFieldList>
+      </div>
+    {:else}
+      <div class="flex w-full flex-col gap-1 {errors.type !== undefined ? 'bg-red-200' : ''}">
+        {#if isChildPO || (legacyMode && isLegacyLocked)}
+          <span>Type</span>
+          <DsLabel color="cyan">{selectedType?.label ?? "One-Time"}</DsLabel>
+        {:else}
+          <DSToggle
+            bind:value={item.type}
+            label="Type"
+            options={legacyMode ? legacyTypeOptions : typeOptions}
+            showOptionDescriptions={true}
+            fullWidth={true}
+          />
+        {/if}
+        {#if errors.type !== undefined}
+          <span class="text-red-600">{errors.type.message}</span>
+        {/if}
+      </div>
+
+      <div class="flex w-full flex-col gap-1 {errors.kind !== undefined ? 'bg-red-200' : ''}">
         <DSToggle
-          bind:value={item.type}
-          label="Type"
-          options={legacyMode ? legacyTypeOptions : typeOptions}
+          bind:value={item.kind}
+          label="Kind"
+          options={kindOptions}
           showOptionDescriptions={true}
           fullWidth={true}
         />
-      {/if}
-      {#if errors.type !== undefined}
-        <span class="text-red-600">{errors.type.message}</span>
-      {/if}
-    </div>
+        {#if errors.kind !== undefined}
+          <span class="text-red-600">{errors.kind.message}</span>
+        {/if}
+      </div>
 
-    <div class="flex w-full flex-col gap-1 {errors.kind !== undefined ? 'bg-red-200' : ''}">
-      <DSToggle
-        bind:value={item.kind}
-        label="Kind"
-        options={kindOptions}
-        showOptionDescriptions={true}
-        fullWidth={true}
-      />
-      {#if errors.kind !== undefined}
-        <span class="text-red-600">{errors.kind.message}</span>
-      {/if}
-    </div>
-
-    <div class="flex w-full flex-col gap-1 {errors.payment_type !== undefined ? 'bg-red-200' : ''}">
-      {#if isChildPO}
-        <span>Payment</span>
-        <DsLabel color="cyan">{selectedPaymentType?.label ?? "On Account"}</DsLabel>
-      {:else}
-        <DSToggle
-          bind:value={item.payment_type}
-          label="Payment"
-          options={paymentTypeOptions}
-          showOptionDescriptions={true}
-          fullWidth={true}
-        />
-      {/if}
-      {#if errors.payment_type !== undefined}
-        <span class="text-red-600">{errors.payment_type.message}</span>
-      {/if}
-    </div>
+      <div
+        class="flex w-full flex-col gap-1 {errors.payment_type !== undefined ? 'bg-red-200' : ''}"
+      >
+        {#if isChildPO}
+          <span>Payment</span>
+          <DsLabel color="cyan">{selectedPaymentType?.label ?? "On Account"}</DsLabel>
+        {:else}
+          <DSToggle
+            bind:value={item.payment_type}
+            label="Payment"
+            options={paymentTypeOptions}
+            showOptionDescriptions={true}
+            fullWidth={true}
+          />
+        {/if}
+        {#if errors.payment_type !== undefined}
+          <span class="text-red-600">{errors.payment_type.message}</span>
+        {/if}
+      </div>
+    {/if}
 
     {#if !legacyMode && showApproverField}
       <DsSelector
@@ -1156,160 +1257,162 @@
       <div class="w-full text-sm text-neutral-600">You will be set as the second approver.</div>
     {/if}
 
-    {#if isRecurring}
-      <span class="flex w-full gap-2 {errors.end_date !== undefined ? 'bg-red-200' : ''}">
-        <label for="end_date">End Date</label>
+    {#if !isRevision}
+      {#if isRecurring}
+        <span class="flex w-full gap-2 {errors.end_date !== undefined ? 'bg-red-200' : ''}">
+          <label for="end_date">End Date</label>
+          <DsDateInput
+            class="flex-1 md:flex-none"
+            name="end_date"
+            min={DATE_INPUT_MIN}
+            max={dateInputMax}
+            bind:value={item.end_date}
+          />
+          {#if errors.end_date !== undefined}
+            <span class="text-red-600">{errors.end_date.message}</span>
+          {/if}
+        </span>
+        <div class="w-full text-sm text-neutral-600">
+          Payments on or after the end date are not included.
+        </div>
+
+        <DsSelector
+          bind:value={item.frequency as string}
+          items={[
+            { id: "Weekly", name: "Weekly" },
+            { id: "Biweekly", name: "Biweekly" },
+            { id: "Monthly", name: "Monthly" },
+          ]}
+          {errors}
+          fieldName="frequency"
+          uiName="Frequency"
+        >
+          {#snippet optionTemplate(item)}
+            {item.name}
+          {/snippet}
+        </DsSelector>
+      {/if}
+
+      <span class="flex w-full gap-2 {errors.date !== undefined ? 'bg-red-200' : ''}">
+        <label for="date">Date</label>
         <DsDateInput
           class="flex-1 md:flex-none"
-          name="end_date"
+          name="date"
           min={DATE_INPUT_MIN}
           max={dateInputMax}
-          bind:value={item.end_date}
+          bind:value={item.date}
         />
-        {#if errors.end_date !== undefined}
-          <span class="text-red-600">{errors.end_date.message}</span>
+        {#if errors.date !== undefined}
+          <span class="text-red-600">{errors.date.message}</span>
         {/if}
       </span>
-      <div class="w-full text-sm text-neutral-600">
-        Payments on or after the end date are not included.
-      </div>
 
-      <DsSelector
-        bind:value={item.frequency as string}
-        items={[
-          { id: "Weekly", name: "Weekly" },
-          { id: "Biweekly", name: "Biweekly" },
-          { id: "Monthly", name: "Monthly" },
-        ]}
-        {errors}
-        fieldName="frequency"
-        uiName="Frequency"
-      >
-        {#snippet optionTemplate(item)}
-          {item.name}
-        {/snippet}
-      </DsSelector>
-    {/if}
-
-    <span class="flex w-full gap-2 {errors.date !== undefined ? 'bg-red-200' : ''}">
-      <label for="date">Date</label>
-      <DsDateInput
-        class="flex-1 md:flex-none"
-        name="date"
-        min={DATE_INPUT_MIN}
-        max={dateInputMax}
-        bind:value={item.date}
-      />
-      {#if errors.date !== undefined}
-        <span class="text-red-600">{errors.date.message}</span>
-      {/if}
-    </span>
-
-    {#if $divisions.index !== null}
-      <DsAutoComplete
-        bind:value={item.division as string}
-        index={$divisions.index}
-        {errors}
-        fieldName="division"
-        uiName="Division"
-      >
-        {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
-      </DsAutoComplete>
-    {/if}
-
-    {#if legacyMode || item.job === ""}
-      <DsSelector
-        bind:value={item.branch as string}
-        items={availableBranches}
-        {errors}
-        fieldName="branch"
-        uiName="Branch"
-        disabled={legacyMode && item.job !== ""}
-      >
-        {#snippet optionTemplate(item: BranchesResponse)}
-          {item.name}
-        {/snippet}
-      </DsSelector>
-    {/if}
-
-    {#if kindAllowsJob && $jobs.index !== null}
-      <DsAutoComplete
-        bind:value={item.job as string}
-        index={$jobs.index}
-        {errors}
-        fieldName="job"
-        uiName="Job"
-        disabled={isChildPO}
-      >
-        {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
-      </DsAutoComplete>
-    {/if}
-
-    {#if !legacyMode && item.job !== "" && categories.length > 0}
-      <DsSelector
-        bind:value={item.category as string}
-        items={categories}
-        {errors}
-        fieldName="category"
-        uiName="Category"
-        clear={true}
-        disabled={isChildPO}
-      >
-        {#snippet optionTemplate(item: CategoriesResponse)}
-          {item.name}
-        {/snippet}
-      </DsSelector>
-    {/if}
-
-    {#if !legacyMode && selectedJobIsProject}
-      <div class="w-full space-y-2 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
-        <div
-          class="flex w-full flex-col gap-2"
-          class:bg-red-200={errors.covered_within_project_budget !== undefined}
+      {#if $divisions.index !== null}
+        <DsAutoComplete
+          bind:value={item.division as string}
+          index={$divisions.index}
+          {errors}
+          fieldName="division"
+          uiName="Division"
         >
-          <span class="flex w-full items-center gap-2">
-            <input
-              id="purchase-order-budget-coverage"
-              type="checkbox"
-              class="h-4 w-4"
-              name="covered_within_project_budget"
-              bind:checked={item.covered_within_project_budget}
-            />
-            <span class="inline-flex items-center gap-1">
-              <label for="purchase-order-budget-coverage">Covered within project budget</label>
-              <button
-                type="button"
-                class="inline-flex items-center text-slate-500 transition-colors hover:text-slate-700"
-                aria-label="Covered within project budget explanation"
-                aria-expanded={showBudgetCoverageHelp}
-                aria-haspopup="dialog"
-                onclick={() => {
-                  showBudgetCoverageHelp = !showBudgetCoverageHelp;
-                }}
-              >
-                <Icon icon="mdi:information-outline" width="15px" />
-              </button>
+          {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
+        </DsAutoComplete>
+      {/if}
+
+      {#if legacyMode || item.job === ""}
+        <DsSelector
+          bind:value={item.branch as string}
+          items={availableBranches}
+          {errors}
+          fieldName="branch"
+          uiName="Branch"
+          disabled={legacyMode && item.job !== ""}
+        >
+          {#snippet optionTemplate(item: BranchesResponse)}
+            {item.name}
+          {/snippet}
+        </DsSelector>
+      {/if}
+
+      {#if kindAllowsJob && $jobs.index !== null}
+        <DsAutoComplete
+          bind:value={item.job as string}
+          index={$jobs.index}
+          {errors}
+          fieldName="job"
+          uiName="Job"
+          disabled={isChildPO}
+        >
+          {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
+        </DsAutoComplete>
+      {/if}
+
+      {#if !legacyMode && item.job !== "" && categories.length > 0}
+        <DsSelector
+          bind:value={item.category as string}
+          items={categories}
+          {errors}
+          fieldName="category"
+          uiName="Category"
+          clear={true}
+          disabled={isChildPO}
+        >
+          {#snippet optionTemplate(item: CategoriesResponse)}
+            {item.name}
+          {/snippet}
+        </DsSelector>
+      {/if}
+
+      {#if !legacyMode && selectedJobIsProject}
+        <div class="w-full space-y-2 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
+          <div
+            class="flex w-full flex-col gap-2"
+            class:bg-red-200={errors.covered_within_project_budget !== undefined}
+          >
+            <span class="flex w-full items-center gap-2">
+              <input
+                id="purchase-order-budget-coverage"
+                type="checkbox"
+                class="h-4 w-4"
+                name="covered_within_project_budget"
+                bind:checked={item.covered_within_project_budget}
+              />
+              <span class="inline-flex items-center gap-1">
+                <label for="purchase-order-budget-coverage">Covered within project budget</label>
+                <button
+                  type="button"
+                  class="inline-flex items-center text-slate-500 transition-colors hover:text-slate-700"
+                  aria-label="Covered within project budget explanation"
+                  aria-expanded={showBudgetCoverageHelp}
+                  aria-haspopup="dialog"
+                  onclick={() => {
+                    showBudgetCoverageHelp = !showBudgetCoverageHelp;
+                  }}
+                >
+                  <Icon icon="mdi:information-outline" width="15px" />
+                </button>
+              </span>
             </span>
-          </span>
-          {#if errors.covered_within_project_budget !== undefined}
-            <span class="text-red-600">{errors.covered_within_project_budget.message}</span>
+            {#if errors.covered_within_project_budget !== undefined}
+              <span class="text-red-600">{errors.covered_within_project_budget.message}</span>
+            {/if}
+          </div>
+          {#if showBudgetCoverageHelp}
+            <div class="rounded-sm border border-sky-200 bg-sky-50 p-2 text-sm text-sky-950">
+              I have verified that this expense is covered within the project budget.
+            </div>
           {/if}
         </div>
-        {#if showBudgetCoverageHelp}
-          <div class="rounded-sm border border-sky-200 bg-sky-50 p-2 text-sm text-sky-950">
-            I have verified that this expense is covered within the project budget.
-          </div>
-        {/if}
-      </div>
-    {/if}
+      {/if}
 
-    <DsTextInput
-      bind:value={item.description as string}
-      {errors}
-      fieldName="description"
-      uiName="Description"
-      disabled={isChildPO}
-    />
+      <DsTextInput
+        bind:value={item.description as string}
+        {errors}
+        fieldName="description"
+        uiName="Description"
+        disabled={isChildPO}
+      />
+    {/if}
 
     <DSCurrencyInput
       bind:amount={item.total}
@@ -1332,9 +1435,11 @@
       rateDate={selectedCurrency?.rate_date}
     />
 
-    <VendorSelector bind:value={item.vendor as string} {errors} disabled={isChildPO} />
+    {#if !isRevision}
+      <VendorSelector bind:value={item.vendor as string} {errors} disabled={isChildPO} />
+    {/if}
 
-    {#if !legacyMode}
+    {#if !legacyMode && !isRevision}
       <!-- File upload for attachment -->
       <DsFileSelect bind:record={item} {errors} fieldName="attachment" uiName="Attachment" />
       <span class="flex w-full gap-2 text-sm text-neutral-600">

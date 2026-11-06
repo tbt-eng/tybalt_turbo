@@ -20,6 +20,7 @@ var jobPOsCountQuery string
 type JobPOEntry struct {
 	ID           string  `db:"id" json:"id"`
 	PONumber     string  `db:"po_number" json:"po_number"`
+	Status       string  `db:"status" json:"status"`
 	Date         string  `db:"date" json:"date"`
 	Total        float64 `db:"total" json:"total"`
 	Type         string  `db:"type" json:"type"`
@@ -38,7 +39,7 @@ type PaginatedJobPOsResponse struct {
 	TotalPages int          `json:"total_pages"`
 }
 
-// createGetJobPOsHandler returns list handler for active POs with filters:
+// createGetJobPOsHandler returns list handler for active and under-revision POs with filters:
 //   - division (division id)
 //   - type     (purchase order type)
 //   - uid      (user id)
