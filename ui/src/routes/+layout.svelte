@@ -19,8 +19,11 @@
   import { canViewJobCreateQueue } from "$lib/jobRequests";
   import NavFlyout from "$lib/components/NavFlyout.svelte";
 
-  // Initialize app config store globally (idempotent, so safe to call here)
-  appConfig.init();
+  // Microsoft sign-in doesn't reload the page, so load app config once signed in
+  // (idempotent, so safe to call on every auth change)
+  $effect(() => {
+    if ($authStore?.isValid) appConfig.init();
+  });
 
   // children is a function that we will call to render the current route
   // https://svelte-5-preview.vercel.app/docs/snippets#passing-snippets-to-components

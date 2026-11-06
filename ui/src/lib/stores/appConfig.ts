@@ -25,6 +25,7 @@ const store = writable<AppConfigState>({
 });
 
 let unsubscribeFunc: UnsubscribeFunc | null = null;
+let loadPromise: Promise<void> | null = null;
 
 /**
  * Initialize the store by loading all config records and setting up
@@ -37,6 +38,14 @@ async function init() {
   // If already initialized, return (idempotent)
   if (get(store).initialized) return;
 
+  // A caller that arrives during a load waits for that load
+  loadPromise ??= load().finally(() => {
+    loadPromise = null;
+  });
+  return loadPromise;
+}
+
+async function load() {
   store.update((state) => ({ ...state, loading: true }));
 
   try {
