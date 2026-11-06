@@ -33,6 +33,17 @@ We use the writing rules of Simplified Technical English (ASD-STE100), plus our 
 
 `npm run check:ui` runs `scripts/check-docs-style.mjs`. It checks sentence length, steps that start with a verb, one instruction in a step, passive voice and the glossary's replaced words.
 
+## What's new
+
+Add a section for each complete week that has new features, with the newest week first. Weeks run from Sunday to Saturday, by the date a commit landed on `main`. Don't add a week until its Saturday has passed.
+
+- Start each section with the date range and the last commit that it covers, such as `## November 1 to 7, 2026 (to af436ec9)`. Use the first 8 characters of the commit. Turbo shows it as a link to GitHub, and the next entry starts after it.
+- Write one point for each feature, from the user's point of view. End it with its version tags.
+- Leave out internal changes and anything behind a feature flag that is off.
+- Remove weeks older than the last 12 complete weeks.
+
+The word limits don't apply to this page, because its 12 weeks limit it.
+
 ## Flows
 
 A `flow` block draws cards that show who acts and what happens next. Each line has an actor, a step and one line of detail. A `Note:` line covers an exception.

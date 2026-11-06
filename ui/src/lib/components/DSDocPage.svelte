@@ -3,7 +3,7 @@
   import DSDoc from "$lib/components/DSDoc.svelte";
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
-  import type { DocPage } from "$lib/docsFormat";
+  import { commitUrl, type DocPage } from "$lib/docsFormat";
   import { appConfig, jobRequestsEnabled } from "$lib/stores/appConfig";
 
   // One full page of the user docs.
@@ -28,6 +28,14 @@
   {#each page.sections as section (section.id)}
     <div id={section.id} class="scroll-mt-4">
       <DSSection title={section.title}>
+        {#snippet titleNote()}
+          {#if section.commit}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- A link to GitHub. -->
+            <a class="link" href={commitUrl(section.commit)} target="_blank" rel="noopener"
+              >to {section.commit}</a
+            >
+          {/if}
+        {/snippet}
         <DSDoc blocks={section.blocks} />
       </DSSection>
     </div>

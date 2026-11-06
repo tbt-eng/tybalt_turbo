@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { checkDocStyle, replacedWords } from "../scripts/check-docs-style.mjs";
 import { needsDocsWarning } from "../scripts/check-docs-commit.mjs";
 import {
+  commitUrl,
   countWords,
   findSection,
+  orderDocPages,
   parseDoc,
   parseFlow,
   slugify,
@@ -55,6 +57,20 @@ test("parseDoc splits a page into intro and sections", () => {
   assert.equal(page.sections[0].words, 2);
 });
 
+test("a What's new heading keeps its commit out of the title and reference", () => {
+  const [section] = parseDoc(
+    "x",
+    "# T\n\n## October 25 to 31, 2026 (to 5c35b0a0)\n\n- Item.\n",
+  ).sections;
+  assert.equal(section.title, "October 25 to 31, 2026");
+  assert.equal(section.id, "october-25-to-31-2026");
+  assert.equal(section.commit, "5c35b0a0");
+  assert.equal(commitUrl("5c35b0a0"), "https://github.com/tbt-eng/tybalt_turbo/commit/5c35b0a0");
+  const [plain] = parseDoc("x", "# T\n\n## Create a request\n\nDo it.\n").sections;
+  assert.equal(plain.title, "Create a request");
+  assert.equal(plain.commit, undefined);
+});
+
 test("docs links render with the shared link style", () => {
   const page = parseDoc("x", "# T\n\n[Glossary](/docs/glossary)\n");
   const [block] = page.intro;
@@ -70,6 +86,8 @@ test("docs links render with the shared link style", () => {
 
 for (const page of pages) {
   test(`${page.slug} stays brief`, () => {
+    // What's new is limited by its 12 weeks, and popovers don't show its weeks.
+    if (page.slug === "whats-new") return;
     assert.ok(page.words <= maxPageWords, `${page.words} words; the limit is ${maxPageWords}`);
     for (const section of page.sections) {
       assert.ok(
@@ -153,4 +171,49 @@ test("the commit check warns only about user-facing changes without docs", () =>
   assert.equal(needsDocsWarning(["app/hooks/expenses_test.go"], "Add a test"), false);
   assert.equal(needsDocsWarning(["ui/src/routes/dev/components/+page.svelte"], "Sample"), false);
   assert.equal(needsDocsWarning(["README.md"], "Words"), false);
+});
+
+test("Help lists Start here first and What's new last", () => {
+  const titles = orderDocPages(pages).map((page) => page.slug);
+  assert.equal(titles[0], "start-here");
+  assert.equal(titles.at(-1), "whats-new");
+  const middle = orderDocPages(pages).slice(1, -1);
+  assert.deepEqual(
+    middle.map((page) => page.title),
+    middle.map((page) => page.title).sort((a, b) => a.localeCompare(b)),
+  );
+});
+
+test("What's new has complete weeks, newest first, within 12 weeks", () => {
+  const source = sources.find(({ slug }) => slug === "whats-new")?.source ?? "";
+  const dayMs = 24 * 60 * 60 * 1000;
+  const months =
+    "January February March April May June July August September October November December".split(
+      " ",
+    );
+  const weeks = [...source.matchAll(/^## (.+)$/gm)].map(([, heading]) => heading);
+  assert.ok(weeks.length > 0);
+  const starts = weeks.map((heading) => {
+    const match = heading.match(/^(\w+) (\d+) to (?:(\w+) )?(\d+), (\d{4}) \(to [0-9a-f]{8}\)$/);
+    assert.ok(match, `"${heading}" needs a date range`);
+    const [, month, day, endMonth, endDay, year] = match;
+    const start = new Date(Date.UTC(Number(year), months.indexOf(month), Number(day)));
+    const end = new Date(Date.UTC(Number(year), months.indexOf(endMonth ?? month), Number(endDay)));
+    assert.equal(start.getUTCDay(), 0, `"${heading}" must start on a Sunday`);
+    assert.equal(end.getUTCDay(), 6, `"${heading}" must end on a Saturday`);
+    // The next day has started in UTC only after the Saturday ends.
+    assert.ok(end.getTime() + dayMs <= Date.now(), `"${heading}" hasn't ended yet`);
+    return start.getTime();
+  });
+  const week = 7 * dayMs;
+  starts.forEach((start, index) => {
+    if (index > 0) assert.ok(start < starts[index - 1], "newest week first");
+  });
+  assert.ok(starts[0] - starts.at(-1)! < 12 * week, "only the last 12 weeks");
+
+  for (const block of source.split(/^## /m).slice(1)) {
+    const items = block.split("\n").filter((line) => line.startsWith("- "));
+    assert.ok(items.length > 0, `${block.split("\n")[0]} has no items`);
+    for (const item of items) assert.match(item, /\(v\d+\.\d+\.\d+(?:, v\d+\.\d+\.\d+)*\)$/, item);
+  }
 });

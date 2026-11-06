@@ -14,6 +14,8 @@ export type DocBlock =
 export interface DocSection {
   id: string;
   title: string;
+  // The last commit that a What's new week covers.
+  commit?: string;
   blocks: DocBlock[];
   words: number;
 }
@@ -36,6 +38,12 @@ const markdown = new Marked({
 
 function inline(text: string): string {
   return markdown.parseInline(text) as string;
+}
+
+const commitsUrl = "https://github.com/tbt-eng/tybalt_turbo/commit";
+
+export function commitUrl(commit: string): string {
+  return `${commitsUrl}/${commit}`;
 }
 
 export function slugify(text: string): string {
@@ -92,12 +100,18 @@ function toBlocks(tokens: Token[]): DocBlock[] {
 export function parseDoc(slug: string, source: string): DocPage {
   let title = "";
   const introTokens: Token[] = [];
-  const sectionTokens: { title: string; tokens: Token[] }[] = [];
+  const sectionTokens: { title: string; commit?: string; tokens: Token[] }[] = [];
   for (const token of markdown.lexer(source)) {
     if (token.type === "heading" && token.depth === 1 && !title) {
       title = token.text;
     } else if (token.type === "heading" && token.depth === 2) {
-      sectionTokens.push({ title: token.text, tokens: [] });
+      // A What's new heading ends with its last commit: "... 2026 (to af436ec9)".
+      const match = token.text.match(/^(.*) \(to ([0-9a-f]{8,40})\)$/);
+      sectionTokens.push({
+        title: match?.[1] ?? token.text,
+        commit: match?.[2],
+        tokens: [],
+      });
     } else {
       (sectionTokens.at(-1)?.tokens ?? introTokens).push(token);
     }
@@ -110,11 +124,18 @@ export function parseDoc(slug: string, source: string): DocPage {
     sections: sectionTokens.map((section) => ({
       id: slugify(section.title),
       title: section.title,
+      commit: section.commit,
       blocks: toBlocks(section.tokens),
       words: countWords(section.tokens.map((token) => token.raw).join(" ")),
     })),
     words: countWords(source),
   };
+}
+
+// Help lists pages by title, with Start here first and What's new last.
+export function orderDocPages(pages: DocPage[]): DocPage[] {
+  const rank = ({ slug }: DocPage) => (slug === "start-here" ? 0 : slug === "whats-new" ? 2 : 1);
+  return [...pages].sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title));
 }
 
 // A help popover sits over a form, so its links must not leave unsaved work.

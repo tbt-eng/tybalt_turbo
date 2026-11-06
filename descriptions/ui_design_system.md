@@ -147,7 +147,7 @@ A grey box with an optional title row.
 A page-level section with an `h2` heading and optional actions, and no box. For "Notes", "Claims", "Visible Expenses", "Rate Entries".
 
 ```ts
-{ title: string; actions?: Snippet; children: Snippet }
+{ title: string; titleNote?: Snippet; actions?: Snippet; children: Snippet }
 ```
 
 #### `DSFieldList` and `DSField`
