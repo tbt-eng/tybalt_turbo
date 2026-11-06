@@ -3,14 +3,28 @@
 Every new project and subjob starts as a request. An approver checks it, then procurement creates the job.
 
 ```flow
-You | Create the request | Enter the details, division hours and approver.
+You | Create the request | Start from a proposal if one exists. Enter the details, division hours and approver.
 You | Upload and submit | Upload one signed PDF that authorizes the project.
 Approver | Approve or reject | Check for duplicates and confirm the checklist.
 Procurement | Create the job | Confirm the checklist again, then create the job.
 Note: Rejected? Edit the request and submit it again.
 ```
 
+## Start from a proposal
+
+This is the preferred start. Turbo copies the proposal's details and links the proposal to the request.
+
+1. Open the proposal.
+2. Select **Create Project Request from Proposal**.
+3. Check the copied details and the project value. Add any missing details.
+4. Enter the division hours and select an approver.
+5. Select **Save request**.
+
+Procurement must award the proposal before you can submit.
+
 ## Create a request
+
+If a proposal exists, [start from the proposal](/docs/project-requests#start-from-a-proposal) instead.
 
 1. Select the plus button beside **Project Requests**. For a subjob, open the parent project and select the **Create Subjob Request** button.
 2. Enter the details and division hours.

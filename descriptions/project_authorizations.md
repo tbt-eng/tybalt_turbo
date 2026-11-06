@@ -906,8 +906,9 @@ again. Do not reuse the old PDF flag.
 
 Proposals remain outside this workflow. Keep their current validation; do not
 require project billing fields or project-value approval on a proposal. A
-project request can omit a proposal. One proposal can produce several projects;
-creating a project does not replace the proposal.
+project request can omit a proposal, but starting from one is the preferred
+route when one exists. One proposal can produce several projects; creating a
+project does not replace the proposal.
 
 A draft request can select a proposal with status `In Progress`, `Submitted`,
 or `Awarded`. Other proposal statuses cannot be selected. A selected proposal
