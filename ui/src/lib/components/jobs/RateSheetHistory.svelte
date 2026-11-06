@@ -190,7 +190,7 @@
       </DSList>
     {:else}
       <DSCallout tone="warning">
-        This project has no rate sheet. Its time is priced at employee default charge-out rates.
+        This project has no rate sheet. Its time is priced at staff default charge-out rates.
       </DSCallout>
     {/if}
   </DSSection>
