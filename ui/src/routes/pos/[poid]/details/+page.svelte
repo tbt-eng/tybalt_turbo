@@ -619,12 +619,9 @@
     <div class="flex flex-wrap gap-2">
       <POPrintButton poId={data.po.id} />
       {#if canRevise}
-        <DsActionButton
-          action={`/pos/${data.po.id}/revise`}
-          icon="mdi:pencil"
-          title="Revise Total"
-          color="blue"
-        />
+        <DsActionButton action={`/pos/${data.po.id}/revise`} color="blue">
+          Revise Total
+        </DsActionButton>
       {/if}
     </div>
   {/if}
