@@ -106,7 +106,7 @@
 
   // A non-legacy purchase order with a po_number is a revision: an Active PO
   // about to be revised, or an Unapproved revision awaiting approval. The
-  // server only lets the total and approvers change, so only those show.
+  // server only lets the total, currency and approvers change, so only those show.
   const isRevision = $derived.by(
     () => !legacyMode && data.editing && (data.item.po_number ?? "") !== "",
   );
@@ -294,7 +294,7 @@
   const selectedCurrency = $derived.by(() =>
     $currencies.items.find((row) => row.id === item.currency),
   );
-  const currencySelectionDisabled = $derived.by(() => isChildPO || legacyMode || isRevision);
+  const currencySelectionDisabled = $derived.by(() => isChildPO || legacyMode);
   const isEditingAnotherUsersPO = $derived.by(
     () =>
       !legacyMode &&
@@ -538,7 +538,8 @@
       return;
     }
 
-    if (!currencySelectionDisabled) {
+    // A revision can change its currency, so its picker needs a value to show.
+    if (!currencySelectionDisabled && !isRevision) {
       return;
     }
     item.currency = homeCurrencyId;
@@ -946,6 +947,7 @@
   async function saveRevision(id: string) {
     const body = {
       total: item.total,
+      currency: item.currency,
       approver: item.approver,
       priority_second_approver: item.priority_second_approver,
     };
@@ -1061,8 +1063,8 @@
   {#if isNewRevision}
     <div class="w-full">
       <DSCallout tone="info">
-        Saving a new total sends {item.po_number} back for approval. It keeps its number, but no expenses
-        can be added to it until it is approved again.
+        Saving a new total or currency sends {item.po_number} back for approval. It keeps its number,
+        but no expenses can be added to it until it is approved again.
         {#snippet actions()}
           <DSHelp doc="revise-a-purchase-order#revise-the-total" label="Help" />
         {/snippet}
@@ -1071,7 +1073,7 @@
   {:else if isRevision}
     <div class="w-full">
       <DSCallout tone="info">
-        This is a revision of {item.po_number}. Only the total and approvers can change.
+        This is a revision of {item.po_number}. Only the total, currency and approvers can change.
         {#snippet actions()}
           <DSHelp doc="revise-a-purchase-order#change-a-revision-before-approval" label="Help" />
         {/snippet}

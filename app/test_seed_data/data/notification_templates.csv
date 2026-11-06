@@ -205,13 +205,14 @@ expense_uncommit_reminder,2026-11-05 16:00:00.000Z,Reminds admin holders that ex
 {{.Count}} expense uncommit requests are waiting for a decision:
 
 {{.ActionURL}}",2026-11-05 16:00:00.000Z
-po_revision_approval_required,2026-11-05 16:00:00.000Z,Asks the approver to approve a purchase order again after its total was revised,,porevisionappr0,Approval needed: revised purchase order {{.PONumber}},"Hello {{.RecipientName}},
+po_revision_approval_required,2026-11-05 16:00:00.000Z,Asks the approver to approve a purchase order again after it was revised,,porevisionappr0,Approval needed: revised purchase order {{.PONumber}},"Hello {{.RecipientName}},
 
-{{.UserName}} revised the total of purchase order {{.PONumber}}, and you are its approver. It was approved before, and it needs approval again for the new total.
+{{.UserName}} revised purchase order {{.PONumber}}, and you are its approver. It was approved before, and it needs approval again.
 
 Description: {{.Description}}
 Vendor: {{.VendorName}}
-Revised total: {{.Total}}
+Revised total: {{.Total}}{{with index . ""PreviousTotal""}}
+Previous total: {{.}}{{end}}
 
 No expenses can be added to it until it is approved. You may review it, then approve or reject it here:
 

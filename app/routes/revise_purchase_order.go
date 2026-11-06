@@ -1,5 +1,5 @@
-// This file implements revising the total of an Active purchase order. The
-// creator submits a new total, and the purchase order returns to Unapproved
+// This file implements revising the total or currency of an Active purchase
+// order. The creator submits them, and the purchase order returns to Unapproved
 // in the same transaction. It keeps its po_number, so approving it again
 // re-activates the same number.
 
@@ -13,6 +13,7 @@ import (
 	"tybalt/errs"
 	"tybalt/hooks"
 	"tybalt/notifications"
+	"tybalt/utilities"
 
 	"github.com/pocketbase/dbx"
 	validation "github.com/pocketbase/ozzo-validation/v4"
@@ -20,10 +21,11 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// A nil approver keeps the assigned approver. The new total may need
+// A nil currency or approver keeps the current one. The new total may need
 // different approvers, so the client can submit them with the total.
 type revisePurchaseOrderRequest struct {
 	Total                  float64 `json:"total"`
+	Currency               *string `json:"currency"`
 	Approver               *string `json:"approver"`
 	PrioritySecondApprover *string `json:"priority_second_approver"`
 }
@@ -42,6 +44,7 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 		}
 
 		var httpResponseStatusCode int
+		var previousTotal string
 		err := app.RunInTransaction(func(txApp core.App) error {
 			po, err := txApp.FindRecordById("purchase_orders", id)
 			if err != nil {
@@ -117,15 +120,22 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 				}
 			}
 
-			if req.Total == po.GetFloat("total") {
+			currency := po.GetString("currency")
+			if req.Currency != nil {
+				currency = strings.TrimSpace(*req.Currency)
+			}
+			currencyChanged := utilities.EffectiveCurrencyCode(txApp, currency) != utilities.EffectiveCurrencyCode(txApp, po.GetString("currency"))
+			if req.Total == po.GetFloat("total") && !currencyChanged {
 				httpResponseStatusCode = http.StatusBadRequest
 				return &CodeError{
 					Code:    "total_unchanged",
-					Message: "the revised total must differ from the current total",
+					Message: "a revision must change the total or the currency",
 				}
 			}
 
+			previousTotal = hooks.PurchaseOrderApprovalTotalText(txApp, po)
 			po.Set("total", req.Total)
+			po.Set("currency", currency)
 			if req.Approver != nil {
 				po.Set("approver", strings.TrimSpace(*req.Approver))
 			}
@@ -137,8 +147,8 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 			po.Set("second_approval", "")
 			po.Set("second_approver", "")
 
-			// Recompute approval_total for the new total and check the approvers
-			// against the policy for it. CleanPurchaseOrder also clears any
+			// Recompute the approval totals and check the approvers against the
+			// policy for them. CleanPurchaseOrder also clears any
 			// rejection fields.
 			if err := hooks.CleanPurchaseOrder(txApp, po); err != nil {
 				return err
@@ -185,7 +195,7 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 		}
 
 		if strings.TrimSpace(revisedPO.GetString("approver")) != "" {
-			if _, err := notifications.DispatchNotification(app, hooks.RevisionApprovalNotification(app, revisedPO, userId, notifications.DeliveryImmediate)); err != nil {
+			if _, err := notifications.DispatchNotification(app, hooks.RevisionApprovalNotification(app, revisedPO, previousTotal, userId, notifications.DeliveryImmediate)); err != nil {
 				// Log the error but don't fail the request, as the PO was already revised
 				app.Logger().Error("notification not sent: error creating revision approval notification", "error", err)
 			}

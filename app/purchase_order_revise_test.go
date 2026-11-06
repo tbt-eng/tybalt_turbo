@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -83,7 +84,7 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			t.Fatalf("approver notifications = %d, want 1", notified.Count)
 		}
 		email := app.TestMailer.LastMessage()
-		for _, want := range []string{"revised the total", revisePONumber, "150.00 CAD", "Stuff Unlimited"} {
+		for _, want := range []string{"revised purchase order", revisePONumber, "150.00 CAD", "Previous total: 132.10 CAD", "Stuff Unlimited"} {
 			if !strings.Contains(email.Text, want) {
 				t.Fatalf("approval email is missing %q: %s", want, email.Text)
 			}
@@ -144,6 +145,10 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			{name: "PO has child POs", poID: "xhkt5lx8cl64nj3", body: `{"total": 5000}`, asAuthor: true, setup: `DELETE FROM expenses WHERE purchase_order = 'xhkt5lx8cl64nj3'`, status: http.StatusBadRequest, code: "po_has_child_pos"},
 			{name: "PO is a legacy entry", poID: "po_export_no_exp_1", body: `{"total": 200}`, asAuthor: true, status: http.StatusBadRequest, code: "legacy_po_not_revisable"},
 			{name: "total is unchanged", poID: revisePOID, body: `{"total": 132.1}`, status: http.StatusBadRequest, code: "total_unchanged"},
+			{name: "total and currency are unchanged", poID: revisePOID, body: `{"total": 132.1, "currency": "cadcurr00000001"}`, status: http.StatusBadRequest, code: "total_unchanged"},
+			{name: "currency does not exist", poID: revisePOID, body: `{"total": 150, "currency": "nosuchcurrency0"}`, status: http.StatusBadRequest, code: `"currency":{"code":"not_found"`},
+			{name: "currency has no exchange rate", poID: revisePOID, body: `{"total": 150, "currency": "wipcurr00000001"}`, status: http.StatusBadRequest, code: `"currency":{`},
+			{name: "child PO leaves its parent's currency", poID: "25046ft47x49cc2", body: `{"total": 140, "currency": "usdcurr00000001"}`, asAuthor: true, status: http.StatusBadRequest, code: `"currency":{"code":"value_mismatch"`},
 			{name: "total is not positive", poID: revisePOID, body: `{"total": 0}`, status: http.StatusBadRequest, code: `"total":{"code":"required"`},
 			{name: "approver is not valid for the new total", poID: revisePOID, body: `{"total": 150, "approver": "tqqf7q0f3378rvp"}`, status: http.StatusBadRequest, code: "invalid_approver_for_stage"},
 		} {
@@ -156,6 +161,7 @@ func TestRevisePurchaseOrder(t *testing.T) {
 					}
 				}
 				before := reviseTestPOField(t, app, tc.poID, "status")
+				beforeCurrency := reviseTestPOField(t, app, tc.poID, "currency")
 				token := creator
 				if tc.asAuthor {
 					token = approver
@@ -167,7 +173,56 @@ func TestRevisePurchaseOrder(t *testing.T) {
 				if got := reviseTestPOField(t, app, tc.poID, "status"); got != before {
 					t.Fatalf("status = %q, want unchanged %q", got, before)
 				}
+				if got := reviseTestPOField(t, app, tc.poID, "currency"); got != beforeCurrency {
+					t.Fatalf("currency = %q, want unchanged %q", got, beforeCurrency)
+				}
 			})
+		}
+	})
+
+	t.Run("a revision can change only the currency and keeps it after approval", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+
+		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 132.1, "currency": "usdcurr00000001"}`, creator, http.StatusOK)
+		po, err := app.FindRecordById("purchase_orders", revisePOID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if po.GetString("currency") != "usdcurr00000001" || po.GetString("status") != "Unapproved" {
+			t.Fatalf("currency = %q, status = %q", po.GetString("currency"), po.GetString("status"))
+		}
+		// The seeded rate is 1.35 CAD per USD.
+		if got := po.GetFloat("approval_total_home"); math.Abs(got-132.1*1.35) > 0.000001 {
+			t.Fatalf("approval_total_home = %v, want %v", got, 132.1*1.35)
+		}
+		email := app.TestMailer.LastMessage()
+		for _, want := range []string{"Revised total: 132.10 USD", "Previous total: 132.10 CAD"} {
+			if !strings.Contains(email.Text, want) {
+				t.Fatalf("approval email is missing %q: %s", want, email.Text)
+			}
+		}
+
+		reviseTestRequest(t, app, http.MethodPost, "/api/purchase_orders/"+revisePOID+"/approve", `{}`, approver, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "status"); got != "Active" {
+			t.Fatalf("status = %q, want Active", got)
+		}
+		if got := reviseTestPOField(t, app, revisePOID, "currency"); got != "usdcurr00000001" {
+			t.Fatalf("currency = %q after approval", got)
+		}
+		if got := reviseTestPOField(t, app, revisePOID, "po_number"); got != revisePONumber {
+			t.Fatalf("po_number = %q, want %q", got, revisePONumber)
+		}
+	})
+
+	t.Run("a revision with no currency in the request keeps its currency", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 150, "currency": "usdcurr00000001"}`, creator, http.StatusOK)
+		reviseTestRequest(t, app, http.MethodPost, "/api/purchase_orders/"+revisePOID+"/approve", `{}`, approver, http.StatusOK)
+		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 160}`, creator, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "currency"); got != "usdcurr00000001" {
+			t.Fatalf("currency = %q, want it kept", got)
 		}
 	})
 
@@ -181,7 +236,7 @@ func TestRevisePurchaseOrder(t *testing.T) {
 		}
 	})
 
-	t.Run("a revised PO only accepts changes to the total and approvers", func(t *testing.T) {
+	t.Run("a revised PO only accepts changes to the total, currency and approvers", func(t *testing.T) {
 		app := testutils.SetupTestApp(t)
 		t.Cleanup(app.Cleanup)
 		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 150}`, creator, http.StatusOK)
@@ -195,6 +250,11 @@ func TestRevisePurchaseOrder(t *testing.T) {
 		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"total": 175}`, creator, http.StatusOK)
 		if got := reviseTestPOField(t, app, revisePOID, "total"); got != "175" {
 			t.Fatalf("total = %q, want 175", got)
+		}
+
+		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"currency": "usdcurr00000001"}`, creator, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "currency"); got != "usdcurr00000001" {
+			t.Fatalf("currency = %q, want usdcurr00000001", got)
 		}
 	})
 
@@ -479,10 +539,25 @@ func TestRevisePurchaseOrder(t *testing.T) {
 		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"total": 160}`, creator, http.StatusOK)
 		expectEmails("new total", 2)
 
+		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"currency": "cadcurr00000001"}`, creator, http.StatusOK)
+		expectEmails("saved with the same currency", 2)
+
+		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"currency": "usdcurr00000001"}`, creator, http.StatusOK)
+		expectEmails("new currency", 3)
+		email := app.TestMailer.LastMessage()
+		for _, want := range []string{"Revised total: 160.00 USD", "Previous total: 160.00 CAD"} {
+			if !strings.Contains(email.Text, want) {
+				t.Fatalf("currency change email is missing %q: %s", want, email.Text)
+			}
+		}
+
 		reviseTestRequest(t, app, http.MethodPost, "/api/purchase_orders/"+revisePOID+"/reject",
 			`{"rejection_reason": "not this total"}`, approver, http.StatusOK)
 		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"total": 160}`, creator, http.StatusOK)
-		expectEmails("resubmitted after rejection", 3)
+		expectEmails("resubmitted after rejection", 4)
+		if email := app.TestMailer.LastMessage(); strings.Contains(email.Text, "Previous total") {
+			t.Fatalf("resubmitting unchanged reports a previous total: %s", email.Text)
+		}
 
 		// Setting the first approval directly stands in for a stage 1 approval,
 		// because this fixture's total doesn't need a second approval.
@@ -495,7 +570,7 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"total": 170}`, creator, http.StatusOK)
-		expectEmails("approval reset", 4)
+		expectEmails("approval reset", 5)
 		if got := reviseTestPOField(t, app, revisePOID, "approved"); got != "" {
 			t.Fatalf("approved = %q after the reset, want it cleared", got)
 		}

@@ -60,8 +60,8 @@
         </p>
       {:else}
         <p>
-          {po.uid_name || "Its creator"} revised the total and sent it back for approval. It keeps its
-          number, but no expenses can be added to it until it is approved again.
+          {po.uid_name || "Its creator"} revised it and sent it back for approval. It keeps its number,
+          but no expenses can be added to it until it is approved again.
         </p>
       {/if}
       <DSFieldList>

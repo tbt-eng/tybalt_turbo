@@ -66,10 +66,10 @@ You can also convert a One-Time PO that Turbo closed since March 12, 2026. Its c
 
 ## PO statuses
 
-| Status         | What it means                                                                      |
-| -------------- | ---------------------------------------------------------------------------------- |
-| Unapproved     | It waits for approval, or the approver rejected it.                                |
-| Under revision | Its creator revised the total. It waits for approval, or the approver rejected it. |
-| Active         | You can buy and record expenses against it.                                        |
-| Closed         | It is complete. Turbo or payables staff closed it.                                 |
-| Cancelled      | Payables staff cancelled it before it had any expenses.                            |
+| Status         | What it means                                                               |
+| -------------- | --------------------------------------------------------------------------- |
+| Unapproved     | It waits for approval, or the approver rejected it.                         |
+| Under revision | Its creator revised it. It waits for approval, or the approver rejected it. |
+| Active         | You can buy and record expenses against it.                                 |
+| Closed         | It is complete. Turbo or payables staff closed it.                          |
+| Cancelled      | Payables staff cancelled it before it had any expenses.                     |

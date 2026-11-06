@@ -44,7 +44,7 @@ The PO `kind` determines which `po_approver_props` limit column is used:
 ## Authority Matrix
 
 | Activity                               | All Staff   | Designated Personnel / Branch Administrators | Managers / Team Leads | Branch Managers                  | Executives |
-|----------------------------------------|-------------|----------------------------------------------|-----------------------|----------------------------------|------------|
+| -------------------------------------- | ----------- | -------------------------------------------- | --------------------- | -------------------------------- | ---------- |
 | Capital Expense                        | < 100$      | < 500$ w/PO                                  | < 500$ w/PO           | < 2500$ w/PO                     | w/PO       |
 | Project Expense (references a job)     | < 100$ w/PO | < 5000$ w/PO                                 | < 5000$ w/PO          | < 25000$ w/PO                    | w/PO       |
 | Sponsorships                           |             |                                              |                       | < budget<sup>1</sup> w/PO        | w/PO       |
@@ -150,14 +150,14 @@ For single-stage POs:
 
 Machine-readable error codes returned by create/update hooks and approval endpoints:
 
-| Code | When |
-|---|---|
-| `priority_second_approver_required` | Dual-required PO saved without `priority_second_approver` |
-| `first_pool_empty` | Dual-required but no first-stage candidates configured |
-| `second_pool_empty` | Dual-required but no second-stage candidates can final-approve the amount |
-| `invalid_approver_for_stage` | Selected first approver invalid after recompute/stage check |
-| `invalid_priority_second_approver_for_stage` | Selected priority second approver invalid after recompute/stage check |
-| `insufficient_final_limit` | Caller attempted final approval without `limit >= approval_total` |
+| Code                                         | When                                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| `priority_second_approver_required`          | Dual-required PO saved without `priority_second_approver`                 |
+| `first_pool_empty`                           | Dual-required but no first-stage candidates configured                    |
+| `second_pool_empty`                          | Dual-required but no second-stage candidates can final-approve the amount |
+| `invalid_approver_for_stage`                 | Selected first approver invalid after recompute/stage check               |
+| `invalid_priority_second_approver_for_stage` | Selected priority second approver invalid after recompute/stage check     |
+| `insufficient_final_limit`                   | Caller attempted final approval without `limit >= approval_total`         |
 
 Timeout config read failures are non-fatal and resolve to default `24` hours.
 
@@ -191,15 +191,15 @@ Implications:
 
 ### Editability Matrix
 
-| PO State | Editable by Creator? | Notes |
-| --- | --- | --- |
-| `Unapproved`, `approved = ""`, `second_approval = ""` | Yes | Draft / pending first approval |
-| `Unapproved`, `approved != ""`, `second_approval = ""` | Yes | First-approved, pending second approval |
-| `Unapproved`, `second_approval != ""` | No | Final approval complete; update rule blocks |
-| `Unapproved`, `po_number != ""` | Total and approvers only | A revision awaiting approval or rejected; see Revision |
-| `Active` | No | Use approve/cancel/close lifecycle actions, or revise the total |
-| `Cancelled` | No | Terminal |
-| `Closed` | No | Terminal |
+| PO State                                               | Editable by Creator?               | Notes                                                                       |
+| ------------------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------- |
+| `Unapproved`, `approved = ""`, `second_approval = ""`  | Yes                                | Draft / pending first approval                                              |
+| `Unapproved`, `approved != ""`, `second_approval = ""` | Yes                                | First-approved, pending second approval                                     |
+| `Unapproved`, `second_approval != ""`                  | No                                 | Final approval complete; update rule blocks                                 |
+| `Unapproved`, `po_number != ""`                        | Total, currency and approvers only | A revision awaiting approval or rejected; see Revision                      |
+| `Active`                                               | No                                 | Use approve/cancel/close lifecycle actions, or revise the total or currency |
+| `Cancelled`                                            | No                                 | Terminal                                                                    |
+| `Closed`                                               | No                                 | Terminal                                                                    |
 
 ### Meaningful Edit Detection
 
@@ -399,9 +399,9 @@ Current canonical views:
 
 ## Revision
 
-Route: `POST /api/purchase_orders/:id/revise` with body `{ "total": number, "approver"?: id, "priority_second_approver"?: id }`
+Route: `POST /api/purchase_orders/:id/revise` with body `{ "total": number, "currency"?: id, "approver"?: id, "priority_second_approver"?: id }`
 
-The creator of an `Active` PO can change its total. In one transaction the PO returns to `Unapproved`, keeps its `po_number`, and goes through approval again. An approval only matters once an expense uses it, so a PO with no expenses loses nothing by being approved again.
+The creator of an `Active` PO can change its total or currency. In one transaction the PO returns to `Unapproved`, keeps its `po_number`, and goes through approval again. An approval only matters once an expense uses it, so a PO with no expenses loses nothing by being approved again.
 
 Conditions (otherwise HTTP 4xx and the PO is unchanged):
 
@@ -409,20 +409,20 @@ Conditions (otherwise HTTP 4xx and the PO is unchanged):
 - PO is `Active` (`po_not_active`).
 - PO is not a legacy manual entry or an imported record (`legacy_po_not_revisable`).
 - PO has no expenses (`po_has_expenses`) and no child POs that are not `Cancelled` (`po_has_child_pos`).
-- The total differs from the current total (`total_unchanged`).
-- The PO passes the same cleaning and validation as an edit, including approver checks for the new total. Omitted approvers keep their current values.
+- The total or the currency differs from the current one (`total_unchanged`). A blank currency means the home currency.
+- The PO passes the same cleaning and validation as an edit, including approver checks for the new amount, a foreign currency's exchange rate and a child PO matching its parent's currency. An omitted currency or approver keeps its current value.
 
 On success:
 
-- `total`, `approval_total` and `approval_total_home` reflect the new total.
+- `total`, `currency`, `approval_total` and `approval_total_home` reflect the new values. `approval_total_home` uses the currency's current rate.
 - `status = Unapproved`; `approved`, `second_approval`, `second_approver` and the rejection fields are cleared.
-- The assigned first approver gets a `po_revision_approval_required` email, which says the total was revised and gives the PO number, description, vendor and approval total. If the email can't be created, the revision still succeeds and the error is logged.
+- The assigned first approver gets a `po_revision_approval_required` email, which says the PO was revised and gives the PO number, description, vendor and approval total, plus the previous approval total when it differs. Showing both totals with their currencies keeps a currency change from going unnoticed when the amount stays the same. If the email can't be created, the revision still succeeds and the error is logged.
 
 While a revision awaits approval:
 
 - No expenses can be added, because expenses require an `Active` PO.
-- The creator can edit only `total`, `approver` and `priority_second_approver`. The update hook rejects any other change with code `revision_field_locked`.
-- An edit that changes the total or the approver sends the approver the same email. So does resubmitting after a rejection, which also clears any first approval.
+- The creator can edit only `total`, `currency`, `approver` and `priority_second_approver`. The update hook rejects any other change with code `revision_field_locked`.
+- An edit that changes the total, currency or approver sends the approver the same email. So does resubmitting after a rejection, which also clears any first approval.
 - The approve route keeps the existing `po_number` when it activates the PO.
 - A grouped PO gets the single-PO second-approval email, not the group email.
 - The PO is not exported to the legacy system, which exports only non-`Unapproved` POs, so the legacy copy keeps its last approved values until the revision is approved.
@@ -435,9 +435,9 @@ If the revision is rejected, the creator can edit and resubmit it, or cancel it 
 
 ## Purchase Order Types and Behaviors
 
-| PO Type    | Description                                                                  | May be Closed Manually                                              | May be Canceled if status is Active                  | Closed Automatically                     |
-|------------|------------------------------------------------------------------------------|---------------------------------------------------------------------|------------------------------------------------------|------------------------------------------|
-| One-Time   | Valid for a single expense                                                   | No                                                                  | Yes, by `payables_admin` if no expenses are attached | When an expense is committed             |
+| PO Type    | Description                                                                  | May be Closed Manually                         | May be Canceled if status is Active                  | Closed Automatically                     |
+| ---------- | ---------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------- | ---------------------------------------- |
+| One-Time   | Valid for a single expense                                                   | No                                             | Yes, by `payables_admin` if no expenses are attached | When an expense is committed             |
 | Recurring  | Valid for a fixed number of expenses not exceeding specified value           | Yes, subject to the manual closure rules below | Yes, by `payables_admin` if no expenses are attached | When final expected expense is committed |
 | Cumulative | Valid for multiple expenses where sum of values does not exceed the PO total | Yes, subject to the manual closure rules below | Yes, by `payables_admin` if no expenses are attached | When committed total reaches PO total    |
 
@@ -489,7 +489,7 @@ Read by `utilities.GetNoPOExpenseLimit(app)` in `app/utilities/config.go`.
 ### Combined effect
 
 | Scenario                                                                                | PO Required?     |
-|-----------------------------------------------------------------------------------------|------------------|
+| --------------------------------------------------------------------------------------- | ---------------- |
 | Has job, payment type is `OnAccount` / `Expense` / `CorporateCreditCard`                | Yes (any amount) |
 | Has job, payment type is `Mileage` / `FuelCard` / `PersonalReimbursement` / `Allowance` | No               |
 | No job, total >= configured limit (default $100), not exempt type                       | Yes              |
@@ -652,7 +652,7 @@ Child POs: `YYMM-NNNN-XX`
 ## Pocketbase Collection Schema (`purchase_orders`)
 
 | Field                    | Type                          | Description                                                               |
-|--------------------------|-------------------------------|---------------------------------------------------------------------------|
+| ------------------------ | ----------------------------- | ------------------------------------------------------------------------- |
 | po_number                | string                        | `YYMM-NNNN` or `YYMM-NNNN-XX`; required for `Active`/`Cancelled`/`Closed` |
 | status                   | enum                          | `Unapproved`, `Active`, `Cancelled`, `Closed`                             |
 | uid                      | relation -> users             | Creator                                                                   |
@@ -689,7 +689,7 @@ Child POs: `YYMM-NNNN-XX`
 ## Pocketbase Collection Schema (`expenditure_kinds`)
 
 | Field                     | Type   | Description                                                   |
-|---------------------------|--------|---------------------------------------------------------------|
+| ------------------------- | ------ | ------------------------------------------------------------- |
 | id                        | string | PocketBase record ID                                          |
 | name                      | string | Semantic key (`capital`, `project`, `sponsorship`, etc.)      |
 | description               | string | Human-readable description                                    |
@@ -701,7 +701,7 @@ Child POs: `YYMM-NNNN-XX`
 ## `po_approver_props` Limit Columns
 
 | Column                 | Used for kind      | When   |
-|------------------------|--------------------|--------|
+| ---------------------- | ------------------ | ------ |
 | `max_amount`           | `capital`          | Always |
 | `project_max`          | `project`          | Always |
 | `sponsorship_max`      | `sponsorship`      | Always |

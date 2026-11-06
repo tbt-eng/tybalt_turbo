@@ -1,10 +1,10 @@
 # Revise a purchase order
 
-Change the total of an approved purchase order and keep its number. It needs approval again.
+Change the total or currency of an approved purchase order and keep its number. It needs approval again.
 
 ```flow
-You | Revise the total | Enter the new total.
-Approver | Approve or reject | Check the new total.
+You | Revise the total | Enter the new total or currency.
+Approver | Approve or reject | Check the new total and currency.
 You | Add expenses | Use the same number after final approval.
 Note: Rejected? Edit and resubmit, or cancel.
 ```
@@ -13,7 +13,7 @@ Note: Rejected? Edit and resubmit, or cancel.
 
 1. Open the purchase order.
 2. Select **Revise Total**.
-3. Enter the new total.
+3. Enter the new total or select a new currency.
 4. Select the approvers that Turbo asks for.
 5. Select **Save**.
 
@@ -47,7 +47,7 @@ Check its **Type**:
 ## Change a revision before approval
 
 1. Select **Edit Purchase Order**.
-2. Change the total or the approvers.
+2. Change the total, currency or approvers.
 3. Select **Save**.
 
 A change clears any first approval. To go back to the old total, enter it here. It still needs approval.
@@ -57,7 +57,7 @@ You can't cancel it now. Ask the approver to reject it. Then select **Cancel Pur
 ## Approve a revision
 
 1. Under **Purchase Orders**, open **Pending My Approval**.
-2. Open the purchase order and check the new total.
+2. Open the purchase order and check the new total and currency.
 3. Select **Approve** or **Reject**.
 
 A new total can require a second approval. After final approval, the purchase order is Active again. If the vendor has the old total, print a new copy.
@@ -66,7 +66,7 @@ A new total can require a second approval. After final approval, the purchase or
 
 Under **Purchase Orders**, open **Rejected (Mine)**. Open the purchase order and read the reason. Then:
 
-- Select **Edit and Resubmit** to change the total and send it again.
+- Select **Edit and Resubmit** to change it and send it again.
 - Select **Cancel Purchase Order** to end it. You can't undo this.
 
 You can't delete it.

@@ -19,7 +19,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
-| Revise                | Change the total of an approved purchase order.                                                                                                     |                 |
+| Revise                | Change the total or currency of an approved purchase order.                                                                                         |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |
 | Subjob                | A project under a parent project. It has its parent's client. Its number is its parent's number plus a suffix, such as 25-123-01.                   |                 |
 | Time sheet            | Your time entries for one week.                                                                                                                     | timesheet       |

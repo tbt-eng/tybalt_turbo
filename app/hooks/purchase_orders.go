@@ -654,6 +654,7 @@ func purchaseOrderHasMeaningfulChanges(record *core.Record) bool {
 // rule refuses changes to the skip fields.
 var purchaseOrderRevisionEditableFields = append([]string{
 	"total",
+	"currency",
 	"approver",
 	"priority_second_approver",
 	"approval_total",
@@ -706,38 +707,51 @@ func shouldResetPurchaseOrderApprovals(record *core.Record) bool {
 
 // revisionChangeNeedsApproverEmail reports whether an update to a revision that
 // has no first approval changes what its approver must do or was told: a
-// resubmission after rejection, a new approver or a new total.
-func revisionChangeNeedsApproverEmail(record *core.Record) bool {
+// resubmission after rejection, a new approver, a new total or a new currency.
+// A blank currency means the home currency, so filling it in changes nothing.
+func revisionChangeNeedsApproverEmail(app core.App, record *core.Record) bool {
 	original := record.Original()
 	if record.IsNew() || original == nil || !utilities.IsPurchaseOrderRevision(original) {
 		return false
 	}
 	return strings.TrimSpace(original.GetString("rejected")) != "" ||
 		original.GetString("approver") != record.GetString("approver") ||
-		original.GetFloat("total") != record.GetFloat("total")
+		original.GetFloat("total") != record.GetFloat("total") ||
+		utilities.EffectiveCurrencyCode(app, original.GetString("currency")) != utilities.EffectiveCurrencyCode(app, record.GetString("currency"))
+}
+
+// PurchaseOrderApprovalTotalText is what the approver approves, with its
+// currency. On a recurring purchase order, total is only one occurrence.
+func PurchaseOrderApprovalTotalText(app core.App, po *core.Record) string {
+	return utilities.FormatCurrencyAmount(po.GetFloat("approval_total"), utilities.EffectiveCurrencyCode(app, po.GetString("currency")))
 }
 
 // RevisionApprovalNotification builds the email that asks a revision's approver
 // to approve it again. po_approval_required says the purchase order was just
 // created, which would mislead an approver about a number that already exists.
-func RevisionApprovalNotification(app core.App, po *core.Record, actorID string, mode notifications.DeliveryMode) notifications.DispatchArgs {
+// previousTotal is the approval total before this change. The email shows it
+// only if it differs, so that an approver can't miss a new currency when the
+// amount stays the same.
+func RevisionApprovalNotification(app core.App, po *core.Record, previousTotal string, actorID string, mode notifications.DeliveryMode) notifications.DispatchArgs {
 	vendorName := ""
 	if vendor, err := app.FindRecordById("vendors", po.GetString("vendor")); err == nil {
 		vendorName = vendor.GetString("name")
 	}
-	currencyCode := utilities.EffectiveCurrencyCode(app, po.GetString("currency"))
+	total := PurchaseOrderApprovalTotalText(app, po)
+	if previousTotal == total {
+		previousTotal = ""
+	}
 	return notifications.DispatchArgs{
 		TemplateCode: "po_revision_approval_required",
 		RecipientUID: strings.TrimSpace(po.GetString("approver")),
 		Data: map[string]any{
-			"POId":        po.Id,
-			"PONumber":    po.GetString("po_number"),
-			"Description": po.GetString("description"),
-			"VendorName":  vendorName,
-			// approval_total is what the approver approves. On a recurring purchase
-			// order, total is only one occurrence.
-			"Total":     utilities.FormatCurrencyAmount(po.GetFloat("approval_total"), currencyCode),
-			"ActionURL": notifications.BuildActionURL(app, fmt.Sprintf("/pos/%s/details", po.Id)),
+			"POId":          po.Id,
+			"PONumber":      po.GetString("po_number"),
+			"Description":   po.GetString("description"),
+			"VendorName":    vendorName,
+			"Total":         total,
+			"PreviousTotal": previousTotal,
+			"ActionURL":     notifications.BuildActionURL(app, fmt.Sprintf("/pos/%s/details", po.Id)),
 		},
 		System:   false,
 		ActorUID: actorID,
@@ -755,7 +769,7 @@ func createPOApprovalRequiredNotification(app core.App, purchaseOrderRecord *cor
 		return "", nil
 	}
 	if utilities.IsPurchaseOrderRevision(purchaseOrderRecord) {
-		return notifications.DispatchNotification(app, RevisionApprovalNotification(app, purchaseOrderRecord, actorID, notifications.DeliveryDeferred))
+		return notifications.DispatchNotification(app, RevisionApprovalNotification(app, purchaseOrderRecord, PurchaseOrderApprovalTotalText(app, purchaseOrderRecord.Original()), actorID, notifications.DeliveryDeferred))
 	}
 
 	return notifications.DispatchNotification(app, notifications.DispatchArgs{
@@ -875,7 +889,7 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 					Data: map[string]errs.CodeError{
 						field: {
 							Code:    "revision_field_locked",
-							Message: "only the total and approvers can change on a revised purchase order",
+							Message: "only the total, currency and approvers can change on a revised purchase order",
 						},
 					},
 				}
@@ -1007,7 +1021,7 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 		}
 		return nid, nil
 	}
-	if shouldResetApprovals || revisionChangeNeedsApproverEmail(record) {
+	if shouldResetApprovals || revisionChangeNeedsApproverEmail(app, record) {
 		nid, err := createPOApprovalRequiredNotification(app, record, authRecord.Id)
 		if err != nil {
 			return "", err
