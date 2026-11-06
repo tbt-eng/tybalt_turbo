@@ -137,6 +137,7 @@ export function parseDoc(slug: string, source: string): DocPage {
 // Pages that Help lists under another page, with a shorter label.
 const childDocPages: Record<string, { parent: string; label: string }> = {
   "revise-a-purchase-order": { parent: "purchase-orders", label: "Revisions" },
+  "vendor-invoices": { parent: "expenses", label: "Vendor invoices" },
 };
 
 // Help lists pages by title, with Start here first and What's new last. A child

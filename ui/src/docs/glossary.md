@@ -6,6 +6,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
 | Approver              | A person who approves a time sheet, expense, purchase order, project request or project value change. See **Who approves what**.                    |                 |
 | Authorization PDF     | The signed PDF that authorizes a project or a value change. It must legally bind the company and the client.                                        |                 |
+| Bookkeeper            | Staff who can use one vendor invoice on several expenses.                                                                                           |                 |
 | Category              | A group of costs within one job.                                                                                                                    |                 |
 | Committer             | Staff who commit time sheets and expenses. Commit is the final step.                                                                                |                 |
 | Default branch        | The branch that an admin sets on your profile. Turbo uses it when a record has no job or PO.                                                        |                 |
@@ -24,6 +25,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Subjob                | A project under a parent project. It has its parent's client. Its number is its parent's number plus a suffix, such as 25-123-01.                   |                 |
 | Time sheet            | Your time entries for one week.                                                                                                                     | timesheet       |
 | Under revision        | A purchase order with a new total that waits for approval.                                                                                          |                 |
+| Vendor invoice        | The bill that a vendor sends for a purchase.                                                                                                        |                 |
 
 ## Who approves what
 
