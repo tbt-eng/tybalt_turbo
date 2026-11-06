@@ -23,7 +23,7 @@ Note: Rejected? Select **Recall**, edit the expense and submit it again.
 | Expense               | A purchase that you paid for   | Yes        |
 | Corporate Credit Card | A purchase on a corporate card | No         |
 
-A PO uses one of these types.
+A PO uses one of these types. An On Account expense needs its [vendor invoice](/docs/vendor-invoices) details.
 
 ## Other payment types (these never need a PO)
 
