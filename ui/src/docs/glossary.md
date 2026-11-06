@@ -18,6 +18,8 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
+| Rate sheet            | The charge-out rate for each role. A project uses one rate sheet at a time.                                                                         |                 |
+| Rate sheet period     | The dates in which a project uses one rate sheet.                                                                                                   |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
 | Revise                | Change the total or currency of an approved purchase order.                                                                                         |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |
