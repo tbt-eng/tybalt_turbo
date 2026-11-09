@@ -2,6 +2,17 @@
 
 This page is for people who already know Turbo and want a high-level view of recent changes. For details, or to learn how to use Turbo, see the [other Help pages](/docs/start-here).
 
+## November 1 to 7, 2026 (to 47c7396e)
+
+- Every new project and subjob now starts as a project request. An approver checks it, then procurement creates the job. (v0.3.125)
+- **Help** now has guides to Turbo, and many screens link to the matching guide. (v0.3.159, v0.3.162, v0.3.163, v0.3.164, v0.3.168)
+- You can change the total or currency of an Active PO that you created, if it has no expenses or child POs. Select **Revise Total**. The PO needs approval again and keeps its number. (v0.3.161, v0.3.166)
+- PO details now show actions as labelled buttons, such as **Approve** and **Reject**, instead of icons. (v0.3.166)
+- Staff with PO group access can use **PO Groups** to create one PO for each of many staff from a template and a CSV file. Each PO still needs approval. (v0.3.154)
+- Procurement now confirms a checklist before **Create Job**, and can **Reject** a project request with a reason. (v0.3.160, v0.3.165)
+- The project request form now has the same search boxes and labels as the job form. (v0.3.167)
+- **Value Approvals** and the **Project Requests** lists now look like the PO and expense approval lists. (v0.3.155)
+
 ## October 25 to 31, 2026 (to 5c35b0a0)
 
 - Date fields now start on your device's date. In the evening, forms no longer show tomorrow's date. (v0.3.150)
