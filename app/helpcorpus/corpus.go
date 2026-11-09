@@ -44,10 +44,14 @@ type Chunk struct {
 	Text     string     `json:"text"`
 }
 
+// Claims are the names of the claims that a user holds. A nil value is a user
+// with no claims.
+type Claims map[string]bool
+
 // Allows reports if a user with these claims may read the chunk. The user must
 // hold at least one claim from every group in Requires. A chunk with no groups
 // is for everyone.
-func (c Chunk) Allows(claims map[string]bool) bool {
+func (c Chunk) Allows(claims Claims) bool {
 	for _, group := range c.Requires {
 		held := false
 		for _, claim := range group {

@@ -11,7 +11,8 @@ app/tybalt
 app/pb_public/
 
 # the built Help chat corpus (go run ./cmd/helpcorpus)
-app/helpcorpus/data/
+app/helpcorpus/data/*
+!app/helpcorpus/data/.gitkeep
 
 # import data
 import_data/*.parquet

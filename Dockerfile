@@ -68,6 +68,13 @@ COPY app/ ./
 RUN cd /app && ./scripts/version.sh go > constants/version.go || \
     echo "Warning: Failed to generate version constants"
 
+# Build the Help chat corpus from this commit's user docs, design notes and
+# code. The helpcorpus package embeds it from helpcorpus/data, which is outside
+# pb_public. A failure stops the build.
+COPY ui/src /corpus-src/ui/src
+COPY descriptions /corpus-src/descriptions
+RUN go run ./cmd/helpcorpus --repo /corpus-src --app-dir . --quiet
+
 # Copy built UI from previous stage
 COPY --from=ui-builder /app/ui/build ./pb_public
 

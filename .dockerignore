@@ -47,5 +47,4 @@ Thumbs.db
 
 # Development specific
 import_data/
-descriptions/
 prompts/ 
