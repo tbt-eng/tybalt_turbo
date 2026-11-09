@@ -1,6 +1,6 @@
 # Start here
 
-Turbo shows only the features that you have access to, so your menu can differ from other people's menus. Select **Help** at the top of the menu to open these docs. Many screens also have a **Help** button that shows the steps for that screen. A red dot on **Help** means that [What's new](/docs/whats-new) has a new week. Open that page to clear the dot.
+Turbo shows only the features that you have access to, so your menu can differ from other people's menus. Select **Help** at the top of the menu to open these docs. Many screens also have a **Help** button that shows the steps for that screen. To find a topic, type a word in **Search Help**. A red dot on **Help** means that [What's new](/docs/whats-new) has a new week. Open that page to clear the dot.
 
 ## Choose your manager
 

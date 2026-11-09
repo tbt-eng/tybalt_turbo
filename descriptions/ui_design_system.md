@@ -183,6 +183,10 @@ Page help sits at the far right of an existing row and never gets its own: the t
 
 A second navigation column for one area of the app, beside the main menu. It takes a `title` and `items` with `label`, `href`, `active`, `indent`, which lists a link under the one before it, and `dotLabel`, which shows a `DSNotifyDot` on the link. The Help pages use it. On a phone, the links wrap above the content and nothing indents.
 
+#### `DSInstantSearch`
+
+A prominent search bar above one area of the app. While it holds a query, the hits replace the content below it, and **Clear** or Escape brings the content back. It takes a `label`, a `search` function that returns hits with `href`, `title`, `context` and a marked `excerpt`, and the content as children. The search runs on each keystroke, so it must answer from memory. The arrow keys move through the hits and Enter opens one. The Help pages use it to search the user docs with `ui/src/lib/docsSearch.ts`.
+
 #### `DSNotifyDot`
 
 A small red dot beside a link, for something new that the person hasn't opened. It takes a `label` for screen readers. A count of items that need action uses the red number badge in the main menu instead.

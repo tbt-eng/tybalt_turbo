@@ -9,6 +9,7 @@ import {
   type DocPage,
   type DocSection,
 } from "$lib/docsFormat";
+import { createDocSearch } from "$lib/docsSearch";
 
 const files = import.meta.glob(["/src/docs/*.md", "!/src/docs/README.md"], {
   query: "?raw",
@@ -24,6 +25,9 @@ export const docPages: DocPage[] = orderDocPages(
     }))
     .map(({ slug, source }) => parseDoc(slug, source)),
 );
+
+// The search that the Help search bar runs on each keystroke.
+export const searchDocs = createDocSearch(docPages);
 
 export function findDoc(slug: string): DocPage | undefined {
   return docPages.find((page) => page.slug === slug);

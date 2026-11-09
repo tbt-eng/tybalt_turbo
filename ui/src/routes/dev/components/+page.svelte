@@ -6,6 +6,7 @@
   import DSActionButton from "$lib/components/DSActionButton.svelte";
   import DSDoc from "$lib/components/DSDoc.svelte";
   import DSSideNav from "$lib/components/DSSideNav.svelte";
+  import DSInstantSearch from "$lib/components/DSInstantSearch.svelte";
   import DSFlow from "$lib/components/DSFlow.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DSNotifyDot from "$lib/components/DSNotifyDot.svelte";
@@ -445,6 +446,32 @@
           { label: "Other page", href: "#other-page", dotLabel: "New on this page" },
         ]}
       />
+    </DSSection>
+
+    <DSSection title="DSInstantSearch">
+      <div class="flex h-64 flex-col">
+        <DSInstantSearch
+          label="Search the sample"
+          search={(query) =>
+            query.toLowerCase().includes("time")
+              ? [
+                  {
+                    id: "sample",
+                    href: "#sample-hit",
+                    title: "Submit a week",
+                    context: "Time",
+                    excerpt: [
+                      { text: "Turbo moves the entries to a ", match: false },
+                      { text: "time", match: true },
+                      { text: " sheet.", match: false },
+                    ],
+                  },
+                ]
+              : []}
+        >
+          <p class="p-4">The content shows here. Type "time" for a hit, or other text for none.</p>
+        </DSInstantSearch>
+      </div>
     </DSSection>
 
     <DSSection title="DSCollapsible">
