@@ -1,5 +1,7 @@
 <script lang="ts">
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import DSActionButton from "$lib/components/DSActionButton.svelte";
+  import DSPopover from "$lib/components/DSPopover.svelte";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
@@ -13,6 +15,7 @@
     error = $state(""),
     dirty = $state(false),
     printing = $state(false),
+    confirmingDelete = $state(false),
     // Notes may be internal, so the printout leaves them out unless chosen.
     printNotes = $state(false);
   let checklist = $state<Record<string, boolean>>({}),
@@ -70,7 +73,8 @@
         await goto(`/jobs/${result.job?.id ?? result.id ?? result.job_id}/details`);
       } else if (name === "delete") {
         await globalStore.refreshAttentionCounts();
-        await goto("/job-requests?queue=abandoned");
+        // A creator deleting their own request returns to their list.
+        await goto(permission.can_edit ? "/job-requests" : "/job-requests?queue=abandoned");
       } else await refresh();
     } catch (e) {
       error = workflowError(e);
@@ -348,16 +352,21 @@
           >
         </div>{/if}
     </section>{/if}
-  {#if permission.can_delete}<button
-      disabled={busy}
-      class="rounded border border-red-700 px-4 py-2 text-red-800"
-      onclick={() => {
-        if (
-          window.confirm(
-            "Delete this abandoned request, its PDF, and its allocations? This cannot be undone.",
-          )
-        )
-          action("delete");
-      }}>Delete abandoned request</button
-    >{/if}
+  {#if permission.can_delete}
+    {@const deleteLabel = permission.can_edit ? "Delete request" : "Delete abandoned request"}
+    <DSActionButton color="red" disabled={busy} action={() => (confirmingDelete = true)}>
+      {deleteLabel}
+    </DSActionButton>
+    <DSPopover
+      bind:show={confirmingDelete}
+      title={deleteLabel}
+      danger
+      submitLabel="Delete"
+      submitting={busy}
+      {error}
+      onSubmit={() => action("delete")}
+    >
+      <p>Turbo removes this request, its PDF and its division hours. You can't undo this.</p>
+    </DSPopover>
+  {/if}
 </div>

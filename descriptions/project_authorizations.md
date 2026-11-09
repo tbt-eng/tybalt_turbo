@@ -259,6 +259,7 @@ user as well as the applicable claim or ownership rule.
 | Select or change the approver for a pending project-value change | Holders of `job`. |
 | Approve or reject a pending project-value change | Its selected approver. Approval requires `project_authorization` and a limit that covers the full proposed value. Rejection requires a reason. |
 | Delete the latest approved project-value change or clear a pending approval for admin correction | Holders of `admin`, subject to the deletion rules below. |
+| Delete a request before review | Its creator, while the request is `Draft`, `Recalled`, or `Rejected` and the request workflow is enabled. These are the states in which the creator can edit it. |
 | Delete an abandoned request | Holders of `admin`. |
 | Create proposals | Holders of `job`, subject to existing proposal rules. |
 
@@ -369,6 +370,16 @@ Do not delete automatically or block normal workflow actions merely because
 a request appears in the list. A successful creator edit resets its age.
 Request ownership does not transfer; if another employee must prepare the work,
 that employee creates a new request.
+
+### Creator Deletion
+
+The creator can delete a request they can still edit: `Draft`, `Recalled`, or
+`Rejected`. This covers a request made by mistake, such as a duplicate, which
+would otherwise hold its PDF until it became abandoned. Nothing needs keeping
+at these states, because recall and rejection clear earlier approvals and an
+uncreated request's approvals do not require history. A request in
+`Awaiting approval` or `Awaiting creation` cannot be deleted by its creator,
+so it cannot disappear during review; the creator recalls it first.
 
 ### Approval Checks And Duplicate Work
 
@@ -852,8 +863,9 @@ be uploaded elsewhere. Do not retain a hash reservation that prevents reuse.
 Admin deletion of a pending change also releases its hash and leaves the
 effective job value unchanged.
 
-Deleting an abandoned request deletes its attachment and draft allocations
-and releases its document hash. Only an admin can perform this cleanup.
+Deleting a request deletes its attachment and draft allocations and releases
+its document hash. Only an admin can delete an abandoned request that its
+creator could not delete under Creator Deletion.
 
 Otherwise, retain approvals transferred to jobs and later approved value changes
 indefinitely. Preserve requester identity, approval identity and time, creation
@@ -889,7 +901,7 @@ Name the project number in the subject. A request has no number, so name its
 client and the first line of its scope of work, which keeps requests for one
 client in separate email threads. Keep multi-line descriptions out of
 sentences. Show the client as "Name (Alias)" when it has an alias, and values
-in whole dollars with thousands separators. Recall and admin deletion send no
+in whole dollars with thousands separators. Recall and deletion send no
 email. The approved and rejected value emails go to the PDF uploader because
 the attachment does not record who last edited a pending change.
 
@@ -1617,7 +1629,11 @@ Acceptance tests must cover these cases:
   and workflow actions do not reset the age. List membership changes no status,
   does not block normal actions, and triggers no automatic deletion.
 * Admin deletion of abandoned requests releases their PDF hashes. Ordinary
-  users cannot perform this cleanup or delete approved job history.
+  users cannot delete another person's request or approved job history.
+* A creator can delete their own `Draft`, `Recalled`, or `Rejected` request.
+  This removes its PDF and allocations and releases its hash. Creators cannot
+  delete a request in `Awaiting approval` or `Awaiting creation`, or any
+  request while the request workflow is disabled.
 * Job deletion fails while any initial, later, pending, or rejected attachment
   remains, including through generic APIs and model deletion. Preserve the
   job, PDFs, hashes, and approval history on failure. Test concurrent attachment
@@ -1704,7 +1720,8 @@ Acceptance tests must cover these cases:
    PDF, checks existing jobs, and confirms all seven checklist statements. Select
    **Create Job** to assign the number and transfer the approval evidence.
 
-The creator can recall a submitted or approved request before creation. The
+The creator can recall a submitted or approved request before creation, and
+can select **Delete request** on a draft, recalled, or rejected request. The
 selected approver can reject it with a reason. Rejected requests require a real
 edit before resubmission. Both actions clear the earlier approval.
 

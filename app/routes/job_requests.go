@@ -870,15 +870,24 @@ func createRequestNote(app core.App, ctx context.Context, r, job *core.Record) (
 func requestDeleteHandler(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		err := app.RunInTransaction(func(tx core.App) error {
-			if err := workflowClaim(tx, e.Auth, "admin"); err != nil {
+			if err := workflowActive(tx, e.Auth); err != nil {
 				return err
 			}
 			r, err := tx.FindRecordById("job_requests", e.Request.PathValue("id"))
 			if err != nil {
 				return err
 			}
-			if !abandonedRequest(r) {
-				return workflowError("Only abandoned requests can be deleted.")
+			// A creator can delete a request they can still edit, such as a
+			// duplicate made by mistake. It holds no approval to preserve:
+			// recall and rejection clear approvals. Anything else must be
+			// abandoned, and only an admin can delete it.
+			if requestEditable(tx, r, e.Auth) != nil {
+				if err := workflowClaim(tx, e.Auth, "admin"); err != nil {
+					return err
+				}
+				if !abandonedRequest(r) {
+					return workflowError("Only abandoned requests can be deleted.")
+				}
 			}
 			ctx := workflowContext(e.Request.Context())
 			a, err := requestAttachment(tx, r.Id)

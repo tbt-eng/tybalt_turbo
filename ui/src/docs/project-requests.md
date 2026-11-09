@@ -66,15 +66,25 @@ If the request duplicates a job, enter a rejection reason and select **Reject**.
 
 These actions clear the approval, so the request needs a new approval. You must edit a rejected request before you submit it again.
 
+## Delete a request
+
+You can delete your own request if its status is Draft, Recalled or Rejected. Recall a submitted request first.
+
+1. Open the request.
+2. Select **Delete request**.
+3. Select **Delete**.
+
+Turbo removes the request and its PDF. You can't undo this.
+
 ## Request statuses
 
 | Status            | What happens next                                   |
 | ----------------- | --------------------------------------------------- |
-| Draft             | You edit and submit it.                             |
+| Draft             | You edit and submit it, or delete it.               |
 | Awaiting approval | The approver approves or rejects.                   |
 | Awaiting creation | Procurement creates the job or rejects the request. |
-| Rejected          | You edit it and submit it again.                    |
-| Recalled          | You can edit it, then submit it again.              |
+| Rejected          | You edit it and submit it again, or delete it.      |
+| Recalled          | You edit it and submit it again, or delete it.      |
 
 ## Change a project's value
 

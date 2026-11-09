@@ -608,9 +608,86 @@ func TestJobRequestAbandonmentAndDuplicatePDFCleanup(t *testing.T) {
 	if !strings.Contains(response.Body.String(), id) || !strings.Contains(response.Body.String(), "admin") {
 		t.Fatal("duplicate message does not identify abandoned request and admin resolution")
 	}
-	clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, "time@test.com", nil, http.StatusForbidden)
+	clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, workflowApprover, nil, http.StatusForbidden)
 	clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, workflowAuthor, nil, http.StatusNoContent)
 	workflowUpload(t, app, "/api/job_requests/"+newID+"/document", workflowAuthor, string(content), map[string]string{"version": "1"}, http.StatusOK)
+}
+
+// setRequestStatus adjusts only the fixture status, so each test can start from
+// a state without repeating the workflow that reaches it.
+func setRequestStatus(t *testing.T, app *tests.TestApp, id, status string) {
+	t.Helper()
+	if _, err := app.DB().NewQuery("UPDATE job_requests SET status={:status} WHERE id={:id}").Bind(dbx.Params{"id": id, "status": status}).Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func requestRowCount(t *testing.T, app *tests.TestApp, table, id string) int64 {
+	t.Helper()
+	count, err := app.CountRecords(table, dbx.HashExp{"request": id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return count
+}
+
+func TestJobRequestCreatorDeletesEditableRequest(t *testing.T) {
+	const id, creator = "parequest000001", "time@test.com"
+	content, err := os.ReadFile("test_seed_data/files/job_attachments/paattachment001/authorization.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []string{"Draft", "Recalled", "Rejected"} {
+		t.Run(status, func(t *testing.T) {
+			app := newWorkflowTestApp(t, true)
+			setRequestStatus(t, app, id, status)
+			newID := createWorkflowRequest(t, app)
+			workflowUpload(t, app, "/api/job_requests/"+newID+"/document", workflowAuthor, string(content), map[string]string{"version": "1"}, http.StatusBadRequest)
+			detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, creator, nil, http.StatusOK)
+			if detail["permissions"].(map[string]any)["can_delete"] != true {
+				t.Fatalf("creator cannot delete: %#v", detail["permissions"])
+			}
+			clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, workflowApprover, nil, http.StatusForbidden)
+			clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, creator, nil, http.StatusNoContent)
+			if _, err := app.FindRecordById("job_requests", id); err == nil {
+				t.Fatal("request was not deleted")
+			}
+			for _, table := range []string{"job_attachments", "job_request_allocations"} {
+				if count := requestRowCount(t, app, table, id); count != 0 {
+					t.Fatalf("%s kept %d rows", table, count)
+				}
+			}
+			// The PDF is free for the request that should have had it.
+			workflowUpload(t, app, "/api/job_requests/"+newID+"/document", workflowAuthor, string(content), map[string]string{"version": "1"}, http.StatusOK)
+		})
+	}
+}
+
+func TestJobRequestCreatorCannotDeleteRequestInReview(t *testing.T) {
+	const id, creator = "parequest000001", "time@test.com"
+	for _, status := range []string{"Awaiting approval", "Awaiting creation"} {
+		t.Run(status, func(t *testing.T) {
+			app := newWorkflowTestApp(t, true)
+			setRequestStatus(t, app, id, status)
+			detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, creator, nil, http.StatusOK)
+			if detail["permissions"].(map[string]any)["can_delete"] != false {
+				t.Fatalf("creator can delete a request in review: %#v", detail["permissions"])
+			}
+			clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, creator, nil, http.StatusForbidden)
+			if _, err := app.FindRecordById("job_requests", id); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestJobRequestCreatorCannotDeleteWhileRequestsDisabled(t *testing.T) {
+	const id, creator = "parequest000001", "time@test.com"
+	app := newWorkflowTestApp(t, false)
+	clientSetupJSON(t, app, http.MethodDelete, "/api/job_requests/"+id, creator, nil, http.StatusForbidden)
+	if _, err := app.FindRecordById("job_requests", id); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestJobRequestConcurrentCreationMakesOneJob(t *testing.T) {
