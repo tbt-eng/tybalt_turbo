@@ -50,6 +50,7 @@
 
   $: uncommitRequest = expense.uncommit_request;
   $: holdsCommitClaim = $globalStore.claims.includes("commit");
+  $: holdsAdminClaim = $globalStore.claims.includes("admin");
   $: hasCommitAccess = $globalStore.showAllUi || $globalStore.claims.includes("commit");
   $: hasAdminAccess = $globalStore.showAllUi || $globalStore.claims.includes("admin");
   $: hasBookKeeperAccess = $globalStore.claims.includes("book_keeper");
@@ -253,7 +254,8 @@
             color="orange"
           />
         {/if}
-        {#if uncommitRequest?.can_request}
+        <!-- An admin holder has Uncommit above, so a request would only ask themselves. -->
+        {#if uncommitRequest?.can_request && !holdsAdminClaim}
           <DsActionButton
             action={() => (showUncommitRequest = true)}
             icon="mdi:undo"

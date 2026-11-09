@@ -168,7 +168,7 @@ The uncommit and reject bodies move out of their handlers into shared functions 
 
 Follow `ui/CLAUDE.md`.
 
-- **Expense details:** `Request uncommit` opens a `DSPopover` with reason, outcome and note. When blocked, a `DSCallout` gives the period and pay day and says to message Dean on Teams. When pending, a `DSCallout` shows the request and a cancel action.
+- **Expense details:** `Request uncommit` opens a `DSPopover` with reason, outcome and note. It is hidden from `admin` holders, who have the direct `Uncommit` button and would only be asking themselves. When blocked, a `DSCallout` gives the period and pay day and says to message Dean on Teams. When pending, a `DSCallout` shows the request and a cancel action.
 - **PO details:** must reach each committed expense in one click, since people think in PO numbers. Check this during the build.
 - **New page `/expenses/uncommit-requests`:** `DSTabBar` for Pending and Decided, listed with `DSList`, with a pending count in the nav for `admin` holders, like the Commit Queue.
   - Each row shows PO and vendor, employee, payment type, total, committed date and age, reason and note, outcome, requester and time waiting.
