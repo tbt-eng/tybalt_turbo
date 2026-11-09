@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSNotifyDot from "$lib/components/DSNotifyDot.svelte";
+
   // A second navigation column for one area of the app, beside the main menu.
   // On a phone the links wrap above the content.
   export interface SideNavItem {
@@ -8,6 +10,8 @@
     // Lists this link under the one before it. A phone wraps the links in rows, so
     // only the column indents.
     indent?: boolean;
+    // Shows a red dot on this link, with this text for screen readers.
+    dotLabel?: string;
   }
   let { title, items }: { title: string; items: SideNavItem[] } = $props();
 </script>
@@ -25,13 +29,14 @@
         <a
           href={item.href}
           aria-current={item.active ? "page" : undefined}
-          class={`block rounded-sm px-2 py-1 ${
+          class={`flex items-center justify-between gap-2 rounded-sm px-2 py-1 ${
             item.active
               ? "bg-white font-semibold text-blue-700 shadow-sm"
               : "text-neutral-700 hover:bg-neutral-200"
           }`}
         >
           {item.label}
+          {#if item.dotLabel}<DSNotifyDot label={item.dotLabel} />{/if}
         </a>
         <!-- eslint-enable svelte/no-navigation-without-resolve -->
       </li>

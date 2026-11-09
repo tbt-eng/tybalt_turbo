@@ -18,11 +18,18 @@
   import { appConfig, jobRequestsEnabled } from "$lib/stores/appConfig";
   import { canViewJobCreateQueue } from "$lib/jobRequests";
   import NavFlyout from "$lib/components/NavFlyout.svelte";
+  import DSNotifyDot from "$lib/components/DSNotifyDot.svelte";
+  import { helpBubble } from "$lib/stores/helpBubble";
 
   // Microsoft sign-in doesn't reload the page, so load app config once signed in
   // (idempotent, so safe to call on every auth change)
   $effect(() => {
     if ($authStore?.isValid) appConfig.init();
+  });
+
+  $effect(() => {
+    if ($authStore?.isValid)
+      helpBubble.sync($page.url.pathname === resolve("/docs/[slug]", { slug: "whats-new" }));
   });
 
   // children is a function that we will call to render the current route
@@ -256,6 +263,7 @@
           >
             <Icon icon="mdi:help-circle-outline" width="16" aria-hidden="true" />
             Help
+            {#if $helpBubble}<DSNotifyDot label="New in Help" />{/if}
           </a>
         {/if}
       </div>
@@ -323,10 +331,13 @@
             {#if $authStore?.isValid}
               <a
                 href={resolve("/docs")}
-                class="flex h-12 items-center gap-2 px-4 text-xl hover:bg-neutral-500 lg:h-8 lg:text-sm"
+                class="flex h-12 items-center gap-2 pr-7 pl-4 text-xl hover:bg-neutral-500 lg:h-8 lg:pr-5 lg:text-sm"
               >
                 <Icon icon="mdi:help-circle-outline" width="18" aria-hidden="true" />
                 Help
+                {#if $helpBubble}<span class="ml-auto flex"
+                    ><DSNotifyDot label="New in Help" /></span
+                  >{/if}
               </a>
             {/if}
           </div>

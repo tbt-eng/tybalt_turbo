@@ -181,7 +181,11 @@ Page help sits at the far right of an existing row and never gets its own: the t
 
 #### `DSSideNav`
 
-A second navigation column for one area of the app, beside the main menu. It takes a `title` and `items` with `label`, `href`, `active` and `indent`, which lists a link under the one before it. The Help pages use it. On a phone, the links wrap above the content and nothing indents.
+A second navigation column for one area of the app, beside the main menu. It takes a `title` and `items` with `label`, `href`, `active`, `indent`, which lists a link under the one before it, and `dotLabel`, which shows a `DSNotifyDot` on the link. The Help pages use it. On a phone, the links wrap above the content and nothing indents.
+
+#### `DSNotifyDot`
+
+A small red dot beside a link, for something new that the person hasn't opened. It takes a `label` for screen readers. A count of items that need action uses the red number badge in the main menu instead.
 
 #### `DSCallout`
 

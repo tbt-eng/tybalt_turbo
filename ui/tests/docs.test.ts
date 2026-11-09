@@ -16,6 +16,7 @@ import {
   withNewTabLinks,
   type DocPage,
 } from "../src/lib/docsFormat.ts";
+import { latestWhatsNewCommit, newWhatsNewWeeks } from "../src/lib/whatsNewCommit.ts";
 
 const glossary = readFileSync(new URL("../src/docs/glossary.md", import.meta.url), "utf8");
 
@@ -236,4 +237,19 @@ test("What's new has complete weeks, newest first, within 12 weeks", () => {
     assert.ok(items.length > 0, `${block.split("\n")[0]} has no items`);
     for (const item of items) assert.match(item, /\(v\d+\.\d+\.\d+(?:, v\d+\.\d+\.\d+)*\)$/, item);
   }
+});
+
+test("the Help bubble follows the newest What's new week", () => {
+  const source = readFileSync(new URL("../src/docs/whats-new.md", import.meta.url), "utf8");
+  assert.equal(latestWhatsNewCommit(source), parseDoc("whats-new", source).sections[0].commit);
+  assert.equal(latestWhatsNewCommit("# What's new\n\nNo weeks yet.\n"), null);
+});
+
+test("What's new marks the weeks since the last visit", () => {
+  const commits = ["cccccccc", "bbbbbbbb", "aaaaaaaa"];
+  const marked = (seen: string | null) => [...newWhatsNewWeeks(commits, seen)];
+  assert.deepEqual(marked(null), ["cccccccc"]);
+  assert.deepEqual(marked("aaaaaaaa"), ["cccccccc", "bbbbbbbb"]);
+  assert.deepEqual(marked("cccccccc"), []);
+  assert.deepEqual(marked("00000000"), commits);
 });

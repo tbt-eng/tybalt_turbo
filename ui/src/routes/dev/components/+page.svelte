@@ -8,6 +8,7 @@
   import DSSideNav from "$lib/components/DSSideNav.svelte";
   import DSFlow from "$lib/components/DSFlow.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import DSNotifyDot from "$lib/components/DSNotifyDot.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSCard from "$lib/components/DSCard.svelte";
   import DSCardGrid from "$lib/components/DSCardGrid.svelte";
@@ -401,6 +402,10 @@
       </div>
     </DSSection>
 
+    <DSSection title="DSNotifyDot">
+      <span class="inline-flex items-center gap-1">Help <DSNotifyDot label="New in Help" /></span>
+    </DSSection>
+
     <DSSection title="DSFlow">
       <DSFlow
         steps={[
@@ -437,7 +442,7 @@
         items={[
           { label: "Selected page", href: "#selected-page", active: true },
           { label: "Child page", href: "#child-page", indent: true },
-          { label: "Other page", href: "#other-page" },
+          { label: "Other page", href: "#other-page", dotLabel: "New on this page" },
         ]}
       />
     </DSSection>

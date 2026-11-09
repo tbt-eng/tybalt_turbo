@@ -3,6 +3,7 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import DSSideNav from "$lib/components/DSSideNav.svelte";
+  import { helpBubble } from "$lib/stores/helpBubble";
   let { data, children } = $props();
 
   const currentSlug = $derived(page.params.slug ?? "start-here");
@@ -12,6 +13,7 @@
       indent,
       href: resolve(`/docs/${slug}`),
       active: slug === currentSlug,
+      dotLabel: slug === "whats-new" && $helpBubble ? "New in Help" : undefined,
     })),
   );
 

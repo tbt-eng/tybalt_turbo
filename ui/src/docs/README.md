@@ -50,6 +50,8 @@ Add a section for each complete week that has new features, with the newest week
 
 The word limits don't apply to this page, because its 12 weeks limit it.
 
+A new week puts a red dot on **Help** and **What's new** until each person opens What's new. That visit marks the week **New**.
+
 ## Flows
 
 A `flow` block draws cards that show who acts and what happens next. Each line has an actor, a step and one line of detail. A `Note:` line covers an exception.
