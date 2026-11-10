@@ -2063,5 +2063,2244 @@
     "confirmed_by_test": "app/clients_test.go:149",
     "in_user_docs": "partly",
     "why_hard": "The docs only say Delete is hidden for clients in use; what counts as in use, such as a single note or a job-owner link, is only in the code."
+  },
+  {
+    "id": "reports-01",
+    "category": "reports",
+    "question": "In the payroll time report that I downloaded, an hourly employee has 50 regular hours in one week: 30 for one branch and 20 for another, and none banked. How does the report divide the 6 overtime hours between the two branches?",
+    "held": [
+      "report",
+      "time"
+    ],
+    "ideal_answer": "It splits them evenly: 3 hours to each branch. The branch columns show 27 and 17, and each matching OT column shows 3. For hourly staff, Turbo caps the regular branch columns at 44 hours in total. It divides the hours over 44 equally among the branches that have hours, in half-hour steps. It does not divide them in proportion to the hours for each branch. If the split is uneven, the branches with the most hours take the extra half hours. If a branch has fewer hours than its share, it drops to zero and the other branches take the rest.",
+    "key_points": [
+      "Each branch gets 3 overtime hours: Turbo splits the hours over 44 equally among the branches, not in proportion to their hours."
+    ],
+    "extra_points": [
+      "The regular branch columns become 27 and 17, which total 44.",
+      "The split uses half-hour steps, and the branches with the most hours take any extra half hour.",
+      "A branch with fewer hours than its share drops to zero, and the other branches take the rest."
+    ],
+    "wrong_if": [
+      "Says the overtime is divided in proportion to the hours for each branch (3.6 and 2.4).",
+      "Says all 6 overtime hours go to one branch."
+    ],
+    "sources": [
+      {
+        "path": "app/reports/reports.go",
+        "start": 57,
+        "end": 57,
+        "why": "the regular branch columns of hourly staff are capped at 44 hours"
+      },
+      {
+        "path": "app/reports/reports.go",
+        "start": 229,
+        "end": 289,
+        "why": "hours over the cap move to the OT columns; the overage is divided equally, and a branch can't go below zero"
+      },
+      {
+        "path": "app/reports/reports.go",
+        "start": 304,
+        "end": 324,
+        "why": "branches are ordered by most hours first, and hours are counted in half-hour units"
+      }
+    ],
+    "evidence": "\t\tbaseReduction := overageUnits / len(activeBranches)\n\t\textraReductionCount := overageUnits % len(activeBranches)",
+    "confirmed_by_test": "app/payroll_time_branch_columns_test.go:149",
+    "in_user_docs": "no",
+    "why_hard": "The natural guess is a proportional split, but the code divides the overage equally in half-hour units."
+  },
+  {
+    "id": "reports-02",
+    "category": "reports",
+    "question": "In the payroll time report, a salaried employee with a 40-hour work week has 30 regular hours for their default branch and 15 for another branch in one week, and no time off. What do the branch columns show for that person?",
+    "held": [
+      "report",
+      "time"
+    ],
+    "ideal_answer": "They show 25 for the default branch and 15 for the other branch. For salaried staff, the branch columns together can't exceed the work week hours saved on the time sheet, here 40. Turbo takes the excess of 5 hours from the person's default branch first. If the default branch doesn't have enough hours, Turbo takes the rest from the branch with the most hours. The OT branch columns stay at zero for salaried staff. Stat holiday and bereavement hours lower the cap when regular hours plus those hours exceed the work week.",
+    "key_points": [
+      "For salaried staff the branch columns are capped at the work week hours (40), so 5 hours are removed.",
+      "Turbo removes the excess from the default branch first, so the columns show 25 and 15."
+    ],
+    "extra_points": [
+      "If the default branch can't absorb the excess, the rest comes from the branch with the most hours.",
+      "Salaried staff get nothing in the OT branch columns.",
+      "Stat holiday and bereavement hours lower the cap when regular hours plus those hours exceed the work week."
+    ],
+    "wrong_if": [
+      "Says the branch columns show the full 30 and 15.",
+      "Says the extra 5 hours are split between the branches or moved to the OT columns."
+    ],
+    "sources": [
+      {
+        "path": "app/reports/reports.go",
+        "start": 326,
+        "end": 371,
+        "why": "salaried cap at work week hours; the excess leaves the default branch first, then the branch with the most hours"
+      },
+      {
+        "path": "app/reports/reports.go",
+        "start": 213,
+        "end": 216,
+        "why": "the OT branch columns are filled for hourly staff only"
+      },
+      {
+        "path": "app/reports/payroll_time_branch_hours.sql",
+        "start": 26,
+        "end": 28,
+        "why": "salary flag and work week hours come from the time sheet; the default branch comes from the admin profile"
+      }
+    ],
+    "evidence": "\texcess := totalHours - targetHours\n\tif excess <= payrollBranchHoursEpsilon {\n\t\treturn\n\t}\n\n\treducePayrollBranchHoursWithFallback(allocation.BranchHours, allocation.DefaultBranchName, excess)",
+    "confirmed_by_test": "app/payroll_time_branch_columns_test.go:111",
+    "in_user_docs": "no",
+    "why_hard": "Salaried and hourly staff follow different branch rules, and the order of the reduction (default branch first) is only in the code."
+  },
+  {
+    "id": "reports-03",
+    "category": "reports",
+    "question": "On Expenses Tracking, one week has a red \"Incomplete\" label beside the Expenses button. What is incomplete, and which expenses are missing when I download that week's expense report?",
+    "held": [
+      "report",
+      "time"
+    ],
+    "ideal_answer": "The expense report for that week leaves out some committed expenses. The report skips every expense of a person whose payroll ID is still a temporary placeholder: nine digits that start with 9. The label appears when the week has at least one committed expense from such a person. The count of committed expenses on that screen still includes them. The report checks the payroll ID each time you run it, so the rows appear after the person gets a real payroll ID.",
+    "key_points": [
+      "Incomplete means that the week's expense report leaves out some committed expenses.",
+      "The missing expenses belong to people whose payroll ID is still a temporary placeholder."
+    ],
+    "extra_points": [
+      "A placeholder payroll ID is nine digits that start with 9.",
+      "The count of committed expenses on the tracking screen still includes those expenses."
+    ],
+    "wrong_if": [
+      "Says the label means that some expenses of that week are not approved or committed yet.",
+      "Says the expense report includes every committed expense of the week."
+    ],
+    "sources": [
+      {
+        "path": "app/reports/expenses.sql",
+        "start": 239,
+        "end": 247,
+        "why": "the report drops rows whose owner has a placeholder payroll ID"
+      },
+      {
+        "path": "app/utilities/payroll_placeholders.go",
+        "start": 5,
+        "end": 16,
+        "why": "a placeholder is a 9-character payroll ID that starts with 9"
+      },
+      {
+        "path": "app/routes/expense_tracking.go",
+        "start": 84,
+        "end": 94,
+        "why": "the tracking counts include every committed expense and count the placeholder ones separately"
+      }
+    ],
+    "evidence": "WHERE NOT ({:placeholder_payroll_id_condition})",
+    "confirmed_by_test": "app/placeholder_payroll_id_reports_test.go:222",
+    "in_user_docs": "no",
+    "why_hard": "The label only hints at the cause; the rule joins the tracking count, the report filter and the placeholder format from three files."
+  },
+  {
+    "id": "reports-04",
+    "category": "reports",
+    "question": "An expense was paid in US dollars and had no Canadian tax, but the weekly expense report shows an HST amount for it. Where do the Total, subtotal and HST in that report come from?",
+    "held": [
+      "report",
+      "time"
+    ],
+    "ideal_answer": "The report never reads tax from the expense. For every row it treats Total as an amount that includes 13% HST. HST is Total × 13 ÷ 113, rounded to the cent, and the subtotal is Total minus that HST. This applies to every row, including mileage, allowances and foreign purchases. Total is in Canadian dollars. For a foreign-currency expense, Total is the settled Canadian amount. The currency and foreign_currency_total columns show the original currency and amount. If the expense has no settled amount, Total falls back to the foreign amount without conversion.",
+    "key_points": [
+      "HST and subtotal are calculated from Total (HST = Total × 13 ÷ 113); they are not read from the expense.",
+      "For a foreign-currency expense, Total is the settled Canadian-dollar amount."
+    ],
+    "extra_points": [
+      "The calculation applies to every row, whatever the payment type or currency.",
+      "The currency and foreign_currency_total columns show the original currency and amount.",
+      "With no settled amount, Total falls back to the foreign amount without conversion."
+    ],
+    "wrong_if": [
+      "Says the HST column is the tax that was entered on the expense or printed on the receipt.",
+      "Says Turbo converts the US-dollar total with the current exchange rate for the report."
+    ],
+    "sources": [
+      {
+        "path": "app/reports/expenses.sql",
+        "start": 15,
+        "end": 17,
+        "why": "subtotal and HST are computed from the merged total at 13/113"
+      },
+      {
+        "path": "app/reports/expenses.sql",
+        "start": 41,
+        "end": 54,
+        "why": "Total stays in CAD: settled total for foreign currency, with the foreign amount as fallback and in its own column"
+      }
+    ],
+    "evidence": "  ROUND(e2.merged_total - ROUND(e2.merged_total * 13 / 113, 2), 2) calculatedSubtotal,\n  ROUND(e2.merged_total * 13 / 113, 2) calculatedOntarioHST,",
+    "confirmed_by_test": "app/expense_report_currency_test.go:61",
+    "in_user_docs": "no",
+    "why_hard": "The column names suggest stored tax values, but both are derived, and the foreign-currency Total has a fallback."
+  },
+  {
+    "id": "reports-05",
+    "category": "reports",
+    "question": "A PO needed two approvals. It got the first one on Monday morning and the second one on Wednesday morning. Under which day does the Payables Spreadsheet list it, and whose name is in the Approved By column?",
+    "held": [
+      "report",
+      "time"
+    ],
+    "ideal_answer": "It is listed under Wednesday, with the second approver's name. The spreadsheet files each PO under its final approval: the second approval when there is one and it is later than the first, otherwise the first approval. Approved By shows the second approver when the PO has one, otherwise the approver. The spreadsheet lists a PO only when it is no longer Unapproved and has a PO number. The days are UTC days, and a day appears only after it has ended in UTC, so a late-evening approval can fall under the next day.",
+    "key_points": [
+      "The PO is listed under Wednesday, the date of the second (later) approval.",
+      "Approved By shows the second approver."
+    ],
+    "extra_points": [
+      "The spreadsheet lists only POs that are no longer Unapproved and have a PO number.",
+      "Days are UTC days, and a day is offered only after it has ended in UTC."
+    ],
+    "wrong_if": [
+      "Says the PO is listed under Monday, the date of the first approval.",
+      "Says Approved By shows the first approver, or both approvers."
+    ],
+    "sources": [
+      {
+        "path": "app/reports/payables_spreadsheet.sql",
+        "start": 8,
+        "end": 23,
+        "why": "approval date is the later second approval; Approved By is the second approver when one exists"
+      },
+      {
+        "path": "app/reports/payables_spreadsheet.sql",
+        "start": 34,
+        "end": 40,
+        "why": "only POs that are not Unapproved, have a number and have an approval"
+      },
+      {
+        "path": "app/reports/payables_spreadsheet.go",
+        "start": 195,
+        "end": 202,
+        "why": "the day must be a completed UTC day, and rows are matched on the later approval date"
+      }
+    ],
+    "evidence": "  CASE\n    WHEN po.second_approval != '' AND po.second_approval > po.approved\n    THEN po.second_approval\n    ELSE po.approved\n  END AS approval_date,",
+    "confirmed_by_test": "app/payables_spreadsheet_routes_test.go:104",
+    "in_user_docs": "no",
+    "why_hard": "Two approval dates and two approvers exist, and only the SQL says which one the spreadsheet uses."
+  },
+  {
+    "id": "reports-06",
+    "category": "reports",
+    "question": "A staff member moved from the Toronto branch to the Ottawa branch last month, and their default branch was changed to Ottawa. In the Branch Hours report for Toronto, under which tab do the hours that they recorded for Toronto before the move now show?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "They show under Received. Branch Hours keeps no history of a person's branch. It compares the branch on each time entry, the work branch, with the person's current default branch, the staff branch. After the change, the person's staff branch is Ottawa for every date. Their older hours for Toronto therefore count as hours that Toronto received from Ottawa staff, not as Internal hours. In the report for Ottawa, the same hours show under Supplied.",
+    "key_points": [
+      "The older hours show under Received, not Internal.",
+      "The report uses the person's current default branch as their staff branch for all dates."
+    ],
+    "extra_points": [
+      "The work branch is the branch on the time entry.",
+      "In the report for Ottawa, the same hours show under Supplied."
+    ],
+    "wrong_if": [
+      "Says the older hours stay under Internal because the person belonged to Toronto on those dates.",
+      "Says the report uses the default branch that the person had on the date of each entry."
+    ],
+    "sources": [
+      {
+        "path": "app/reports/branch_hours.sql",
+        "start": 4,
+        "end": 24,
+        "why": "staff branch is the current default branch on the admin profile; work branch is the branch on the entry"
+      },
+      {
+        "path": "app/reports/branch_hours.sql",
+        "start": 26,
+        "end": 30,
+        "why": "internal, supplied or received, from the staff branch and the work branch"
+      },
+      {
+        "path": "ui/src/lib/reports/branchHours.ts",
+        "start": 3,
+        "end": 7,
+        "why": "the tab names for the three directions"
+      }
+    ],
+    "evidence": "  CASE\n    WHEN qt.staff_branch = {:branch} AND qt.work_branch = {:branch} THEN 'internal'\n    WHEN qt.staff_branch = {:branch} THEN 'supplied'\n    ELSE 'received'\n  END AS direction,",
+    "confirmed_by_test": "app/branch_hours_report_test.go:103",
+    "in_user_docs": "no",
+    "why_hard": "The answer depends on the report reading the current default branch and not a dated one, which changes the direction of past hours."
+  },
+  {
+    "id": "reports-07",
+    "category": "reports",
+    "question": "I manage one branch and I have no special access. Can I see the projects of other branches in the Branch WIP report? And can I open other branches in Branch Hours?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "In WIP, yes. In Branch Hours, no. Managing any branch opens the Branch and Division WIP reports for every branch and division, including All branches. Branch Hours is stricter: a branch manager can open only the branches that they manage, and Turbo refuses any other branch. Branch Hours shows each person's hours that have no job, and that detail otherwise needs KPI access. Staff with the kpi or admin claim can open every branch in both reports. The report claim alone opens neither.",
+    "key_points": [
+      "Branch WIP: a manager of any branch can see all branches.",
+      "Branch Hours: a branch manager can open only the branches that they manage."
+    ],
+    "extra_points": [
+      "Staff with the kpi or admin claim can see every branch in both reports.",
+      "The report claim alone does not open either report.",
+      "Branch Hours is limited because it shows each person's hours without a job, which the kpi claim otherwise gates."
+    ],
+    "wrong_if": [
+      "Says a branch manager sees only their own branch in the Branch WIP report.",
+      "Says a branch manager can open any branch in Branch Hours."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/wip_reports.go",
+        "start": 66,
+        "end": 87,
+        "why": "kpi, admin or managing any branch opens the branch and division WIP reports, with no limit on the branch"
+      },
+      {
+        "path": "app/routes/branch_hours_access.go",
+        "start": 12,
+        "end": 37,
+        "why": "kpi and admin see any branch; a branch manager only the branches that they manage"
+      }
+    ],
+    "evidence": "\tif branchID != \"\" && !slices.ContainsFunc(managed, func(branch *core.Record) bool { return branch.Id == branchID }) {\n\t\treturn apis.NewForbiddenError(\"You can only view the hours of branches you manage\", nil)\n\t}",
+    "confirmed_by_test": "app/branch_hours_report_test.go:57",
+    "in_user_docs": "partly",
+    "why_hard": "Two reports for the same audience apply the branch manager rule in different ways."
+  },
+  {
+    "id": "reports-08",
+    "category": "reports",
+    "question": "A project has an Active Cumulative PO for $10,000 in Canadian dollars. Expenses of $4,000 against it are committed, and one more expense of $2,000 is approved but not committed. How much does the project's WIP count for this PO and its expenses?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "It counts $10,000 in total: $4,000 as expenses and $6,000 as remaining active POs. WIP counts an expense only when it is committed, not rejected, and dated today or earlier. For each Active PO, WIP counts what is left: the PO total minus the committed expenses against it, and never less than zero. The $2,000 expense is not committed, so it is not an expense in WIP and it does not reduce the PO balance. Turbo makes this deduction even when you clear Include committed expenses. A PO that is not Active adds nothing to the PO amount.",
+    "key_points": [
+      "WIP counts $4,000 as expenses and $6,000 as the remaining PO balance.",
+      "Only committed expenses count as expenses and reduce the PO balance, so the $2,000 expense changes nothing yet."
+    ],
+    "extra_points": [
+      "The remaining balance of a PO is never less than zero.",
+      "The deduction applies even when Include committed expenses is cleared.",
+      "Only Active POs add to the PO amount."
+    ],
+    "wrong_if": [
+      "Says WIP counts the full $10,000 PO plus the $4,000 of expenses.",
+      "Says the approved $2,000 expense already counts as an expense or reduces the PO balance."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_wip.sql",
+        "start": 15,
+        "end": 46,
+        "why": "committed, non-rejected expenses up to the report date; the PO balance is the total minus that spend, at least zero"
+      },
+      {
+        "path": "app/routes/job_wip.sql",
+        "start": 53,
+        "end": 56,
+        "why": "only Active POs of the job have a balance"
+      },
+      {
+        "path": "app/routes/job_wip_api.go",
+        "start": 17,
+        "end": 19,
+        "why": "the inclusion controls never change the expense deduction from active POs"
+      }
+    ],
+    "evidence": "      ELSE MAX(0, (CASE WHEN po.type = 'Recurring' THEN po.approval_total ELSE po.total END)\n        - COALESCE(s.native_spend, 0))",
+    "confirmed_by_test": "app/job_wip_test.go:25",
+    "in_user_docs": "no",
+    "why_hard": "The person must know that the PO factor is a remaining balance, and that only committed expenses move value from the PO to expenses."
+  },
+  {
+    "id": "reports-09",
+    "category": "reports",
+    "question": "I have KPI access. What decides whether an Active project appears in the Division WIP report for a division? Is it enough that someone recorded time for that division on the project?",
+    "held": [
+      "kpi",
+      "time"
+    ],
+    "ideal_answer": "No, time alone is not enough. The project must name the division in its division allocations, the Divisions list on the job. By default, the project must also have at least one time entry for that division with hours above zero, dated today or earlier. Clear the Must include hours checkbox to also show allocated projects that have no such time. As in every WIP report, the project must be Active, must have a project value above zero, and can't be a proposal. Each row shows the WIP of the whole project, not only the division's part.",
+    "key_points": [
+      "The project must have the division in its division allocations; time for the division alone is not enough.",
+      "By default it must also have a time entry for that division with hours above zero, dated today or earlier."
+    ],
+    "extra_points": [
+      "Clearing the Must include hours checkbox shows allocated projects that have no such time.",
+      "Each row shows the whole project's WIP, not the division's share.",
+      "Only Active projects with a project value above zero, and no proposals, are listed."
+    ],
+    "wrong_if": [
+      "Says any project with time recorded for the division appears in the report.",
+      "Says each row shows only the division's share of the project's WIP."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/wip_reports.sql",
+        "start": 1,
+        "end": 18,
+        "why": "Active, not a proposal, value above zero; the division needs an allocation and, unless switched off, time with hours above zero"
+      },
+      {
+        "path": "app/routes/wip_reports.go",
+        "start": 104,
+        "end": 114,
+        "why": "the time condition is on unless the request says false; division changes selection only"
+      },
+      {
+        "path": "ui/src/lib/components/jobs/WIPReport.svelte",
+        "start": 233,
+        "end": 240,
+        "why": "the Must include hours checkbox, and each row shows the whole job's WIP"
+      }
+    ],
+    "evidence": "      EXISTS (SELECT 1 FROM job_time_allocations a WHERE a.job = j.id AND a.division = {:division})\n      AND ({:require_time} = 0 OR EXISTS (\n        SELECT 1 FROM time_entries te\n        WHERE te.job = j.id AND te.division = {:division}\n          AND te.hours > 0 AND te.date <= {:end_date}\n      ))",
+    "confirmed_by_test": "app/wip_reports_test.go:66",
+    "in_user_docs": "no",
+    "why_hard": "Two conditions combine, one of them optional, and the natural guess (time in the division) is not the deciding one."
+  },
+  {
+    "id": "reports-10",
+    "category": "reports",
+    "question": "I have the work record claim but not the report claim. Can I open the Work Records list? And does it show only work records from committed time sheets?",
+    "held": [
+      "time",
+      "work_record"
+    ],
+    "ideal_answer": "Yes, you can open it. The list and its detail pages accept either the report claim or the work record claim. The list is not limited to committed time. It shows every work record number that appears on any time entry, including entries on time sheets that are not approved or committed, and entries that are not submitted yet. Each number shows how many time entries use it. The detail page lists those entries with the person, hours, job and week ending. Time amendments are not included.",
+    "key_points": [
+      "Yes: the work record claim is enough (the report claim also works).",
+      "The list includes work records from any time entry, whatever the status of its time sheet."
+    ],
+    "extra_points": [
+      "Each number shows a count of the time entries that use it.",
+      "Time amendments are not included."
+    ],
+    "wrong_if": [
+      "Says only staff with the report claim can open Work Records.",
+      "Says the list shows only work records on committed time sheets."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/work_records.go",
+        "start": 41,
+        "end": 68,
+        "why": "the report claim or the work_record claim may view work records"
+      },
+      {
+        "path": "app/routes/work_records_list.sql",
+        "start": 1,
+        "end": 8,
+        "why": "every non-blank work record on time entries, with a count, and no time sheet condition"
+      },
+      {
+        "path": "app/routes/work_records_details.sql",
+        "start": 1,
+        "end": 25,
+        "why": "detail rows come from time entries, with person, hours, job and week ending; a time sheet is linked when one exists, not required"
+      }
+    ],
+    "evidence": "FROM time_entries te\nWHERE te.work_record != ''\nGROUP BY te.work_record",
+    "confirmed_by_test": "app/work_records_routes_test.go:84",
+    "in_user_docs": "no",
+    "why_hard": "Access needs either of two claims, and the list has no status filter, unlike most time reports."
+  },
+  {
+    "id": "people-01",
+    "category": "people",
+    "question": "A new hire signed in to Turbo on their own before anyone set them up. Their time sheet was approved and committed, but they are missing from the payroll time report. Why?",
+    "held": [
+      "report",
+      "time"
+    ],
+    "ideal_answer": "Turbo created their staff profile at first sign-in and gave it a placeholder payroll ID: a nine-digit number that starts with 9. The payroll time report leaves out everyone whose payroll ID still has that form, so their committed time is not in it. The time is not lost. Replace the placeholder with the person's real payroll ID on their staff profile and run the report again; their rows then appear.",
+    "key_points": [
+      "First sign-in gives a new person a placeholder payroll ID (nine digits, starting with 9).",
+      "The payroll time report leaves out staff whose payroll ID is still a placeholder."
+    ],
+    "extra_points": [
+      "After the real payroll ID is set on the staff profile, the person's time appears in the report."
+    ],
+    "wrong_if": [
+      "Says the time sheet was not really committed, or must be committed again.",
+      "Says a new person has a blank payroll ID, or that a blank ID is the reason."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/oauth_onboarding.go",
+        "start": 540,
+        "end": 552,
+        "why": "the staff profile made at first sign-in gets a generated placeholder payroll ID"
+      },
+      {
+        "path": "app/utilities/payroll_placeholders.go",
+        "start": 5,
+        "end": 16,
+        "why": "a placeholder is exactly nine digits and starts with 9"
+      },
+      {
+        "path": "app/reports/payroll_time.sql",
+        "start": 75,
+        "end": 78,
+        "why": "committed time is listed only when the payroll ID is not a placeholder"
+      }
+    ],
+    "evidence": "func GeneratedPayrollPlaceholderSQLCondition(expr string) string {\n\treturn fmt.Sprintf(\n\t\t\"(LENGTH(COALESCE(%[1]s, '')) = 9 AND COALESCE(%[1]s, '') GLOB '%[2]s')\",\n\t\texpr,\n\t\tgeneratedPayrollPlaceholderGlob,\n\t)",
+    "confirmed_by_test": "app/placeholder_payroll_id_reports_test.go:222",
+    "in_user_docs": "no",
+    "why_hard": "It joins a default from first sign-in to a filter in a report that the person would never connect to it."
+  },
+  {
+    "id": "people-02",
+    "category": "people",
+    "question": "IT changed a colleague's surname and email address in Microsoft 365. Will Turbo pick up the new name and email by itself, and will her username change too?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Yes for the name and email, no for the username. Each time she signs in with Microsoft, Turbo copies the Microsoft full name and email address onto her user account if they differ. The username is set once, at her first sign-in, and later sign-ins never change it. There is one exception for the email: if another Turbo user already has the new address, Turbo keeps her old email and still updates the name. Sign-in changes only the user account; it does not change the given name and surname on her own profile.",
+    "key_points": [
+      "The name and email on her user account are updated from Microsoft at her next sign-in.",
+      "The username does not change after the first sign-in."
+    ],
+    "extra_points": [
+      "The email is not updated if another user already has that address.",
+      "Sign-in does not change the given name and surname on her profile."
+    ],
+    "wrong_if": [
+      "Says the username is renamed to match the new email address.",
+      "Says Turbo never updates the name or email after the first sign-in."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/oauth_onboarding.go",
+        "start": 390,
+        "end": 432,
+        "why": "each sign-in syncs name and email, skips an email that another user owns, and leaves the username alone"
+      },
+      {
+        "path": "app/hooks/hooks.go",
+        "start": 255,
+        "end": 258,
+        "why": "the sync runs after every successful Microsoft sign-in"
+      }
+    ],
+    "evidence": "\tif fullName := strings.TrimSpace(data.fullName()); fullName != \"\" &&\n\t\t!strings.EqualFold(strings.TrimSpace(userRecord.GetString(\"name\")), fullName) {\n\t\tuserRecord.Set(\"name\", fullName)\n\t\tneedSave = true",
+    "confirmed_by_test": "app/oauth_onboarding_test.go:593",
+    "in_user_docs": "no",
+    "why_hard": "Three identity fields follow three different rules, and the email rule has a collision exception."
+  },
+  {
+    "id": "people-03",
+    "category": "people",
+    "question": "I'm in HR. On the Admin Profiles list most people have a Deactivate button, but one person has none. Why, and is there another way to make that person inactive?",
+    "held": [
+      "hr",
+      "time"
+    ],
+    "ideal_answer": "That person holds the admin claim. Turbo never offers the Activate and Deactivate buttons for a holder of the admin claim, and the server refuses that action for such a person no matter who asks, an admin included. The Active checkbox on the person's edit page is a different save, and it does not make this check. Active is one of the fields that HR may save there, so you can open Edit for that person, clear Active and save.",
+    "key_points": [
+      "The person holds the admin claim, and the Activate/Deactivate button cannot be used on an admin holder by anyone."
+    ],
+    "extra_points": [
+      "The Active checkbox on the person's edit page is not blocked by this rule, and HR can save it."
+    ],
+    "wrong_if": [
+      "Says HR lacks permission to deactivate people in general.",
+      "Says an admin holder can never be made inactive by any route."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/admin_profiles_active.go",
+        "start": 39,
+        "end": 48,
+        "why": "the list of profiles that get the button leaves out admin holders"
+      },
+      {
+        "path": "app/routes/admin_profiles_active.go",
+        "start": 164,
+        "end": 179,
+        "why": "the action is refused when the target holds the admin claim"
+      },
+      {
+        "path": "app/routes/admin_profiles_save.go",
+        "start": 22,
+        "end": 38,
+        "why": "active is a field that HR may save from the edit page"
+      }
+    ],
+    "evidence": "\thasAdminClaim, err := userHasClaim(app, uid, \"admin\")\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tif hasAdminClaim {\n\t\treturn nil, &errs.HookError{",
+    "confirmed_by_test": "app/routes/admin_profiles_active_test.go:132",
+    "in_user_docs": "no",
+    "why_hard": "The block depends on the target's claim, not the caller's, and a second path to the same field has no such block."
+  },
+  {
+    "id": "people-04",
+    "category": "people",
+    "question": "I'm in HR and I can edit most of a staff profile, but the edit page shows me no Work Week Hours, no Untracked Time Off and no claims. Can HR change those, and if not, who can?",
+    "held": [
+      "hr",
+      "time"
+    ],
+    "ideal_answer": "Only a holder of the admin claim can change them. An HR save accepts a fixed list of fields: Active, Salary, Payroll ID, Default Branch, Default Charge Out Rate, Job Title, Mobile Phone, Off Rotation Permitted, Time Sheet Expected, Skip Min Time Check, Allow Personal Reimbursement, the vehicle insurance expiry, and the opening date and balances. Work Week Hours and Untracked Time Off are not on the list, and Turbo refuses a whole save that names any field outside it. Claims are saved only by the admin save, which checks for the admin claim.",
+    "key_points": [
+      "HR cannot change Work Week Hours or Untracked Time Off; only an admin can.",
+      "Only an admin can add or remove a person's claims."
+    ],
+    "extra_points": [
+      "A limited save that names any field outside the allowed list is refused as a whole."
+    ],
+    "wrong_if": [
+      "Says HR can change Work Week Hours or Untracked Time Off.",
+      "Says HR can give or remove claims."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/admin_profiles_save.go",
+        "start": 22,
+        "end": 45,
+        "why": "the fields that HR and time off managers may save"
+      },
+      {
+        "path": "app/routes/admin_profiles_save.go",
+        "start": 298,
+        "end": 308,
+        "why": "any other field makes the limited save fail"
+      },
+      {
+        "path": "app/routes/admin_profiles_save.go",
+        "start": 49,
+        "end": 55,
+        "why": "the save that also writes claims needs the admin claim"
+      }
+    ],
+    "evidence": "\tfor fieldName := range changes {\n\t\tif _, ok := allowedFields[fieldName]; ok {\n\t\t\tcontinue\n\t\t}\n\t\treturn apis.NewForbiddenError(\"you do not have permission to edit one or more admin profile fields\", nil)",
+    "confirmed_by_test": "app/admin_profiles_hr_test.go:183",
+    "in_user_docs": "no",
+    "why_hard": "The answer is in what an allow-list leaves out, across two different save routes."
+  },
+  {
+    "id": "people-05",
+    "category": "people",
+    "question": "I'm a time off manager. I entered opening vacation and PPTO balances for a person, and Turbo demands an opening date. The date I want is refused. Which dates does Turbo accept, and can I leave the date empty?",
+    "held": [
+      "time",
+      "time_off_manager"
+    ],
+    "ideal_answer": "Turbo needs an opening date whenever the opening PPTO or the opening vacation balance is not zero. You can leave the date empty only when both balances are zero. The date must be the Sunday that comes right after the Saturday that ends a pay period. Pay periods are two weeks long, so only every second Sunday is valid; any other day, or a Sunday in the middle of a pay period, is refused. The edit page offers the valid Sundays from two weeks before the start of the current year to 15 months ahead.",
+    "key_points": [
+      "An opening date is required when either opening balance is not zero.",
+      "The date must be the Sunday immediately after a pay period ending Saturday."
+    ],
+    "extra_points": [
+      "Pay periods are 14 days, so only every second Sunday is valid.",
+      "The edit page lists valid dates from 14 days before the start of the current year to 15 months ahead."
+    ],
+    "wrong_if": [
+      "Says any Sunday, or any date, is accepted as the opening date.",
+      "Says the opening date is always optional."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/admin_profiles.go",
+        "start": 44,
+        "end": 73,
+        "why": "date required when a balance is not zero, and the date is validated"
+      },
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 79,
+        "end": 132,
+        "why": "the date must be a Sunday whose previous day ends a 14-day pay period"
+      },
+      {
+        "path": "ui/src/lib/components/AdminProfilesEditor.svelte",
+        "start": 85,
+        "end": 87,
+        "why": "the range of dates that the edit page offers"
+      }
+    ],
+    "evidence": "\tif (openingOP != 0 || openingOV != 0) && openingDate == \"\" {",
+    "confirmed_by_test": "app/admin_profiles_time_off_manager_test.go:142",
+    "in_user_docs": "no",
+    "why_hard": "Two rules combine: a conditional requirement and a date that must fall on a pay period boundary."
+  },
+  {
+    "id": "people-06",
+    "category": "people",
+    "question": "I'm an admin. I want to set a staff member's Default Branch to a branch that is limited to certain claims. I hold one of those claims myself, but the staff member doesn't. Whose claims count, and must I save the claim first and set the branch in a second save?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "The staff member's claims count, not yours. Turbo checks the default branch against the claims of the person the profile belongs to. A branch with no allowed claims is open to everyone; otherwise that person must hold at least one of them. You don't need two saves. When an admin saves a staff profile, Turbo saves the claim changes first and then checks the branch, so adding the claim and choosing the branch in one save works. The reverse also holds: if you remove the person's only matching claim while that branch is still their default, the save fails.",
+    "key_points": [
+      "The check uses the claims of the staff member whose profile it is, not the claims of the person who edits it.",
+      "One save is enough: the claim changes are saved before the default branch is checked."
+    ],
+    "extra_points": [
+      "Removing the person's only matching claim while that branch stays their default makes the save fail.",
+      "A branch with no allowed claims is open to everyone."
+    ],
+    "wrong_if": [
+      "Says the admin's own claims decide which default branch can be set.",
+      "Says the claim must be saved first, in a separate save, before the branch can be set."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/admin_profiles.go",
+        "start": 75,
+        "end": 75,
+        "why": "the default branch is checked for the profile's own user"
+      },
+      {
+        "path": "app/routes/admin_profiles_save.go",
+        "start": 227,
+        "end": 237,
+        "why": "claims are synced before the profile rules run"
+      },
+      {
+        "path": "app/utilities/branch_claims.go",
+        "start": 97,
+        "end": 126,
+        "why": "no allowed claims means open; otherwise the user needs one of them"
+      }
+    ],
+    "evidence": "\treturn utilities.EnsureUserCanUseBranch(app, record.GetString(\"default_branch\"), uid, \"default_branch\")",
+    "confirmed_by_test": "app/branch_claims_test.go:500",
+    "in_user_docs": "no",
+    "why_hard": "It turns on whose claims are read and on the order of two steps inside one save."
+  },
+  {
+    "id": "people-07",
+    "category": "people",
+    "question": "On the Claims list, a claim shows more holders than the number of names I see when I open that claim. Why don't the two numbers match?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "The two screens count differently. The number on the Claims list counts every assignment of the claim. The page for one claim lists only the holders who have a personal profile, which is the record with their given name, surname and manager. A person who has signed in but has never saved that profile is counted but not listed. It shows most on the time claim, because Turbo gives that claim to every new person at first sign-in and does not create a profile for them. Neither screen leaves out inactive staff.",
+    "key_points": [
+      "The number on the Claims list counts every assignment of the claim.",
+      "The claim's own page lists only holders who have a profile record, so a holder without one is counted but not listed."
+    ],
+    "extra_points": [
+      "A new person gets the time claim at first sign-in, and no profile is created then.",
+      "Inactive holders are included on both screens."
+    ],
+    "wrong_if": [
+      "Says the difference is inactive staff, who are hidden from the holders page.",
+      "Says the count on the list is cached or out of date."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/claims_list.sql",
+        "start": 5,
+        "end": 7,
+        "why": "the count is of all user claim rows"
+      },
+      {
+        "path": "app/routes/claims_details.sql",
+        "start": 14,
+        "end": 17,
+        "why": "holders are joined to profiles, so a holder with no profile is dropped"
+      },
+      {
+        "path": "app/hooks/hooks.go",
+        "start": 261,
+        "end": 272,
+        "why": "first sign-in gives the time claim and creates no profile"
+      }
+    ],
+    "evidence": "FROM user_claims uc\nINNER JOIN profiles p ON p.uid = uc.uid\nLEFT JOIN admin_profiles ap ON ap.uid = uc.uid\nWHERE uc.cid = {:claimId}",
+    "confirmed_by_test": "app/oauth_onboarding_test.go:247",
+    "in_user_docs": "no",
+    "why_hard": "Two queries that look the same differ by one join, and the cause is a side effect of first sign-in."
+  },
+  {
+    "id": "people-08",
+    "category": "people",
+    "question": "I'm an admin using Bulk Assign on a claim. A person I want to add isn't in the list. Why would someone be missing, and can I also use Bulk Assign to take the claim away from people?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "The Bulk Assign list shows only people whose account is active and who don't hold the claim yet. So a person is missing when they already hold the claim, or when their account is inactive. Bulk Assign only adds the claim. It never removes one, and a selected person who already holds the claim is skipped. To take a claim away, edit that person's staff profile and remove the claim there. Both actions need the admin claim.",
+    "key_points": [
+      "The list contains only active people who do not already hold the claim.",
+      "Bulk Assign only adds a claim; it cannot remove one."
+    ],
+    "extra_points": [
+      "A selected person who already holds the claim is skipped, not changed.",
+      "Only holders of the admin claim can bulk assign."
+    ],
+    "wrong_if": [
+      "Says inactive staff appear in the Bulk Assign list.",
+      "Says Bulk Assign can remove a claim from people."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/claim_assignable_users.sql",
+        "start": 9,
+        "end": 18,
+        "why": "only users with an active staff profile and without the claim are listed"
+      },
+      {
+        "path": "app/routes/claims_api.go",
+        "start": 186,
+        "end": 213,
+        "why": "existing holders are skipped and the only write is a new assignment"
+      },
+      {
+        "path": "app/routes/claims_api.go",
+        "start": 69,
+        "end": 78,
+        "why": "the claim routes need the admin claim"
+      }
+    ],
+    "evidence": "INNER JOIN admin_profiles ap ON ap.uid = u.id\n  AND ap.active = 1",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The list is filtered by two conditions that the screen does not explain, and the action is one-way."
+  },
+  {
+    "id": "people-09",
+    "category": "people",
+    "question": "Expense editing has been switched off for now. A PO is waiting for my approval. Can I still approve or reject it, and can I at least open it?",
+    "held": [
+      "po_approver",
+      "time"
+    ],
+    "ideal_answer": "You can open it, but you can't approve or reject it until expense editing is switched on again. That switch covers purchase orders as well as expenses. While it is off, Turbo refuses every PO action: approve, reject, cancel, close, convert to cumulative, revise, and creating a PO group. The requests that only read data, such as Pending My Approval, the PO details and Search, are not behind the switch and keep working. The switch is on by default, and it stays on if the setting is missing.",
+    "key_points": [
+      "Approve and reject are refused while expense editing is off.",
+      "Reading POs, in lists and in details, still works."
+    ],
+    "extra_points": [
+      "Cancel, close, convert to cumulative, revise and PO group creation are blocked too.",
+      "The setting is on by default."
+    ],
+    "wrong_if": [
+      "Says the switch affects only expenses, so PO approval still works.",
+      "Says POs cannot be opened while editing is off."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/routes.go",
+        "start": 221,
+        "end": 237,
+        "why": "every PO action route first checks that expenses editing is on"
+      },
+      {
+        "path": "app/routes/routes.go",
+        "start": 207,
+        "end": 219,
+        "why": "the PO read routes have no such check"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 94,
+        "end": 99,
+        "why": "the setting defaults to on"
+      }
+    ],
+    "evidence": "\t\tpoMutations.BindFunc(func(e *core.RequestEvent) error {\n\t\t\tif err := requireExpensesEditing(app, \"purchase_orders\"); err != nil {\n\t\t\t\treturn err\n\t\t\t}\n\t\t\treturn e.Next()\n\t\t})",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The name of the switch hides that it also stops PO approval, while leaving reads open."
+  },
+  {
+    "id": "people-10",
+    "category": "people",
+    "question": "I selected the eye icon beside my email address in the menu, Show All UI, and now I see Reports and other items that I never had. Do I have access to those features now?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "No. Show All UI changes only what the menu shows. With it on, the menu stops hiding most items by claim. It gives you no claim. The server still checks your claims on every request, so, for example, each report request is refused unless you hold the report claim. A few menu items have their own access check, such as PO Approvers, and they stay hidden even with Show All UI on.",
+    "key_points": [
+      "Show All UI only shows more menu items; it gives no access.",
+      "The server still checks claims on each request, so a feature without the claim is refused."
+    ],
+    "extra_points": [
+      "Menu items with their own access check, such as PO Approvers, stay hidden even with Show All UI on."
+    ],
+    "wrong_if": [
+      "Says Show All UI gives access to the features that it shows.",
+      "Says only admins can see the extra items, or that the items work once they are visible."
+    ],
+    "sources": [
+      {
+        "path": "ui/src/routes/+layout.svelte",
+        "start": 66,
+        "end": 76,
+        "why": "explicit access checks run first; then Show All UI skips the claim checks of the menu"
+      },
+      {
+        "path": "app/routes/routes.go",
+        "start": 309,
+        "end": 316,
+        "why": "every report route needs the report claim, whatever the menu shows"
+      },
+      {
+        "path": "ui/src/lib/navConfig.ts",
+        "start": 245,
+        "end": 250,
+        "why": "PO Approvers has its own access check"
+      }
+    ],
+    "evidence": "            if ($globalStore.showAllUi) return true;\n            if (item.requiredClaim) {\n              return $globalStore.claims.includes(item.requiredClaim);\n            }",
+    "confirmed_by_test": "app/report_routes_auth_test.go:11",
+    "in_user_docs": "no",
+    "why_hard": "It needs the difference between what the menu shows and what the server allows, plus the items that the toggle does not reveal."
+  },
+  {
+    "id": "clients-01",
+    "category": "clients",
+    "question": "A client owns several projects that are billed to a different client. Do those projects count in the job count on the client list, and does their money count in that client's Outstanding Balance?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "They count in the job count but not in the balance. The job count on the client list includes every job where the client is the client or the job owner. A job that names it as both counts once. The Outstanding Balance adds up only the jobs that are billed to the client, that is, the jobs where it is the client. A job that the client only owns adds nothing to its balance. That amount shows under the client that the job is billed to. The \"As of\" date under the balance is the latest balance date among the billed jobs.",
+    "key_points": [
+      "The job count includes jobs where the client is only the job owner.",
+      "The Outstanding Balance adds up only jobs where it is the client (billed to it), not jobs that it only owns."
+    ],
+    "extra_points": [
+      "A job that has the same client as its client and its job owner counts once.",
+      "The \"As of\" date is the latest balance date among the jobs billed to the client."
+    ],
+    "wrong_if": [
+      "Says the Outstanding Balance includes jobs that the client only owns.",
+      "Says jobs that the client only owns are left out of the job count."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/clients.sql",
+        "start": 32,
+        "end": 43,
+        "why": "client list: the count covers client and job owner, the balance only key 0, the client"
+      },
+      {
+        "path": "app/routes/client_details.sql",
+        "start": 79,
+        "end": 95,
+        "why": "client details: the count joins client and owner jobs, the balance and its date read only jobs where client matches"
+      }
+    ],
+    "evidence": "-- The job count includes jobs the client owns, and the balance only jobs\n-- billed to it.\nSELECT\n  u.value AS client,\n  COUNT(DISTINCT j.id) AS referencing_jobs_count,\n  SUM(CASE WHEN u.key = 0 THEN j.outstanding_balance END) AS total_outstanding_balance",
+    "confirmed_by_test": "app/clients_test.go:299",
+    "in_user_docs": "no",
+    "why_hard": "Two numbers on the same client use different sets of jobs, and only the SQL shows which set each one uses."
+  },
+  {
+    "id": "clients-02",
+    "category": "clients",
+    "question": "I'm in procurement. I only changed a client's phone number, but Turbo refused the save with an error about the business development lead. I didn't touch the lead. Why?",
+    "held": [
+      "job",
+      "time"
+    ],
+    "ideal_answer": "Turbo checks the business development lead every time a client is saved, not only when the lead changes. The lead must have an active account and must hold the business development (busdev) claim. If the lead has left and their account is now inactive, or they no longer hold that claim, Turbo refuses every edit of the client, even an edit of the phone number. Select another lead who is active and holds the claim, or clear the field, because a client may have no lead. Then save again.",
+    "key_points": [
+      "Turbo checks the lead on every save of a client, even when the lead was not changed.",
+      "The save fails because the current lead is no longer an active user or no longer holds the busdev claim."
+    ],
+    "extra_points": [
+      "The lead is optional: clearing it, or selecting an active lead who holds the claim, lets the save pass."
+    ],
+    "wrong_if": [
+      "Says Turbo checks the lead only when the lead field changes.",
+      "Says the phone number or another field caused the error."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/clients.go",
+        "start": 13,
+        "end": 38,
+        "why": "no lead skips the checks; a lead must be an active user"
+      },
+      {
+        "path": "app/hooks/clients.go",
+        "start": 40,
+        "end": 65,
+        "why": "the lead must hold the busdev claim"
+      },
+      {
+        "path": "app/hooks/hooks.go",
+        "start": 463,
+        "end": 474,
+        "why": "the checks run on every create and every update of a client"
+      }
+    ],
+    "evidence": "if !active {\n\treturn &errs.HookError{\n\t\tStatus:  http.StatusBadRequest,\n\t\tMessage: \"business development lead must be an active user\",",
+    "confirmed_by_test": "app/clients_test.go:79",
+    "in_user_docs": "no",
+    "why_hard": "The check is on the stored lead at every save, so a change in the lead's account breaks edits that have nothing to do with the lead."
+  },
+  {
+    "id": "clients-03",
+    "category": "clients",
+    "question": "I'm in procurement. I tried to remove a client's alias and Turbo refused. Why, and what do I have to do first? Could I change the alias to a different one instead?",
+    "held": [
+      "job",
+      "time"
+    ],
+    "ideal_answer": "Turbo keeps a client's alias while any invoicing profile of that client is set to bill the alias. Clearing the alias would silently change the name that those profiles bill, so Turbo refuses and tells you how many profiles bill it. First edit each of those profiles so that it bills the client name. Then clear the alias. You can change the alias to a different name at any time, and the profiles then bill the new alias. An alias of only spaces counts as blank, so Turbo refuses that too.",
+    "key_points": [
+      "Turbo refuses to clear an alias while an invoicing profile of the client bills the alias.",
+      "Change those profiles to bill the client name first; then the alias can be cleared.",
+      "Changing the alias to another name is allowed."
+    ],
+    "extra_points": [
+      "The message gives the number of profiles that bill the alias.",
+      "An alias of only spaces counts as blank."
+    ],
+    "wrong_if": [
+      "Says clearing the alias makes those profiles bill the client name automatically.",
+      "Says the alias cannot be changed at all while a profile bills it."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/client_setup.go",
+        "start": 143,
+        "end": 165,
+        "why": "clearing an alias is refused while profiles bill it; a non-blank new alias passes"
+      },
+      {
+        "path": "app/utilities/client_billing.go",
+        "start": 92,
+        "end": 95,
+        "why": "an alias is trimmed, so only spaces means no alias"
+      },
+      {
+        "path": "app/utilities/client_billing.go",
+        "start": 135,
+        "end": 138,
+        "why": "the count of the client's profiles that bill the alias"
+      }
+    ],
+    "evidence": "func validateAliasRemoval(app core.App, client *core.Record) error {\n\tif client.IsNew() || utilities.ClientAlias(client) != \"\" || utilities.ClientAlias(client.Original()) == \"\" {\n\t\treturn nil\n\t}",
+    "confirmed_by_test": "app/client_alias_test.go:64",
+    "in_user_docs": "no",
+    "why_hard": "The block comes from other records (invoicing profiles), and it covers clearing but not changing."
+  },
+  {
+    "id": "clients-04",
+    "category": "clients",
+    "question": "I'm not in procurement. I created an invoicing profile for a client while I filled in a project request, and now I see a mistake in it. Why can't I edit my own profile?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Turbo lets any staff member create an invoicing profile, but only procurement can change one afterwards. That includes a profile that you created yourself. The reason is that a profile is shared, and many jobs can use it. Only procurement can add or edit a client's contacts too, so you can build a profile only from a contact that already exists. Ask procurement to correct the profile, or create another profile with the right details and select that one on your request.",
+    "key_points": [
+      "Any staff member can create an invoicing profile; procurement is not required for that.",
+      "Only procurement can edit an existing profile, even for the person who created it."
+    ],
+    "extra_points": [
+      "Only procurement can add or edit a client's contacts, so other staff build a profile from an existing contact."
+    ],
+    "wrong_if": [
+      "Says only procurement can create invoicing profiles.",
+      "Says the creator of a profile can edit it."
+    ],
+    "sources": [
+      {
+        "path": "ui/src/lib/clientWorkspace.ts",
+        "start": 195,
+        "end": 199,
+        "why": "holders of time or job may create a profile; only job holders maintain clients and contacts"
+      },
+      {
+        "path": "ui/src/lib/clientEditorLoad.ts",
+        "start": 33,
+        "end": 42,
+        "why": "creating a profile needs time or job; every other client editor needs job"
+      },
+      {
+        "path": "ui/src/lib/components/clients/InvoicingEditor.svelte",
+        "start": 95,
+        "end": 98,
+        "why": "saving an existing profile needs job; saving a new one needs time or job"
+      }
+    ],
+    "evidence": "// Holders of time can create profiles; only holders of job change shared ones.\nconst canManage = $derived($globalStore.claims.includes(\"job\"));\nconst canCreate = $derived(canCreateInvoicingProfile($globalStore.claims));\nconst canSave = $derived(record.id ? canManage : canCreate);",
+    "confirmed_by_test": "app/invoicing_profile_permissions_test.go:126",
+    "in_user_docs": "no",
+    "why_hard": "Create and edit have different permissions, and the glossary suggests that only procurement handles invoicing profiles."
+  },
+  {
+    "id": "clients-05",
+    "category": "clients",
+    "question": "On a client's Notes tab, can I link a note to a project that the client owns but that is billed to a different client? And what if my note is not about any job?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Yes to both. Turbo accepts a job on a client note when the client is either the job's client or its job owner. So a project that the client owns but that is billed to another client is fine. Turbo refuses a job that has neither link to the client, with \"job must belong to the selected client\". For a note that is not about a job, tick \"Not tied to a specific job\". Turbo refuses a note that has neither a job nor that tick. Turbo always records the signed-in person as the author of the note.",
+    "key_points": [
+      "Turbo accepts the job when the client is the job's client or its job owner.",
+      "A note with no job is accepted only when it is marked as not tied to a specific job."
+    ],
+    "extra_points": [
+      "Turbo always sets the author of the note to the signed-in person."
+    ],
+    "wrong_if": [
+      "Says the job must be billed to the client, so a job that the client only owns is refused.",
+      "Says every client note must have a job."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/client_notes.go",
+        "start": 61,
+        "end": 80,
+        "why": "a note needs a job or the not-applicable mark; with the mark and no job the job checks are skipped"
+      },
+      {
+        "path": "app/hooks/client_notes.go",
+        "start": 96,
+        "end": 110,
+        "why": "the job passes when the client is its client or its job owner"
+      },
+      {
+        "path": "app/hooks/client_notes.go",
+        "start": 38,
+        "end": 38,
+        "why": "the author is set from the signed-in user"
+      }
+    ],
+    "evidence": "jobClientID := jobRecord.GetString(\"client\")\njobOwnerID := jobRecord.GetString(\"job_owner\")\n\nif jobClientID != clientID && jobOwnerID != clientID {",
+    "confirmed_by_test": "app/client_notes_test.go:167",
+    "in_user_docs": "no",
+    "why_hard": "The job check has two ways to pass, and the job-owner way is easy to miss."
+  },
+  {
+    "id": "clients-06",
+    "category": "clients",
+    "question": "I'm a payables admin. The vendor list shows \"no expenses • no POs\" for a vendor, but that vendor has no Delete button. Why can't I delete it?",
+    "held": [
+      "payables_admin",
+      "time"
+    ],
+    "ideal_answer": "The two counts on the vendor list don't show everything that uses a vendor. The expense count includes only committed expenses, and the PO count includes only Active purchase orders. Turbo hides Delete when any expense or any purchase order uses the vendor, whatever its status. An expense that is not committed yet, or a PO that is Unapproved, Closed or Cancelled, is enough. Turbo won't delete such a vendor. If the vendor is a duplicate, absorb it into another vendor instead.",
+    "key_points": [
+      "The counts include only committed expenses and Active purchase orders.",
+      "Delete is hidden when any expense or purchase order uses the vendor, in any status."
+    ],
+    "extra_points": [
+      "A vendor that is in use can be absorbed into another vendor instead."
+    ],
+    "wrong_if": [
+      "Says a vendor that shows no expenses and no POs is unused and can be deleted.",
+      "Says only committed expenses and Active POs keep a vendor from being deleted."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/vendors.sql",
+        "start": 10,
+        "end": 29,
+        "why": "counts use committed expenses and Active POs; referenced is true for any expense or PO row"
+      },
+      {
+        "path": "ui/src/routes/vendors/list/+page.svelte",
+        "start": 79,
+        "end": 87,
+        "why": "Delete shows only when the vendor is not referenced"
+      }
+    ],
+    "evidence": "SELECT\n  vendor,\n  SUM(expenses.committed != '') AS expenses_count\nFROM expenses\nWHERE expenses.vendor != ''\nGROUP BY vendor",
+    "confirmed_by_test": "app/vendors_test.go:223",
+    "in_user_docs": "partly",
+    "why_hard": "The numbers on the screen and the delete rule count different things, so zero on the screen does not mean unused."
+  },
+  {
+    "id": "clients-07",
+    "category": "clients",
+    "question": "I absorbed a duplicate client into another client, and then absorbed a duplicate contact under the client that I kept. Both absorbs are still pending. Turbo won't let me commit the contact absorb. Why, and can I still undo the client absorb?",
+    "held": [
+      "absorb",
+      "time"
+    ],
+    "ideal_answer": "Contact absorbs depend on client absorbs, so Turbo enforces an order. It refuses to commit a contact absorb while a client absorb is pending. Commit or undo the client absorb first, and then commit the contact absorb. It also refuses to undo a client absorb while a contact absorb is pending, so right now you can't undo the client absorb. Undo the contact absorb first. The reason is that the undo of a client absorb restores links to contacts, and a committed contact absorb would have deleted some of those contacts for good. Vendor absorbs are independent of both.",
+    "key_points": [
+      "Turbo refuses to commit a contact absorb while a client absorb is pending; the client absorb must be committed or undone first.",
+      "Turbo refuses to undo a client absorb while a contact absorb is pending; the contact absorb must be undone first."
+    ],
+    "extra_points": [
+      "Vendor absorbs have no such dependency."
+    ],
+    "wrong_if": [
+      "Says the contact absorb must be committed before the client absorb.",
+      "Says the client absorb can be undone while the contact absorb is still pending."
+    ],
+    "sources": [
+      {
+        "path": "app/absorb/config.go",
+        "start": 55,
+        "end": 76,
+        "why": "client contacts depend on clients for commit and undo order; vendors are independent"
+      },
+      {
+        "path": "app/hooks/hooks.go",
+        "start": 649,
+        "end": 668,
+        "why": "commit of an absorb is refused while its parent collection has a pending absorb"
+      },
+      {
+        "path": "app/routes/absorb_records.go",
+        "start": 343,
+        "end": 359,
+        "why": "undo is refused while a dependent collection has a pending absorb"
+      }
+    ],
+    "evidence": "// client_contacts depends on clients for absorb ordering:\n// - Can't commit client_contacts while clients absorb exists\n// - Can't undo clients while client_contacts absorb exists\nDependsOn: \"clients\",",
+    "confirmed_by_test": "app/absorb_test.go:993",
+    "in_user_docs": "no",
+    "why_hard": "Two different actions are blocked in opposite directions, and the right order depends on whether the person wants to keep or undo the merges."
+  },
+  {
+    "id": "clients-08",
+    "category": "clients",
+    "question": "I'm in procurement. We made revision 2 of a rate sheet active and then found a mistake in it. Can I make revision 1 active again?",
+    "held": [
+      "job",
+      "time"
+    ],
+    "ideal_answer": "No. Turbo refuses to activate a revision when a newer revision of the same rate sheet exists, and answers \"cannot activate - a newer revision exists\". It does not matter whether the newer revision is active, so setting revision 2 to Inactive does not free revision 1. When you activated revision 2, Turbo also deactivated the other revisions of that sheet, so that only one is active at a time. To fix the mistake, an admin can correct the rates inside revision 2, or a new revision 3 can be created and activated.",
+    "key_points": [
+      "No: Turbo refuses to activate a revision when a newer revision of the same rate sheet exists."
+    ],
+    "extra_points": [
+      "The newer revision blocks the older one even when the newer one is inactive.",
+      "Activating a revision deactivates the other revisions with the same name."
+    ],
+    "wrong_if": [
+      "Says revision 1 can be made active again, for example after revision 2 is set to Inactive.",
+      "Says two revisions of one rate sheet can be active at the same time."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/rate_sheets_api.go",
+        "start": 51,
+        "end": 60,
+        "why": "activation is refused when a newer revision exists"
+      },
+      {
+        "path": "app/hooks/rate_sheets.go",
+        "start": 157,
+        "end": 174,
+        "why": "newer means the same name and a higher revision number, active or not"
+      },
+      {
+        "path": "app/routes/rate_sheets_api.go",
+        "start": 73,
+        "end": 77,
+        "why": "activation first deactivates the other revisions with the same name"
+      }
+    ],
+    "evidence": "if newerExists {\n\treturn e.Error(http.StatusBadRequest, \"cannot activate - a newer revision exists\", nil)\n}",
+    "confirmed_by_test": "app/hooks/rate_sheets_test.go:165",
+    "in_user_docs": "no",
+    "why_hard": "The Active toggle looks reversible, but activation only moves forward through revisions."
+  },
+  {
+    "id": "clients-09",
+    "category": "clients",
+    "question": "I'm in procurement. I can create rate sheets and copy them with Use as Template, but when I use Revise and save, Turbo says that I don't have permission. Why?",
+    "held": [
+      "job",
+      "time"
+    ],
+    "ideal_answer": "Creating a rate sheet and revising one need different permissions. A new rate sheet, and a copy made with Use as Template, is revision 0, and that needs the job (procurement) claim, which you hold. A revision of an existing sheet needs the rate_sheet_revise claim or the admin claim. The job claim alone is not enough, so Turbo answers \"you do not have permission to revise rate sheets\". Ask for the rate_sheet_revise claim, or ask a person who holds it, or an admin, to create the revision. Turbo saves a new revision as inactive, and activating it needs the job claim.",
+    "key_points": [
+      "Revising a rate sheet needs the rate_sheet_revise claim or the admin claim; the job (procurement) claim alone is not enough."
+    ],
+    "extra_points": [
+      "A new rate sheet or a copy is revision 0 and needs only the job claim.",
+      "A new revision is saved as inactive, and activating it needs the job claim."
+    ],
+    "wrong_if": [
+      "Says anyone who can create rate sheets can also revise them.",
+      "Says only admins can revise rate sheets."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/rate_sheets_api.go",
+        "start": 302,
+        "end": 325,
+        "why": "revision 0 needs job; a later revision needs rate_sheet_revise or admin"
+      },
+      {
+        "path": "app/routes/rate_sheets_api.go",
+        "start": 27,
+        "end": 34,
+        "why": "activation needs the job claim"
+      },
+      {
+        "path": "app/routes/rate_sheets_api.go",
+        "start": 425,
+        "end": 429,
+        "why": "a created sheet or revision starts inactive"
+      }
+    ],
+    "evidence": "if !hasReviseClaim && !hasAdminClaim {\n\treturn e.Error(http.StatusForbidden, \"you do not have permission to revise rate sheets\", nil)\n}",
+    "confirmed_by_test": "app/rate_sheets_routes_test.go:197",
+    "in_user_docs": "no",
+    "why_hard": "Three actions on the same record (create, revise, activate) need different claims."
+  },
+  {
+    "id": "clients-10",
+    "category": "clients",
+    "question": "I'm an admin. I typed today's US dollar rate into Turbo by hand and set the rate date to today. Will the automatic update or the Reload Rates button overwrite my rate?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "Not until the Bank of Canada publishes a rate with a later date. For each foreign currency, Turbo reads the Bank of Canada's latest rate and its date, and compares that date with the stored rate date. It replaces the stored rate only when the Bank's date is later. When the Bank's date is the same as yours or earlier, Turbo leaves your rate alone, and Reload Rates says that stored values are already newer. So a rate dated today survives today's update, and a rate with a later date replaces it. Turbo always replaces a rate that has no rate date. The automatic update runs on weekday evenings.",
+    "key_points": [
+      "Turbo replaces a stored rate only when the Bank of Canada rate has a later date than the stored rate date.",
+      "So the hand-entered rate stays until the Bank of Canada publishes a rate with a later date; a rate with the same date does not replace it."
+    ],
+    "extra_points": [
+      "A stored rate with no rate date is always replaced.",
+      "The automatic update runs Monday to Friday in the evening, and Reload Rates runs the same update on demand."
+    ],
+    "wrong_if": [
+      "Says the next update or Reload Rates always overwrites a hand-entered rate.",
+      "Says a hand-entered rate is never overwritten."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/currency_rates.go",
+        "start": 88,
+        "end": 108,
+        "why": "the stored rate is kept when the fetched date is not later than the stored rate date"
+      },
+      {
+        "path": "app/cron/cron.go",
+        "start": 52,
+        "end": 58,
+        "why": "the automatic update runs at 22:00 from Monday to Friday"
+      },
+      {
+        "path": "app/routes/currencies.go",
+        "start": 113,
+        "end": 129,
+        "why": "Reload Rates is for admins and runs the same update"
+      }
+    ],
+    "evidence": "if existingRateDate := strings.TrimSpace(record.GetString(\"rate_date\")); existingRateDate != \"\" && rateDate <= existingRateDate {\n\treturn false, true, nil\n}",
+    "confirmed_by_test": "app/utilities/currency_rates_test.go:84",
+    "in_user_docs": "no",
+    "why_hard": "The answer depends on a date comparison with an inclusive boundary, not on who entered the rate."
+  },
+  {
+    "id": "spending-01",
+    "category": "spending",
+    "question": "I created a PO, and two colleagues have recorded expenses against it. I can open the PO, but I can't see their expenses on the PO's page. Why?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Being able to open a PO does not let you see every expense on it. Turbo checks each expense on its own. You see an expense only if you own it or created it, if you are its approver and it is submitted, if you are a committer and it is approved, or if you hold the report claim and it is committed. Creating or approving the PO gives you no access to its expenses. The PO's count of committed expenses counts all of them, so it can be higher than the number of expenses in your list.",
+    "key_points": [
+      "Creating (or approving) a PO gives no access to the expenses recorded against it.",
+      "Each expense is checked on its own: you see it only if you own or created it, are its approver while it is submitted, or hold the commit claim (approved expenses) or the report claim (committed expenses)."
+    ],
+    "extra_points": [
+      "The PO's count of committed expenses counts every committed expense, so it can be higher than the list that you see."
+    ],
+    "wrong_if": [
+      "Says the creator or approver of a PO can see all the expenses on it.",
+      "Says the expenses are missing because they are not committed yet, and that the PO's creator will see them after commit."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/expenses_api.go",
+        "start": 64,
+        "end": 70,
+        "why": "the expense visibility rule: owner, creator, approver of a submitted expense, commit holder for approved, report holder for committed"
+      },
+      {
+        "path": "app/routes/expenses_api.go",
+        "start": 415,
+        "end": 418,
+        "why": "the PO page lists the PO's expenses filtered by that same rule"
+      },
+      {
+        "path": "app/routes/po_visibility_base.sql",
+        "start": 207,
+        "end": 207,
+        "why": "the PO's committed count is over all expenses of the PO"
+      }
+    ],
+    "evidence": "e.uid = {:auth}\n  OR e.creator = {:auth}\n  OR (e.approver = {:auth} AND e.submitted = 1)\n  OR (({:has_commit} = 1) AND e.approved != '')\n  OR (({:has_report} = 1) AND e.committed != '')",
+    "confirmed_by_test": "app/expenses_test.go:4412",
+    "in_user_docs": "no",
+    "why_hard": "PO visibility and expense visibility are two separate rules, and the PO page joins them, so a person who owns the PO can see less than its totals suggest."
+  },
+  {
+    "id": "spending-02",
+    "category": "spending",
+    "question": "My Expenses shows every one of my drafts, however old, but only some of my committed expenses. Is there a limit, and how do I see the rest?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "There is a limit for committed expenses only. The first page of My Expenses shows every expense of yours that is not committed, with no limit. After them it shows the 50 most recently committed expenses. Select Load More to get the next 50 committed expenses each time, newest commit first. So drafts, submitted and approved expenses always show, however old they are, and older committed expenses wait behind Load More. The list holds the expenses that you own and the ones that you created for someone else.",
+    "key_points": [
+      "Expenses that are not committed are all shown, with no limit.",
+      "Committed expenses come 50 at a time, the most recently committed first; the rest are behind Load More."
+    ],
+    "extra_points": [
+      "Committed expenses are ordered by commit time, newest first.",
+      "The list includes expenses that you created for another person."
+    ],
+    "wrong_if": [
+      "Says My Expenses shows a fixed number of expenses per page, such as 20, of any status.",
+      "Says old drafts drop off the list after a time."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/expenses_api.go",
+        "start": 234,
+        "end": 236,
+        "why": "the batch size of committed expenses is 50"
+      },
+      {
+        "path": "app/routes/expenses_api.go",
+        "start": 288,
+        "end": 313,
+        "why": "page 1 loads all non-committed rows and then 50 committed rows; later pages load only committed rows, ordered by commit time"
+      },
+      {
+        "path": "app/routes/expenses_api.go",
+        "start": 42,
+        "end": 44,
+        "why": "the list is the caller's own expenses and the ones the caller created"
+      }
+    ],
+    "evidence": "// expenses/list shows all non-committed rows on the first page, then paginates\n// committed overflow in fixed-size batches behind \"Load More\".\nconst expensesListCommittedOverflowLimit = 50",
+    "confirmed_by_test": "app/expenses_test.go:4245",
+    "in_user_docs": "no",
+    "why_hard": "The list mixes an unlimited part and a paged part, so the limit applies to one status only and the page size differs from the other expense lists."
+  },
+  {
+    "id": "spending-03",
+    "category": "spending",
+    "question": "I work in payables. I settled a US-dollar corporate card expense with the wrong Canadian amount. Can I just enter the right amount, and is there a point after which I can't fix it?",
+    "held": [
+      "payables_admin",
+      "time"
+    ],
+    "ideal_answer": "You can't save a new amount over a settlement. Turbo refuses to settle an expense that is already settled. On the Settlement page, open the Settled tab and select Clear. That removes the settled total, the settler and the settled time, and the expense goes back to the Unsettled tab. Then enter the right amount and save it. You can do this only before commit. Once a committer commits the expense, Turbo refuses to clear its settlement, so the amount is final.",
+    "key_points": [
+      "A settled expense can't be settled again: clear the settlement first, then enter the new amount.",
+      "A settlement can be cleared only until the expense is committed."
+    ],
+    "extra_points": [
+      "Clear removes the settled total, the settler and the settled time.",
+      "Settling and clearing both need an expense that is approved, not rejected and not committed."
+    ],
+    "wrong_if": [
+      "Says payables can overwrite the settled amount by saving a new one.",
+      "Says the settlement can still be cleared or changed after commit."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/expense_settlement.go",
+        "start": 151,
+        "end": 159,
+        "why": "an expense must be approved, not rejected and not committed; settle refuses one that is already settled, clear refuses one that is not"
+      },
+      {
+        "path": "app/routes/expense_settlement.go",
+        "start": 182,
+        "end": 189,
+        "why": "settle runs that check before it saves"
+      },
+      {
+        "path": "app/routes/expense_settlement.go",
+        "start": 241,
+        "end": 256,
+        "why": "clear refuses a committed expense and then blanks the three settlement fields"
+      }
+    ],
+    "evidence": "if !requireSettled && !record.GetDateTime(\"settled\").IsZero() {\n\t\treturn fmt.Errorf(\"expense is already settled\")\n\t}",
+    "confirmed_by_test": "app/foreign_currency_routes_test.go:298",
+    "in_user_docs": "no",
+    "why_hard": "Correction is a two-step clear and re-settle, not an edit, and it has a cut-off at commit that the settlement page does not explain."
+  },
+  {
+    "id": "spending-04",
+    "category": "spending",
+    "question": "My expense is dated in the pay period that just ended, but the committer only committed it this week, the first week of the new pay period. Which pay day will My Reimbursements show it under?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "The pay day of the period that just ended. Turbo sets an expense's pay period when it is committed. If the commit falls in the first week of a pay period, Turbo looks at the expense date. A date on or before the Saturday that ended the previous period puts the expense in that previous period. A later date puts it in the current period. A commit in the second week always goes in the current period. The pay day is the Friday 13 days after the last Saturday of the period, so here it is the Friday of next week.",
+    "key_points": [
+      "It goes in the pay period that just ended, because it was committed in the first week of the new period and is dated on or before the previous period's last Saturday."
+    ],
+    "extra_points": [
+      "The pay day is the Friday 13 days after the Saturday that ends the pay period.",
+      "An expense dated after that Saturday, committed in the same week, goes in the current pay period.",
+      "A commit in the second week of a pay period always goes in that period."
+    ],
+    "wrong_if": [
+      "Says the expense is paid with the new pay period because it was committed in it.",
+      "Says the pay period depends only on the expense date, or only on the commit date."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 162,
+        "end": 190,
+        "why": "a week-2 commit keeps its own period; a week-1 commit goes to the previous period when the expense date is not after that period's end, else to the current one"
+      },
+      {
+        "path": "app/routes/commit_record.go",
+        "start": 179,
+        "end": 186,
+        "why": "the pay period is set on the expense at commit"
+      },
+      {
+        "path": "app/routes/expense_reimbursements.sql",
+        "start": 83,
+        "end": 84,
+        "why": "the pay date is the pay period ending plus 13 days"
+      }
+    ],
+    "evidence": "previousPayPeriodEnding := committedWeekEndingTime.AddDate(0, 0, -7)\n\tif !expenseDateTime.After(previousPayPeriodEnding) {\n\t\treturn previousPayPeriodEnding.Format(time.DateOnly), nil\n\t}",
+    "confirmed_by_test": "app/utilities/utilities_test.go:54",
+    "in_user_docs": "no",
+    "why_hard": "The pay period comes from two inputs, the commit week and the expense date, and a late commit can still land in a period that has already ended."
+  },
+  {
+    "id": "spending-05",
+    "category": "spending",
+    "question": "I'm an admin. I ran the attachment audit a few days ago and now I want to delete the orphaned files. Does Turbo scan storage again first, and could it delete a file that a record has started to use since the audit?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "Turbo doesn't scan again first. It works through the orphaned-file report that the last audit saved. But it checks each file again just before it deletes it. It looks up the record named in the file's path. If that record's attachment now holds that filename, Turbo skips the file and counts it as skipped because it is referenced. A file that is already gone from storage counts as already missing. When the deletions finish, Turbo runs a fresh audit, so the counts and both reports are current again.",
+    "key_points": [
+      "Deletion works from the orphaned report saved by the last audit; Turbo does not scan storage again first.",
+      "Each file is checked again before deletion, and a file that its record now references is skipped, not deleted."
+    ],
+    "extra_points": [
+      "A file that is already gone from storage is counted as already missing.",
+      "After the deletions Turbo runs a fresh audit and updates the counts and reports."
+    ],
+    "wrong_if": [
+      "Says Turbo deletes every file in the old report without checking it again.",
+      "Says Turbo runs a new audit before it deletes anything."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/attachment_audit.go",
+        "start": 440,
+        "end": 449,
+        "why": "delete-orphans reads the rows of the saved orphaned report of the target's last run"
+      },
+      {
+        "path": "app/routes/attachment_audit.go",
+        "start": 567,
+        "end": 585,
+        "why": "the record in the path is looked up; a matching filename returns referenced, a file not found returns missing"
+      },
+      {
+        "path": "app/routes/attachment_audit.go",
+        "start": 484,
+        "end": 495,
+        "why": "a fresh audit runs after the deletions"
+      }
+    ],
+    "evidence": "if record != nil && strings.TrimSpace(record.GetString(target.Field)) == filename {\n\t\treturn \"referenced\", nil\n\t}",
+    "confirmed_by_test": "app/routes/attachment_audit_test.go:405",
+    "in_user_docs": "no",
+    "why_hard": "The delete uses a cached report but re-validates every row, so neither 'it trusts the report' nor 'it rescans' is right."
+  },
+  {
+    "id": "spending-06",
+    "category": "spending",
+    "question": "My Active PO needs a different approver, but the amount is right. I selected Revise Total, picked the new approver and left the total and the currency alone. Why did Turbo refuse to save it?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "A revision must change the total or the currency. Turbo compares the total that you send with the PO's current total, and the currency with the current currency. If both are the same, it refuses with \"a revision must change the total or the currency\", even when you pick different approvers. Turbo compares currency codes, and a PO with no currency set counts as Canadian dollars, so selecting CAD on such a PO is not a change. You can't use a revision to change only the approver.",
+    "key_points": [
+      "A revision must change the total or the currency; if both are unchanged, Turbo refuses it.",
+      "Picking different approvers does not count as a change."
+    ],
+    "extra_points": [
+      "Currencies are compared by code, and a blank currency counts as CAD, so choosing CAD on a PO with no currency is not a change."
+    ],
+    "wrong_if": [
+      "Says the revision failed because the new approver's limit doesn't cover the total.",
+      "Says a revision can be used to change only the approver."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/revise_purchase_order.go",
+        "start": 123,
+        "end": 134,
+        "why": "same total and same effective currency code returns total_unchanged, before any approver is applied"
+      },
+      {
+        "path": "app/utilities/currencies.go",
+        "start": 207,
+        "end": 213,
+        "why": "the effective currency code falls back to the home currency"
+      },
+      {
+        "path": "app/utilities/currencies.go",
+        "start": 90,
+        "end": 108,
+        "why": "a blank currency resolves to the home currency"
+      }
+    ],
+    "evidence": "if req.Total == po.GetFloat(\"total\") && !currencyChanged {\n\t\t\t\thttpResponseStatusCode = http.StatusBadRequest\n\t\t\t\treturn &CodeError{\n\t\t\t\t\tCode:    \"total_unchanged\",\n\t\t\t\t\tMessage: \"a revision must change the total or the currency\",\n\t\t\t\t}",
+    "confirmed_by_test": "app/purchase_order_revise_test.go:147",
+    "in_user_docs": "partly",
+    "why_hard": "The revise form also takes approvers, which suggests that an approver change alone is a valid revision; the refusal comes from a check on two other fields."
+  },
+  {
+    "id": "spending-07",
+    "category": "spending",
+    "question": "We have to enter by hand a PO that was issued outside Turbo. Which PO numbers does Turbo accept for a manually created PO?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "The number must have the form YYMM-NNNN. YY must be 24, 25 or 26, and MM must be 01 to 12. The four digits after the dash must start with 5, so they run from 5000 to 5999. For example, Turbo accepts 2412-5003. It refuses 2312-5003 and 2412-4003 with a message that the number must match YYMM-NNNN with YY 24, 25 or 26 and NNNN in the 5XXX range. A manually created PO must also be One-Time or Cumulative, not Recurring, and it is Active as soon as it is saved.",
+    "key_points": [
+      "The number must match YYMM-NNNN with YY equal to 24, 25 or 26 and MM from 01 to 12.",
+      "The four digits after the dash must be in the range 5000 to 5999."
+    ],
+    "extra_points": [
+      "The type must be One-Time or Cumulative; Recurring is refused.",
+      "A manually created PO is saved as Active."
+    ],
+    "wrong_if": [
+      "Says only the years 25 and 26 are accepted.",
+      "Says any four digits are accepted after the dash."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/purchase_orders_legacy.go",
+        "start": 18,
+        "end": 18,
+        "why": "the pattern for a manually entered PO number"
+      },
+      {
+        "path": "app/routes/purchase_orders_legacy.go",
+        "start": 197,
+        "end": 199,
+        "why": "the record is flagged as a manual entry and its status is set to Active"
+      },
+      {
+        "path": "app/routes/purchase_orders_legacy.go",
+        "start": 219,
+        "end": 245,
+        "why": "a number that fails the pattern is refused, and so is a type other than One-Time or Cumulative"
+      }
+    ],
+    "evidence": "var legacyPurchaseOrderNumberPattern = regexp.MustCompile(`^(24|25|26)(0[1-9]|1[0-2])-5\\d{3}$`)",
+    "confirmed_by_test": "app/legacy_purchase_orders_test.go:289",
+    "in_user_docs": "no",
+    "why_hard": "The accepted years and the 5XXX block are in one regular expression, and the design note for this flow lists fewer years than the code accepts."
+  },
+  {
+    "id": "spending-08",
+    "category": "spending",
+    "question": "In Print options for my PO I left the amount at the full approved amount and ticked Plus tax. Why does Turbo tell me to enter a lower amount?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "When you tick Plus tax or Plus shipping, those charges come on top of the printed amount, and they must still fit within the approved amount. So the amount to print must be lower than the available approved amount. The difference becomes the most that tax and shipping together may cost. Turbo shows that figure in a warning, and you must acknowledge it before you can print. If you leave both boxes clear, you can print the full approved amount, and tax and shipping count as included in it.",
+    "key_points": [
+      "With Plus tax or Plus shipping ticked, the amount to print must be less than the available approved amount.",
+      "The difference between the two is the allowance for the extra charges."
+    ],
+    "extra_points": [
+      "Turbo shows a warning with that allowance, and you must acknowledge it before printing.",
+      "With both boxes clear, the full approved amount can be printed."
+    ],
+    "wrong_if": [
+      "Says Turbo adds the tax on top of the full approved amount.",
+      "Says the amount is refused because it is over the PO total."
+    ],
+    "sources": [
+      {
+        "path": "ui/src/lib/poPrint.ts",
+        "start": 36,
+        "end": 48,
+        "why": "the amount may equal the limit only when no extra charge is ticked"
+      },
+      {
+        "path": "ui/src/lib/poPrint.ts",
+        "start": 75,
+        "end": 87,
+        "why": "the warning: the extra charges must not exceed the limit minus the printed amount"
+      },
+      {
+        "path": "ui/src/lib/poPrint.ts",
+        "start": 130,
+        "end": 132,
+        "why": "extra charges need the acknowledgement"
+      }
+    ],
+    "evidence": "if ((options.plusTax || options.plusShipping) && amount === limit) {\n    return \"Enter a lower amount to allow for the additional charges.\";\n  }",
+    "confirmed_by_test": "ui/tests/poPrint.test.ts:84",
+    "in_user_docs": "partly",
+    "why_hard": "The full approved amount is valid by itself and becomes invalid only in combination with a tick box, because the tick turns the remaining room into a separate allowance."
+  },
+  {
+    "id": "spending-09",
+    "category": "spending",
+    "question": "For a PO group, my staff export has a blank first line, headings in capitals such as EMAIL and TOTAL, and extra columns such as each person's name. Do I have to clean up the file before I upload it?",
+    "held": [
+      "super_po",
+      "time"
+    ],
+    "ideal_answer": "No. Turbo takes the first line that is not blank as the header. It matches column names without regard to capitals or spaces around them, ignores the columns that it doesn't need, and skips blank lines. The file needs only an email column and one column for each field that you chose to take from the upload: total, description, division or branch. Turbo lists any of those columns that are missing. A total in the file may contain a dollar sign and commas.",
+    "key_points": [
+      "Blank lines are skipped, and the first non-blank line is the header.",
+      "Column names match without regard to capitals or surrounding spaces.",
+      "Extra columns are ignored."
+    ],
+    "extra_points": [
+      "The file needs an email column plus one column for each field taken from the upload (total, description, division, branch).",
+      "A total may contain a dollar sign, commas and spaces."
+    ],
+    "wrong_if": [
+      "Says the headings must match exactly, in lower case.",
+      "Says extra columns or blank lines make the upload fail."
+    ],
+    "sources": [
+      {
+        "path": "ui/src/lib/poGroupCsv.ts",
+        "start": 78,
+        "end": 103,
+        "why": "first non-blank row is the header; headers are trimmed and lower-cased; only wanted columns are read; blank rows are skipped"
+      },
+      {
+        "path": "ui/src/lib/poGroupCsv.ts",
+        "start": 19,
+        "end": 24,
+        "why": "the wanted columns are email plus the chosen upload fields"
+      },
+      {
+        "path": "app/routes/purchase_order_groups.go",
+        "start": 400,
+        "end": 406,
+        "why": "an uploaded total has $, commas and spaces removed before it is read"
+      }
+    ],
+    "evidence": "const headers = cells[headerIndex].map((h) => h.trim().toLowerCase());\n  const wanted = poGroupColumns(uploadFields);\n  const missingColumns = wanted.filter((column) => !headers.includes(column));",
+    "confirmed_by_test": "ui/tests/poGroupCsv.test.ts:25",
+    "in_user_docs": "no",
+    "why_hard": "Three separate tolerances of the reader decide the answer, and none of them is visible on the upload page until a file fails."
+  },
+  {
+    "id": "spending-10",
+    "category": "spending",
+    "question": "We want one Recurring PO for a two-year equipment lease that is paid monthly. Turbo rejects the end date. What is the longest time that a Recurring PO can cover?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "400 days. The end date of a Recurring PO must be no more than 400 days after the PO's date, which is its start date. If it is later, Turbo refuses the PO with the message \"end date must be within 400 days of the start date\". The limit is a fixed value in the code. It is not a setting that an admin can change. A two-year lease therefore can't go on one Recurring PO.",
+    "key_points": [
+      "The end date must be within 400 days of the PO's date (its start date)."
+    ],
+    "extra_points": [
+      "The limit is a constant in the code, not a setting.",
+      "The error message is \"end date must be within 400 days of the start date\"."
+    ],
+    "wrong_if": [
+      "Says the limit is one year, 365 days or 12 months.",
+      "Says a Recurring PO has no limit on its length."
+    ],
+    "sources": [
+      {
+        "path": "app/constants/constants.go",
+        "start": 32,
+        "end": 34,
+        "why": "the maximum number of days between the start and end dates is 400"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 501,
+        "end": 509,
+        "why": "a recurring PO's end date may be at most that many days after its date"
+      }
+    ],
+    "evidence": "// The maximum number of days between the start and end dates for a recurring\n\t// purchase order.\n\tRECURRING_MAX_DAYS = 400",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The limit is an odd number of days that nobody would guess, and it is measured from the PO's date, not from today."
+  },
+  {
+    "id": "workflow-01",
+    "category": "workflow",
+    "question": "I'm an admin. A project's value was raised by an approved value change that turned out to be wrong. Can I delete that approval, and what happens to the project's value if I do?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "Yes, but only the latest one. Turbo lets an admin delete the most recent approved value change of a project. It refuses to delete the initial approval that created the project, and it refuses an approved change while a later approved change exists. If the project has a pending or rejected change, delete that one first. When you delete the latest approved change, Turbo sets the project value back to the previous value that the approval stored, in the same transaction. If the project's current value no longer matches that approval, Turbo refuses.",
+    "key_points": [
+      "Only the latest approved value change can be deleted; the initial approval that created the project cannot.",
+      "Deleting it restores the project value to the previous value stored on that approval."
+    ],
+    "extra_points": [
+      "A pending or rejected value change on the project must be deleted first.",
+      "Only an admin can delete a value change.",
+      "Turbo refuses when the project's current value does not match the approval."
+    ],
+    "wrong_if": [
+      "Says any approved value change in the history can be deleted.",
+      "Says the project keeps the new value after the approval is deleted."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_attachments.go",
+        "start": 648,
+        "end": 660,
+        "why": "only an admin; the initial project approval cannot be deleted"
+      },
+      {
+        "path": "app/routes/job_attachments.go",
+        "start": 667,
+        "end": 691,
+        "why": "pending change first, latest approved only, current value must match, previous value restored"
+      },
+      {
+        "path": "app/hooks/project_workflow_guards.go",
+        "start": 251,
+        "end": 264,
+        "why": "the same order is enforced on every delete of approved project evidence"
+      }
+    ],
+    "evidence": "\t\t\t\t// Only the latest retained sequence can restore its previous value;\n\t\t\t\t// deleting an earlier approval would break the value history.\n\t\t\t\tif len(rows) != 1 || rows[0].Id != a.Id {\n\t\t\t\t\treturn workflowError(\"Only the latest approved value change can be deleted.\")\n\t\t\t\t}",
+    "confirmed_by_test": "app/job_attachments_test.go:110",
+    "in_user_docs": "no",
+    "why_hard": "Three ordering rules decide whether the delete is allowed, and the delete has a side effect on the project value."
+  },
+  {
+    "id": "workflow-02",
+    "category": "workflow",
+    "question": "I approve project requests. The duplicate check on a request shows me existing jobs only, but procurement tells me that they also see other project requests there. Why the difference?",
+    "held": [
+      "project_authorization",
+      "time"
+    ],
+    "ideal_answer": "Turbo shows matching project requests only to procurement. Everyone who can open a request, including you as its approver, gets the list of existing jobs that look like it. The list of other requests that look like it is filled only for a person in procurement. For you that list is always empty, whatever requests exist. A job or request counts as a match when it shares the client, proposal, parent, location, client PO or client reference with the request, or when one description contains the other. Proposals are never listed.",
+    "key_points": [
+      "Other project requests that match are shown only to procurement; an approver or requester sees matching jobs only."
+    ],
+    "extra_points": [
+      "One shared item is enough for a match: client, proposal, parent, location, client PO, client reference, or one description that contains the other.",
+      "Proposals are left out of the list of matching jobs."
+    ],
+    "wrong_if": [
+      "Says the approver sees the same duplicate list as procurement.",
+      "Says the difference comes from a filter or a setting on the approver's page."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_request_views.go",
+        "start": 419,
+        "end": 440,
+        "why": "matching requests are collected only for a holder of the job claim"
+      },
+      {
+        "path": "app/routes/job_request_views.go",
+        "start": 444,
+        "end": 459,
+        "why": "what counts as a match"
+      },
+      {
+        "path": "app/routes/job_request_views.go",
+        "start": 395,
+        "end": 398,
+        "why": "proposals are skipped in the list of matching jobs"
+      }
+    ],
+    "evidence": "\t\thasJob, err := utilities.HasClaim(app, e.Auth, \"job\")\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif hasJob {\n\t\t\trequests, err := app.FindAllRecords(\"job_requests\")",
+    "confirmed_by_test": "app/job_requests_test.go:536",
+    "in_user_docs": "no",
+    "why_hard": "The same page gives two people different lists, and nothing on the page says that one list is hidden."
+  },
+  {
+    "id": "workflow-03",
+    "category": "workflow",
+    "question": "I approved a project request, and then procurement rejected it as a duplicate. I got no email about that. Who does Turbo tell when an approved request is rejected?",
+    "held": [
+      "project_authorization",
+      "time"
+    ],
+    "ideal_answer": "Only the requester. For a rejection, Turbo emails the person who created the request and nobody else. As the approver, you get an email only when a request is submitted to you. So when procurement rejects a request that you approved, Turbo does not tell you. You hear of it again only if the requester submits the request to you once more; Turbo marks that email as a revised version of one you were sent before. Turbo never emails the person who performed the action. These emails go out only while their switch in the notifications setting is on; the default in code is off.",
+    "key_points": [
+      "The rejection email goes only to the requester (the person who created the request).",
+      "The approver is not told when procurement rejects a request that they approved."
+    ],
+    "extra_points": [
+      "The approver is emailed only when a request is submitted to them; a resubmission is marked as revised.",
+      "Turbo never emails the person who performed the action.",
+      "Each email is sent only while its switch in the notifications setting is on; the default in code is off."
+    ],
+    "wrong_if": [
+      "Says the approver gets the rejection email.",
+      "Says procurement or the project manager is emailed about the rejection."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/project_workflow_notices.go",
+        "start": 141,
+        "end": 146,
+        "why": "recipients default to the creator; only a submission goes to the approver"
+      },
+      {
+        "path": "app/routes/project_workflow_notices.go",
+        "start": 24,
+        "end": 31,
+        "why": "the actor is never a recipient, and each recipient gets one email"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 109,
+        "end": 114,
+        "why": "each email template has a switch that defaults to off"
+      }
+    ],
+    "evidence": "\trecipients := []string{r.GetString(\"creator\")}\n\tswitch event {\n\tcase \"submitted\":\n\t\trecipients = []string{r.GetString(\"approver\")}",
+    "confirmed_by_test": "app/project_workflow_notifications_test.go:204",
+    "in_user_docs": "no",
+    "why_hard": "A design note says the approver gets rejection notices, and the code sends them to the requester only."
+  },
+  {
+    "id": "workflow-04",
+    "category": "workflow",
+    "question": "I approved a time sheet for one of my staff, and then a committer rejected it. Who gets an email about the rejection?",
+    "held": [
+      "tapr",
+      "time"
+    ],
+    "ideal_answer": "Up to three people: the employee, the committer who rejected it, and the employee's manager. Turbo takes the manager from the employee's profile at that moment, not from the approver recorded on the time sheet. So you get the email if you are still the manager on their profile. Nobody gets it twice: when the person who rejects is also the manager or the employee, Turbo sends that person one copy. The email goes out only while the time sheet rejection email is switched on in the notifications setting; the default in code is off.",
+    "key_points": [
+      "The employee, the person who rejected it, and the employee's manager each get the email.",
+      "The manager is the one set on the employee's profile, not the approver recorded on the time sheet."
+    ],
+    "extra_points": [
+      "A person who holds two of these roles gets one email.",
+      "The email is sent only while it is switched on in the notifications setting; the default in code is off."
+    ],
+    "wrong_if": [
+      "Says only the employee is told.",
+      "Says the email goes to the approver recorded on the time sheet."
+    ],
+    "sources": [
+      {
+        "path": "app/notifications/queue_events.go",
+        "start": 50,
+        "end": 66,
+        "why": "manager comes from the employee's profile; recipients are employee, rejector and manager without repeats"
+      },
+      {
+        "path": "app/notifications/create.go",
+        "start": 52,
+        "end": 68,
+        "why": "no notification is created while the template's switch is off"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 109,
+        "end": 114,
+        "why": "the switch defaults to off"
+      }
+    ],
+    "evidence": "\tif rejectorUID != employeeUID {\n\t\trecipients = append(recipients, rejectorUID)\n\t}\n\tif managerUID != \"\" && managerUID != rejectorUID && managerUID != employeeUID {\n\t\trecipients = append(recipients, managerUID)\n\t}",
+    "confirmed_by_test": "app/time_sheets_routes_test.go:448",
+    "in_user_docs": "no",
+    "why_hard": "The manager is read from the profile and not from the time sheet, and the rejector also gets a copy."
+  },
+  {
+    "id": "workflow-05",
+    "category": "workflow",
+    "question": "I printed the Project Authorization from my project request and it says DRAFT - NOT FOR SIGNATURE, with no place to sign. The client's billing contact has no email address. Is that the cause, and how do I get a copy that the client can sign?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Yes. Turbo checks the request when it prints. If an item on its list is missing, the page shows DRAFT - NOT FOR SIGNATURE with the missing items and leaves out the agreement and signature section. The project contact and the billing contact each need a name and a valid email address. A contact with no email passes only when the contact is marked as having no email address. So enter an email for the billing contact or set that mark, then print again. The list also covers the client name, description, a valid Plus Code location, a whole-dollar project value, the fee basis and an active rate sheet.",
+    "key_points": [
+      "A project or billing contact without a valid email is a missing item, unless the contact is marked as having no email address.",
+      "While any item is missing, the printout is a draft and has no signature section."
+    ],
+    "extra_points": [
+      "The other checked items are the client name, description, a valid Plus Code location, a positive whole-dollar project value, the fee basis and an active rate sheet.",
+      "Time and materials requests also need the client billing rates of the rate sheet."
+    ],
+    "wrong_if": [
+      "Says the draft label goes away when the request is submitted or approved.",
+      "Says a contact with a blank email is accepted without the no-email mark."
+    ],
+    "sources": [
+      {
+        "path": "ui/src/lib/jobRequests.ts",
+        "start": 53,
+        "end": 88,
+        "why": "the list of items that the printout needs, including contact name and email"
+      },
+      {
+        "path": "ui/src/routes/job-requests/[id]/print/+page.svelte",
+        "start": 69,
+        "end": 75,
+        "why": "a missing item prints the draft notice and the list"
+      },
+      {
+        "path": "ui/src/routes/job-requests/[id]/print/+page.svelte",
+        "start": 163,
+        "end": 164,
+        "why": "the agreement and signatures section prints only when nothing is missing"
+      }
+    ],
+    "evidence": "    if (!fullName(contact).trim()) missing.push(`${label} name`);\n    if (!contact?.no_email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(contact?.email || \"\"))\n      missing.push(`${label} email`);",
+    "confirmed_by_test": "ui/tests/jobRequests.test.ts:80",
+    "in_user_docs": "no",
+    "why_hard": "The draft label comes from a data check on the request, not from the request's status, and the no-email mark is the only way past a blank email."
+  },
+  {
+    "id": "workflow-06",
+    "category": "workflow",
+    "question": "I'm an admin and I am linking old subjobs to their project with Adopt Subjobs. Turbo lists three unlinked jobs but says that one of them can't be adopted. What stops a job from being adopted, and does adopting change anything else on the jobs?",
+    "held": [
+      "admin",
+      "time"
+    ],
+    "ideal_answer": "Turbo offers the jobs that are numbered as subjobs of the project, such as 24-410-1 for 24-410, and that have no parent. It blocks one of them when its client differs from the project's client, when the project itself has no client, or when the job already has subjobs of its own. Change that job's client to the project's client first. Adopting sets only the parent link. Turbo does not run the normal job checks, so an old job with other gaps still links. It also marks the subjobs as changed in Turbo, so they go back to the legacy system, and it adds a note to the project.",
+    "key_points": [
+      "A job is blocked when its client is not the project's client, or when the project has no client.",
+      "A job is blocked when it has subjobs of its own."
+    ],
+    "extra_points": [
+      "Adopting changes only the parent link, and the normal job validation does not run.",
+      "The adopted subjobs are marked as changed in Turbo so that they are written back to the legacy system.",
+      "Turbo adds a note to the project that lists the adopted subjobs."
+    ],
+    "wrong_if": [
+      "Says adopting a subjob also changes its client to the project's client.",
+      "Says a job with a different client is adopted anyway."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_adopt_subjobs.go",
+        "start": 72,
+        "end": 88,
+        "why": "the three blockers"
+      },
+      {
+        "path": "app/routes/job_adopt_subjobs.go",
+        "start": 97,
+        "end": 101,
+        "why": "only the parent changes, hooks and validation do not run, and the subjobs are written back"
+      },
+      {
+        "path": "app/routes/job_adopt_subjobs.go",
+        "start": 181,
+        "end": 190,
+        "why": "the direct update of the parent link and the note on the project"
+      }
+    ],
+    "evidence": "\t\tcase row.Client != projectClient:\n\t\t\tcurrent := subjob.Client\n\t\t\tif current == \"\" {\n\t\t\t\tcurrent = \"no client\"\n\t\t\t}\n\t\t\tsubjob.Blocker = fmt.Sprintf(\"Its client is %s. Change its client to %s first.\", current, projectLabel)",
+    "confirmed_by_test": "app/job_adopt_subjobs_test.go:62",
+    "in_user_docs": "no",
+    "why_hard": "The blockers are computed on the server, and the action skips the validation that every other job edit runs."
+  },
+  {
+    "id": "workflow-07",
+    "category": "workflow",
+    "question": "A job that never had any time, expenses or purchase orders charged to it does not show on the Stale Jobs list, however small I set the age. Why not, and what does Turbo count as a job's last activity?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "The Stale Jobs list shows only jobs that have had some activity. Turbo takes the latest date among the job's time entries, time amendments, expenses and purchase orders. It lists the job when that date is at least the chosen number of days old; the default age is 180 days. A job with none of those records has no last activity, so it never qualifies, whatever the age. Look for it under Unused Active Jobs, which lists exactly the jobs that have no such records. Both lists show only jobs whose status is Active.",
+    "key_points": [
+      "A job with no time entries, time amendments, expenses or purchase orders never appears on Stale Jobs; it appears on Unused Active Jobs.",
+      "Last activity is the latest date among the job's time entries, time amendments, expenses and purchase orders."
+    ],
+    "extra_points": [
+      "A job is stale when its last activity is at least the chosen number of days old; the default is 180 days.",
+      "Both lists include only jobs whose status is Active."
+    ],
+    "wrong_if": [
+      "Says a job that was never used is stale from the day it was created.",
+      "Says last activity is the date on which the job was last edited."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/jobs_stale.sql",
+        "start": 13,
+        "end": 34,
+        "why": "only Active jobs; activity is time entries, time amendments, expenses and purchase orders"
+      },
+      {
+        "path": "app/routes/jobs_stale.sql",
+        "start": 65,
+        "end": 66,
+        "why": "age 0 returns jobs with no activity; a positive age needs an activity date that is old enough"
+      },
+      {
+        "path": "app/routes/jobs_api.go",
+        "start": 144,
+        "end": 176,
+        "why": "the unused list uses age 0, and the stale list defaults to 180 days"
+      }
+    ],
+    "evidence": "WHERE ({:age} <= 0 AND lr.last_reference IS NULL)\n   OR ({:age} > 0 AND lr.last_reference IS NOT NULL AND lr.last_reference <= date('now', printf('-%d days', {:age})))",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "One query serves two lists with opposite conditions, so a never-used job is excluded from the list where a person expects it."
+  },
+  {
+    "id": "workflow-08",
+    "category": "workflow",
+    "question": "On a job's POs tab, the Total is lower than the purchase orders that we raised for that job. Do closed POs and POs that are under revision count toward that Total?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "No to both. The tab lists only purchase orders that are Active or under revision, so Closed and Cancelled POs drop off the list and out of the Total. The Total adds the totals of the Active POs only. A PO under revision stays on the list, but Turbo leaves its amount out of the Total, because a revision has no approved amount yet. The tab says how many POs under revision it left out.",
+    "key_points": [
+      "Only Active purchase orders add to the Total; Closed and Cancelled ones are not included.",
+      "A PO under revision is listed but its amount is left out of the Total."
+    ],
+    "extra_points": [
+      "The tab shows how many POs under revision the Total leaves out.",
+      "The amount is left out because a revision has no approved amount yet."
+    ],
+    "wrong_if": [
+      "Says the Total includes every purchase order ever raised for the job.",
+      "Says a PO under revision counts with its old or its new total."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_po_summary.sql",
+        "start": 1,
+        "end": 6,
+        "why": "the total sums Active purchase orders only and counts the revisions that it leaves out"
+      },
+      {
+        "path": "app/routes/job_po_summary.sql",
+        "start": 25,
+        "end": 26,
+        "why": "only Active and under-revision purchase orders of the job are read"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 23,
+        "end": 29,
+        "why": "what under revision means in these queries"
+      }
+    ],
+    "evidence": "  SUM(CASE WHEN po.status = 'Active' THEN po.total ELSE 0 END) total_amount,\n  SUM(CASE WHEN po.status = 'Active' THEN 0 ELSE 1 END) revision_count,",
+    "confirmed_by_test": "app/purchase_order_revise_test.go:389",
+    "in_user_docs": "no",
+    "why_hard": "The list and the total use different conditions, so a PO can be on the tab and still not be in the Total."
+  },
+  {
+    "id": "workflow-09",
+    "category": "workflow",
+    "question": "I forgot to submit last week's time sheet. On which days does Turbo send me a reminder, and if I still don't submit, will it remind me about that week again next week?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Turbo sends the reminder on Tuesday, Wednesday and Thursday at 08:00 UTC. Each run looks only at the week that ended on the Saturday just before it. You get the email if you are marked as expected to submit time sheets and you have no submitted time sheet for that week. The following week, the reminders are about the next week, so Turbo does not remind you about the older week again. The emails go out only while the reminder is switched on in the notifications setting; the default in code is off.",
+    "key_points": [
+      "Reminders go out on Tuesday, Wednesday and Thursday.",
+      "Each reminder covers only the week that ended the Saturday before; an older missing week is not reminded again."
+    ],
+    "extra_points": [
+      "The run is at 08:00 UTC.",
+      "Only people marked as expected to submit time sheets, with no submitted time sheet for that week, get it.",
+      "The reminder is sent only while it is switched on in the notifications setting; the default in code is off."
+    ],
+    "wrong_if": [
+      "Says Turbo keeps reminding every week until the old time sheet is submitted.",
+      "Says the reminder is sent every day or on Monday."
+    ],
+    "sources": [
+      {
+        "path": "app/cron/cron.go",
+        "start": 28,
+        "end": 32,
+        "why": "the schedule: 08:00 UTC on Tuesday, Wednesday and Thursday"
+      },
+      {
+        "path": "app/notifications/queue_reminders.go",
+        "start": 82,
+        "end": 117,
+        "why": "the run targets the previous week ending; recipients are expected staff with no submitted time sheet for it"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 109,
+        "end": 114,
+        "why": "the reminder's switch defaults to off"
+      }
+    ],
+    "evidence": "\t// send timesheet_submission_reminder notifications at 8am UTC on Tuesday, Wednesday, and Thursday.\n\t// These notifications remind users who haven't submitted their timesheet for the previous week.\n\tapp.Cron().MustAdd(\"timesheet_submission_reminders\", \"0 8 * * 2-4\", func() {\n\t\tnotifications.QueueTimesheetSubmissionReminders(app, true)\n\t})",
+    "confirmed_by_test": "app/notifications_test.go:647",
+    "in_user_docs": "no",
+    "why_hard": "The schedule and the week it covers are in two places, and together they mean an older missing week falls silent."
+  },
+  {
+    "id": "workflow-10",
+    "category": "workflow",
+    "question": "A time sheet for last week is approved in Turbo, but it has not reached the legacy system. When does Turbo hand a time sheet over to the legacy system?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Not until it is committed. The legacy sync asks Turbo for one week ending at a time, and Turbo returns only that week's time sheets that are committed. An approved time sheet that no committer has committed is left out. Once it is committed, the export for that week includes it. Turbo also leaves out time sheets that were imported from the legacy system, and those of staff whose payroll ID is a generated placeholder, which is a nine-digit number that starts with 9. Every time sheet that Turbo sends is marked approved and locked.",
+    "key_points": [
+      "Turbo exports a time sheet to the legacy system only after it is committed; approval is not enough."
+    ],
+    "extra_points": [
+      "The export is by week ending.",
+      "Time sheets imported from the legacy system are left out.",
+      "Staff whose payroll ID is a generated placeholder (nine digits, starting with 9) are left out."
+    ],
+    "wrong_if": [
+      "Says a time sheet goes to the legacy system when the manager approves it.",
+      "Says Turbo pushes each time sheet at the moment it is submitted."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/timesheet_writeback.go",
+        "start": 215,
+        "end": 230,
+        "why": "the export reads committed, non-imported time sheets of one week ending and skips placeholder payroll IDs"
+      },
+      {
+        "path": "app/routes/timesheet_writeback.go",
+        "start": 245,
+        "end": 250,
+        "why": "every exported time sheet is marked locked, approved and submitted"
+      },
+      {
+        "path": "app/utilities/payroll_placeholders.go",
+        "start": 5,
+        "end": 16,
+        "why": "what a generated placeholder payroll ID is"
+      }
+    ],
+    "evidence": "\t\t\tWHERE ts.week_ending = {:weekEnding}\n\t\t\t  AND ts.committed != ''\n\t\t\t  AND ts._imported = 0\n\t\t\t  AND NOT (` + generatedPayrollPlaceholderConditionToken + `)",
+    "confirmed_by_test": "app/timesheet_export_legacy_test.go:120",
+    "in_user_docs": "no",
+    "why_hard": "The export marks every time sheet as approved, which hides that commit is the real gate."
   }
 ]

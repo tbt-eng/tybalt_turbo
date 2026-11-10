@@ -139,7 +139,7 @@ The instructions and the glossary are the same in every request, so the model ca
 
 ## Measure the answers
 
-`app/cmd/helpeval` is the benchmark. `questions.json` holds hard questions about how Turbo behaves. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.
+`app/cmd/helpeval` is the benchmark. `questions.json` holds 100 hard questions about how Turbo behaves, 10 or 11 in each of ten areas: PO approval, the PO lifecycle, expenses, time, jobs, reports, people and permissions, clients and vendors, other spending rules, and the project workflow with its emails. Their sources are 107 of the 216 source files that have rules, and those files hold two rules in three. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.
 
 Run it from `app/`, with the provider's key in the shell:
 
@@ -178,7 +178,7 @@ Add a question when Help gives a wrong answer about behavior. Read the code, wri
 
 Each question lists as key points only what an answer must state to answer the question that was asked. Other true facts are in `extra_points`, which nothing grades.
 
-Runs on 2026-11-10. Each question was asked one time.
+Runs on 2026-11-10, with the first 50 questions (the first five areas). Each question was asked one time.
 
 | Run | Graded | Correct | Wrong | Key points stated | The searches returned the right lines | Cost for a question | First word (median) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
