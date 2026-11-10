@@ -203,6 +203,23 @@ func TestAskGradesEachAnswerAndResumes(t *testing.T) {
 			t.Errorf("the summary of a regrade lacks %q:\n%s", part, text)
 		}
 	}
+
+	// rescore makes the grades again from the saved verdicts, and asks nobody.
+	before, _ := loadRows(filepath.Join(o.out, "results.jsonl"))
+	asked, judged = len(model.asked), model.judged
+	o.mode = "rescore"
+	if err := run(context.Background(), o, service, devnull); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := loadRows(filepath.Join(o.out, "results.jsonl"))
+	if len(model.asked) != asked || model.judged != judged {
+		t.Error("rescore must call no model")
+	}
+	for id, grade := range want {
+		if after[id].Grade != grade || after[id].Stated != before[id].Stated {
+			t.Errorf("%s: rescore gave %q", id, after[id].Grade)
+		}
+	}
 }
 
 func TestOracleGivesTheSourceAndNotoolsTakesTheToolsAway(t *testing.T) {
@@ -262,7 +279,8 @@ func TestVerdictGrade(t *testing.T) {
 		{`{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"missing"}],"wrong_claims":[{"n":1,"made":false}]}`, gradePartial, 1},
 		{`{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"stated"}],"wrong_claims":[{"n":1,"made":true}]}`, gradeWrong, 2},
 		{`{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"contradicted"}],"wrong_claims":[]}`, gradeWrong, 1},
-		{`{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"stated"}],"other_error":"It says 5 and the reference says 6."}`, gradeWrong, 2},
+		// A statement that the judge takes for an error is a flag, not a grade.
+		{`{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"stated"}],"other_error":"It says 5 and the reference says 6."}`, gradeCorrect, 2},
 		{`{"points":[{"n":1,"verdict":"missing"},{"n":2,"verdict":"missing"}],"abstained":true}`, gradeAbstained, 0},
 		// An answer that says nothing right and does not say "I don't know".
 		{`{"points":[{"n":1,"verdict":"missing"},{"n":2,"verdict":"missing"}],"abstained":false}`, gradePartial, 0},
@@ -282,6 +300,9 @@ func TestVerdictGrade(t *testing.T) {
 	extra := `{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"missing"},{"n":3,"verdict":"contradicted"}]}`
 	if grade, stated, _ := parse(extra).grade(c); grade != gradePartial || stated != 1 {
 		t.Errorf("one verdict too many: got %s %d", grade, stated)
+	}
+	if flag := parse(`{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"stated"}],"other_error":" It says 5. "}`).flag(); flag != "It says 5." {
+		t.Errorf("flag = %q", flag)
 	}
 	for _, bad := range []string{"no json", `{"points":[{"n":1,"verdict":"stated"}]}`, `{"points":[{"n":1,"verdict":"yes"},{"n":2,"verdict":"stated"}]}`} {
 		if _, err := parseVerdict(bad, c); err == nil {
@@ -348,5 +369,94 @@ func TestAClaimThatDoesNotExistStopsTheRun(t *testing.T) {
 	model := &stubModel{}
 	if err := run(context.Background(), o, testService(t, model), devnull); err == nil || len(model.asked) != 0 {
 		t.Errorf("err = %v, asked %d", err, len(model.asked))
+	}
+}
+
+func TestTheJudgeGetsTheSourceOfTheQuestion(t *testing.T) {
+	service := testService(t, &stubModel{})
+	c := Case{ID: "x", Question: "Q?", IdealAnswer: "A.", KeyPoints: []string{"One"}, WrongIf: []string{"Bad"},
+		Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 115, End: 130}, {Path: "app/no/such/file.go", Start: 1, End: 2}}}
+	source := sourceOf(service, helpchat.DefaultSettings(), c)
+	if !strings.Contains(source, "func runTurn") || !strings.Contains(source, `path="app/helpchat/turn.go"`) {
+		t.Fatalf("source = %.200s", source)
+	}
+	input := judgeInput(c, "The answer.", source)
+	for _, part := range []string{"<source>\n<chunk", "func runTurn", "</source>\n\n<candidate_answer>\nThe answer.", `Give exactly 1 entries in "points" and exactly 1 in "wrong_claims".`} {
+		if !strings.Contains(input, part) {
+			t.Errorf("the judge's input lacks %q", part)
+		}
+	}
+	if !strings.Contains(judgeInput(c, "", ""), "<source>\n(not given)\n</source>") {
+		t.Error("with no source, the input says so")
+	}
+}
+
+func TestJudgeCheckComparesWithKnownGrades(t *testing.T) {
+	dir := t.TempDir()
+	o := testOptions(t, dir, "judge-check")
+	set := []judgeCase{
+		{Name: "right", Case: "a-01", Expect: []string{gradeCorrect}, Why: "It is right.", Answer: "RIGHT"},
+		{Name: "caught", Case: "a-01", Expect: []string{gradeWrong}, Why: "It is wrong.", Answer: "WRONG"},
+		{Name: "missed", Case: "a-01", Expect: []string{gradeWrong, gradePartial}, Why: "The judge must fail this.", Answer: "RIGHT"},
+	}
+	data, _ := json.Marshal(set)
+	o.judgeCases = filepath.Join(dir, "judge_cases.json")
+	if err := os.WriteFile(o.judgeCases, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := os.Create(filepath.Join(dir, "out.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	if err := run(context.Background(), o, testService(t, &stubModel{}), out); err != nil {
+		t.Fatal(err)
+	}
+	text, _ := os.ReadFile(out.Name())
+	for _, part := range []string{"the judge agrees on 2 of 3.", "WRONG  missed: the judge says correct, and it is wrong or partial. The judge must fail this."} {
+		if !strings.Contains(string(text), part) {
+			t.Errorf("the output lacks %q:\n%s", part, text)
+		}
+	}
+
+	// A case for a question that is not there is an error.
+	set[0].Case = "no-such-question"
+	data, _ = json.Marshal(set)
+	os.WriteFile(o.judgeCases, data, 0o644)
+	if err := run(context.Background(), o, testService(t, &stubModel{}), out); err == nil {
+		t.Error("a case for an unknown question must be an error")
+	}
+}
+
+func TestTheRealJudgeCasesNameRealQuestions(t *testing.T) {
+	cases, err := loadCases("questions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := map[string]bool{}
+	for _, c := range cases {
+		known[c.ID] = true
+	}
+	data, err := os.ReadFile("judge_cases.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var set []judgeCase
+	if err := json.Unmarshal(data, &set); err != nil {
+		t.Fatal(err)
+	}
+	grades := map[string]bool{gradeCorrect: true, gradePartial: true, gradeWrong: true, gradeAbstained: true}
+	for _, jc := range set {
+		if !known[jc.Case] || strings.TrimSpace(jc.Answer) == "" || jc.Why == "" || len(jc.Expect) == 0 {
+			t.Errorf("%s: needs a real question, an answer, a reason and a grade", jc.Name)
+		}
+		for _, grade := range jc.Expect {
+			if !grades[grade] {
+				t.Errorf("%s: %q is not a grade", jc.Name, grade)
+			}
+		}
+	}
+	if len(set) < 10 {
+		t.Errorf("%d cases", len(set))
 	}
 }

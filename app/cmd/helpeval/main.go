@@ -27,6 +27,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -88,10 +89,13 @@ type Row struct {
 	Status string `json:"status"`
 	Grade  string `json:"grade,omitempty"`
 	// Stated is how many of the key points the answer states.
-	Stated      int      `json:"stated"`
-	Points      int      `json:"points"`
-	WrongReason string   `json:"wrong_reason,omitempty"`
-	Verdict     *Verdict `json:"verdict,omitempty"`
+	Stated      int    `json:"stated"`
+	Points      int    `json:"points"`
+	WrongReason string `json:"wrong_reason,omitempty"`
+	// Flag is a statement that the judge takes for an error and that is not a
+	// key point or a listed wrong claim. It does not change the grade.
+	Flag    string   `json:"flag,omitempty"`
+	Verdict *Verdict `json:"verdict,omitempty"`
 
 	// What the model's tool calls returned.
 	Searches   int  `json:"searches"`
@@ -131,6 +135,7 @@ type options struct {
 	parallel    int
 	force       bool
 	held        string
+	judgeCases  string
 }
 
 func main() {
@@ -138,12 +143,13 @@ func main() {
 	defaults := helpchat.DefaultSettings()
 	flag.StringVar(&o.questions, "questions", filepath.Join("cmd", "helpeval", "questions.json"), "the questions file")
 	flag.StringVar(&o.claims, "claims", filepath.Join("test_seed_data", "data", "claims.csv"), "a CSV of the claims that the prompt lists (columns name and description)")
-	flag.StringVar(&o.mode, "mode", "search", "search, replay, ask, oracle, notools, regrade or judge-check")
+	flag.StringVar(&o.mode, "mode", "search", "search, replay, ask, oracle, notools, regrade, rescore or judge-check")
 	flag.StringVar(&o.provider, "provider", defaults.Provider, "the provider of the model that answers")
 	flag.StringVar(&o.model, "model", defaults.Model, "the model that answers")
 	flag.StringVar(&o.effort, "effort", defaults.Effort, "the effort of the model that answers")
 	flag.StringVar(&o.judgeModel, "judge-model", "claude-sonnet-5-5", "the model that grades (the anthropic provider)")
 	flag.StringVar(&o.judgeEffort, "judge-effort", "medium", "the effort of the model that grades")
+	flag.StringVar(&o.judgeCases, "judge-cases", filepath.Join("cmd", "helpeval", "judge_cases.json"), "answers with a known grade, for judge-check")
 	flag.BoolVar(&o.noJudge, "no-judge", false, "ask the questions and do not grade the answers")
 	flag.StringVar(&o.out, "out", "", "the folder for the results (default cmd/helpeval/runs/<mode>-<model>-<effort>)")
 	flag.StringVar(&o.only, "only", "", "ids to run, with commas between them")
@@ -164,6 +170,7 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 	if err != nil {
 		return err
 	}
+	all := cases
 	if o.mode == "judge-check" && o.limit > 0 {
 		// A sample from every area, not the first questions of the file.
 		cases, o.limit = spread(pick(cases, o.only, 0), o.limit), 0
@@ -188,6 +195,12 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 		}
 		return searchMode(service, cases, o.out, out)
 	}
+	if o.mode == "rescore" {
+		if o.out == "" {
+			return errors.New("rescore needs --out, the folder of the run")
+		}
+		return rescore(o, cases, out)
+	}
 	// A run that calls a model stops here if a key is missing, before any work.
 	if _, err := service.CorpusHash(settings); err != nil && o.mode != "regrade" && o.mode != "judge-check" {
 		return keyHint(err)
@@ -198,7 +211,23 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 		}
 	}
 	if o.mode == "judge-check" {
-		return judgeCheck(ctx, service, judge, cases, o.parallel, out)
+		// The report also goes to a file, so it is there after the terminal is gone.
+		var report strings.Builder
+		both := io.MultiWriter(out, &report)
+		if err := judgeCheck(ctx, service, judge, cases, o.parallel, both); err != nil {
+			return err
+		}
+		if err := checkJudgeCases(ctx, service, judge, o.judgeCases, all, o.parallel, both); err != nil {
+			return err
+		}
+		dir := filepath.Join("cmd", "helpeval", "runs")
+		if o.out != "" {
+			dir = o.out
+		}
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(dir, "judge-check.txt"), []byte(report.String()), 0o644)
 	}
 	if o.mode != "ask" && o.mode != "oracle" && o.mode != "notools" && o.mode != "regrade" {
 		return fmt.Errorf("there is no mode %q", o.mode)
@@ -326,6 +355,7 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 			} else {
 				row.Verdict = verdict
 				row.Grade, row.Stated, row.WrongReason = verdict.grade(c)
+				row.Flag = verdict.flag()
 			}
 		}
 		save(c, row, given, result)
@@ -354,6 +384,46 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 	text := summary(o, corpus, final)
 	fmt.Fprintln(out, "\n"+text)
 	return os.WriteFile(filepath.Join(dir, "summary.md"), []byte(text), 0o644)
+}
+
+// rescore makes the grades of a run again from the verdicts that the judge
+// gave, with no model. Use it after a change to how a verdict becomes a grade.
+// An answer whose question has other key points now keeps its grade, and needs
+// regrade.
+func rescore(o options, cases []Case, out *os.File) error {
+	path := filepath.Join(o.out, "results.jsonl")
+	rows, err := loadRows(path)
+	if err != nil {
+		return err
+	}
+	var final []Row
+	var stale []string
+	for _, c := range cases {
+		row, ok := rows[c.ID]
+		if !ok {
+			continue
+		}
+		switch {
+		case row.Verdict == nil:
+		case len(row.Verdict.Points) != len(c.KeyPoints):
+			stale = append(stale, c.ID)
+		default:
+			row.Points = len(c.KeyPoints)
+			row.Grade, row.Stated, row.WrongReason = row.Verdict.grade(c)
+			row.Flag = row.Verdict.flag()
+			rows[c.ID] = row
+		}
+		final = append(final, rows[c.ID])
+	}
+	if err := writeRows(path, rows); err != nil {
+		return err
+	}
+	text := summary(o, "", final)
+	if len(stale) > 0 {
+		text += fmt.Sprintf("\n%d answers keep their old grade, because their questions have other key points now. Grade them again with --mode regrade: %s\n", len(stale), strings.Join(stale, ", "))
+	}
+	fmt.Fprintln(out, text)
+	return os.WriteFile(filepath.Join(o.out, "summary.md"), []byte(text), 0o644)
 }
 
 // each runs work for every case, a few at a time.
@@ -757,7 +827,7 @@ func summary(o options, corpus string, rows []Row) string {
 		return out.String()
 	}
 	out.WriteString("Correct: every key point and nothing wrong. Partial: some key points and nothing wrong. " +
-		"Wrong: a statement that the reference contradicts. Abstained: the chat said that it does not know.\n\n")
+		"Wrong: it contradicts a key point, or makes a wrong claim that the question lists. Abstained: the chat said that it does not know.\n\n")
 	out.WriteString("| | Questions | Correct | Partial | Wrong | Abstained | Key points stated |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
 	out.WriteString(line("**All**", total))
 	for _, name := range keys(byArea) {
@@ -786,6 +856,16 @@ func summary(o options, corpus string, rows []Row) string {
 		fmt.Fprintf(&out, " About $%.3f.", dollars)
 	}
 	out.WriteString("\n")
+	var flagged []string
+	for _, row := range rows {
+		if row.Flag != "" && row.Grade != gradeError && row.Grade != "" {
+			flagged = append(flagged, fmt.Sprintf("- %s (%s): %s", row.ID, row.Grade, row.Flag))
+		}
+	}
+	if len(flagged) > 0 {
+		fmt.Fprintf(&out, "\n%d answers state something else that the judge takes for an error. This does not change their grade, because the judge is often wrong about it: it reads only a few lines of the source. Read each one against the code:\n%s\n",
+			len(flagged), strings.Join(flagged, "\n"))
+	}
 	if errorsN > 0 {
 		fmt.Fprintf(&out, "\n%d questions have no grade, because the run failed for them, and are not in the numbers: %s\n", errorsN, strings.Join(failed, ", "))
 	}

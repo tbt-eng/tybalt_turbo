@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -16,19 +19,21 @@ import (
 // that. So a grade always traces back to a sentence of the reference.
 const judgePrompt = `You grade one answer from the Help chat of Turbo, a company's internal business app, against a reference.
 
-The reference is correct. An engineer wrote it from the source code. Grade only against the reference. Do not use your own idea of how such an app works.
+The reference is correct. An engineer wrote it from the source code. You also get the lines of the source that the reference comes from. Grade only against the reference and the source. Do not use your own idea of how such an app works.
 
-You get the question, the reference answer, numbered key points, numbered wrong claims, and the candidate answer.
+You get the question, the reference answer, numbered key points, numbered wrong claims, the source, and the candidate answer.
 
 For each key point, give one verdict:
 - "stated": the candidate says this fact, in any words. A statement that means the same, or that is more exact, counts.
 - "missing": the candidate does not say it, or says only a part of it. Text so vague that it could mean the key point or not is "missing".
 - "contradicted": the candidate says something that cannot be true if the key point is true. A candidate that says less than the key point is "missing", not "contradicted".
 
-For each wrong claim, say if the candidate makes that claim: true or false.
+For each wrong claim, say if the candidate makes that claim: true or false. A candidate makes a claim only if it states it as a fact. If it says that it could not confirm the claim, it does not make it.
 
-"other_error": use this only when the candidate states, as a fact, the opposite of a sentence in the reference answer. Quote the candidate's words, then the reference's words that they conflict with. Use an empty string in every other case. These are not errors:
-- a statement about something that the reference does not mention, even if you doubt it;
+"other_error": use this only when the candidate states, as a fact, something that a sentence of the reference or a line of the source shows to be false. Quote the candidate's words, then the words of the reference or the source that show it. Use an empty string in every other case. These are not errors:
+- a statement that the source supports, even when the reference does not mention it;
+- a statement about something that the reference and the source do not cover, even if you doubt it;
+- a statement that leaves out a case or a detail;
 - more detail than the reference has;
 - a statement that the candidate marks as not confirmed, such as "I could not confirm this" or "the notes describe a plan";
 - the length, the style, the marks such as [S3], the links, or advice to ask a person.
@@ -56,7 +61,8 @@ type Verdict struct {
 }
 
 // grade turns the verdict into a grade, the number of key points stated, and
-// the reason for a "wrong".
+// the reason for a "wrong". An answer is wrong when it contradicts a key point
+// or makes one of the listed wrong claims.
 func (v *Verdict) grade(c Case) (grade string, stated int, wrongReason string) {
 	var reasons []string
 	for i, point := range v.Points {
@@ -74,9 +80,6 @@ func (v *Verdict) grade(c Case) (grade string, stated int, wrongReason string) {
 			reasons = append(reasons, "claims: "+c.WrongIf[i])
 		}
 	}
-	if strings.TrimSpace(v.OtherError) != "" {
-		reasons = append(reasons, "other: "+strings.TrimSpace(v.OtherError))
-	}
 	switch {
 	case len(reasons) > 0:
 		return gradeWrong, stated, strings.Join(reasons, "; ")
@@ -89,7 +92,19 @@ func (v *Verdict) grade(c Case) (grade string, stated int, wrongReason string) {
 	}
 }
 
-func judgeInput(c Case, answer string) string {
+// flag is a statement of the answer that the judge takes for an error, and that
+// is not a key point or a listed wrong claim. It does not change the grade. In
+// the first run of 100 questions the judge gave three, and each statement was
+// true: the judge reads a few lines of the source, and the statement was about
+// lines that it did not have. So a person reads the flagged answers.
+func (v *Verdict) flag() string {
+	return strings.TrimSpace(v.OtherError)
+}
+
+// judgeInput is what the judge reads about one answer. source is the lines of
+// the code that settle the question. With them the judge can tell a true
+// statement that the reference does not have from a false one.
+func judgeInput(c Case, answer, source string) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "<question>\n%s\n</question>\n\n<reference_answer>\n%s\n</reference_answer>\n\n<key_points>\n", c.Question, c.IdealAnswer)
 	for i, point := range c.KeyPoints {
@@ -102,10 +117,16 @@ func judgeInput(c Case, answer string) string {
 	if len(c.WrongIf) == 0 {
 		out.WriteString("(none)\n")
 	}
+	out.WriteString("</wrong_claims>\n\n<source>\n")
+	if strings.TrimSpace(source) == "" {
+		source = "(not given)\n"
+	}
+	out.WriteString(source)
+	out.WriteString("</source>\n\n")
 	if strings.TrimSpace(answer) == "" {
 		answer = "(the candidate gave no text)"
 	}
-	fmt.Fprintf(&out, "</wrong_claims>\n\n<candidate_answer>\n%s\n</candidate_answer>\n\n", answer)
+	fmt.Fprintf(&out, "<candidate_answer>\n%s\n</candidate_answer>\n\n", answer)
 	// The judge has given one verdict too many, for a wrong claim, without this.
 	fmt.Fprintf(&out, "Give exactly %d entries in \"points\" and exactly %d in \"wrong_claims\".", len(c.KeyPoints), len(c.WrongIf))
 	return out.String()
@@ -116,8 +137,9 @@ func judgeInput(c Case, answer string) string {
 func grade(ctx context.Context, service *helpchat.Service, judge helpchat.Settings, c Case, answer string) (*Verdict, helpchat.Usage, error) {
 	var total helpchat.Usage
 	var lastErr error
+	input := judgeInput(c, answer, sourceOf(service, judge, c))
 	for try := 0; try < 2; try++ {
-		text, usage, err := service.Complete(ctx, judge, judgePrompt, judgeInput(c, answer))
+		text, usage, err := service.Complete(ctx, judge, judgePrompt, input)
 		total.Input += usage.Input
 		total.Output += usage.Output
 		total.CacheRead += usage.CacheRead
@@ -134,6 +156,18 @@ func grade(ctx context.Context, service *helpchat.Service, judge helpchat.Settin
 		return verdict, total, nil
 	}
 	return nil, total, lastErr
+}
+
+// sourceOf returns the chunks of the corpus that hold the lines that settle a
+// question. A source that the corpus does not hold is left out.
+func sourceOf(service *helpchat.Service, settings helpchat.Settings, c Case) string {
+	var out strings.Builder
+	for _, source := range c.Sources {
+		if text, err := service.SourceText(settings, source.Path, source.Start, source.End); err == nil {
+			out.WriteString(text)
+		}
+	}
+	return out.String()
 }
 
 func parseVerdict(text string, c Case) (*Verdict, error) {
@@ -174,7 +208,87 @@ func parseVerdict(text string, c Case) (*Verdict, error) {
 // judgeCheck tests the judge on answers whose grade is known. A judge that
 // passes a bad answer, or fails the reference itself, can't be trusted with
 // the real ones.
-func judgeCheck(ctx context.Context, service *helpchat.Service, judge helpchat.Settings, cases []Case, parallel int, out *os.File) error {
+// judgeCase is one answer whose right grade a person has worked out. The set is
+// in judge_cases.json. It holds the answers that the judge got wrong in earlier
+// runs, with answers that are wrong and that it must still catch.
+type judgeCase struct {
+	Name string `json:"name"`
+	// Case is the id of the question.
+	Case string `json:"case"`
+	// Expect lists the grades that are right for the answer.
+	Expect []string `json:"expect"`
+	Why    string   `json:"why"`
+	Answer string   `json:"answer"`
+}
+
+// checkJudgeCases grades each answer of the set and compares with the grade
+// that a person gave. all is every question, by id.
+func checkJudgeCases(ctx context.Context, service *helpchat.Service, judge helpchat.Settings, path string, all []Case, parallel int, out io.Writer) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var set []judgeCase
+	if err := json.Unmarshal(data, &set); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	byID := map[string]Case{}
+	for _, c := range all {
+		byID[c.ID] = c
+	}
+	type result struct {
+		name, grade, reason string
+		ok                  bool
+		err                 error
+	}
+	results := make([]result, len(set))
+	var jobs []Case
+	index := map[string]int{}
+	for i, jc := range set {
+		if _, ok := byID[jc.Case]; !ok {
+			return fmt.Errorf("%s: %s names the question %q, which is not in the questions file", path, jc.Name, jc.Case)
+		}
+		id := fmt.Sprintf("%d", i)
+		index[id] = i
+		jobs = append(jobs, Case{ID: id})
+	}
+	each(jobs, parallel, func(j Case) {
+		i := index[j.ID]
+		c := byID[set[i].Case]
+		verdict, _, err := grade(ctx, service, judge, c, set[i].Answer)
+		r := result{name: set[i].Name, err: err}
+		if err == nil {
+			r.grade, _, r.reason = verdict.grade(c)
+			if flag := verdict.flag(); flag != "" {
+				r.reason = strings.TrimSpace(r.reason + " flagged: " + flag)
+			}
+			r.ok = slices.Contains(set[i].Expect, r.grade)
+		}
+		results[i] = r
+	})
+	agree := 0
+	for _, r := range results {
+		if r.ok {
+			agree++
+		}
+	}
+	fmt.Fprintf(out, "\nAnswers with a known grade (%s): the judge agrees on %d of %d.\n", path, agree, len(set))
+	for i, r := range results {
+		switch {
+		case r.err != nil:
+			fmt.Fprintf(out, "  ERROR  %s: %v\n", r.name, r.err)
+		case !r.ok:
+			fmt.Fprintf(out, "  WRONG  %s: the judge says %s, and it is %s. %s\n         the judge's reason: %s\n",
+				r.name, r.grade, strings.Join(set[i].Expect, " or "), set[i].Why, r.reason)
+		}
+	}
+	return nil
+}
+
+func judgeCheck(ctx context.Context, service *helpchat.Service, judge helpchat.Settings, cases []Case, parallel int, out io.Writer) error {
 	type probe struct {
 		name   string
 		answer func(i int) string

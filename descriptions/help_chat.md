@@ -150,19 +150,23 @@ Run it from `app/`, with the provider's key in the shell:
 | `go run ./cmd/helpeval --mode ask` | The chat as it is: the same prompt, tools and tool loop as `/api/help/ask`. | Model and judge |
 | `go run ./cmd/helpeval --mode oracle` | The chat with the right source in its prompt. This is the best that a perfect search can give. | Model and judge |
 | `go run ./cmd/helpeval --mode notools` | The chat with the handbook and no tools. | Model and judge |
-| `go run ./cmd/helpeval --mode judge-check` | The judge, on answers whose grade is known. Run it after a change to the judge or to the questions. | Judge |
+| `go run ./cmd/helpeval --mode judge-check` | The judge, on answers whose grade is known: the reference answers, empty answers, and the answers in `judge_cases.json`. Run it after a change to the judge or to the questions. | Judge |
 
 `--model`, `--effort` and `--provider` choose the model that answers. `--only` and `--limit` choose questions. A run writes `results.jsonl`, `summary.md` and one trace for each question to `cmd/helpeval/runs/`, which git ignores. A second run with the same settings asks only the questions that have no grade. `--mode regrade --out <folder>` grades the saved answers again.
 
 How to read a run:
 
-- A second model, the judge, says for each key point if the answer states it, misses it or contradicts it. The code makes the grade: **correct** (every key point, nothing wrong), **partial** (some key points, nothing wrong), **wrong** (a statement that the reference contradicts), or **abstained** (the chat said that it does not know). A wrong answer is worse than an abstained one.
+- A second model, the judge, says for each key point if the answer states it, misses it or contradicts it, and if the answer makes one of the wrong claims that the question lists. The code makes the grade: **correct** (every key point, nothing wrong), **partial** (some key points, nothing wrong), **wrong** (it contradicts a key point or makes a listed wrong claim), or **abstained** (the chat said that it does not know). A wrong answer is worse than an abstained one.
+- The judge can also **flag** an answer: a statement that it takes for an error and that is not a key point or a listed claim. A flag does not change the grade. The judge reads a few lines of the source, and a flagged statement is often true and about lines that it did not have. The summary lists the flagged answers. Read each one against the code. If the statement is false, add it to the question's `wrong_if`, so that the next run grades it.
+- `--mode rescore --out <folder>` makes the grades again from the saved verdicts, with no model. Use it after a change to how a verdict becomes a grade.
 - A failure of the API is an **error**. It is not in the numbers.
 - `ask` compared with `oracle` shows what the search costs. `oracle` compared with a stronger model shows what the model costs. `ask` compared with `notools` shows what the tools give.
-- 50 questions asked one time can't show a difference of less than about 14 points. For a smaller difference, run again and compare question by question.
-- The judge can be too strict. Read the answers that it grades as wrong before you act on the number.
+- 100 questions asked one time can't show a difference of less than about 10 points. For a smaller difference, run again and compare question by question.
+- The judge reads the question, the reference, the key points and the lines of the source that settle the question. With the source it can tell a true statement that the reference does not have from a false one. It still makes mistakes. `judge_cases.json` holds answers that it graded wrong in earlier runs, with the grade that a person gave after reading the code, and answers that are wrong and that it must still catch. `judge-check` says on how many it agrees. When the judge is wrong about an answer in a run, add that answer to the file. Read the answers that it grades as wrong before you act on a number.
 
-The two modes with no model give the same number on every run, so they can show a small change to the search, which a run with a model can't. For how many of the 50 questions does the search return the lines that settle the answer?
+The first run with all 100 questions, on 2026-11-10 with `claude-haiku-5-5` at low effort, the rules and their search phrases, and the judge that reads the source: 90 correct, 10 partial, none wrong, and 94% of the key points stated. The searches returned the right lines for 96 questions. The judge flagged three answers, and each flagged statement was true. Of the first 50 questions, 42 were correct. Of the 50 new ones, 48 were. The new questions are easier for this search: their writers found the cases with the help of the rule files, so the questions and the rules use the same words.
+
+The two modes with no model give the same number on every run, so they can show a small change to the search, which a run with a model can't. For how many of the first 50 questions does the search return the lines that settle the answer?
 
 | The search | The question itself, as one search | The searches that the model wrote |
 | --- | ---: | ---: |

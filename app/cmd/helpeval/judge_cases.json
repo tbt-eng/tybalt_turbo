@@ -1,0 +1,175 @@
+[
+  {
+    "name": "po-lifecycle-05 (ask-claude-haiku-5-5-low)",
+    "case": "po-lifecycle-05",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points. Its extra statement, that only Cumulative and Recurring POs can be closed by hand, is true in the code and is not in the reference.",
+    "answer": "A manual close is blocked by any expense on the PO that has been submitted but not yet committed or rejected. That includes:\n\n- **Expenses waiting for approval.** Turbo names the approvers who still have to act.\n- **Approved expenses waiting for commitment.** This includes approved foreign-currency expenses that still need settlement.\n\nThese don't block a close:\n\n- **Rejected expenses.**\n- **Drafts.**\n- **Recalled expenses.**\n\nThe PO also needs at least one committed expense before it can be closed by hand. If a blocking expense exists, Turbo shows a message such as \"This PO has one or more expenses awaiting approval by…\" and leaves the PO open. Approvers or committers need to finish those expenses first. [S1][S5]\n\nOnly Cumulative and Recurring POs can be closed by hand. A Cumulative PO also closes by itself once its committed expenses reach the PO total, and that automatic close doesn't run the pending-expense check. [S4][S3] For PO types, see [Purchase orders](/docs/purchase-orders)."
+  },
+  {
+    "name": "po-approval-04 (ask-v5-phrases)",
+    "case": "po-approval-04",
+    "expect": [
+      "correct"
+    ],
+    "why": "States every key point. Its extra statement, that the approver list is built with the current rate, is true in the code (the list route converts the amount when it is called).",
+    "answer": "Turbo compares approver limits in Canadian dollars, not in the PO's own currency. For a US-dollar PO, it converts the total to CAD and checks that amount against the approver's limit. The conversion uses the currency's exchange rate at the time of the check [S3][S4]. The approver list is built from the amount converted with the current rate [S3]. If the PO is saved in a foreign currency with no positive rate, Turbo refuses it with \"selected foreign currency is missing an exchange rate\" [S12].\n\nOn the rate change question, the code I found doesn't fully settle it. Turbo stores a CAD version of the PO total, called `approval_total_home`, when the PO is saved, using the rate at that time [S12]. I didn't find code that recalculates it when the rate changes later. Turbo refreshes exchange rates on weekday evenings at 10pm UTC [S10]. So the amount that counts is the one stored when the PO was last saved. I could not confirm whether a rate change before approval updates it. An approver can see the CAD amount and the rate and rate date on the PO's approval list [S20].\n\nTurbo's design notes say that spending against an approved PO is checked in the PO's own currency, so a rate change after approval doesn't require a new PO [S34]. I could not confirm this in the code, so treat it as the intended design only.\n\nFor the exact figure, check the PO's approval total in home currency, the rate and the rate date. The approver's limit is in the [PO approvers](/docs/purchase-orders) list shown on the PO screen."
+  },
+  {
+    "name": "po-approval-11 (oracle-claude-haiku-5-5-low)",
+    "case": "po-approval-11",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points. It leaves out the capital limit for a PO with no kind and no job, which is an extra point and not an error.",
+    "answer": "Turbo checks the approver's **computer** limit. For a PO whose kind is Computer, the job doesn't change that. The project limit applies to POs of the Project kind, and to older POs that have no kind.\n\nThe approver also needs a PO approver limit for that division that covers the total. If the PO needs a second approver, that person's computer limit must cover the total too. You can check current limits on the **PO Approvers** page, if you have access."
+  },
+  {
+    "name": "expenses-08 (ask-claude-haiku-5-5-low)",
+    "case": "expenses-08",
+    "expect": [
+      "partial",
+      "abstained"
+    ],
+    "why": "Says that it could not confirm the rule and reports a gap. It gives the right facts as a plan. A statement that the answer marks as not confirmed is not an error.",
+    "answer": "I can't confirm this from Turbo's handbook, and I couldn't confirm how it works in the current release.\n\nThe design notes describe a planned change for bookkeeper-entered expenses. In that plan, the bookkeeper who enters the expense would be its approver, not your manager, and only the bookkeeper could edit or recall a draft that they entered [S1]. That plan includes open questions, such as whether you get a notification [S3]. I found no confirmation that this change is live.\n\nFor a standard expense, the handbook says your manager approves it. You can select **Recall** to edit a submitted expense before approval, or a rejected one, and then submit it again. You can't change a committed expense [/docs/expenses].\n\nTo learn who will approve this expense and who can edit it, ask the bookkeeper who entered it, or ask payables staff.\n\nI can't confirm from the handbook who approves an expense that a bookkeeper enters for you, or who can edit it. Ask the bookkeeper or payables staff. I've recorded this gap for the Turbo team."
+  },
+  {
+    "name": "time-06 (ask-v3-rules)",
+    "case": "time-06",
+    "expect": [
+      "partial",
+      "abstained"
+    ],
+    "why": "Says that it could not find a way and could not confirm who else can approve. It states nothing false.",
+    "answer": "I could not find a way for you to approve this time sheet for another manager in Turbo.\n\nTurbo sends each time sheet to the manager on the staff member's profile, and that manager is the approver [S2][S7]. The approval steps are: under **Time Management**, open **Pending My Approval**, select **Details** on the time sheet, then select **Approve** [Time](/docs/time). I could not confirm whether anyone other than that manager can approve it, and I found no delegation or cover rule. Turbo's notes describe a delegation feature, but it is unbuilt and not approved, so it does not apply here [S12][S13].\n\nOptions:\n- **Ask the staff member's manager** whether they can approve it before they leave, or name someone else who can.\n- **Ask an admin** whether the staff member's manager can be changed on their profile. I could not confirm this from the code.\n\nI could not find a way for you to approve this time sheet for another manager. Turbo sends each time sheet to the staff member's own manager, and I could not confirm that anyone else can approve it. Ask that manager to approve it before they leave, or ask an admin whether the approver can be changed."
+  },
+  {
+    "name": "expenses-03 (ask-claude-haiku-5-5-low)",
+    "case": "expenses-03",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Explains the refusal with the job, and says that US$80 is under the limit with no job. The cause is the Canadian-dollar amount.",
+    "answer": "Turbo applies the $100 limit only to expenses without a job. If your expense has a job selected, Turbo requires a PO whatever the amount. I can't open your expense, so I can't see which job it uses. [Expenses](/docs/expenses)\n\nYou have two options:\n\n1. **Remove the job** if the cost doesn't belong to one. The $100 limit then applies, and your $80 expense doesn't need a PO.\n2. **Keep the job** and check the payment type. Fuel Card, Allowance, Mileage and Personal Reimbursement never need a PO. Personal Reimbursement is for a personal cost, and only if it's allowed for you. For a purchase you paid for, the payment type is usually **Expense**, and that type still needs a PO when there is a job.\n\nTo change the job or payment type, edit the expense while it is in Draft. If it has been submitted, select **Recall** first. Then save and submit it again."
+  },
+  {
+    "name": "expenses-04 (ask-claude-haiku-5-5-low)",
+    "case": "expenses-04",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Says that it found no upper limit. The settled total must be within 20% of the converted total.",
+    "answer": "I found no upper limit on the Canadian-dollar amount. The rules I found are these:\n\n- For a foreign-currency expense that you paid yourself (payment type **Expense**), you enter the CAD amount yourself, before you submit. [S4]\n- The amount must be more than zero. Turbo checks this on submit and again on commit. [S1]\n- Once you submit, you can't change that amount. If the expense is rejected, you can change it when you edit and resubmit. [S1][S5]\n- For a foreign-currency expense with no PO, Turbo checks the $100 no-PO limit against this CAD amount. [S1]\n\nThese rules come from a design document for multi-currency support. It describes a plan, so the current code may differ. If you're not sure the amount is right, ask your manager or a committer before you submit. For the general steps, see [Expenses](/docs/expenses).\n\n[S1]: descriptions/foreign_currencies.md\n[S4]: descriptions/foreign_currencies.md\n[S5]: descriptions/foreign_currencies.md"
+  },
+  {
+    "name": "po-lifecycle-07 (ask-claude-haiku-5-5-low)",
+    "case": "po-lifecycle-07",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Lists the creator, the approvers and report staff, and says that anyone else has no access. It leaves out the manager and the alternate manager of the job.",
+    "answer": "Once a PO is **Closed** or **Cancelled**, Turbo shows it only to:\n\n- the person who created it,\n- the people who approved it, and\n- staff who can view reports.\n\n[S3] Anyone else, including you, gets no access to the PO page. You can still open your own expense. Turbo checks expense visibility separately from PO visibility, so the expense stays visible to you even though the PO is hidden. [S1]\n\nTo see the closed PO, ask its creator or approver, or someone with report access, to check it for you.\n\nNote that these rules come from Turbo's design notes, not the handbook, so they may not match the current app exactly."
+  },
+  {
+    "name": "time-06 (ask-claude-haiku-5-5-low)",
+    "case": "time-06",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Says that only the manager on the profile can approve, and that a new manager on the profile can then approve. The approver is the one recorded on the time sheet.",
+    "answer": "No, you can't approve it for them. Turbo has no way to hand another person a manager's approval rights. Only the manager chosen on the staff member's profile can approve their [time sheet](/docs/time) [S1]. You can't approve it while holding no approval rights.\n\nOptions:\n\n1. The manager can approve it, since they can use Turbo for their own staff.\n2. If the manager can't, the staff member can choose a different manager under **Account**, then save. Their new manager can then approve the time sheet. This is the staff member's change to make, and it's only possible if they can still access Turbo. See [Start here](/docs/start-here#choose-your-manager).\n3. Ask an admin for help if the time sheet is stuck."
+  },
+  {
+    "name": "jobs-08 (ask-claude-haiku-5-5-low)",
+    "case": "jobs-08",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Says that the approval runs against the job as it is now after a reload. Approval is refused until procurement saves the value change again.",
+    "answer": "I couldn't find the exact wording of that error, but the design notes explain the likely cause. When an approver approves a value change, Turbo checks the job's current value and approval history again. It refuses the approval if the job has changed since the proposal was made [S4]. Editing the job's details is allowed while a value change is pending, so the approver's approval is now checked against a different job. Turbo also checks the job's details as stored at approval, so an edit that leaves a required detail missing can block it too [S4][S1].\n\nTo get it approved:\n\n1. Ask the approver to reload the **Value Approvals** page and try again. The approval runs against the job as it is now.\n2. If the error stays, check the job for missing required details, such as the invoicing profile, division hours, branch or completion date for an Active project. The job editor names what is missing [S6].\n3. If the approver still can't approve, procurement can reject the pending change and propose the value again. Turbo allows only one unapproved value change per job, so the old proposal has to be resolved first [S1]. See [Project requests](/docs/project-requests#change-a-projects-value).\n\nOnly the selected approver can approve the change, and the approver must still have approval limit for the full proposed value [S1][S4]."
+  },
+  {
+    "name": "jobs-09 (ask-v4-held)",
+    "case": "jobs-09",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Says that Turbo doesn't reprice past time when the sheet changes. A change of rate sheet reprices all of the project's time.",
+    "answer": "No, Turbo doesn't move existing projects to the new revision. When you activate a revision, Turbo makes the other revisions with the same name inactive [S14]. But each project keeps the rate sheet it already has, so projects on the old revision keep the old rates until someone changes them.\n\nTo change a project's rate sheet, you need the `rate_sheet_revise` claim, which you hold, along with the `job` claim. The new sheet must be active [S7][S8]. Turbo doesn't reprice past time when you change the sheet. The design notes say the app has no way to set a date from which a project uses a new sheet, and that each project has to be moved by hand [S12][S13]. I could not confirm where the rate sheet selector sits on the job form, so check the job's edit screen. If you want to change many projects, you'll need to do each one."
+  },
+  {
+    "name": "expenses-06 (ask-v4-held)",
+    "case": "expenses-06",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Says that the expense goes to the person's own approval queue and that it found no automatic approval. Submit approves it.",
+    "answer": "Submitting sends the expense to its approver, and yes, you can recall it to fix a mistake, as long as nobody has approved it yet.\n\n**What happens when you submit**\n\n- The expense goes to the approver on your profile. Since that is you, it should appear in your own approval queue. I found no rule that approves a self-managed expense automatically. The automatic approval I found applies to time sheets [S1].\n- I could not confirm whether Turbo blocks you from approving your own expense. Check with an admin before you rely on that.\n\n**Recalling it**\n\n1. Open the expense and select **Recall**. This is available while the expense is submitted but not yet approved, or after it has been rejected, and before it is committed [S6].\n2. Turbo clears the submission, any approval, and any rejection reason, and shows \"Record recalled successfully\" [S3].\n3. Edit the expense and select **Submit** again.\n\nA submitted expense can't be edited, so recall it first [S14]. Once an expense is approved, it can't be recalled unless it is also rejected [S9]. After it is committed, it is final [S9].\n\nFor more on expenses, see [Expenses](/docs/expenses)."
+  },
+  {
+    "name": "expenses-05 (ask-claude-sonnet-5-5-low)",
+    "case": "expenses-05",
+    "expect": [
+      "wrong"
+    ],
+    "why": "Says that a committer can reject an expense that is not approved yet. A committer who is not the approver can reject only an approved one.",
+    "answer": "**Yes, it looks that way.** A committer can reject an expense that is submitted but not yet approved by the manager.\n\n- The rule that checks a rejection needs only three things. The expense must be submitted. It must not be committed. It must not already be rejected. It does not require the manager's approval first. [S9]\n- Turbo's design notes say users who can commit may reject an expense while it is submitted, alongside the assigned approver. [S7] I did not find the code that checks who may reject, so I could not confirm this part in the code.\n\nWhen you reject, you must give a reason of at least 4 characters. [S9]\n\nThe owner can then select **Recall**, edit the expense and submit it again. [Expenses](/docs/expenses)\n\nYou hold no committer access, so you can't do this yourself. A committer can. I also can't open a specific expense of yours."
+  },
+  {
+    "name": "expenses-06 (ask-v5-phrases)",
+    "case": "expenses-06",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points.",
+    "answer": "When you submit an expense where you are your own manager, Turbo approves it at the same moment. It does not wait in your approval queue. [S1] The expense then shows as **Approved** and goes to a committer to commit or reject. [Expenses](/docs/expenses)\n\nYou can't recall it afterwards to fix a mistake. Turbo only lets you recall a submitted expense that nobody has approved, or a rejected one. An approved expense can't be recalled. [S32] You also can't edit a submitted expense. [S19]\n\nTo fix a mistake:\n\n1. Ask a committer to reject the expense. Committers can reject an approved expense. [S31]\n2. Once it is rejected, select **Recall**.\n3. Edit the expense and select **Submit** again. It will be approved at once, as before.\n\nAsk a committer before you submit if you are not sure the details are right. Once a committer commits the expense, it is final."
+  },
+  {
+    "name": "jobs-07 (ask-claude-haiku-5-5-low)",
+    "case": "jobs-07",
+    "expect": [
+      "correct"
+    ],
+    "why": "States all three key points, the last two in its final paragraph.",
+    "answer": "You can't delete a project request yourself. Instead, **Recall for editing** it, then fix or leave it. This works until procurement creates the job. [Project requests](/docs/project-requests)\n\n1. Open the request.\n2. Select **Recall for editing**.\n3. Correct the details, or leave it as is.\n\nIf the request should not go ahead, procurement can reject it before creating the job. Procurement enters a reason and selects **Reject**. [Project requests](/docs/project-requests)\n\nAn admin can delete a request that has had no edits for at least 60 days. Ask an admin if you need it removed sooner. [S6] Deleting a request also deletes its attachment. [S2]"
+  },
+  {
+    "name": "time-01 (ask-v5-phrases)",
+    "case": "time-01",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points.",
+    "answer": "Turbo won't save it because the total on one time entry, hours plus meals hours, can't exceed 18. Your shift is 16.5 + 2 = 18.5, which is over the limit by 0.5 hours. Exactly 18 is allowed. [S2]\n\nTurbo shows \"Total hours must not exceed 18\" when you try to save. Meals hours have their own limit of 3 per entry. [S1]\n\nTo save the entry, reduce the hours or meals so the total is 18 or less. Turbo's rules don't say how to record the rest of the shift. Ask your manager or whoever handles time sheets how to record the remaining 0.5 hours."
+  },
+  {
+    "name": "po-lifecycle-05 (ask-100)",
+    "case": "po-lifecycle-05",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points. It also lists a One-Time PO as a case that can't be closed by hand, which is true. The judge read that as a statement about this PO.",
+    "answer": "A Cumulative PO can't be closed by hand while any of its expenses is **submitted but not yet committed or rejected**. That covers expenses waiting for approval and expenses already approved but not yet committed [S1][S4].\n\n**Expenses that block a manual close:**\n- Submitted and waiting for approval. Turbo lists the approvers' names in the refusal [S6].\n- Approved but not yet committed. Turbo says they are \"awaiting commitment\" [S3].\n\n**Expenses that don't block it:**\n- Drafts [S1]\n- Recalled expenses [S1]\n- Rejected expenses [S2]\n- Committed expenses [S2]\n\nTurbo also refuses a manual close in these cases:\n- The PO has no committed expense. The PO must have at least one, or you should cancel it instead [S7].\n- The PO isn't Active [S25].\n- The PO is One-Time. Those POs close on their own when an expense is committed [S5].\n\nTurbo checks these in order and shows only the first refusal that applies [S23]. If the PO has no committed expense, you'll see the \"no expenses\" message even if it isn't Active."
+  },
+  {
+    "name": "people-06 (ask-100)",
+    "case": "people-06",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points. It also says that the save is one transaction, which is true: the route wraps the save. The judge did not have those lines.",
+    "answer": "Turbo checks the **staff member's** claims, not yours. When you save their admin profile, Turbo asks whether the staff member, the profile's user, can use the chosen default branch. Your own claim doesn't count toward that check. [S2] [S42]\n\nA restricted branch needs the staff member to hold at least one of the branch's allowed claims. Holding all of them isn't required. [S35]\n\nYou don't need two saves. The claim changes run before the profile is processed, and both happen in one transaction. If the save fails, the claim change is undone too. [S21] So you can add the claim and set the default branch in the same save, provided the staff member holds the claim after that save. If the staff member doesn't hold a required claim, Turbo refuses the save and names the claims that the branch requires. [S34]"
+  },
+  {
+    "name": "spending-02 (ask-100)",
+    "case": "spending-02",
+    "expect": [
+      "correct"
+    ],
+    "why": "States both key points. It also names the committed status toggle on the list, which is there. The judge did not have the page's code.",
+    "answer": "Yes. Turbo shows your committed expenses in batches of 50. Your drafts and other uncommitted expenses are not limited.\n\n- **Page 1** shows all of your uncommitted expenses, then your 50 most recently committed ones. [S1]\n- **Older committed expenses** appear in batches of 50 after that. Each batch adds one page. [S4]\n\nTo see the rest:\n\n1. Open **My Expenses**.\n2. Use the committed/uncommitted toggle at the top of the list to show the committed view.\n3. Select **Load More** at the bottom to load the next 50.\n\nCommitted expenses are listed newest commit first. [S3]\n\nI can't open your records, so I can't tell you how many committed expenses you have or which ones are hidden.\n\n[Expenses](/docs/expenses)"
+  }
+]
