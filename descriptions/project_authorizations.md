@@ -1,12 +1,12 @@
 # Project Authorization: Approval And Job Creation
 
-**Status: This work ships in two stages. PA1 (client setup and removal of the
-legacy workflow) is deployed. PA2 adds the request and approval workflow and
-completes the design. Sections 1 to 6 describe the complete design. Section 7
-records what each stage delivers. On September 30, 2026, the allocation
-permission requirement was clarified: project managers and alternate managers
-retain allocation editing without `job`, through the existing job editor and
-save route. PA2 deployment and flag activation are pending.**
+**Status: This work shipped in two stages, and both are deployed. PA1 is client
+setup and the removal of the legacy workflow. PA2 added the request and approval
+workflow and completed the design. Sections 1 to 6 describe the complete design.
+Section 7 records what each stage delivered. On September 30, 2026, the
+allocation permission requirement was clarified: project managers and alternate
+managers retain allocation editing without `job`, through the existing job editor
+and save route.**
 
 This document records the implementation requirements. Section 1 describes the
 system before this change. Section 2 records confirmed requirements. Sections 3

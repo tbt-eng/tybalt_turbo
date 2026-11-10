@@ -50,9 +50,9 @@
     "name": "expenses-03 (ask-claude-haiku-5-5-low)",
     "case": "expenses-03",
     "expect": [
-      "wrong"
+      "partial"
     ],
-    "why": "Explains the refusal with the job, and says that US$80 is under the limit with no job. The cause is the Canadian-dollar amount.",
+    "why": "Explains the refusal with a job on the expense. That rule is real: an expense with a job needs a PO whatever its amount. But the question says that the expense has no job, and the answer does not give the cause, which is the Canadian-dollar amount. It states nothing false.",
     "answer": "Turbo applies the $100 limit only to expenses without a job. If your expense has a job selected, Turbo requires a PO whatever the amount. I can't open your expense, so I can't see which job it uses. [Expenses](/docs/expenses)\n\nYou have two options:\n\n1. **Remove the job** if the cost doesn't belong to one. The $100 limit then applies, and your $80 expense doesn't need a PO.\n2. **Keep the job** and check the payment type. Fuel Card, Allowance, Mileage and Personal Reimbursement never need a PO. Personal Reimbursement is for a personal cost, and only if it's allowed for you. For a purchase you paid for, the payment type is usually **Expense**, and that type still needs a PO when there is a job.\n\nTo change the job or payment type, edit the expense while it is in Draft. If it has been submitted, select **Recall** first. Then save and submit it again."
   },
   {

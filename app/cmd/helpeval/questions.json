@@ -866,7 +866,7 @@
   {
     "id": "expenses-03",
     "category": "expenses",
-    "question": "I paid US$80 out of my own pocket and I have no PO. That is under the $100 limit, so why does Turbo say that I need a purchase order?",
+    "question": "I paid US$80 out of my own pocket for something that is not for a job, and I have no PO. That is under the $100 limit, so why does Turbo say that a purchase order is required for expenses of $100 or more?",
     "held": [
       "time"
     ],
@@ -1470,7 +1470,8 @@
     ],
     "wrong_if": [
       "Says a person the time sheet is shared with can approve or reject it.",
-      "Says any manager can approve any time sheet."
+      "Says any manager can approve any time sheet.",
+      "Says that a new manager chosen on the staff member's profile can then approve the time sheet that exists."
     ],
     "sources": [
       {
@@ -2000,7 +2001,7 @@
     ],
     "wrong_if": [
       "Says projects on the old revision move to the new revision automatically.",
-      "Says a rate sheet change on a project applies only to time entered after the change."
+      "Says that a change of a project's rate sheet does not reprice the project's past time, or applies only to time entered after the change."
     ],
     "sources": [
       {
