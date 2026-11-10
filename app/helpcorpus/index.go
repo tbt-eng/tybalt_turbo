@@ -91,7 +91,11 @@ func (ix *Index) fill(ctx context.Context) error {
 	defer insert.Close()
 	for i, chunk := range ix.corpus.Chunks {
 		parts := identifierParts(chunk.Path + " " + chunk.Heading + " " + chunk.Text)
-		if _, err := insert.ExecContext(ctx, i+1, chunk.Path, chunk.Heading, chunk.Text, parts); err != nil {
+		body := chunk.Text
+		if chunk.Asks != "" {
+			body += "\n" + chunk.Asks
+		}
+		if _, err := insert.ExecContext(ctx, i+1, chunk.Path, chunk.Heading, body, parts); err != nil {
 			return err
 		}
 		ix.byPath[chunk.Path] = append(ix.byPath[chunk.Path], i)

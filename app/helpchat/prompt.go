@@ -83,7 +83,7 @@ const (
 var tools = []Tool{
 	{
 		Name: toolSearch,
-		Description: "Search Turbo's rules, source code and design notes by keyword. Returns up to 5 rules, which say " +
+		Description: "Search Turbo's rules, source code and design notes by keyword. Returns up to 10 rules, which say " +
 			"in plain words what the code does, then up to 6 chunks of code, then up to 2 chunks of design notes, each " +
 			"group best first. Each chunk has a type and a reference such as S3. Use specific words: the names of " +
 			"screens, fields and statuses, or code names such as purchase_orders. If a search does not show the rule, " +

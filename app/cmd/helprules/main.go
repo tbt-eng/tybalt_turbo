@@ -7,7 +7,7 @@
 // Run it from the app/ directory, with the provider's key in the shell:
 //
 //	go run ./cmd/helprules --check    no model: list the files with no rules, or with old rules
-//	go run ./cmd/helprules            write the rules of those files
+//	go run ./cmd/helprules            write the rules of those files, then the search phrases of the rules
 //	go run ./cmd/helprules --only app/hooks/expenses.go --force
 //
 // A file gets new rules only when its source changed, so a second run costs
@@ -39,6 +39,9 @@ type options struct {
 	force, check  bool
 	model, effort string
 	parallel      int
+	// The second step writes the search phrases of each rule.
+	phraseModel, phraseEffort string
+	noPhrases                 bool
 }
 
 func main() {
@@ -52,6 +55,9 @@ func main() {
 	flag.StringVar(&o.model, "model", "claude-sonnet-5-5", "the model that writes the rules (the anthropic provider)")
 	flag.StringVar(&o.effort, "effort", "medium", "the effort of that model")
 	flag.IntVar(&o.parallel, "parallel", 4, "files to work on at the same time")
+	flag.StringVar(&o.phraseModel, "phrase-model", "claude-haiku-5-5", "the model that writes the search phrases of the rules (the anthropic provider)")
+	flag.StringVar(&o.phraseEffort, "phrase-effort", "low", "the effort of that model")
+	flag.BoolVar(&o.noPhrases, "no-phrases", false, "write the rules and not their search phrases")
 	flag.Parse()
 
 	if err := run(context.Background(), o, helpchat.NewService(), os.Stdout); err != nil {
@@ -114,8 +120,15 @@ func run(ctx context.Context, o options, service *helpchat.Service, out io.Write
 		for _, name := range extra {
 			fmt.Fprintf(out, "  gone %s\n", name)
 		}
-		if len(jobs)+len(extra) > 0 {
-			return fmt.Errorf("%d rule files to write and %d to remove: run go run ./cmd/helprules", len(jobs), len(extra))
+		var phrases []job
+		if !o.noPhrases {
+			phrases = needPhrases(appDir, sources, o.only, out)
+			for _, j := range phrases {
+				fmt.Fprintf(out, "  asks %s\n", j.source.Path)
+			}
+		}
+		if len(jobs)+len(extra)+len(phrases) > 0 {
+			return fmt.Errorf("%d rule files to write, %d to remove and %d with no search phrases: run go run ./cmd/helprules", len(jobs), len(extra), len(phrases))
 		}
 		return nil
 	}
@@ -126,23 +139,48 @@ func run(ctx context.Context, o options, service *helpchat.Service, out io.Write
 		}
 		fmt.Fprintln(out, "removed", name, "(its source is gone)")
 	}
-	if len(jobs) == 0 {
-		fmt.Fprintln(out, "Nothing to write.")
-		return nil
+	var failed []string
+	if len(jobs) > 0 {
+		if failed, err = writeAll(ctx, o, service, appDir, jobs, bytes, out); err != nil {
+			return err
+		}
 	}
+	if !o.noPhrases {
+		// Read the rule files again: the step above wrote some of them.
+		if phrases := needPhrases(appDir, sources, o.only, out); len(phrases) > 0 {
+			more, err := writeAllPhrases(ctx, o, service, appDir, phrases, out)
+			if err != nil {
+				return err
+			}
+			failed = append(failed, more...)
+		} else if len(jobs) == 0 {
+			fmt.Fprintln(out, "Nothing to write.")
+		}
+	} else if len(jobs) == 0 {
+		fmt.Fprintln(out, "Nothing to write.")
+	}
+	if len(failed) > 0 {
+		sort.Strings(failed)
+		return fmt.Errorf("%d files are not done, run the command again for them: %s", len(failed), strings.Join(failed, ", "))
+	}
+	return nil
+}
 
+// writeAll writes the rules of the jobs, and returns the paths that failed.
+func writeAll(ctx context.Context, o options, service *helpchat.Service, appDir string, jobs []job, bytes int, out io.Writer) ([]string, error) {
 	settings := helpchat.DefaultSettings()
 	settings.Model, settings.Effort = o.model, o.effort
 	settings.MaxOutputTokens, settings.TurnTimeoutSeconds = 32000, 300
 	system, err := systemPrompt(o.repo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fmt.Fprintf(out, "Writing the rules of %d files (%d KB of source) with %s, effort %s.\n\n", len(jobs), bytes/1024, o.model, o.effort)
 
 	var mu sync.Mutex
 	var usage helpchat.Usage
-	rules, failed := 0, []string{}
+	rules := 0
+	var failed []string
 	one := func(j job) {
 		file, used, err := write(ctx, service, settings, system, appDir, j.source)
 		mu.Lock()
@@ -163,13 +201,155 @@ func run(ctx context.Context, o options, service *helpchat.Service, out io.Write
 	one(jobs[0])
 	each(jobs[1:], o.parallel, one)
 
-	fmt.Fprintf(out, "\n%d rules in %d files. Tokens: %d input, %d from the cache, %d written to the cache, %d output.\n",
+	fmt.Fprintf(out, "\n%d rules in %d files. Tokens: %d input, %d from the cache, %d written to the cache, %d output.\n\n",
 		rules, len(jobs)-len(failed), usage.Input, usage.CacheRead, usage.CacheWrite, usage.Output)
-	if len(failed) > 0 {
-		sort.Strings(failed)
-		return fmt.Errorf("%d files have no rules, run the command again for them: %s", len(failed), strings.Join(failed, ", "))
+	return failed, nil
+}
+
+// needPhrases lists the sources whose rule file is for the source as it is and
+// has a rule with no search phrases.
+func needPhrases(appDir string, sources []helpcorpus.SourceFile, only string, out io.Writer) []job {
+	var jobs []job
+	for _, source := range sources {
+		file, ok, err := helpcorpus.ReadRuleFile(appDir, source.Path)
+		if err != nil || !ok || file.SHA256 != helpcorpus.SourceHash(source.Content) || !selected(source.Path, only) {
+			continue
+		}
+		for _, rule := range file.Rules {
+			if len(rule.Asks) == 0 {
+				jobs = append(jobs, job{source: source, state: "asks"})
+				break
+			}
+		}
 	}
-	return nil
+	return jobs
+}
+
+// phraseInstructions is the same for every file.
+const phraseInstructions = `You get rules about Turbo, a company's internal app for time sheets, expenses, purchase orders (POs), jobs and clients. Each rule says what Turbo does in one case. Turbo's Help chat finds a rule by a keyword search, and the search fails when a person asks with other words than the rule has.
+
+For each rule, write 3 to 5 short phrases that a member of staff could type when they ask about that case.
+- Use the words of a person who is in the situation and does not know the rule: what they see, what they want to do, what went wrong. For a rule about an expense whose owner is also its approver, good phrases are "my own manager", "approve my own expense" and "self approval".
+- Use words that the rule does not have: the everyday word, the other name for the thing, the symptom.
+- A phrase is 2 to 6 words. It is not a sentence, and it does not repeat the title.
+- Write only phrases that this rule answers.
+
+Reply with one JSON object and no other text. Give one entry for each rule, with the number of the rule:
+{"asks":[{"n":1,"phrases":["...","..."]}]}`
+
+const maxPhrases = 6
+
+// writeAllPhrases writes the search phrases of the rules that have none, and
+// returns the paths that failed.
+func writeAllPhrases(ctx context.Context, o options, service *helpchat.Service, appDir string, jobs []job, out io.Writer) ([]string, error) {
+	settings := helpchat.DefaultSettings()
+	settings.Model, settings.Effort = o.phraseModel, o.phraseEffort
+	settings.MaxOutputTokens, settings.TurnTimeoutSeconds = 16000, 300
+	fmt.Fprintf(out, "Writing the search phrases of the rules of %d files with %s, effort %s.\n\n", len(jobs), o.phraseModel, o.phraseEffort)
+
+	var mu sync.Mutex
+	var usage helpchat.Usage
+	phrases := 0
+	var failed []string
+	one := func(j job) {
+		n, used, err := writePhrases(ctx, service, settings, appDir, j.source)
+		mu.Lock()
+		defer mu.Unlock()
+		usage.Input += used.Input
+		usage.Output += used.Output
+		usage.CacheRead += used.CacheRead
+		usage.CacheWrite += used.CacheWrite
+		if err != nil {
+			failed = append(failed, j.source.Path)
+			fmt.Fprintf(out, "FAILED %s: %v\n", j.source.Path, err)
+			return
+		}
+		phrases += n
+		fmt.Fprintf(out, "%3d phrases  %s\n", n, j.source.Path)
+	}
+	one(jobs[0])
+	each(jobs[1:], o.parallel, one)
+	fmt.Fprintf(out, "\n%d phrases in %d files. Tokens: %d input, %d from the cache, %d written to the cache, %d output.\n",
+		phrases, len(jobs)-len(failed), usage.Input, usage.CacheRead, usage.CacheWrite, usage.Output)
+	return failed, nil
+}
+
+// writePhrases asks for the phrases of every rule of one file and saves the
+// rule file with them. The request holds the rules and not the code: a phrase
+// is how a person asks, and the rule already says what the code does.
+func writePhrases(ctx context.Context, service *helpchat.Service, settings helpchat.Settings, appDir string, source helpcorpus.SourceFile) (int, helpchat.Usage, error) {
+	var total helpchat.Usage
+	file, ok, err := helpcorpus.ReadRuleFile(appDir, source.Path)
+	if err != nil || !ok {
+		return 0, total, fmt.Errorf("the rule file is gone: %v", err)
+	}
+	var question strings.Builder
+	fmt.Fprintf(&question, "The rules of %s:\n", source.Path)
+	for i, rule := range file.Rules {
+		fmt.Fprintf(&question, "\n%d. %s\n%s\n", i+1, rule.Title, rule.Text)
+	}
+
+	var lastErr error
+	for try := 0; try < 2; try++ {
+		reply, usage, err := service.Complete(ctx, settings, phraseInstructions, question.String())
+		total.Input += usage.Input
+		total.Output += usage.Output
+		total.CacheRead += usage.CacheRead
+		total.CacheWrite += usage.CacheWrite
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		asks, err := parsePhrases(reply, len(file.Rules))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		count := 0
+		for i := range file.Rules {
+			file.Rules[i].Asks = asks[i]
+			count += len(asks[i])
+		}
+		return count, total, os.WriteFile(helpcorpus.RuleFilePath(appDir, source.Path), []byte(file.Format()), 0o644)
+	}
+	return 0, total, lastErr
+}
+
+// parsePhrases reads the model's reply: the phrases of each rule, by the number
+// of the rule. Every rule must have a phrase, or the file is asked about again
+// on every run.
+func parsePhrases(reply string, rules int) ([][]string, error) {
+	from := strings.Index(reply, "{")
+	if from < 0 {
+		return nil, errors.New("the reply has no JSON object")
+	}
+	var parsed struct {
+		Asks []struct {
+			N       int      `json:"n"`
+			Phrases []string `json:"phrases"`
+		} `json:"asks"`
+	}
+	if err := json.NewDecoder(strings.NewReader(reply[from:])).Decode(&parsed); err != nil {
+		return nil, fmt.Errorf("the reply is not valid JSON: %w", err)
+	}
+	out := make([][]string, rules)
+	for _, entry := range parsed.Asks {
+		if entry.N < 1 || entry.N > rules || out[entry.N-1] != nil {
+			continue
+		}
+		for _, phrase := range entry.Phrases {
+			phrase = strings.Join(strings.Fields(phrase), " ")
+			if phrase != "" && len(phrase) <= 80 && len(out[entry.N-1]) < maxPhrases {
+				out[entry.N-1] = append(out[entry.N-1], phrase)
+			}
+		}
+	}
+	for i, phrases := range out {
+		if len(phrases) == 0 {
+			return nil, fmt.Errorf("rule %d has no phrases", i+1)
+		}
+	}
+	return out, nil
 }
 
 func selected(sourcePath, only string) bool {

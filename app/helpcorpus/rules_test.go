@@ -2,6 +2,7 @@ package helpcorpus
 
 import (
 	"maps"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -23,7 +24,8 @@ func TestRuleFileFormatAndParse(t *testing.T) {
 		Source: "app/hooks/expenses.go", SHA256: "abc", Model: "test-model",
 		Rules: []Rule{
 			{Title: "A limit\nof 18 hours", Text: "One entry holds at most 18 hours.\n## Not a heading\nMeals count.", Start: 10, End: 12},
-			{Title: "Second", Text: "Lines 3-4 are not the lines of this rule.", Start: 20, End: 20},
+			{Title: "Second", Text: "Lines 3-4 are not the lines of this rule.", Start: 20, End: 20,
+				Asks: []string{"my own manager", "approve; my own\nexpense", " "}},
 		},
 	}
 	text := file.Format()
@@ -39,11 +41,18 @@ func TestRuleFileFormatAndParse(t *testing.T) {
 	}
 	// A line of text can't become a heading, and the text keeps its words.
 	want := Rule{Title: "A limit of 18 hours", Text: "One entry holds at most 18 hours. ## Not a heading Meals count.", Start: 10, End: 12}
-	if got.Rules[0] != want {
+	if !reflect.DeepEqual(got.Rules[0], want) {
 		t.Errorf("rule 1 = %+v", got.Rules[0])
 	}
 	if got.Rules[1].Start != 20 || got.Rules[1].Text != "Lines 3-4 are not the lines of this rule." {
 		t.Errorf("rule 2 = %+v", got.Rules[1])
+	}
+	// The phrases come back, each on its own, and the text does not hold them.
+	if !reflect.DeepEqual(got.Rules[1].Asks, []string{"my own manager", "approve, my own expense"}) || got.Rules[0].Asks != nil {
+		t.Errorf("asks = %q and %q", got.Rules[0].Asks, got.Rules[1].Asks)
+	}
+	if !strings.Contains(text, "\nAsked as: my own manager; approve, my own expense\n") {
+		t.Errorf("the phrases are one line of the file:\n%s", text)
 	}
 
 	// A file with no rules is a valid file.
@@ -145,5 +154,37 @@ func TestTheCorpusTakesRulesOnlyForTheSourceAsItIs(t *testing.T) {
 	}
 	if strings.Join(paths, " ") != "app/hooks/expenses.go app/routes/expenses.sql ui/src/lib/utilities.ts" {
 		t.Errorf("RuleSources = %v", paths)
+	}
+}
+
+func TestTheSearchMatchesAPhraseThatTheModelDoesNotSee(t *testing.T) {
+	const source = "package routes\n\nfunc submit() {}\n"
+	files := maps.Clone(fixture)
+	files["app/routes/submit.go"] = source
+	files["app/helpcorpus/rules/app/routes/submit.go.md"] = RuleFile{
+		Source: "app/routes/submit.go", SHA256: SourceHash(source), Model: "test-model",
+		Rules: []Rule{{
+			Title: "Submit approves an expense when the owner is also the approver",
+			Text:  "Turbo approves the expense at submit.", Start: 3, End: 3,
+			Asks: []string{"my own manager", "self approval"},
+		}},
+	}.Format()
+	corpus, _, err := Generate(Options{RepoDir: writeRepo(t, files, false)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	index, err := NewIndex(corpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer index.Close()
+
+	// "manager" is in the phrases only.
+	hits, err := index.Search(Claims{}, "my own manager", SearchOptions{Kinds: []string{KindRules}})
+	if err != nil || len(hits) != 1 || hits[0].Start != 3 {
+		t.Fatalf("hits = %+v, %v", hits, err)
+	}
+	if hits[0].Text != "Turbo approves the expense at submit." || hits[0].Asks != "my own manager. self approval" {
+		t.Errorf("text = %q, asks = %q", hits[0].Text, hits[0].Asks)
 	}
 }

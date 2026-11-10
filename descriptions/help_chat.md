@@ -123,8 +123,9 @@ A rule file fixes this. It says in plain words what one source file does: who ma
 - Files in `app/hooks`, `app/routes`, `app/utilities`, `app/reports`, `app/notifications`, `app/cron`, `app/constants` and `app/absorb` get rules, and the `.ts` files directly in `ui/src/lib`. `app/helpcorpus/rules.go` has the list.
 - A rule file records the hash of the source that it was written from. The corpus takes a rule file only when the source has that hash today. A source that changed has no rules until someone runs the command again. So a rule can be missing, and can't be out of date. This is the difference from a design note.
 - The command writes rules only for a source that changed, so a second run costs nothing. `go run ./cmd/helprules --check` calls no model, lists the sources whose rules are missing or old, and fails if there are any.
+- A rule can still have other words than a question. So each rule also has search phrases, in an `Asked as:` line: 3 to 5 short phrases that a person could type about that case, such as "my own manager" for the rule about an owner who is also the approver. The search matches them, and the model does not see them. The same command writes them in a second step, with a cheaper model (`claude-haiku-5-5`), from the rule and not from the code.
 - Each rule is one chunk of the corpus, with the path and the lines of its code. A source link for a rule opens the code. A rule that names uncommit is left out, as the chat treats a commit as final.
-- One search returns up to 5 rules, then the code, then the design notes. The prompt tells the model to answer from a rule as from the code, and to read the lines when it needs a detail that the rule does not give.
+- One search returns up to 10 rules, then the code, then the design notes. The prompt tells the model to answer from a rule as from the code, and to read the lines when it needs a detail that the rule does not give.
 
 After a change to a source file that has rules, run the command and commit the rule file with the change. Read the new rules: a model wrote them, and a wrong rule gives wrong answers.
 
@@ -155,6 +156,18 @@ How to read a run:
 - 50 questions asked one time can't show a difference of less than about 14 points. For a smaller difference, run again and compare question by question.
 - The judge can be too strict. Read the answers that it grades as wrong before you act on the number.
 
+The two modes with no model give the same number on every run, so they can show a small change to the search, which a run with a model can't. For how many of the 50 questions does the search return the lines that settle the answer?
+
+| The search | The question itself, as one search | The searches that the model wrote |
+| --- | ---: | ---: |
+| One list of 6 chunks, notes and code together | 14 | 27 |
+| Code first, then notes | 23 | 45 |
+| With the rules: 5 rules, then code, then notes | 35 | 46 |
+| With the search phrases of the rules | 38 | 45 |
+| With 10 rules and not 5 | 40 | 48 |
+
+The last column uses the searches of the run just before each change, so its rows are not the same searches.
+
 Add a question when Help gives a wrong answer about behavior. Read the code, write the key points from it, and cite the lines. A change to the code can make a reference answer wrong: when a run marks a good answer as wrong, check the reference first.
 
 Each question lists as key points only what an answer must state to answer the question that was asked. Other true facts are in `extra_points`, which nothing grades.
@@ -169,6 +182,8 @@ Runs on 2026-11-10. Each question was asked one time.
 | Haiku 5.5, medium effort, the same search and prompt | 50 | 38 | 3 | 89% | 46 | $0.0035 | 6.4 s |
 | Sonnet 5.5, low effort, the same search and prompt | 49 | 38 | 2 | 89% | 45 | $0.039 | 5.7 s |
 | Haiku 5.5, low effort, with the rules: a search returns rules, then code, then notes | 49 | 37 | 0 | 84% | 47 | $0.0024 | 4.4 s |
+| The same, with each question asked as the person that it names | 50 | 37 | 4 | 86% | 46 | $0.0024 | 4.6 s |
+| With the search phrases of the rules, and 10 rules in a search | 50 | 38 | 1 | 89% | 49 | $0.0024 | 4.8 s |
 
 What the runs show:
 
@@ -177,7 +192,10 @@ What the runs show:
 - Before the rules, what was left was mostly a search that can't find the code because the code does not use the user's words. One question failed in each of those three runs: the code that approves an expense at submit, when the owner is also the approver, has none of the words "self", "own" or "automatic".
 - With the rules, no answer was wrong, and the model needs fewer searches (2.2 for a question and not 2.6), so an answer starts about a second sooner and costs less. The question about your own expense now gets the right answer: the third search found the rule. 46 of the 50 answers cite a rule.
 - The questions that are still partial are mostly not a search problem: the search returned the right lines for 10 of the 12. The model leaves out a fact, or says that it could not confirm it.
-- The benchmark asks as a person with no claims. A question that starts with "I'm a committer" then conflicts with the prompt, and some answers say that the user can't do the task.
+- Those runs asked every question as a person with no claims. A question that starts with "I'm a committer" then conflicted with the prompt, and some answers said that the user can't do the task. Each question now names the claims of the person who asks, in `held`.
+- The last two rows are the same system, and one has 0 wrong answers and the other has 4. One run of 50 questions can't tell them apart: three of the four wrong answers are for questions that other runs got right. Do not read a change of a few answers as a result. Of the 18 questions that name a role, 15 were correct when asked as that role and 13 before.
+- In three of those four wrong answers, the search did not return the rule that settles the question, though the rule is there. The words differ: the question says "my own manager" and the rule says "the owner is also the approver".
+- With the search phrases and 10 rules in a search, those four answers are right or partly right, and the searches returned the right lines for 49 of the 50 questions. The one answer that the judge graded as wrong states every key point: the judge took a true statement about the approver list for an error.
 
 ## Rules that must hold
 
@@ -203,7 +221,7 @@ When a user cannot do a task, the answer says who can, in the glossary's words a
 2. Write a `chat_turns` row with status `running`, in the same transaction as the limit checks.
 3. Build the prompt. The first part is the system rules and the handbook (all the user docs). It is the same bytes for every user, so the model caches it. The second part names the user's claims, the page they are on and all the claims in Turbo.
 4. Send the earlier turns of the chat and the question. The server reads the earlier turns from `chat_turns`.
-5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. One search returns up to 5 rules, then up to 6 chunks of code, then up to 2 chunks of design notes, each marked with its type. They are separate groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
+5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. One search returns up to 10 rules, then up to 6 chunks of code, then up to 2 chunks of design notes, each marked with its type. They are separate groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
 6. Stream the answer, then the sources that it cites.
 7. Write the result to the row.
 

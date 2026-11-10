@@ -28,7 +28,10 @@ const (
 	// list, the notes push the code out, because their headings are in plain
 	// words. The code is what says how Turbo behaves today, and a rule says in
 	// plain words what some lines of the code do (see helpcorpus/rules.go).
-	searchRuleHits = 5
+	// A rule is short, and the rule that settles a question is often not one of
+	// the first 5: with the searches that the model wrote in a benchmark run, it
+	// was one of the first 5 for 40 of 50 questions, and one of the first 10 for 47.
+	searchRuleHits = 10
 	searchCodeHits = 6
 	searchNoteHits = 2
 	// A search hit shows this much of a chunk. read_source shows all of it.

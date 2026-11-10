@@ -43,6 +43,9 @@ type Chunk struct {
 	// Requires says who may read the chunk. See Allows.
 	Requires [][]string `json:"requires"`
 	Text     string     `json:"text"`
+	// Asks is more text for the search to match, which a reader of the chunk
+	// does not get. A rule has it: see Rule.Asks.
+	Asks string `json:"asks,omitempty"`
 }
 
 // Claims are the names of the claims that a user holds. A nil value is a user

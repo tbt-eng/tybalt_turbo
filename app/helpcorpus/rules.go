@@ -71,6 +71,11 @@ type Rule struct {
 	// Start and End are the lines of the source that make the rule true.
 	Start int `json:"start"`
 	End   int `json:"end"`
+	// Asks are short phrases that a person could type to ask about the case, in
+	// words that the rule itself does not use, such as "my own manager" for a
+	// rule about an owner who is also the approver. The search matches them, and
+	// the model does not see them. A second, cheaper request writes them.
+	Asks []string `json:"asks,omitempty"`
 }
 
 // RuleFile is the rules of one source file.
@@ -119,9 +124,27 @@ func (f RuleFile) Format() string {
 		out.WriteString("\nThis file has no rule that a person who uses Turbo can observe.\n")
 	}
 	for _, rule := range f.Rules {
-		fmt.Fprintf(&out, "\n## %s\n\nLines %d-%d\n\n%s\n", oneLine(rule.Title), rule.Start, rule.End, oneLine(rule.Text))
+		fmt.Fprintf(&out, "\n## %s\n\nLines %d-%d\n", oneLine(rule.Title), rule.Start, rule.End)
+		if asks := cleanAsks(rule.Asks); len(asks) > 0 {
+			fmt.Fprintf(&out, "\n%s%s\n", ruleAsksMark, strings.Join(asks, "; "))
+		}
+		fmt.Fprintf(&out, "\n%s\n", oneLine(rule.Text))
 	}
 	return out.String()
+}
+
+const ruleAsksMark = "Asked as: "
+
+// cleanAsks makes the phrases safe for their line: no phrase holds the mark
+// that parts them.
+func cleanAsks(asks []string) []string {
+	var out []string
+	for _, ask := range asks {
+		if ask = oneLine(strings.ReplaceAll(ask, ";", ",")); ask != "" {
+			out = append(out, ask)
+		}
+	}
+	return out
 }
 
 var ruleLines = regexp.MustCompile(`^Lines (\d+)-(\d+)$`)
@@ -159,6 +182,8 @@ func ParseRuleFile(text string) (RuleFile, error) {
 			match := ruleLines.FindStringSubmatch(line)
 			rule.Start, _ = strconv.Atoi(match[1])
 			rule.End, _ = strconv.Atoi(match[2])
+		case rule != nil && rule.Start != 0 && len(body) == 0 && rule.Asks == nil && strings.HasPrefix(line, ruleAsksMark):
+			rule.Asks = cleanAsks(strings.Split(strings.TrimPrefix(line, ruleAsksMark), ";"))
 		case rule != nil && strings.TrimSpace(line) != "":
 			body = append(body, strings.TrimSpace(line))
 		}
@@ -242,7 +267,8 @@ func ruleChunks(options Options, f file) (chunks []Chunk, stale bool, err error)
 	chunks = []Chunk{}
 	for i, rule := range rules.Rules {
 		// The chat treats a commit as final. See handbookBans.
-		if handbookBans.MatchString(rule.Title + " " + rule.Text) {
+		asks := strings.Join(rule.Asks, ". ")
+		if handbookBans.MatchString(rule.Title + " " + rule.Text + " " + asks) {
 			continue
 		}
 		chunks = append(chunks, Chunk{
@@ -254,6 +280,7 @@ func ruleChunks(options Options, f file) (chunks []Chunk, stale bool, err error)
 			Heading:  rule.Title,
 			Requires: requiresFor(f.path, rule.Title+" "+rule.Text),
 			Text:     rule.Text,
+			Asks:     asks,
 		})
 	}
 	return chunks, false, nil
