@@ -121,6 +121,18 @@ All user docs live in `ui/src/docs/`. A change that alters what a user sees or d
 
 ---
 
+## Model API cost
+
+Every call to a model API costs money per token. Any new or changed model integration, on any provider, must be designed around prompt caching and token count. `app/helpchat/` is the reference.
+
+- Put what is the same for all requests first (tools, rules, reference text) and mark it for the cache. Put per-user and per-request content after it.
+- Keep the cached part the same bytes on every request: no dates, ids, user data or lists in a changing order.
+- Send only the tokens the task needs. Put a limit on history, tool results and output.
+- Record the token counts of each call, with cache reads and cache writes. Check that cache reads are not zero.
+- When a change touches a prompt, a tool list, a model or a provider, say what it does to caching and to token count.
+
+---
+
 ## Key Business Concepts
 
 **Purchase Orders (POs)**: Central to the approval workflow. Approval authority is determined by `po_approver_props` per user, with limits varying by expenditure kind (`capital`, `project`, `sponsorship`, `staff_and_social`, `media_and_event`, `computer`). See the Authority Matrix section in `descriptions/purchase_orders.md` for the full matrix.

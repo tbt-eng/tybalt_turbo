@@ -9,6 +9,15 @@
 3. Follow the limits and style in `ui/src/docs/README.md`. Brevity comes first.
 4. If a user-facing commit needs no docs change, add a `Docs: none` line to its message.
 
+## Model API cost
+
+1. Every call to a model API costs money per token. Design any new or changed model integration, on any provider, around prompt caching and token count. `app/helpchat/` is the reference.
+2. Put what is the same for all requests first (tools, rules, reference text) and mark it for the cache. Put per-user and per-request content after it.
+3. Keep the cached part the same bytes on every request: no dates, ids, user data or lists in a changing order.
+4. Send only the tokens the task needs. Put a limit on history, tool results and output.
+5. Record the token counts of each call, with cache reads and cache writes. Check that cache reads are not zero.
+6. When a change touches a prompt, a tool list, a model or a provider, say what it does to caching and to token count.
+
 ## Test fixtures
 
 1. Use fixtures whenever possible, in the csv files, for testing.
