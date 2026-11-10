@@ -135,7 +135,7 @@
     <div>
       <h1 class="text-2xl font-bold">Project Request</h1>
       <p class="text-sm text-neutral-600">
-        {request.id} · Version {request.version} · {request.status || request.state}
+        Version {request.version} · {request.status || request.state}
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-3">
@@ -253,10 +253,7 @@
     </div>
     {#if detail.attachment}<button class="text-blue-700 underline" disabled={busy} onclick={openPDF}
         >Open authorization PDF</button
-      >
-      <p class="text-xs break-all text-neutral-500">
-        SHA-256: {detail.attachment.document_hash}
-      </p>{:else}<p>No authorization PDF uploaded.</p>{/if}
+      >{:else}<p>No authorization PDF uploaded.</p>{/if}
     {#if permission.can_edit && $jobRequestsEnabled}<label class="block text-sm font-semibold"
         >{detail.attachment ? "Replace PDF" : "Upload PDF"}<input
           class="mt-2 block"

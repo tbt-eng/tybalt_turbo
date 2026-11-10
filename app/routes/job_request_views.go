@@ -65,7 +65,8 @@ func requestRelated(app core.App, r *core.Record) (map[string]any, error) {
 	}
 	rates := []map[string]any{}
 	if id := r.GetString("rate_sheet"); id != "" {
-		rows, err := app.FindRecordsByFilter("rate_sheet_entries", "rate_sheet={:id}", "role", 0, 0, dbx.Params{"id": id})
+		// Highest rate first, the order the rate sheet itself prints in.
+		rows, err := app.FindRecordsByFilter("rate_sheet_entries", "rate_sheet={:id}", "-rate", 0, 0, dbx.Params{"id": id})
 		if err != nil {
 			return nil, err
 		}
