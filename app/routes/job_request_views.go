@@ -222,6 +222,13 @@ func requestQueueSelection(app core.App, auth *core.Record, queue string) (strin
 			return "", nil, err
 		}
 		return "approver={:uid} && status='Awaiting approval'", params, nil
+	case "approved":
+		// Requests this approver approved that still wait for a job, like the
+		// PO list of approved POs that wait for a second approval.
+		if err := workflowClaim(app, auth, "project_authorization"); err != nil {
+			return "", nil, err
+		}
+		return "approver={:uid} && status='Awaiting creation'", params, nil
 	case "abandoned":
 		if err := workflowClaim(app, auth, "admin"); err != nil {
 			return "", nil, err

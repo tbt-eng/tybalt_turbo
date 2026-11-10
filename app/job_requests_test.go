@@ -503,10 +503,21 @@ func TestJobRequestSelectedApproverAndCreatorPermissions(t *testing.T) {
 		t.Fatalf("creation queue must include other creators: %#v", queue)
 	}
 	clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=creation", workflowApprover, nil, http.StatusForbidden)
+	// The approver keeps the request in view until the job is created.
+	if queue := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approval", workflowApprover, nil, http.StatusOK); queue["totalItems"] != float64(0) {
+		t.Fatalf("approved request must leave the approval queue: %#v", queue)
+	}
+	if queue := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approved", workflowApprover, nil, http.StatusOK); queue["totalItems"] != float64(1) {
+		t.Fatalf("approved queue must list the approver's request awaiting creation: %#v", queue)
+	}
+	clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approved", "time@test.com", nil, http.StatusForbidden)
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/recall", "time@test.com", requestActionData(t, app, id), http.StatusOK)
 	queue = clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=creation", workflowAuthor, nil, http.StatusOK)
 	if queue["totalItems"] != float64(0) {
 		t.Fatalf("recall must remove queue entry: %#v", queue)
+	}
+	if queue := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approved", workflowApprover, nil, http.StatusOK); queue["totalItems"] != float64(0) {
+		t.Fatalf("recall must remove approved queue entry: %#v", queue)
 	}
 }
 

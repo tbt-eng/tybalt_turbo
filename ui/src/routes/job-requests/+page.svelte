@@ -11,6 +11,16 @@
   import { wholeCAD, canViewJobCreateQueue } from "$lib/jobRequests";
   import { shortDate } from "$lib/utilities";
   let { data } = $props();
+  type RequestRow = {
+    id: string;
+    submitted?: string;
+    client_name?: string;
+    description?: string;
+    project_value: number;
+    status?: string;
+    parent?: string;
+    rejection_reason?: string;
+  };
   const titles: Record<string, string> = {
     mine: "My Project Requests",
     all: "All Project Requests",
@@ -43,6 +53,30 @@
       })),
   );
 </script>
+
+{#snippet anchor(item: RequestRow)}
+  <a class="link" href={resolve(`/job-requests/${item.id}`)}
+    >{item.submitted ? shortDate(item.submitted, true) : "Draft"}</a
+  >
+{/snippet}
+{#snippet headline(item: RequestRow)}
+  {item.client_name || item.description || "Untitled request"}
+{/snippet}
+{#snippet byline(item: RequestRow)}
+  <span class="flex flex-wrap items-center gap-2">
+    {#if item.project_value > 0}{wholeCAD(item.project_value)}{/if}
+    {#if item.status}<DSStatusLabel status={item.status} kind="request" />{/if}
+    {#if item.parent}<DsLabel color="cyan">Subjob</DsLabel>{/if}
+  </span>
+{/snippet}
+{#snippet line1(item: RequestRow)}
+  {#if item.client_name}{item.description}{/if}
+{/snippet}
+{#snippet line2(item: RequestRow)}
+  {#if item.status === "Rejected" && item.rejection_reason}
+    <DsLabel tone="danger">{item.rejection_reason}</DsLabel>
+  {/if}
+{/snippet}
 
 {#snippet help()}
   {#if data.queue === "approval"}
@@ -82,32 +116,26 @@
     pagination={true}
     inListHeader={titles[data.queue] || titles.mine}
     emptyMessage="No requests in this list."
+    {anchor}
+    {headline}
+    {byline}
+    {line1}
+    {line2}
   >
     {#snippet searchBarExtra()}
       {#if tabs.length <= 1}{@render help()}{/if}
     {/snippet}
-    {#snippet anchor(item)}
-      <a class="link" href={resolve(`/job-requests/${item.id}`)}
-        >{item.submitted ? shortDate(item.submitted, true) : "Draft"}</a
-      >
-    {/snippet}
-    {#snippet headline(item)}
-      {item.client_name || item.description || "Untitled request"}
-    {/snippet}
-    {#snippet byline(item)}
-      <span class="flex flex-wrap items-center gap-2">
-        {#if item.project_value > 0}{wholeCAD(item.project_value)}{/if}
-        {#if item.status}<DSStatusLabel status={item.status} kind="request" />{/if}
-        {#if item.parent}<DsLabel color="cyan">Subjob</DsLabel>{/if}
-      </span>
-    {/snippet}
-    {#snippet line1(item)}
-      {#if item.client_name}{item.description}{/if}
-    {/snippet}
-    {#snippet line2(item)}
-      {#if item.status === "Rejected" && item.rejection_reason}
-        <DsLabel tone="danger">{item.rejection_reason}</DsLabel>
-      {/if}
-    {/snippet}
   </DSList>
+
+  {#if data.approvedItems.length > 0}
+    <DSList
+      items={data.approvedItems}
+      inListHeader="Approved By Me, Awaiting Job Creation"
+      {anchor}
+      {headline}
+      {byline}
+      {line1}
+      {line2}
+    />
+  {/if}
 </div>

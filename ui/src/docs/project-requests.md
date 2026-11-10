@@ -49,6 +49,8 @@ Include the rate appendix for time and materials work. Save your edits before yo
 
 To decline, enter a rejection reason and select **Reject**.
 
+Requests that you approved stay below your list, under **Approved By Me, Awaiting Job Creation**, until Procurement creates the job.
+
 ## Create the job
 
 1. Open **Job Create Queue**. Open the request.
