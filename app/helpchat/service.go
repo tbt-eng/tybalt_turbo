@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -17,23 +16,23 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// apiKeyEnv names the secret that holds the Claude API key. It is a Fly secret
-// in production. It is never in the repo, and it never goes to the browser.
-const apiKeyEnv = "ANTHROPIC_API_KEY"
-
-// warmEvery is the least time between two cache warm-ups. The model's cache
-// lasts 5 minutes after its last use.
+// warmEvery is the least time between two cache warm-ups. Claude's cache lasts
+// 5 minutes after its last use.
 const warmEvery = 4 * time.Minute
 
-// Service holds what the routes need: the model and the search index.
+// Service holds what the routes need: the search index and the model clients.
 type Service struct {
-	// Model and Index are set directly in tests. In the app they are nil, and
-	// the first request loads them.
+	// Model and Index are set directly in tests. In the app they are nil. The
+	// first request loads the index, and each provider's client is made when a
+	// setting first names that provider.
 	Model Model
 	Index *helpcorpus.Index
 
-	loadOnce sync.Once
-	loadErr  error
+	indexOnce sync.Once
+	indexErr  error
+
+	modelsMu sync.Mutex
+	models   map[string]Model
 
 	warmMu   sync.Mutex
 	lastWarm time.Time
@@ -44,16 +43,12 @@ func NewService() *Service { return &Service{} }
 
 var errNotSetUp = errors.New("help chat is not set up")
 
-// ready loads the model and the index on the first call. A server with no API
-// key, or with no corpus, has no chat, and the rest of Turbo is not affected.
-func (s *Service) ready() error {
-	if s.Model != nil && s.Index != nil {
-		return nil
-	}
-	s.loadOnce.Do(func() {
-		key := os.Getenv(apiKeyEnv)
-		if key == "" {
-			s.loadErr = fmt.Errorf("%w: %s is not set", errNotSetUp, apiKeyEnv)
+// ready returns the model for the settings, and loads the index on the first
+// call. A server with no key for the provider, or with no corpus, has no chat,
+// and the rest of Turbo is not affected.
+func (s *Service) ready(settings Settings) (Model, error) {
+	s.indexOnce.Do(func() {
+		if s.Index != nil {
 			return
 		}
 		// In development the server runs in app/, and the repo is one folder up.
@@ -61,17 +56,36 @@ func (s *Service) ready() error {
 		// uses the corpus in the binary.
 		corpus, err := helpcorpus.Open("..")
 		if err != nil {
-			s.loadErr = fmt.Errorf("%w: %w", errNotSetUp, err)
+			s.indexErr = fmt.Errorf("%w: %w", errNotSetUp, err)
 			return
 		}
-		index, err := helpcorpus.NewIndex(corpus)
-		if err != nil {
-			s.loadErr = fmt.Errorf("%w: %w", errNotSetUp, err)
-			return
+		if s.Index, err = helpcorpus.NewIndex(corpus); err != nil {
+			s.indexErr = fmt.Errorf("%w: %w", errNotSetUp, err)
 		}
-		s.Model, s.Index = NewAnthropicModel(key), index
 	})
-	return s.loadErr
+	if s.indexErr != nil {
+		return nil, s.indexErr
+	}
+	if s.Model != nil {
+		return s.Model, nil
+	}
+
+	s.modelsMu.Lock()
+	defer s.modelsMu.Unlock()
+	if model, ok := s.models[settings.Provider]; ok {
+		return model, nil
+	}
+	// A missing key is not remembered, so a key that arrives with a restart of
+	// the app, or in a test, is found.
+	model, err := newModel(settings.Provider)
+	if err != nil {
+		return nil, err
+	}
+	if s.models == nil {
+		s.models = map[string]Model{}
+	}
+	s.models[settings.Provider] = model
+	return model, nil
 }
 
 // build names the code that answers: the app version and its git commit.
@@ -105,12 +119,13 @@ func enabledSettings(app core.App) (Settings, error) {
 	return settings, nil
 }
 
-func (s *Service) checkReady(app core.App) error {
-	if err := s.ready(); err != nil {
-		app.Logger().Error("help chat can't start", "error", err)
-		return apis.NewApiError(http.StatusServiceUnavailable, "Help chat is not set up.", nil)
+func (s *Service) checkReady(app core.App, settings Settings) (Model, error) {
+	model, err := s.ready(settings)
+	if err != nil {
+		app.Logger().Error("help chat can't start", "provider", settings.Provider, "error", err)
+		return nil, apis.NewApiError(http.StatusServiceUnavailable, "Help chat is not set up.", nil)
 	}
-	return nil
+	return model, nil
 }
 
 func (s *Service) request(settings Settings) Request {
@@ -147,7 +162,8 @@ func (s *Service) handleAsk(app core.App) func(e *core.RequestEvent) error {
 		if len([]rune(body.Question)) > settings.MaxQuestionChars {
 			return apis.NewBadRequestError(fmt.Sprintf("The question is too long. The limit is %d characters.", settings.MaxQuestionChars), nil)
 		}
-		if err := s.checkReady(app); err != nil {
+		model, err := s.checkReady(app, settings)
+		if err != nil {
 			return err
 		}
 
@@ -183,7 +199,7 @@ func (s *Service) handleAsk(app core.App) func(e *core.RequestEvent) error {
 
 		ctx, cancel := context.WithTimeout(e.Request.Context(), time.Duration(settings.TurnTimeoutSeconds)*time.Second)
 		defer cancel()
-		result := runTurn(ctx, s.Model, s.Index, turnInput{settings: settings, claims: held, request: request}, stream)
+		result := runTurn(ctx, model, s.Index, turnInput{settings: settings, claims: held, request: request}, stream)
 
 		// The row is saved even when the user has left.
 		if err := finishTurn(app, record, result); err != nil {
@@ -236,7 +252,8 @@ func (s *Service) handleWarm(app core.App) func(e *core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		if err := s.checkReady(app); err != nil {
+		model, err := s.checkReady(app, settings)
+		if err != nil {
 			return err
 		}
 		s.warmMu.Lock()
@@ -250,7 +267,7 @@ func (s *Service) handleWarm(app core.App) func(e *core.RequestEvent) error {
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()
-				if err := s.Model.Warm(ctx, request); err != nil {
+				if err := model.Warm(ctx, request); err != nil {
 					app.Logger().Warn("help chat can't warm the model's cache", "error", err)
 				}
 			}()

@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -21,17 +20,16 @@ import (
 // settingsKey is the app_config row that holds the settings.
 const settingsKey = "help_chat"
 
-// The models that the chat can use. The prompt and the limits are tuned for them.
-var allowedModels = []string{"claude-haiku-5-5", "claude-sonnet-5-5"}
-
-var allowedEfforts = []string{"low", "medium", "high"}
-
 // Settings come from app_config. See descriptions/app_config.md.
 type Settings struct {
 	// Enabled turns the chat on. It is off until an admin adds the setting.
-	Enabled bool   `json:"enabled"`
-	Model   string `json:"model"`
-	Effort  string `json:"effort"`
+	Enabled bool `json:"enabled"`
+	// Provider is the company whose API runs the model. See providers.go.
+	Provider string `json:"provider"`
+	// Model is a model id of that provider.
+	Model string `json:"model"`
+	// Effort is how much the model thinks before it answers.
+	Effort string `json:"effort"`
 	// MaxOutputTokens limits one model reply, with its thinking.
 	MaxOutputTokens int `json:"max_output_tokens"`
 	// MaxQuestionChars limits a question.
@@ -50,7 +48,8 @@ type Settings struct {
 func DefaultSettings() Settings {
 	return Settings{
 		Enabled:            false,
-		Model:              "claude-haiku-5-5",
+		Provider:           providerAnthropic,
+		Model:              providers[providerAnthropic].defaultModel,
 		Effort:             "low",
 		MaxOutputTokens:    8000,
 		MaxQuestionChars:   2000,
@@ -72,8 +71,14 @@ func LoadSettings(app core.App) (Settings, error) {
 	if err != nil {
 		return settings, err
 	}
+	// The default model belongs to the default provider. A row that names
+	// another provider gets that provider's default, or must name a model.
+	settings.Model = ""
 	if err := json.Unmarshal([]byte(record.GetString("value")), &settings); err != nil {
 		return DefaultSettings(), fmt.Errorf("app_config %s: %w", settingsKey, err)
+	}
+	if settings.Model == "" {
+		settings.Model = providers[settings.Provider].defaultModel
 	}
 	if err := settings.validate(); err != nil {
 		return DefaultSettings(), fmt.Errorf("app_config %s: %w", settingsKey, err)
@@ -82,11 +87,15 @@ func LoadSettings(app core.App) (Settings, error) {
 }
 
 func (s Settings) validate() error {
-	if !slices.Contains(allowedModels, s.Model) {
-		return fmt.Errorf("model must be one of %v", allowedModels)
+	chosen, ok := providers[s.Provider]
+	if !ok {
+		return fmt.Errorf("provider must be one of %v", providerNames())
 	}
-	if !slices.Contains(allowedEfforts, s.Effort) {
-		return fmt.Errorf("effort must be one of %v", allowedEfforts)
+	if s.Model == "" {
+		return fmt.Errorf("model is required for the provider %s", s.Provider)
+	}
+	if err := chosen.check(s.Model, s.Effort); err != nil {
+		return err
 	}
 	limits := []struct {
 		name     string

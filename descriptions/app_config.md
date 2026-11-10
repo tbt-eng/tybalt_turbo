@@ -124,10 +124,34 @@ Controls Litestream replica health checking and alerting.
 
 ## Domain: `help_chat`
 
-Controls Help chat, which answers questions about Turbo in Help. See [help_chat.md](help_chat.md).
+Controls Help chat, which answers questions about Turbo in Help. [help_chat.md](help_chat.md) has the steps to set it up and to change the model.
 
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
+| `enabled` | bool | `false` | Turns the chat on. When false, `/api/help/ask` returns HTTP 403. |
+| `provider` | string | `"anthropic"` | The company whose API runs the model: `"anthropic"`, `"openai"` or `"openrouter"`. The server needs that provider's key. |
+| `model` | string | see below | A model id of the provider. Each turn records the provider and the model that answered it. |
+| `effort` | string | `"low"` | How much the model thinks before it answers. |
+| `max_output_tokens` | number | `8000` | The most tokens in one model reply, with its thinking. 500 to 64000. |
+| `max_question_chars` | number | `2000` | The longest question. 20 to 4000. |
+| `questions_per_hour` | number | `30` | The most questions from one user in an hour. 1 to 1000. |
+| `max_tool_calls` | number | `6` | The most searches and reads in one turn. 0 to 20. |
+| `history_turns` | number | `10` | How many earlier turns of a chat go to the model. 0 to 50. |
+| `turn_timeout_seconds` | number | `60` | The longest time for one turn. 5 to 300. |
+
+Each provider has its own key, models and effort values:
+
+| `provider` | Secret on the server | `model` | `effort` |
+| --- | --- | --- | --- |
+| `anthropic` | `ANTHROPIC_API_KEY` | `"claude-haiku-5-5"` (default) or `"claude-sonnet-5-5"` | `"low"`, `"medium"`, `"high"` |
+| `openai` | `OPENAI_API_KEY` | Required. Any model id from OpenAI. | `"minimal"`, `"low"`, `"medium"`, `"high"`, or `""` to send none |
+| `openrouter` | `OPENROUTER_API_KEY` | Required. Any model id from OpenRouter, such as `"openai/gpt-5-mini"`. | The same as `openai` |
+
+A key is never a value in `app_config`. Every signed-in user can read this collection, and its rows are in the database backups.
+
+**Fail mode:** closed. With no row the chat is off. A value that is out of range, a provider that is not in the list, a model that the provider does not allow, or no key on the server for the provider also leaves the chat off, and the routes return HTTP 503. The server log says which.
+
+--- | --- | --- | --- |
 | `enabled` | bool | `false` | Turns the chat on. When false, `/api/help/ask` returns HTTP 403. |
 | `model` | string | `"claude-haiku-5-5"` | The model that answers. `"claude-haiku-5-5"` or `"claude-sonnet-5-5"`. Each turn records the model that answered it. |
 | `effort` | string | `"low"` | How much the model thinks: `"low"`, `"medium"` or `"high"`. |
@@ -179,7 +203,7 @@ The chat also needs the `ANTHROPIC_API_KEY` secret on the server. Without it, `/
 }
 
 // key: "help_chat"
-{ "enabled": true, "model": "claude-haiku-5-5" }
+{ "enabled": true, "provider": "anthropic", "model": "claude-haiku-5-5" }
 
 // key: "litestream"
 {

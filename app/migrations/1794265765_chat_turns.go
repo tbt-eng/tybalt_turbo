@@ -11,7 +11,7 @@ const chatTurnsCollectionID = "pbc_chat_turns"
 // Add chat_turns, the log of Help chat.
 //
 // One row is one question and its answer. The row records how the answer was
-// made (model, corpus, claims, tool calls), what it cost, and what the user did
+// made (provider, model, corpus, claims, tool calls), what it cost, and what the user did
 // with it, so that we can improve the chat later.
 //
 // A user can list and view their own rows. Only server code writes rows: the
@@ -43,6 +43,7 @@ func init() {
 			&core.JSONField{Name: "sources"},
 
 			// How the answer was made.
+			&core.TextField{Name: "provider", Max: 50},
 			&core.TextField{Name: "model", Max: 100},
 			&core.TextField{Name: "effort", Max: 20},
 			&core.TextField{Name: "build", Max: 100},

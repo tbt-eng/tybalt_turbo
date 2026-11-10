@@ -359,8 +359,8 @@ func TestTheChatIsOffUntilASettingTurnsItOn(t *testing.T) {
 
 func TestAServerWithNoKeyHasNoChat(t *testing.T) {
 	f := newFixture(t, on())
-	t.Setenv(apiKeyEnv, "")
-	f.service.Model, f.service.Index = nil, nil
+	t.Setenv("ANTHROPIC_API_KEY", "")
+	f.service.Model = nil
 	mustStatus(t, f.ask(t, staffEmail, map[string]any{"question": "How do I submit my week?"}), http.StatusServiceUnavailable)
 	if len(f.turns(t)) != 0 {
 		t.Fatal("a turn started with no model")
@@ -431,6 +431,7 @@ func TestAskStreamsTheAnswerAndLogsTheTurn(t *testing.T) {
 		"turn":               1,
 		"question":           "Why did Turbo clear a field on my time entry?",
 		"status":             StatusAnswered,
+		"provider":           "anthropic",
 		"model":              "claude-sonnet-5-5",
 		"effort":             "medium",
 		"build":              build(),

@@ -13,12 +13,10 @@ func TestDefaultSettingsAreValidAndOff(t *testing.T) {
 	if err := settings.validate(); err != nil {
 		t.Fatal(err)
 	}
-	if settings.Enabled || settings.Model != "claude-haiku-5-5" || settings.Effort != "low" {
+	if settings.Enabled || settings.Provider != "anthropic" || settings.Model != "claude-haiku-5-5" || settings.Effort != "low" {
 		t.Errorf("defaults = %+v", settings)
 	}
 	bad := []func(*Settings){
-		func(s *Settings) { s.Model = "claude-opus-5-5" },
-		func(s *Settings) { s.Effort = "max" },
 		func(s *Settings) { s.MaxOutputTokens = 0 },
 		func(s *Settings) { s.MaxQuestionChars = 1000000 },
 		func(s *Settings) { s.QuestionsPerHour = -1 },
@@ -29,13 +27,48 @@ func TestDefaultSettingsAreValidAndOff(t *testing.T) {
 		settings := DefaultSettings()
 		change(&settings)
 		if settings.validate() == nil {
-			t.Errorf("bad setting %d passed", i)
+			t.Errorf("bad limit %d passed", i)
 		}
 	}
-	sonnet := DefaultSettings()
-	sonnet.Model = "claude-sonnet-5-5"
-	if err := sonnet.validate(); err != nil {
-		t.Error(err)
+}
+
+func TestEachProviderChecksItsModelAndEffort(t *testing.T) {
+	cases := []struct {
+		provider, model, effort string
+		ok                      bool
+	}{
+		{"anthropic", "claude-haiku-5-5", "low", true},
+		{"anthropic", "claude-sonnet-5-5", "high", true},
+		{"anthropic", "claude-opus-5-5", "low", false},
+		{"anthropic", "gpt-5-mini", "low", false},
+		{"anthropic", "claude-haiku-5-5", "", false},
+		{"anthropic", "claude-haiku-5-5", "minimal", false},
+		{"anthropic", "claude-haiku-5-5", "max", false},
+		{"openai", "gpt-5-mini", "low", true},
+		{"openai", "gpt-5-mini", "minimal", true},
+		{"openai", "gpt-4.1", "", true},
+		{"openai", "", "low", false},
+		{"openai", "gpt 5", "low", false},
+		{"openai", "gpt-5\n", "low", false},
+		{"openai", "gpt-5-mini", "max", false},
+		{"openrouter", "openai/gpt-5-mini", "medium", true},
+		{"openrouter", "google/gemini-2.5-flash:free", "", true},
+		{"openrouter", "", "", false},
+		{"azure", "gpt-5", "low", false},
+		{"", "claude-haiku-5-5", "low", false},
+	}
+	for _, c := range cases {
+		settings := DefaultSettings()
+		settings.Provider, settings.Model, settings.Effort = c.provider, c.model, c.effort
+		if err := settings.validate(); (err == nil) != c.ok {
+			t.Errorf("%s / %q / %q: got %v, want ok=%v", c.provider, c.model, c.effort, err, c.ok)
+		}
+	}
+	// A key is a secret on the server, one for each provider.
+	for name, p := range providers {
+		if !strings.HasSuffix(p.keyEnv, "_API_KEY") {
+			t.Errorf("%s reads its key from %q", name, p.keyEnv)
+		}
 	}
 }
 

@@ -25,7 +25,7 @@ func TestChatTurnsRules(t *testing.T) {
 		t.Fatalf("uid must be a required relation that goes when the user goes, got %+v", uid)
 	}
 	for _, name := range []string{
-		"chat", "turn", "question", "answer", "sources", "model", "effort", "build", "corpus", "claims", "tool_calls",
+		"chat", "turn", "question", "answer", "sources", "provider", "model", "effort", "build", "corpus", "claims", "tool_calls",
 		"route", "record", "surface", "status", "gap", "stop_reason", "error", "request_id",
 		"tokens_in", "tokens_cache_read", "tokens_cache_write", "tokens_out", "ms_first_token", "ms_total",
 		"rating", "rating_note", "opened_sources", "copied", "created", "updated",

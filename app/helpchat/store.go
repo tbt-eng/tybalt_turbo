@@ -188,6 +188,7 @@ func startTurn(app core.App, uid string, start turnStart) (*core.Record, []Excha
 		record.Set("chat", chat)
 		record.Set("turn", number)
 		record.Set("question", start.body.Question)
+		record.Set("provider", start.settings.Provider)
 		record.Set("model", start.settings.Model)
 		record.Set("effort", start.settings.Effort)
 		record.Set("build", start.build)
