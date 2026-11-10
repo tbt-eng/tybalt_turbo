@@ -13,7 +13,7 @@ The flow is enabled only when both of these are true:
 - the authenticated user has the `legacy_po_create_update` claim
 - `app_config.key = "purchase_orders"` has `value.enable_legacy_po_create_update = true`
 
-The backend enforces both checks.
+The backend enforces both checks. It also refuses the three legacy endpoints while expenses editing is off (`app_config.expenses.create_edit_absorb = false`).
 
 ## Hidden Routes
 
@@ -50,7 +50,7 @@ Legacy rows still cannot be deleted in practice because this feature always crea
 
 ## Normal Viewing Behavior
 
-Legacy POs are still viewed through the normal PO list/details experience.
+Legacy POs are still viewed through the normal PO list/details experience. The normal visibility rules apply, and `legacy_po_create_update` claim holders can also see a legacy PO in every status through the `/api/purchase_orders/visible*` routes.
 
 The visible/list DTOs include `legacy_manual_entry`, and the UI shows a badge:
 
@@ -141,7 +141,7 @@ Required fields:
 Legacy `po_number` is entered manually and must match:
 
 - `YYMM-NNNN`
-- `YY` is `25` or `26`
+- `YY` is `24`, `25` or `26`
 - `MM` is `01` through `12`
 - `NNNN` is in the `5XXX` range
 
@@ -178,6 +178,7 @@ Forced values:
 - `closed = ""`
 - `closer = ""`
 - `closed_by_system = false`
+- `covered_within_project_budget = false`
 
 Additional create-time behavior:
 
@@ -243,7 +244,7 @@ Legacy/manual POs are exported through the legacy expenses writeback flow the sa
 
 Purchase order export behavior:
 
-- all `purchase_orders` rows where `_imported = false` are emitted
+- all `purchase_orders` rows where `_imported = false` and `status` is not `Unapproved` are emitted. A legacy PO is never `Unapproved`, so it is always emitted.
 - PO export ignores `updatedAfter`
 
 This ensures manually entered legacy POs are not lost even if they are not yet referenced by committed expenses.

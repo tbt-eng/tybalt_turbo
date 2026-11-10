@@ -1,6 +1,6 @@
 # Job WIP
 
-The WIP tab follows Active POs on Job Details. It shows the included value as a
+The WIP tab follows POs on Job Details. It shows the included value as a
 percentage of `jobs.project_value`. This is a comparison of charge-out values
 and commitments with project value, not a measure of physical completion,
 actual labour cost, cash paid, or invoiced revenue.
@@ -62,7 +62,7 @@ current exchange-rate estimate used for the remaining commitment.
 
 Time value is always included. Include committed expenses and Include active POs
 start checked. A question-mark button beside Time value explains: "Hours × job
-rate, with employee defaults where needed."
+rate, with staff defaults where needed."
 Excluded rows remain visible with an Excluded label and no project percentage.
 The total, remaining project value, budget bar, and optional doughnut update
 when a checkbox changes. Opening the tab loads fresh data and resets controls.

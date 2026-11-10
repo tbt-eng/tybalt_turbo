@@ -51,7 +51,7 @@ search matching.
 - Visible columns are:
   - `Work Record`
   - `Week Ending`
-  - `Employee`
+  - `Staff member`
   - `Hours`
   - `Job`
   - `Description`

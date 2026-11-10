@@ -1,6 +1,6 @@
 # app_config Reference
 
-The `app_config` collection is a key-value store for runtime configuration. Each record has a `key` (the domain), a JSON `value` object, and an optional `description`. Authenticated users can read configs; updates are unrestricted.
+The `app_config` collection is a key-value store for runtime configuration. Each record has a `key` (the domain), a JSON `value` object, and an optional `description`. Authenticated users can read configs. The collection has no create, update or delete rule, so only a PocketBase superuser can change a config.
 
 Configuration is read via helpers in `app/utilities/config.go`. Missing or invalid values fall back to defaults.
 
@@ -17,9 +17,9 @@ Controls job editing and the Project Request creation workflow.
 
 Missing settings use the defaults. An invalid request-approval Boolean or a database read error blocks creation. Proposals remain outside the
 request approval workflow. When request approval is disabled, retained requests
-keep their state and age. Hide the Job Create Queue and its badge, and block
-request creation and job creation from a request. Enable the setting again to
-restore the queue from retained request state.
+keep their state and age. Turbo hides the Job Create Queue and its badge, and blocks
+request creation and job creation from a request. Enabling the setting again
+restores the queue from retained request state.
 
 This flag does not restrict work on existing jobs. Project-value changes always
 require approval, including when this flag is false. See the
@@ -34,10 +34,12 @@ Controls expense, PO, and vendor editing, plus expense validation thresholds.
 | Property                    | Type   | Default   | Description                                                                                                                            |
 |-----------------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `create_edit_absorb`        | bool   | `true`    | Enables expense, purchase order, and vendor creation/updating/absorb. When `false`, these operations return HTTP 403.                  |
-| `no_po_expense_limit`       | number | `100.0`   | Dollar threshold above which a non-exempt expense requires a PO. Set to `0` to require a PO for all non-exempt expenses. Must be >= 0. |
+| `no_po_expense_limit`       | number | `100.0`   | A non-exempt expense of this many dollars or more requires a PO. Set to `0` to require a PO for all non-exempt expenses. Must be >= 0. |
 | `uncommit_payroll_lock_days` | number | `7` | Days after `pay_period_ending` that a payroll-paid expense can still be requested for uncommit. See [uncommit_requests.md](uncommit_requests.md). Must be >= 0. |
 | `uncommit_non_payroll_lock_days` | number | `90` | Days after commit that any other expense can still be requested for uncommit. Must be >= 0. |
 | `po_expense_allowed_excess` | object | see below | Controls how much total expenses on a PO can exceed the PO total.                                                                      |
+
+While `create_edit_absorb` is `false`, Turbo also refuses to delete an expense, PO or vendor. It refuses the expense actions (submit, recall, copy, approve, reject, commit, uncommit, and each step of an uncommit request) and the PO actions (approve, reject, cancel, close, make cumulative, revise, and creating a PO group).
 
 ### `po_expense_allowed_excess` sub-object
 
@@ -64,7 +66,7 @@ Controls time-entry and time-amendment editing, plus selected timesheet workflow
 
 | Property      | Type | Default | Description                                                                                     |
 |---------------|------|---------|-------------------------------------------------------------------------------------------------|
-| `create_edit` | bool | `true`  | Enables time entry and time amendment creation/editing/deletion, time entry copy, plus timesheet bundle and approve. When `false`, these operations return HTTP 403. |
+| `create_edit` | bool | `true`  | Enables time entry and time amendment creation/editing/deletion, time entry copy (one entry, or a week's entries to the next week), plus timesheet bundle, approve and uncommit. When `false`, these operations return HTTP 403. |
 
 **Fail mode:** open (defaults to enabled)
 
@@ -102,6 +104,8 @@ Toggles individual notification templates on/off. Each property key is a templat
 | `timesheet_approval_reminder`          | Reminder to approve pending timesheets      |
 | `timesheet_rejected`                   | Timesheet has been rejected                 |
 | `timesheet_shared`                     | Timesheet has been shared with a viewer     |
+
+The same row also switches the template codes that are not in this table: `job_request_submitted`, `job_request_approved`, `job_request_rejected`, `job_request_created`, `job_value_submitted`, `job_value_approved`, `job_value_rejected`, `job_client_changed`, `po_group_approval_required` and `po_group_second_approval_required`. The migrations that added those codes wrote `true` for them in this row, and did the same for `po_revision_approval_required` and the three `expense_uncommit_*` codes.
 
 **Fail mode:** closed (defaults to disabled)
 
@@ -150,21 +154,6 @@ Each provider has its own key, models and effort values:
 A key is never a value in `app_config`. Every signed-in user can read this collection, and its rows are in the database backups.
 
 **Fail mode:** closed. With no row the chat is off. A value that is out of range, a provider that is not in the list, a model that the provider does not allow, or no key on the server for the provider also leaves the chat off, and the routes return HTTP 503. The server log says which.
-
---- | --- | --- | --- |
-| `enabled` | bool | `false` | Turns the chat on. When false, `/api/help/ask` returns HTTP 403. |
-| `model` | string | `"claude-haiku-5-5"` | The model that answers. `"claude-haiku-5-5"` or `"claude-sonnet-5-5"`. Each turn records the model that answered it. |
-| `effort` | string | `"low"` | How much the model thinks: `"low"`, `"medium"` or `"high"`. |
-| `max_output_tokens` | number | `8000` | The most tokens in one model reply, with its thinking. 500 to 64000. |
-| `max_question_chars` | number | `2000` | The longest question. 20 to 4000. |
-| `questions_per_hour` | number | `30` | The most questions from one user in an hour. 1 to 1000. |
-| `max_tool_calls` | number | `6` | The most searches and reads in one turn. 0 to 20. |
-| `history_turns` | number | `10` | How many earlier turns of a chat go to the model. 0 to 50. |
-| `turn_timeout_seconds` | number | `60` | The longest time for one turn. 5 to 300. |
-
-The chat also needs the `ANTHROPIC_API_KEY` secret on the server. Without it, `/api/help/ask` returns HTTP 503.
-
-**Fail mode:** closed. With no row the chat is off. A value that is out of range, or a model that is not in the list, also leaves the chat off, and the routes return HTTP 503.
 
 ---
 

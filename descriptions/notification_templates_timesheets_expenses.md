@@ -1,16 +1,16 @@
 ### Notification Templates for Timesheets and Expenses
 
-Proposed notification templates for the unimplemented notifications described in [Issue #86](https://github.com/tbt-eng/tybalt_turbo/issues/86).
+Notification templates for the notifications described in [Issue #86](https://github.com/tbt-eng/tybalt_turbo/issues/86). All six are built: `app/notifications/queue_reminders.go` queues the three reminders from cron jobs, and `app/notifications/queue_events.go` sends the other three when the event happens. Turbo sends a template only while its code is `true` in the `notifications` row of `app_config`.
 
-All link placeholders use the form `__LINK_TO_<THING>__` and should be replaced with real URLs when wiring up the notifications.
+Each link is the `{{.ActionURL}}` placeholder. The code fills it with the app URL and the path of the page: `/time/entries/list`, `/expenses/pending`, `/time/sheets/pending`, `/time/sheets/<id>/details` or `/expenses/<id>/details`. Turbo refuses to send an email whose text still has the old `{APP_URL}` or `{:RECORD_ID}` placeholder.
 
 ---
 
 ### `timesheet_submission_reminder`
 
 - **Code**: `timesheet_submission_reminder`
-- **Description**: Sent to users who have not submitted their timesheet for the previous week.
-- **Subject**: `Reminder: submit your timesheet for {{.WeekEnding}}`
+- **Description**: Sent to users who have not submitted their timesheet for the previous week. Only users whose admin profile has `time_sheet_expected` set get it.
+- **Subject**: `Please submit a timesheet for last week`
 - **Text email**:
 
 ```text
@@ -20,9 +20,7 @@ You have not submitted your timesheet for the week ending {{.WeekEnding}}.
 
 Please review your time entries then submit here:
 
-{APP_URL}/time/entries/list
-
-Thank you.
+{{.ActionURL}}
 ```
 
 ---
@@ -31,7 +29,7 @@ Thank you.
 
 - **Code**: `expense_approval_reminder`
 - **Description**: Sent to managers with one or more expenses awaiting their approval.
-- **Subject**: `You have expenses awaiting approval`
+- **Subject**: `Expenses await your approval`
 - **Text email**:
 
 ```text
@@ -41,9 +39,7 @@ One or more expenses are awaiting your approval.
 
 Please review and approve or reject them here:
 
-{APP_URL}/expenses/pending
-
-Thank you.
+{{.ActionURL}}
 ```
 
 ---
@@ -52,7 +48,7 @@ Thank you.
 
 - **Code**: `timesheet_approval_reminder`
 - **Description**: Sent to managers with one or more timesheets awaiting their approval.
-- **Subject**: `You have timesheets awaiting approval`
+- **Subject**: `Time sheets await your approval`
 - **Text email**:
 
 ```text
@@ -62,9 +58,7 @@ One or more timesheets are awaiting your approval.
 
 Please review and approve or reject them here:
 
-{APP_URL}/time/sheets/pending
-
-Thank you.
+{{.ActionURL}}
 ```
 
 ---
@@ -73,7 +67,7 @@ Thank you.
 
 - **Code**: `timesheet_rejected`
 - **Description**: Sent when a timesheet is rejected to the employee, the rejector, and the employee's manager (if different from the rejector).
-- **Subject**: `Timesheet was rejected`
+- **Subject**: `A time sheet was rejected`
 - **Text email**:
 
 ```text
@@ -85,9 +79,7 @@ The timesheet for {{.EmployeeName}} for the week ending {{.WeekEnding}} was reje
 
 You can review the timesheet and make any required changes here:
 
-{APP_URL}/time/sheets/{:RECORD_ID}/details
-
-Thank you.
+{{.ActionURL}}
 ```
 
 ---
@@ -96,7 +88,7 @@ Thank you.
 
 - **Code**: `expense_rejected`
 - **Description**: Sent when an expense is rejected to the employee, the rejector, and the employee's manager (if different from the rejector).
-- **Subject**: `Expense was rejected`
+- **Subject**: `An expense was rejected`
 - **Text email**:
 
 ```text
@@ -108,9 +100,7 @@ The expense submitted by {{.EmployeeName}} on {{.ExpenseDate}} for {{.ExpenseAmo
 
 You can review the expense and make any required changes here:
 
-{APP_URL}/expenses/{:RECORD_ID}/details
-
-Thank you.
+{{.ActionURL}}
 ```
 
 ---
@@ -119,7 +109,7 @@ Thank you.
 
 - **Code**: `timesheet_shared`
 - **Description**: Sent to newly added viewers when a timesheet is shared with them for review.
-- **Subject**: `A timesheet has been shared with you`
+- **Subject**: `A time sheet has been shared with you`
 - **Text email**:
 
 ```text
@@ -129,7 +119,5 @@ Hello {{.RecipientName}},
 
 You can view the shared timesheet here:
 
-{APP_URL}/time/sheets/{:RECORD_ID}/details
-
-Thank you.
+{{.ActionURL}}
 ```

@@ -18,6 +18,7 @@ The flow is intentionally transactional and conservative. It keeps `users.userna
 ## What It Does
 
 - First login seeds `users.email`, `users.name`, and `users.username` from Microsoft data.
+- First login gives the new user the `time` claim. A returning or relinked login does not give it again.
 - Returning login syncs `users.name` and `users.email` from Microsoft when safe to do so.
 - Returning login keeps `users.username` unchanged.
 - Provider-ID rotation can relink the login to an older existing `users` record instead of creating a duplicate.
@@ -172,7 +173,8 @@ Example:
 
 The current tests cover:
 
-- first login seeding email, name, username, verification, and `admin_profiles`
+- first login seeding email, name, username, verification, the `time` claim, and `admin_profiles`
+- a returning login not giving the `time` claim again after it was removed
 - username suffix allocation when two users share the same email local-part
 - relinking an older migrated user when Microsoft returns a new provider ID
 - returning-login sync for `users.name` and `users.email`

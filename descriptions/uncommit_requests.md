@@ -13,7 +13,7 @@ This builds on [uncommit.md](uncommit.md). The direct uncommit stays.
 Source: the `Expenses - Turbo` Teams thread, 2026-05-29 to 2026-11-05. The last 50 messages were read in full and older ones were found by searching for "uncommit", so a request that never used the word could be missing. Payment types and claims come from the local database snapshot, whose latest commit is 2026-10-30.
 
 - There were at least 53 uncommits in 23 weeks, and 47 have a stated reason. September had 12, October had 9, and the first 5 days of November had 5.
-- Since 2026-09-11, 23 of 25 requests ended in a rejection. Today that takes a second person after the admin holder, because `admin` can't reject.
+- Since 2026-09-11, 23 of 25 requests ended in a rejection. Before requests, that took a second person after the admin holder, because `admin` can't reject.
   - On 2026-09-25 the expense on PO 2609-0364 was accidentally recommitted while waiting for that rejection.
   - On 2026-10-27 the usual rejector was out of office.
 - Requests name a PO, but only expenses can be uncommitted. This caused repeated clarifying questions, and one no-PO expense needed its id pasted from the URL bar.
@@ -23,7 +23,7 @@ Source: the `Expenses - Turbo` Teams thread, 2026-05-29 to 2026-11-05. The last 
   - One PO was uncommitted three times (2604-0328).
 - Age checks were ad hoc: "it is older, please confirm with Andrew", and "check with Andrew to ensure nothing was paid out".
 - Of the 22 POs in the thread that still have expenses, 20 are `OnAccount` or `CorporateCreditCard`. Only 2 are `Expense`. The expenses on the other POs were deleted when those POs were cancelled, so their types are unknown.
-- Uncommitting clears `committed`, `committer` and `pay_period_ending` and logs nothing, so the original commit can't be recovered later.
+- Before requests, uncommitting cleared `committed`, `committer` and `pay_period_ending` and logged nothing, so the original commit couldn't be recovered later. Now every expense uncommit copies the commit state onto a request row first.
 
 ## Standard Reasons
 
@@ -160,17 +160,17 @@ All mutating routes call `requireExpensesEditing`.
 - `POST /api/expense_uncommit_requests/approve` with `{ ids: [] }`, also used for a single approval
 - `POST /api/expense_uncommit_requests/{id}/decline`
 
-`GET /api/expenses/details/{id}` gains an `uncommit_request` block for `commit` holders: eligibility, the blocking reason and pay day, and any pending request.
+`GET /api/expenses/details/{id}` has an `uncommit_request` block for `commit` and `admin` holders when the expense is committed: eligibility, the blocking reason and pay day, and any pending request. Only `commit` holders get `can_request`.
 
-The uncommit and reject bodies move out of their handlers into shared functions that take a `txApp`, so the existing routes and this one run the same code.
+The uncommit and reject bodies live in shared functions that take a `txApp` (`uncommitRecordInTransaction` and `rejectRecordInTransaction`), so the existing routes and this one run the same code.
 
 ## UI
 
 Follow `ui/CLAUDE.md`.
 
 - **Expense details:** `Request uncommit` opens a `DSPopover` with reason, outcome and note. It is hidden from `admin` holders, who have the direct `Uncommit` button and would only be asking themselves. When blocked, a `DSCallout` gives the period and pay day and says to message Dean on Teams. When pending, a `DSCallout` shows the request and a cancel action.
-- **PO details:** must reach each committed expense in one click, since people think in PO numbers. Check this during the build.
-- **New page `/expenses/uncommit-requests`:** `DSTabBar` for Pending and Decided, listed with `DSList`, with a pending count in the nav for `admin` holders, like the Commit Queue.
+- **PO details:** each expense in the PO's list links to its details page, so a committed expense is one click away. People think in PO numbers.
+- **Page `/expenses/uncommit-requests`:** `DSTabBar` for Pending and Decided, listed with `DSList`, with a pending count in the nav for `admin` holders, like the Commit Queue.
   - Each row shows PO and vendor, employee, payment type, total, committed date and age, reason and note, outcome, requester and time waiting.
   - Rows have a `DsCheck`, with `Approve selected (N)` and `Approve all`.
   - The bulk confirmation states how many will be rejected.
@@ -178,9 +178,9 @@ Follow `ui/CLAUDE.md`.
 
 ## Notifications
 
-- **Requester:** notified on approval or decline.
+- **Requester:** notified on approval or decline, unless they decided it themselves.
 - **Employee:** the existing rejection notification.
-- **Admin holders:** the nav count, plus one daily reminder email while anything is pending, following `notifications/queue_reminders.go`. No email per request.
+- **Admin holders:** the nav count, plus one reminder email each weekday (13:00 UTC) while anything is pending, following `notifications/queue_reminders.go`. No email per request.
 
 ## Companion Fix: Convert Closed One-Time POs
 

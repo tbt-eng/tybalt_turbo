@@ -15,7 +15,7 @@ This document explains how Turbo populates the Primary Approver list and the Sec
 
 Before Turbo builds the lists, Turbo does these actions:
 
-1. Turbo validates the division, amount, expenditure kind, and job status.
+1. Turbo validates the division, amount, expenditure kind, and the `has_job` value (whether the purchase order has a job).
 2. For a recurring purchase order, Turbo calculates the total scheduled value.
 3. Turbo converts a foreign-currency amount to the home-currency amount.
 4. Turbo selects the approval-limit field for the expenditure kind.

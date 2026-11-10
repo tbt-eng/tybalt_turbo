@@ -2,6 +2,12 @@
 
 ## STATUS: UNIMPLEMENTED, NOT REVIEWED
 
+This status is for the delegation model only. Claim assignment itself is built,
+for holders of `admin` only: see "Current state". Turbo has no delegation: no
+`claim_assignment_permissions` collection, no `CanAssignClaim` helper, no
+excluded claims and no audit records. A user without `admin` cannot assign any
+claim. A user with `admin` can assign every claim, including `admin`.
+
 ### Goal
 
 Allow selected non-admin users to assign specific claims to other users without
@@ -20,14 +26,15 @@ claim assignment.
   through custom routes such as `/api/admin_profiles/save_with_claims` and
   `/api/claims/{id}/bulk_assign`.
 - The UI can show claim holders and can now bulk assign users who do not already
-  hold a selected claim.
+  hold a selected claim. The bulk assign list has only users whose admin profile
+  is active.
 
 This is safe, but coarse. Anyone who can assign claims can assign every claim,
 including high-risk claims.
 
 ### Proposed model
 
-Add a new explicit delegation table that describes which claim grants a user is
+**Not built.** Add a new explicit delegation table that describes which claim grants a user is
 allowed to assign.
 
 Recommended collection:
@@ -61,7 +68,7 @@ claim that is permitted to assign `X`.
 
 ### Why claim-to-claim instead of user-to-claim
 
-Prefer claim-to-claim delegation first.
+**Not built.** Prefer claim-to-claim delegation first.
 
 It has a smaller administrative surface:
 
@@ -74,6 +81,9 @@ A user-to-claim model could be added later if the business needs one-off
 exceptions, but it should not be the first version.
 
 ### Hard exclusions
+
+**Not built.** Turbo excludes no claim today: a holder of `admin` can assign any
+claim, including `admin`.
 
 Some claims should never be assignable through delegation.
 
@@ -93,6 +103,9 @@ identity controls unless management explicitly approves them:
 These exclusions should be enforced on the server, not only hidden in the UI.
 
 ### Backend authorization
+
+**Not built.** Today each claim-writing route checks only that the caller holds
+`admin`.
 
 Add a helper such as:
 
@@ -128,6 +141,8 @@ Admin profile editing is more dangerous because it currently syncs the whole
 claim set for a user. A delegated assigner should not be able to remove claims
 they do not control or add claims they do not control.
 
+**Not built.** Both routes are open to holders of `admin` only.
+
 Recommended rule:
 
 - `admin` can continue full claim sync.
@@ -140,6 +155,9 @@ This prevents a delegated user from accidentally or intentionally stripping
 unrelated permissions.
 
 ### UI behavior
+
+**Not built.** Today the Claims list page is open to every signed-in user. The
+details page and the Bulk Assign page load only for holders of `admin`.
 
 The claims list/details pages should stay available only to users who can manage
 at least one claim.
@@ -161,6 +179,8 @@ For a user who holds the `admin` claim:
 
 ### Auditability
 
+**Not built.** Turbo keeps no record of who assigned or removed a claim.
+
 Claim assignment changes should be auditable.
 
 Minimum audit fields for future implementation:
@@ -177,6 +197,8 @@ logs, but a collection is easier to inspect from the application.
 
 ### Tests
 
+**Not built.** These are the tests for the delegation model.
+
 Backend tests should cover:
 
 - Admin can assign any non-excluded claim.
@@ -192,6 +214,8 @@ Use fixture CSV rows for the new collections and append-only fixture data.
 
 ### Rollout
 
+**Not built.** No step is done.
+
 1. Add the `claim_assignment_permissions` collection with schema migration.
 2. Seed initial permissions conservatively.
 3. Add `CanAssignClaim`.
@@ -201,7 +225,7 @@ Use fixture CSV rows for the new collections and append-only fixture data.
 
 ### Open decision
 
-Management must decide which claims are safe to delegate.
+**Not built.** Management must decide which claims are safe to delegate.
 
 The technical model can support any claim-to-claim mapping, but the initial
 matrix is a policy decision. Start small: delegate `time` only, then expand once

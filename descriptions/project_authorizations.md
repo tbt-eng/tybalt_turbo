@@ -15,10 +15,13 @@ release instructions. Section 7 describes the release stages.
 
 ## 1. Where We Are Now
 
-Turbo lets holders of the `job` claim create numbered projects and proposals.
-Creation validates the job and its division allocations. The job-update API also
-permits the manager or alternate manager to edit, subject to field restrictions.
-This permission dates from November 11, 2025 (commit `9afe3096`). The new edit
+This section describes Turbo before PA1 and PA2. It is history, not how Turbo
+works today. Sections 2 to 6 describe what Turbo does today.
+
+Turbo let holders of the `job` claim create numbered projects and proposals.
+Creation validated the job and its division allocations. The job-update API also
+permitted the manager or alternate manager to edit, subject to field restrictions.
+This permission dated from November 11, 2025 (commit `9afe3096`). The new edit
 policy below replaces that access for project fields other than division
 allocations. Managers and alternate managers retain allocation editing.
 
@@ -27,18 +30,19 @@ default to `Active`, including subjobs and projects created from proposals.
 Users can select `Active`, `Closed`, or `Cancelled`. The editor recommends
 `Closed` for parent jobs used as reporting containers.
 
-The code includes a PDF Project Authorization workflow: upload, review, rejection,
+The code included a PDF Project Authorization workflow: upload, review, rejection,
 revocation, queues, notifications, and document hash checks. Its setting,
-`jobs.enforce_project_authorization`, controls PDF approval checks on downstream
-work. The last recorded production value is false. Verify it before deployment.
+`jobs.enforce_project_authorization`, controlled PDF approval checks on downstream
+work. PA1 removed the workflow and the setting.
 
 The existing PO authority model uses the `po_approver` claim and a related
-`po_approver_props` record. Project authorization will use the same claim and
-properties pattern, with its own claim and one value limit. It will not use the
+`po_approver_props` record. Project authorization uses the same claim and
+properties pattern, with its own claim and one value limit. It does not use the
 PO division, expenditure-kind, threshold, or approval-stage rules.
 
-Clients have no structured postal address. Contacts have email but no phone
-field. There is no reusable client invoicing profile or job-request table.
+Clients had no structured postal address. Contacts had email but no phone
+field. There was no reusable client invoicing profile or job-request table.
+PA1 and PA2 added them.
 
 ## 2. Confirmed Requirements
 
@@ -242,7 +246,7 @@ user as well as the applicable claim or ownership rule.
 | Action | Permission |
 | --- | --- |
 | Create and submit a request | Employees with `time`. |
-| Use Create Subjob on a parent job to start a request | Anyone authorized to create a job request, when the request workflow is enabled. No `job` claim is required. |
+| Use Create Subjob Request on a parent job to start a request | Anyone authorized to create a job request, when the request workflow is enabled. No `job` claim is required. |
 | View requests | Creators can view their own requests. Holders of `job` can view all requests. The `project_authorization` claim grants access only to assigned requests and their PDFs. Admins can view requests in the abandoned-request list for triage. |
 | Edit or recall a request before job creation | Its creator. Recall a submitted or approved request before editing it. A rejected request can be edited directly. |
 | Select or change a request's approver | Its creator only, under the same edit-state rules. |
@@ -254,10 +258,10 @@ user as well as the applicable claim or ownership rule.
 | Create an invoicing profile using an existing client contact | Active holders of `time` or `job`. No separate profile approval is required. |
 | Edit existing invoicing profiles, or maintain clients and contacts | Holders of `job`. A profile creator without `job` cannot edit it. |
 | Add or remove division allocations, or change allocated hours on an existing job | Holders of `job`, or the user assigned to `jobs.manager` or `jobs.alternate_manager` on that job. Managers and alternate managers do not need `job` for these allocation edits. Existing allocation validation applies. |
-| Edit other job fields, including proposing a new project value and uploading its PDF | Holders of `job`, subject to validation and additional field permissions. Client is immutable except through the controlled merge process or **Change Client**. |
+| Edit other job fields, including proposing a new project value and uploading its PDF | Holders of `job`, subject to validation and additional field permissions. Client is immutable except through the controlled merge process or **Change Client**. The server also accepts a proposal's field edits from its manager or alternate manager without `job`; the job editor shows them allocations only. |
 | Change a project's client with **Change Client** | Active holders of `job`, with a written reason. |
 | Select or change the approver for a pending project-value change | Holders of `job`. |
-| Approve or reject a pending project-value change | Its selected approver. Approval requires `project_authorization` and a limit that covers the full proposed value. Rejection requires a reason. |
+| Approve or reject a pending project-value change | Its selected approver. Approval requires `project_authorization` and a limit that covers the full proposed value. Rejection requires `project_authorization` and a reason. |
 | Delete the latest approved project-value change or clear a pending approval for admin correction | Holders of `admin`, subject to the deletion rules below. |
 | Delete a request before review | Its creator, while the request is `Draft`, `Recalled`, or `Rejected` and the request workflow is enabled. These are the states in which the creator can edit it. |
 | Delete an abandoned request | Holders of `admin`. |
@@ -292,6 +296,11 @@ editor shows only division allocations and sends `PUT /api/jobs/{id}` with
 and retains the existing project validation. A save that changes allocations
 updates the job's writeback marker and timestamp, but no other job fields.
 A save with no allocation changes preserves the existing rows and review state.
+An allocation-only save needs an active user and job editing switched on
+(`jobs.create_edit_absorb`). While job editing is off, the server refuses the
+save with "job editing is currently disabled", and the job editor shows the
+editing-disabled notice instead of the form. The server also refuses an
+allocation-only save on a `Cancelled` proposal.
 Generic allocation create, update, and delete APIs are locked for application
 users. The editor keeps generic read access and saves through the job route.
 
@@ -330,7 +339,8 @@ remain attached for correction and fresh approval; do not require a duplicate
 upload of that same PDF. Only the final approval used for job creation must
 survive request deletion.
 
-The selected approver receives submission, rejection, and approval notices.
+The selected approver receives the submission notice. The creator receives the
+approval and rejection notices (see Workflow Emails).
 
 ### Job Create Queue
 
@@ -462,8 +472,8 @@ advance the business-data `version` or reset `last_edited`, so resubmission does
 not reset the abandoned-request clock. A timestamp cannot replace this field:
 timestamps can tie, and the same business data can be submitted more than once.
 
-Refuse a request that duplicates work already represented by a job. Show recent
-jobs for the client and highlight jobs linked to the selected proposal. Show number, description,
+Refuse a request that duplicates work already represented by a job. Show the
+client's projects and the projects linked to the selected proposal. Show number, description,
 client, status, manager, and parent, with links to details. Also show possible
 matches by description, location, and client PO/reference number. For subjobs,
 show the parent and existing subjobs. Show this review to the `job` holder, who
@@ -518,6 +528,7 @@ branch, Plus Code location, award date, active rate sheet, positive project
 value, T&M indicator, at least one active division allocation, an explicit
 First Nations agreement answer (`Yes` or `No`), one PDF, and a qualified selected
 approver. Require the project's invoicing profile and validate its relations.
+An `Active` project also needs a project completion date; an estimate is acceptable.
 Keep `job_owner` optional, matching the current schema and validation. If set,
 it must reference a valid client. Add no new owner-detail requirements.
 Projects created from requests default to `Active`. The creator can select
@@ -939,7 +950,7 @@ With the flag on, **Create Project from Proposal** becomes **Create Project Requ
 from Proposal**. Copy available values and the proposal relation. The creator
 supplies the remaining information.
 
-With the flag on, show a **Create Subjob** button on the parent job's detail
+With the flag on, show a **Create Subjob Request** button on the parent job's detail
 page to anyone authorized to create a job request. Use the same parent-job
 eligibility as the current **Create Sub-Job** entry point. A closed parent
 remains eligible; proposals cannot be parents. The button opens a new subjob
@@ -981,8 +992,9 @@ to `Awaiting creation`. Do not allocate a job number or delete the request.
 
 ### Recall, Rejection, And Correction
 
-Enforce creator-only recall and selected-approver-only rejection on requests,
-including after approval and before creation. Clear invalidated approval fields
+Enforce creator-only recall on requests, including after approval and before
+creation. Only the selected approver can reject a request, except that a `job`
+holder can also reject it once it is `Awaiting creation`. Clear invalidated approval fields
 and change request state atomically. A successful creator edit of a rejected
 request clears all rejection fields; submission cannot clear them itself.
 Synchronize request and attachment state so neither can authorize creation
@@ -990,7 +1002,7 @@ after recall, rejection, or an edit. Failed edits preserve existing state.
 
 ### Job Creation
 
-The `job` holder confirms every statement of the current request checklist before
+The `job` holder confirms every statement of the current `creation` checklist before
 creation. The duplicate-work statement includes existing jobs created since the
 request was approved. An overlap between requests is for the `job` holder to
 coordinate; the financial approver is not responsible for reviewing unassigned
@@ -1081,7 +1093,9 @@ server. Allocation-only saves must not pass through a blanket `job`-claim gate
 or require a project-value approval. Preserve the existing allocation checks,
 including active divisions, no duplicate divisions, nonnegative whole hours, and at
 least one allocation. Retain stale-review checks for pending approvals when
-allocations change.
+allocations change. An allocation-only save still requires an active user and
+job editing switched on (`jobs.create_edit_absorb`), and the server refuses it on
+a `Cancelled` proposal.
 
 Enforce the job-deletion attachment guard in collection rules and model-delete
 hooks as well as custom routes. Check for attachments in the deletion
@@ -1105,7 +1119,7 @@ edits the field. Keep `client_po` and
 
 ## 4. SQLite Schema Changes
 
-These changes are implemented by four sequential migrations:
+These changes were first implemented by four sequential migrations:
 
 1. `1790969510_client_setup.go` adds client/contact fields, invoicing profiles,
    and the optional job-profile relation. It removes legacy authorization fields,
@@ -1127,6 +1141,11 @@ These changes are implemented by four sequential migrations:
    notice templates with the seven workflow emails and switches them on. A
    replaced template that existing notifications reference is kept, switched
    off.
+
+Later migrations add to these. `1792003502_job_client_changed_email.go` adds the
+**Change Client** email. `1793983731_request_checklists.go` and
+`1793996004_request_checklist_scope.go` add `request_checklists`, its scopes, and
+`job_attachments.creation_checklist_version`, and remove `checklist_answers`.
 
 The first migration shipped alone in the PA1 release, with the client workspace,
 invoicing profiles, and removal of the legacy workflow. It is deployed and must
@@ -1199,7 +1218,7 @@ active authority without deleting approval history or its recorded limit.
 | `invoicing_information` | `TEXT`; relation to `client_invoicing_information`. |
 | `description`, `location`, `client_po`, `client_reference_number` | `TEXT`; use existing job field definitions. |
 | `notes` | `TEXT`; optional, blank or 10 to 1000 characters, the `client_notes.note` limits. The server trims surrounding spaces. Business data covered by `version` and `review_token`. `jobs` has no matching column; creation copies the notes to the job's first `client_notes` record. |
-| `project_award_date` | `TEXT`; existing date format, `YYYY-MM-DD`. |
+| `project_award_date`, `project_completion_date` | `TEXT`; existing date format, `YYYY-MM-DD`. An `Active` project needs a completion date at submission. |
 | `project_value`, `time_and_materials` | `NUMERIC` integer and `BOOLEAN`; positive value in whole CAD dollars required even for T&M at submission. |
 | `fn_agreement_answer` | `TEXT`; select `Yes` or `No`. Empty is allowed only before submission. |
 
@@ -1326,6 +1345,9 @@ Add `require_job_request_approval: false` to the JSON `value` of the `app_config
 row with `key = 'jobs'`. Preserve other keys. A missing key also means false.
 
 ### Remove The Existing Project Authorization Workflow
+
+PA1 completed this removal. The old files, routes, fields, setting, and screens
+named below no longer exist.
 
 This checklist was checked against local `main` at `5eb5bb90`. Remove the entire
 existing PDF Project Authorization workflow as part of the replacement release:
@@ -1534,14 +1556,15 @@ Acceptance tests must cover these cases:
   insufficient limit, exact limit, and greater limit. Validate assignment and
   value writes, then recheck current authority at approval. Test claim removal
   and limit reduction after assignment. No division/branch filter.
-* Selected-approver-only approval and rejection, creator-only assignment and
+* Selected-approver-only approval, rejection by the selected approver or, once
+  the request is `Awaiting creation`, by a `job` holder, creator-only assignment and
   recall, qualified creator self-approval, and removal of assignment-based
   access after reassignment. Approvers cannot list or directly read unassigned
   requests through that claim. Preserve independent creator/job/admin access.
-* Approvers compare requests only with existing jobs. Show no unassigned
-  requests in their duplicate-review results. The `job` holder checks existing
-  jobs again before creation and coordinates overlaps between pending requests,
-  without gaining recall or rejection rights. A possible match alone does not
+* Approvers see no duplicate-work review. The `job` holder sees it once the
+  request is `Awaiting creation`, checks existing jobs before creation, and
+  coordinates overlaps between pending requests. The `job` holder can reject the
+  request with a reason but cannot recall it. A possible match alone does not
   cause automatic rejection.
 * Separate approval and creation permissions, including one person with both
   claims. Approval creates no job; `job` alone cannot approve a value.
@@ -1601,7 +1624,9 @@ Acceptance tests must cover these cases:
   older jobs with no previous attachment or approval backfill.
 * A project's manager and alternate manager, each without `job`, can use the UI
   to add and remove division allocations and change hours. Valid saves persist
-  through the server in both creation-flag states. An unrelated user is denied.
+  through the server in both creation-flag states while job editing is on
+  (`jobs.create_edit_absorb`); with job editing off, the server refuses them. An
+  unrelated user is denied.
   Reject invalid allocations, changes to other job fields, and attempts to move
   an allocation to another job. Removing a manager assignment removes this
   exception. Holders of `job` retain their existing allocation access. These
@@ -1610,7 +1635,9 @@ Acceptance tests must cover these cases:
 * An older T&M job with zero effective value can receive a pending positive
   value without changing the stored zero. Approval applies the positive value.
   Its other fields can be edited in the job editor without a value, but setting
-  a value or making it `Active` or `Closed` is refused. A project with no
+  a value or making it `Active` is refused. Making it `Closed` in the same save
+  as another edit is refused too; a save that only sets it to `Closed` or
+  `Cancelled` is allowed. A project with no
   authorizing document can save a value change, and approval records `PA`.
 * A value change ignores job fields and allocations sent with it. A job editor
   save without a change leaves a rejected change rejected; a real edit there
@@ -1646,7 +1673,7 @@ Acceptance tests must cover these cases:
   approval, and creation; and the same rules for subjobs. Test multiple projects
   per proposal, requests without proposals, and proposal replacement/removal.
 * With the request flag on, an active employee with `time` and without `job`
-  can use **Create Subjob** on an eligible parent's detail page, load the form,
+  can use **Create Subjob Request** on an eligible parent's detail page, load the form,
   save a draft, and submit a complete request. Users with both claims follow
   the same request flow. Check parent/client setup, the client-selection lock,
   proposal prefill, and an `Active` subjob default under a closed parent.
@@ -1704,7 +1731,7 @@ Acceptance tests must cover these cases:
 ### Staff Workflow
 
 1. Open **Project Requests** and select **New Project Request**. A holder of
-   `time` can also use **Create Subjob** on an eligible parent project.
+   `time` can also use **Create Subjob Request** on an eligible parent project.
 2. Save the project details and division hours. Select a billing profile and
    an approver whose limit covers the full project value. Active projects also
    require the existing project completion date, including an estimated date.
@@ -1714,15 +1741,17 @@ Acceptance tests must cover these cases:
    notes** to print the request notes, such as a legal description, for the
    client.
 4. Upload one authorization PDF and select **Submit**. The selected approver
-   uses **Request Approvals**, reviews possible duplicate jobs, and confirms
-   all seven checklist statements, including the rate sheet, before approval.
+   uses **Request Approvals**, reviews the request and its PDF, and confirms
+   every statement of the current `approval` checklist before approval. The
+   approver does not see the duplicate-work review.
 5. A holder of `job` opens **Job Create Queue**, checks the approved request and
    PDF, checks existing jobs, and confirms all seven checklist statements. Select
    **Create Job** to assign the number and transfer the approval evidence.
 
 The creator can recall a submitted or approved request before creation, and
 can select **Delete request** on a draft, recalled, or rejected request. The
-selected approver can reject it with a reason. Rejected requests require a real
+selected approver can reject it with a reason, and so can a holder of `job` once
+it is `Awaiting creation`. Rejected requests require a real
 edit before resubmission. Both actions clear the earlier approval.
 
 On an existing job, use **Propose new value**. Upload the new PDF and select an

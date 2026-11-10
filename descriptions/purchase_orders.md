@@ -61,7 +61,7 @@ Each of the 6 activities maps to columns in `po_approver_props`. `capital` uses 
 
 In the UI:
 
-- **Purchase Orders editor**: Kind is always selectable via toggle. If selected kind has `allow_job = false`, Job is hidden and cleared; switching back to an `allow_job = true` kind restores the in-editor Job value.
+- **Purchase Orders editor**: Kind is selectable via toggle, except on a revision, where the editor hides it (see Revision). If selected kind has `allow_job = false`, Job is hidden and cleared; switching back to an `allow_job = true` kind restores the in-editor Job value.
 - **Expenses editor**: Kind is never selectable. It is display-only: inherited from the linked PO when a PO is present, otherwise defaulted by job presence (`project` when job is set, `capital` otherwise).
 
 Operational dependency:
@@ -75,6 +75,8 @@ Operational dependency:
 - `One-Time`: `approval_total = total`
 - `Cumulative`: `approval_total = total`
 - `Recurring`: `approval_total = total * occurrences`
+
+The hooks also store `approval_total_home`, which is `approval_total` converted to the home currency at the currency's rate. Save validation, the approver-list endpoints, the approve and reject routes, and the `pending`/`visible` queries compare `approval_total_home` with the threshold and the limits. It equals `approval_total` for a home-currency PO. The daily second-approval reminder view compares `approval_total`.
 
 ## Stage Pools
 
@@ -180,7 +182,7 @@ Create-path guardrails (collection API rules):
 
 - New POs must be created with `status = Unapproved`.
 - Approval/cancellation/closure fields must not be submitted on create.
-- UI delete action is shown only when the caller meets the delete rule above (creator + `Unapproved`).
+- UI delete action is shown only when the caller meets the delete rule above (creator + `Unapproved` + no `po_number`).
 
 Implications:
 
@@ -329,7 +331,7 @@ Fallback behavior:
 The `visible` endpoints use broader read semantics than `pending`:
 
 - `Active`: visible to any authenticated user
-- `Cancelled`/`Closed`: visible to creator, approvers, and `report` claim holders
+- `Cancelled`/`Closed`: visible to creator, approvers (`approver` and `second_approver`), the manager and the alternate manager of the PO's job, and `report` claim holders
 - `Unapproved`:
   - direct visibility:
     - creator (including rejected)
@@ -337,6 +339,7 @@ The `visible` endpoints use broader read semantics than `pending`:
     - for non-rejected records: assigned first approver (pre/post first approval) and priority second approver (post-first-approval)
   - plus policy-based second-stage visibility for eligible second-stage approvers on first-approved/not-second-approved records (not timeout-gated)
 - Purchase order group members (`po_group` set): visible in every status to `super_po` and `admin` claim holders
+- Legacy manual entries (`legacy_manual_entry` set): visible in every status to `legacy_po_create_update` claim holders
 - Revisions (`Unapproved` with a `po_number`): visible to any authenticated user, because they were visible while `Active`; see Revision
 
 `GET /api/purchase_orders/visible` supports `scope`:
@@ -345,9 +348,10 @@ The `visible` endpoints use broader read semantics than `pending`:
 - `mine` (where `uid = caller`)
 - `active` (status `Active`, plus revisions)
 - `rejected` (status `Unapproved`, `rejected != ''`, `uid = caller`)
-- `stale` (status `Active` and older than `stale_before`; uses `second_approval` when present, otherwise `approved`)
+- `stale` (status `Active` and `approved` earlier than `stale_before`; requires `stale_before` query parameter. A `second_approval` earlier than `stale_before` also matches, but a later `second_approval` does not keep the PO out)
 - `expiring` (status `Active`, type `Recurring`, `end_date <= expiring_before`; requires `expiring_before` query parameter; sorted by `end_date ASC`)
 - `group` (`po_group = group`; requires `group` query parameter)
+- `approved_by_me_awaiting_second` (status `Unapproved`, not rejected, `approver = caller`, first-approved and not second-approved; sorted by `approved DESC`)
 
 Note:
 
@@ -451,7 +455,7 @@ Operational handlers:
 
 Expenses require a linked PO under two independent rules, enforced in `validate_expenses.go`:
 
-### Rule 1: Job-based requirement (line 265)
+### Rule 1: Job-based requirement (line 315)
 
 Any expense with a `job` requires a PO, **except** these payment types which are exempt:
 
@@ -460,7 +464,7 @@ Any expense with a `job` requires a PO, **except** these payment types which are
 - `PersonalReimbursement`
 - `Allowance`
 
-### Rule 2: Amount-based requirement (line 247)
+### Rule 2: Amount-based requirement (line 329)
 
 When `LIMIT_NON_PO_AMOUNTS` is enabled (currently `true`), any expense at or above the configured limit requires a PO. The limit is exclusive (e.g., $99.99 is allowed without a PO when the limit is $100).
 
@@ -614,6 +618,7 @@ Implemented in `app/routes/purchase_orders.go` and `app/routes/close_purchase_or
 - `POST /api/purchase_orders/:id/cancel`
 - `POST /api/purchase_orders/:id/close`
 - `POST /api/purchase_orders/:id/make_cumulative`
+- `POST /api/purchase_orders/:id/revise` (in `app/routes/revise_purchase_order.go`; see Revision)
 - `GET /api/purchase_orders/pending`
 - `GET /api/purchase_orders/pending/:id`
 - `GET /api/purchase_orders/visible`
@@ -669,7 +674,7 @@ Child POs: `YYMM-NNNN-XX`
 | vendor                   | relation -> vendors           | Vendor                                                                    |
 | job                      | relation -> jobs              | Optional job                                                              |
 | category                 | relation -> categories        | Optional category                                                         |
-| branch                   | relation -> branches          | Derived from job or user default                                          |
+| branch                   | relation -> branches          | Job's branch; with no job, the chosen branch or the creator's default     |
 | attachment               | file                          | Optional file                                                             |
 | approver                 | relation -> users             | Assigned first-stage approver                                             |
 | approved                 | datetime                      | First-approval timestamp                                                  |
@@ -723,7 +728,7 @@ Current known mismatches:
 1. First approver visibility after first approval (still `Unapproved`)
 
 - `visible*` route behavior: first approver can still view the PO.
-- PocketBase collection rule behavior: first approver does not match post-first-approval direct visibility (unless they are also another qualifying role).
+- PocketBase collection rule behavior: the same. The rule lets the assigned `approver` read an `Unapproved` PO before and after first approval, so this is no longer a mismatch.
 
 2. Non-priority second-stage approver visibility
 
@@ -733,7 +738,7 @@ Current known mismatches:
 3. Rejected unapproved PO visibility semantics differ
 
 - `visible*` route behavior: rejected unapproved POs are directly visible to creator and rejector; non-rejected direct approver/priority paths are gated by `rejected = ''`.
-- PocketBase collection rule behavior: no explicit `rejected` guard in unapproved direct path, so assigned approver/priority visibility can differ from route behavior, and rejector visibility is only incidental (when rejector also matches a direct role).
+- PocketBase collection rule behavior: the rule also lets the creator and the `rejector` read the PO. It has no `rejected` guard in the unapproved direct path, so the assigned approver and the priority second approver can still read a rejected PO through the collection API, but not through the route.
 
 4. Mixed client access paths
 

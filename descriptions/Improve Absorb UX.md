@@ -7,6 +7,8 @@ records to be absorbed from a list. This UI could be improved.
 
 ## Grok suggestions
 
+**Not built.** These are suggestions. Turbo does none of them, except where a bullet below says "Built" or "Partly built".
+
 Here are my suggestions for improving the UX of absorbing records. These focus on usability, efficiency, error prevention, and discoverability, drawing directly from patterns in your existing code (e.g., the autocomplete flow, pending action warnings, and realtime subscriptions). I've prioritized non-disruptive enhancements that align with your Svelte-based frontend and PocketBase backend.
 
 ### 1. **Enhance Selection and Filtering for Efficiency**
@@ -19,12 +21,12 @@ Here are my suggestions for improving the UX of absorbing records. These focus o
 
 - **Staged Absorbs with Draft Saving**: When a pending absorb exists, the current flow forces users to commit or undo before starting a new one, potentially losing progress (e.g., selected records). Add a "Save Draft" option to temporarily store the current selection in local storage or a temporary backend record, allowing users to resolve the pending action and resume without re-selecting.
 - **Inline Absorb from List Views**: Instead of navigating to a separate /absorb page, enable an inline mode in list views (e.g., clients/list/+page.svelte) where users can select a target via checkbox, then drag-and-drop or multi-select others to absorb. This reduces page loads and keeps context, integrating with your existing realtime subscriptions for immediate updates.
-- **Keyboard Shortcuts and Quick Actions**: Add shortcuts like Enter to add a highlighted result, Esc to clear the search field (addressing the issue of needing to manually delete text), or Ctrl+Click for multi-add. Include a "Clear All" button next to the absorb list to quickly reset selections.
+- **Keyboard Shortcuts and Quick Actions**: Partly built: in the autocomplete search box, the arrow keys move through the results, Enter or Space adds the highlighted result, and Esc closes the result list. Ctrl+Click and "Clear All" are not built. Add shortcuts like Enter to add a highlighted result, Esc to clear the search field (addressing the issue of needing to manually delete text), or Ctrl+Click for multi-add. Include a "Clear All" button next to the absorb list to quickly reset selections.
 
 ### 3. **Add Previews, Confirmations, and Feedback**
 
 - **Absorb Preview Modal**: Before confirming absorption, show a modal summarizing changes (e.g., "This will update 5 job references and delete 2 records—view details?"). Pull from backend metadata (like reference configs in GetConfigsAndTable) to list affected tables/records, reducing surprises and tying into your existing error handling for self-absorption or parent constraints.
-- **Undo/Commit Confirmation with Impact Summary**: Enhance the pending absorb warning (in AbsorbEditor.svelte) with a summary of the prior action's impact (e.g., "Previous absorb affected 3 vendors—commit to make permanent?"). This builds on your broadcastAbsorbCompletedEvent for realtime feedback and could include a "View Changes" link to a diff view.
+- **Undo/Commit Confirmation with Impact Summary**: Partly built: the pending absorb action shows the number of absorbed records and of updated references, with the details, and Undo and Commit each ask for confirmation. There is no diff view. Enhance the pending absorb warning (in AbsorbEditor.svelte) with a summary of the prior action's impact (e.g., "Previous absorb affected 3 vendors—commit to make permanent?"). This builds on your broadcastAbsorbCompletedEvent for realtime feedback and could include a "View Changes" link to a diff view.
 - **Progress Indicators and Notifications**: During absorption (which involves backend transactions), add a loading spinner with steps (e.g., "Updating references... Deleting records..."). Use your collectionEvents or globalStore for toast notifications on success/failure, and log recent absorbs in a user profile section for easy review.
 
 ### 4. **Error Prevention and Accessibility**
@@ -35,7 +37,7 @@ Here are my suggestions for improving the UX of absorbing records. These focus o
 
 ### 5. **Broader System Integration**
 
-- **Absorb History Log**: Add a dedicated view (e.g., /absorbs/list) showing past actions with timestamps, targets, and absorbed IDs, fetched via your absorb_actions collection. This could include quick undo buttons for recent actions.
+- **Absorb History Log**: Partly built: the Absorb Actions page (/absorb/actions) lists the pending absorb actions, each with Undo and Commit. It is not a history: a commit deletes the action, and an undo removes it. Add a dedicated view (e.g., /absorbs/list) showing past actions with timestamps, targets, and absorbed IDs, fetched via your absorb_actions collection. This could include quick undo buttons for recent actions.
 - **Integration with Reports and Searches**: In reports (e.g., reports/payroll_time.sql), flag recently absorbed records with tooltips (e.g., "Merged from X on [date]"). In search lists (e.g., DSSearchList), gray out or tag recently absorbed records to indicate they're deleted but referenceable.
 - **Automated Suggestions**: Use your MiniSearch indexing to suggest potential duplicates (e.g., similar names/emails) as pre-filled absorb lists, triggered from a "Find Duplicates" button in list views.
 

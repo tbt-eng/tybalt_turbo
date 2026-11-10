@@ -69,6 +69,7 @@ This powers:
 - `QueueTimesheetSubmissionRemindersForWeek`
 - `QueueTimesheetApprovalReminders`
 - `QueueExpenseApprovalReminders`
+- `QueueExpenseUncommitRequestReminders`
 
 ## Public API
 
@@ -91,7 +92,8 @@ This powers:
 - Async send status updates still use raw SQL through `NonconcurrentDB()` to avoid PocketBase hook side-effects in goroutines.
 - Dedupe semantics are preserved:
   - timesheet submission reminders dedupe by recipient + template + `WeekEnding`
-  - approval reminders dedupe by recipient + template in the last 24 hours
+  - approval reminders and expense uncommit reminders dedupe by recipient + template in the last 24 hours
+  - the dedupe check counts only notifications whose status is `pending` or `inflight`. A reminder that was sent or that failed does not stop the next one, so each cron run can send a reminder again.
 
 ## PO Second Approval Notifications (`po_second_approval_required`)
 

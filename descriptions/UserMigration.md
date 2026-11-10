@@ -6,40 +6,44 @@ Users authenticate via OAuth2.0 with Microsoft. We would ideally like to migrate
 
 ## The Plan
 
+This plan is built. The import tool does steps 2 to 4 in its users phase (`import_data/tool.go`, the `--users` flag). The phase first deletes every row of `users`, `profiles`, `admin_profiles`, `_externalAuths`, `user_claims`, `po_approver_props` and `mileage_reset_dates`, then loads them again.
+
 1. We must first setup Microsoft Authentication via OAuth 2.0 in the target database.
 
-2. The MySQL Profiles table, which is dumped as `Profiles.parquet`, contains an `azureId` column. We will populate the `_externalAuths` table as follows:
+2. The MySQL Profiles table, which is dumped as `Profiles.parquet`, contains an `azureId` column. The tool populates the `_externalAuths` table as follows:
 
     - collectionRef: '_pb_users_auth_'
-    - created: <timestamp_now>
-    - id: <new_pocketbase_id>
+    - created: not set by the tool
+    - id: not set by the tool (the database generates it)
     - provider: 'microsoft'
     - providerId: Profiles.parquet.azureId
     - recordRef: Profiles.parquet.pocketbase_uid
-    - update: <timestamp_now> (see created)
+    - updated: not set by the tool
 
-3. We will populate the `users` table as follows:
+3. The tool populates the `users` table as follows:
 
-    - created: <timestamp_now>
+    - created: not set by the tool
     - email: Profiles.parquet.email
     - emailVisibility: 0
     - id: Profiles.parquet.pocketbase_uid
     - name: join Profiles.parquet.givenName and Profiles.parquet.surname with a space
-    - password: ??
-    - tokenKey: ??
-    - updated: <timestamp_now>
+    - password: empty
+    - tokenKey: a new random UUID, as hex
+    - updated: not set by the tool
     - username: Profiles.parquet.email part before @ symbol
     - verified: 1
 
-4. We will populate the `profiles` table as follows:
+4. The tool populates the `profiles` table as follows:
 
-    - created: <timestamp_now>
+    - created: not set by the tool
     - given_name: Profiles.parquet.givenName
-    - id: Profiles.parquet.pocketbase_id
+    - id: not set by the tool (the database generates it)
     - surname: Profiles.parquet.surname
-    - updated: <timestamp_now> (see created)
+    - updated: not set by the tool
     - manager: Profiles.parquet.pocketbase_manager
     - alternate_manager: Profiles.parquet.pocketbase_alternateManager
     - default_division: Profiles.parquet.pocketbase_defaultDivision
     - uid: Profiles.parquet.pocketbase_uid
-    - notification_type: 'to be determined, see test database'
+    - notification_type: 'email_text'
+    - do_not_accept_submissions: Profiles.parquet.doNotAcceptSubmissions
+    - _imported: true

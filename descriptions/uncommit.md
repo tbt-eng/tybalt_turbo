@@ -4,7 +4,7 @@
 
 Holders of the `commit` claim can ask for an expense uncommit from a queue instead of on Teams: see [uncommit_requests.md](uncommit_requests.md). The direct uncommit described here stays. For expenses it now also writes to that queue's history, and if the expense has a pending request, it does what the request asked for, including rejecting.
 
-This staged change adds an uncommit workflow for holders of the `admin` claim for committed `time_sheets` and `expenses` records.
+Turbo has an uncommit workflow for holders of the `admin` claim for committed `time_sheets` and `expenses` records. This note describes it as built.
 
 The goal is narrow:
 
@@ -32,7 +32,7 @@ This change does not include:
 - broad access for holders of the `admin` claim to uncommitted expense or time-sheet records
 - access for holders of the `admin` claim to the expense commit queue
 - access for holders of the `admin` claim to time-sheet missing or not-expected views
-- new notifications, audit-log views, or standalone search screens for holders of the `admin` claim
+- new notifications, audit-log views, or standalone search screens for holders of the `admin` claim (the later uncommit request feature added a history and notifications for expense uncommits; see [uncommit_requests.md](uncommit_requests.md))
 
 ## New And Updated Routes
 
@@ -159,6 +159,8 @@ For `expenses`, the handler additionally clears:
 
 This means the record returns to an approved but uncommitted state. The handler does not reset `submitted` or `approved`.
 
+For an expense, the handler also writes a row to the uncommit request history. If the expense has a pending uncommit request, the handler applies that request: when the request asks for a rejection, the expense ends up uncommitted and rejected, and the requester and the employee are notified.
+
 ### Error behavior
 
 The handler returns:
@@ -241,7 +243,7 @@ This lets holders of the `admin` claim discover committed records without broade
 
 On the expense details page:
 
-- holders of the `admin` claim who open a committed expense see an `Uncommit` button
+- holders of the `admin` claim who open a committed expense see an `Uncommit` button, which asks for confirmation first
 - non-admin users do not get this button through this change
 - after uncommit succeeds, the page refreshes in place
 

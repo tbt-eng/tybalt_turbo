@@ -4,7 +4,7 @@
 
 The expenses system depends on the purchase_orders system and the job categories system. So these must be implemented first.
 
-The user can create, edit, delete, and submit expenses with the expenses system. Additionally, the user can view a list of all their expenses. Each expense has an approver which is set by a hook when the expense is created or updated and is based on the manager of the user who created the expense. This information comes from the user's profile. The approver can approve or reject expenses submitted by their direct reports. Users with the `commit` claim can also reject expenses. When an expense is approved, the `approved` property is set to the current timestamp. When an expense is rejected, the `rejected` property is set to the current timestamp, the `rejector` property is set to the id of the user who rejected the expense, and a rejection reason is provided. Note: rejection does not clear `approved` — an expense can have both `approved` and `rejected` set simultaneously. `Recall` clears both `approved` and `rejected`. Expenses must be committed by a user with the `commit` claim prior to being paid out.
+The user can create, edit, delete, and submit expenses with the expenses system. Additionally, the user can view a list of all their expenses. Each expense has an approver which is set by a hook when the expense is created or updated and is based on the manager of the user the expense is for (`uid`). This information comes from the user's profile. When a bookkeeper enters an expense for a PO owner (see `book_keepers.md`), the bookkeeper is the approver instead. The approver can approve or reject expenses submitted by their direct reports. Users with the `commit` claim can also reject expenses, but only after the expense is approved. When an expense is approved, the `approved` property is set to the current timestamp. When an expense is rejected, the `rejected` property is set to the current timestamp, the `rejector` property is set to the id of the user who rejected the expense, and a rejection reason is provided. Note: rejection does not clear `approved` — an expense can have both `approved` and `rejected` set simultaneously. `Recall` clears both `approved` and `rejected`. Expenses must be committed by a user with the `commit` claim prior to being paid out.
 
 The Commit Queue and its sidebar count exclude rejected expenses. Rejected expenses remain available to their creator for recall and correction. They return to the queue after resubmission and approval, subject to the existing settlement requirements.
 
@@ -42,14 +42,15 @@ Note: "required" below means enforced in hooks/validation, not necessarily at th
 
 - date (string, required, YYYY-MM-DD)
 - pay_period_ending (string, YYYY-MM-DD, saturday, blank until commit; intended to be written by commit-time payroll bucketing logic rather than derived during normal expense create/update)
-- uid (references users collection, required, the user who created the expense)
+- uid (references users collection, required, the user the expense is for)
+- creator (references users collection, set by hook to the signed-in user who entered the expense; differs from uid only when a bookkeeper enters it for a PO owner; the creator edits, submits, recalls and deletes the expense)
 - payment_type (enum, required) [OnAccount, Expense, CorporateCreditCard, Allowance, FuelCard, Mileage, PersonalReimbursement]
 - kind (relation -> expenditure_kinds, inherited from PO when present, otherwise defaulted by job presence)
 - division (references divisions collection, required)
 - job (references jobs collection)
 - category (references the categories collection, category's job must match the expense's job)
-- branch (relation -> branches, derived from job or user default)
-- approver (references users collection, set by hook from user's manager)
+- branch (relation -> branches, taken from the PO when one is linked, otherwise derived from job or user default)
+- approver (references users collection, set by hook from user's manager, or to the creator for a bookkeeper-entered expense)
 - approved (datetime)
 - allowance_types (Multiple Enum OR JSON, required if payment_type is Allowance, else empty) [Lodging, Lunch, Dinner, Breakfast]
 - total (number, required for non-Allowance expenses)
@@ -57,13 +58,15 @@ Note: "required" below means enforced in hooks/validation, not necessarily at th
 - committer (references users collection)
 - committed (datetime)
 - committed_week_ending (string, YYYY-MM-DD, saturday, derived from committed by commit handler)
-- description (string, minimum 5 characters for non-Allowance expenses, enforced in hooks)
+- description (string, minimum 4 characters for non-Allowance expenses, enforced in hooks)
 - rejected (datetime)
 - rejector (references users collection)
 - rejection_reason (string, minimum 4 characters, enforced in reject route)
 - distance (number)
 - vendor (relation -> vendors collection)
-- attachment (file)
+- attachment_document (relation -> expense_documents, which holds the uploaded file and its hash; see `expense_documents.md`)
+- attachment_missing_reason (string, set only by an admin for a lost historical receipt)
+- currency, settled_total, settler, settled (see `foreign_currencies.md`)
 - cc_last_4_digits (string)
 - purchase_order (references purchase_orders collection)
 
@@ -82,14 +85,15 @@ Pagination note for `/api/expenses/list`:
 
 Current action placement:
 
-- Owner list actions:
+- Owner list actions (the owner is the expense's `creator`):
   - `Edit` and `Submit` for draft (unsubmitted) expenses
   - `Recall` for submitted-not-approved or rejected expenses (when not committed)
   - `Delete` for unsubmitted (draft) expenses only
 - Owner exception for approval on list:
-  - owner may see `Approve` on list only when they are also the assigned approver and have `tapr` claim
+  - owner may see `Approve` on list only when they are also the assigned approver and have the `tapr` or `book_keeper` claim
 - Review actions are details-first for non-owners:
   - `Reject`/`Commit` controls are intentionally hidden in list view to encourage opening the details page first
+  - the one exception is on `/expenses/pending`, where the assigned approver gets an inline `Approve` on Allowance expenses
 
 ## The reimbursements page
 
@@ -129,7 +133,8 @@ Current action placement:
 | kind                     | \*              | \*       |
 | vendor                   | \*              | \*       |
 | branch                   | \*              | \*       |
-| attachment               | \*              | \*       |
+| attachment               | \*              |          |
+| attachment_document (ref) |                |  \*      |
 | rejector                 | \*              | \*       |
 | rejected                 | \*              | \*       |
 | rejection_reason         | \*              | \*       |
@@ -157,7 +162,7 @@ Current action placement:
   - `Edit`, `Submit`, `Recall`, `Delete` (subject to submitted/approved/rejected/committed state)
 - Approver actions:
   - `Approve` (assigned approver, while submitted and not yet approved/rejected/committed)
-  - `Reject` (assigned approver or users with `commit` claim, while submitted and not yet rejected/committed)
+  - `Reject` (assigned approver while submitted and not yet rejected/committed; users with `commit` claim only once the expense is also approved)
 - Committer actions:
   - `Commit` requires `commit` claim (or `showAllUi` override)
-  - `Reject` is also available to committer-role users while the record is submitted and not yet rejected/committed
+  - `Reject` is also available to committer-role users while the record is approved and not yet rejected/committed

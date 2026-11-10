@@ -12,6 +12,12 @@ It covers:
 - migration impact on existing `time_entries`
 - a revised phased plan
 
+**Not built.** Turbo has none of the first-class work record collections,
+routes or screens that this document proposes. Today a work record is only the
+`work_record` text on a time entry or time amendment. `/time/work-records` is a
+read-only search of the values on time entries, for holders of the `report` or
+`work_record` claim (see `work_record_reconciliation.md`).
+
 ## Executive Summary
 
 Work records are currently a required field-work artifact managed through a
@@ -29,7 +35,7 @@ the business does not always operate as "one work record per person per
 day per job." Crews may share one work record number for one job/day/work
 context while still recording person-specific hours and travel details.
 
-The revised direction is:
+**Not built.** The revised direction is:
 
 - add a first-class `work_records` collection for shared crew-day work
 - generate all new work record numbers on the backend with a `W` prefix
@@ -144,6 +150,8 @@ The revised direction is:
 
 ### Numbering
 
+**Not built.**
+
 - All new first-class work records will use backend-generated numbers beginning
   with `W`.
 - Number generation should follow the same general pattern as purchase order
@@ -156,6 +164,8 @@ The revised direction is:
 - Users will not manually enter or reserve work record numbers in the new flow.
 
 ### Work Record Identity On Time Entries
+
+**Not built.**
 
 - Existing `time_entries.work_record` text values stay in place for historical
   records.
@@ -174,6 +184,10 @@ The revised direction is:
   are migrated.
 
 ### Rollout Modes For Time Entries
+
+**Not built.** Turbo has no hybrid mode and no linked-only mode, and it reads no
+`linked_work_records` setting. Only the current `main` branch behavior below
+is true today.
 
 The bullets above describe the intended end state once participant-linked work
 records are fully rolled out. The implementation may pass through an explicit
@@ -212,12 +226,16 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Type Ownership
 
+**Not built.**
+
 - Work record type lives on the shared `work_records` parent.
 - Notes do not carry type.
 - Type should remain data-driven rather than hard-coded around the earlier
   four-type assumption.
 
 ### Granularity
+
+**Not built.**
 
 - The business distinction is no longer "one work record per person per day per
   job."
@@ -235,6 +253,8 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Export Scope
 
+**Not built.**
+
 - Uploading and viewing a scanned paper-copy PDF attachment is in scope for the
   current implementation.
 - Generating a print-friendly work record from Turbo is in scope for the
@@ -248,6 +268,8 @@ to the linked-only mode above, not the hybrid transition phase.
 ## Recommended Product Model
 
 ### Main Entity Rules
+
+**Not built.**
 
 - A work record is a first-class shared parent record, not just a string on a
   time entry.
@@ -265,6 +287,8 @@ to the linked-only mode above, not the hybrid transition phase.
 - A work record can exist before, during, or after field work.
 
 ### Approval Model
+
+**Not built.**
 
 - The old single boolean `work_records.approved` does not fit the shared-parent
   model by itself.
@@ -294,6 +318,8 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ### Delete Rules
 
+**Not built.**
+
 - Deletion of work records is out of scope for the UI in this phase.
 - A parent work record may only be deleted if no worker row is referenced by a
   time entry.
@@ -302,6 +328,10 @@ to the linked-only mode above, not the hybrid transition phase.
 - Deletion is restricted to superusers in the PocketBase backend.
 
 ### Permissions
+
+**Not built.** Today the `work_record` claim only lets a user open the
+read-only `/time/work-records` search, as the `report` claim also does. That
+search covers the work record values of all time entries.
 
 - A user must hold the `time` claim to create a work record for a crew that
   includes themselves. In the simple self-create case, `creator` is the current
@@ -335,10 +365,14 @@ to the linked-only mode above, not the hybrid transition phase.
 
 ## Phase 2 Data Model
 
+**Not built.**
+
 Phase 2 should introduce first-class collections plus the new time-entry
 relation.
 
 ### `work_records`
+
+**Not built.**
 
 Purpose:
 
@@ -424,6 +458,8 @@ Indexes and constraints:
 
 ### `work_records_subjects`
 
+**Not built.**
+
 Purpose:
 
 - stores the per-person participant rows under a shared work record parent
@@ -486,6 +522,8 @@ Indexes and constraints:
 
 ### `work_records_notes`
 
+**Not built.**
+
 Purpose:
 
 - append-only note trail attached to a work record
@@ -522,6 +560,8 @@ Indexes:
 
 ### `work_records_types`
 
+**Not built.**
+
 Purpose:
 
 - master list of work record types
@@ -555,6 +595,8 @@ Rules:
 
 ### `work_records_consumables`
 
+**Not built.**
+
 Purpose:
 
 - master list of consumable definitions
@@ -583,6 +625,8 @@ Notes:
 
 ### `work_records_type_consumables`
 
+**Not built.**
+
 Purpose:
 
 - defines which consumables are allowed for each work record type
@@ -609,6 +653,8 @@ Rules:
 - seeded / admin-managed records should set `active` explicitly
 
 ### `work_records_consumable_entries`
+
+**Not built.**
 
 Purpose:
 
@@ -673,6 +719,8 @@ Implementation note:
 
 ### Related `time_entries` Change
 
+**Not built.**
+
 Phase 2 also requires a schema change on `time_entries`.
 
 New field:
@@ -696,6 +744,8 @@ Behavior:
 
 ### Create
 
+**Not built.**
+
 - User opens `Work Records` and creates a new shared parent record.
 - Default type comes from a user preference that each worker can view and
   update in their own profile settings. If no preference is set, no default is
@@ -713,6 +763,9 @@ Behavior:
 - After creation, the number is read-only and can never be edited.
 
 ### Copy To Tomorrow
+
+**Not built.** This is a plan for work records. It is not the time entry
+`copy_to_tomorrow` route, which exists.
 
 - `Copy To Tomorrow` uses an existing work record as an editable template for
   the next related record.
@@ -739,6 +792,8 @@ Behavior:
 
 ### Complete
 
+**Not built.**
+
 - The creator and any worker can fill shared fields, consumables, and notes
   until the first worker row is approved.
 - The creator creates the worker rows and may add or remove workers only
@@ -762,6 +817,8 @@ Behavior:
   print-friendly view for the parent work record and includes all worker rows.
 
 ### Time Entry Integration
+
+**Not built.**
 
 - The expected workflow is to complete the work record first, then create time
   entries from it.
@@ -804,6 +861,8 @@ Recommendation:
 
 ### Approval And Reopen
 
+**Not built.**
+
 - When a time entry referencing a worker row becomes part of an approved
   timesheet, mark that worker row approved and prevent normal edits to that
   worker row.
@@ -817,6 +876,8 @@ Recommendation:
 - Notes remain append-only regardless of approval state.
 
 ## UI
+
+**Not built.**
 
 Recommended navigation under `Time Management`:
 
@@ -897,7 +958,10 @@ Job details page:
   an approved timesheet
 - paginate the approved work-record list when the job has many work records
 - move this job-scoped approved-record surface onto a first-class job tab
-  beside `Active POs`
+  beside `POs`
+
+**Not built.** Today `/time/work-records` is the read-only search of work
+record text.
 
 Main list behavior:
 
@@ -926,6 +990,8 @@ Main list behavior:
 
 ## Reporting
 
+**Not built.** Turbo has no `/reports/work-records` page.
+
 Reporting should cover operations and billing readiness, but not PDF/export in
 this phase.
 
@@ -953,6 +1019,8 @@ Future reporting work:
 
 ### Existing Behavior To Preserve Initially
 
+**Not built.**
+
 - existing `time_entries.work_record` values must remain valid for historical
   data
 - once linked-only rollout is live, editing an existing time entry that still
@@ -967,6 +1035,8 @@ Future reporting work:
 
 ### Uniqueness Constraint Change
 
+**Not built.** Only the first bullet describes Turbo today.
+
 - The existing system enforces work record string uniqueness per timesheet
   only; the same string cannot appear on two time entries in the same
   timesheet.
@@ -978,6 +1048,8 @@ Future reporting work:
   the data model around a false one-to-one assumption.
 
 ### Approval Hook Integration
+
+**Not built.**
 
 - The existing timesheet approval/unapproval hooks must be extended to fan out
   to `work_records_subjects`.
@@ -993,6 +1065,8 @@ Future reporting work:
   row remains approved.
 
 ### Recommended Transition Strategy
+
+**Not built.**
 
 Rollout should avoid breaking historical reporting:
 
@@ -1013,6 +1087,8 @@ become the required editing and operational workflow.
 
 ## Remaining Open Questions
 
+**Not built.** These questions are still open.
+
 - Should `sub_contractor` stay freeform in v1, or should it reference a vendor
   list?
 - Should users be allowed to create records after the work date without special
@@ -1030,6 +1106,8 @@ become the required editing and operational workflow.
 ## Revised Phased Plan
 
 ### Phase 1: Completed Decisions
+
+**Not built.** These are decisions only. No code implements them.
 
 - new work records use backend-generated `W` numbers
 - work records are shared parent records with child `work_records_subjects`
@@ -1056,6 +1134,8 @@ become the required editing and operational workflow.
   that shows the complete worker roster
 
 ### Phase 2: Data Model And Backend
+
+**Not built.**
 
 - add `work_records`
 - add `work_records_subjects`
@@ -1092,6 +1172,8 @@ become the required editing and operational workflow.
 
 ### Phase 3: UI
 
+**Not built.**
+
 - replace the current read-only audit/search work-record surface with the
   first-class work records list, with contents filtered according to the
   caller's visibility, plus real work record create/edit/detail flows
@@ -1109,6 +1191,8 @@ become the required editing and operational workflow.
 
 ### Phase 4: Reporting
 
+**Not built.**
+
 - add incomplete/unlinked work-record reports
 - add worker-level "missing time entry" and "not yet approved" reports
 - add job-level visibility
@@ -1121,6 +1205,8 @@ become the required editing and operational workflow.
 
 ### Phase 5: Print-Friendly Output
 
+**Not built.**
+
 - add a dedicated `/time/work-records/{id}/print` route
 - add a `Print` action from the work-record detail page
 - follow the existing purchase-order print pattern: open a print-friendly page
@@ -1130,6 +1216,8 @@ become the required editing and operational workflow.
   format used in the field and office workflow
 
 ### Phase 6: Migration Cleanup
+
+**Not built.**
 
 - review whether legacy `time_entries.work_record` can eventually become
   historical-only

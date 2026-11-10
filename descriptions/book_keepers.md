@@ -2,19 +2,19 @@
 
 ## Summary
 
-Turbo currently assumes the person entering an expense is also the person who incurred the expense. That assumption is no longer true for a meaningful share of AP work: bookkeepers often receive vendor invoices against existing purchase orders and enter the resulting expenses on behalf of the PO owner.
+This feature is built. Turbo used to assume the person entering an expense is also the person who incurred the expense. That assumption is not true for a meaningful share of AP work: bookkeepers often receive vendor invoices against existing purchase orders and enter the resulting expenses on behalf of the PO owner.
 
-The current model routes those expenses to the bookkeeper's manager because `expenses.uid` is set to the person creating the record, and the expense hook derives `expenses.approver` from that user's manager. That creates a large amount of approval busywork that does not reflect the real control point. The PO has already authorized the spend; the bookkeeping step is matching an invoice to that active PO.
+The old model routed those expenses to the bookkeeper's manager because `expenses.uid` was set to the person creating the record, and the expense hook derived `expenses.approver` from that user's manager. That created a large amount of approval busywork that does not reflect the real control point. The PO has already authorized the spend; the bookkeeping step is matching an invoice to that active PO.
 
-The desired model is:
+Turbo now works this way:
 
-- add a `book_keeper` claim;
-- add `expenses.creator` as a relation to `users`;
-- keep `expenses.uid` as the person the expense is for;
-- set `expenses.creator` to the authenticated user who created the row;
-- for a narrow bookkeeping-on-behalf flow, allow `creator != uid`;
-- for that flow, set `expenses.approver = expenses.creator`;
-- allow the bookkeeper to approve only those expense records where they are the assigned approver.
+- there is a `book_keeper` claim;
+- `expenses.creator` is a relation to `users`;
+- `expenses.uid` is the person the expense is for;
+- the hook sets `expenses.creator` to the authenticated user who created the row;
+- a narrow bookkeeping-on-behalf flow allows `creator != uid`;
+- for that flow, the hook sets `expenses.approver = expenses.creator`;
+- the bookkeeper can approve only those expense records where they are the assigned approver.
 
 This is intentionally limited to the green plus flow: creating an expense from an existing active `purchase_orders` record.
 
@@ -26,9 +26,11 @@ model.
 
 ## Status quo
 
+This section describes Turbo before the bookkeeper feature, with notes on what changed.
+
 ### Expense ownership
 
-Today `expenses.uid` means all of the following:
+Before the bookkeeper feature, `expenses.uid` meant all of the following:
 
 - the person the expense belongs to;
 - the person who created the expense;
@@ -36,11 +38,11 @@ Today `expenses.uid` means all of the following:
 - the person allowed to submit, delete, and recall the expense through the current owner flows;
 - the profile used to derive the manager approver.
 
-`ProcessExpense` enforces this at create time: `expenses.uid` must equal the authenticated user's id. On update, the original `uid` must still equal the authenticated user, and `uid` cannot be changed.
+`ProcessExpense` used to enforce this at create time: `expenses.uid` had to equal the authenticated user's id, and on update the original `uid` had to equal the authenticated user. Now `creator` holds the person who created the expense, only the `creator` can edit, submit, delete and recall it, and `uid` may differ from the creator in the bookkeeper flow below. `uid` still cannot be changed.
 
 ### Expense approval
 
-Expense approval is manager based:
+Expense approval is manager based for regular expenses, and this still holds:
 
 - `cleanExpense` loads the profile for `expenses.uid`;
 - it reads `profiles.manager`;
@@ -62,26 +64,28 @@ For PO-linked expenses:
 - the expense `kind`, branch, currency, job, and other PO-derived values are normalized against the PO;
 - current policy allows any authenticated user to submit an expense against any active PO, subject to validation.
 
-The current UI still sets `item.uid` to the authenticated user before save, so a bookkeeper using the green plus icon creates the expense as themself.
+The UI used to set `item.uid` to the authenticated user before every save, so a bookkeeper using the green plus icon created the expense as themself. It now sends the PO owner's id as `uid` in the bookkeeper on-behalf case described below.
 
 ## Problem
 
-When bookkeeping enters an invoice against someone else's PO:
+Before this feature, when bookkeeping entered an invoice against someone else's PO:
 
-- the expense is recorded under the bookkeeper's `uid`, not the PO owner's `uid`;
-- the bookkeeper's manager becomes the expense approver;
-- the manager receives a queue of invoice-matching approvals that are really bookkeeping work;
-- the expense no longer clearly records who entered it versus who the purchase belongs to.
+- the expense was recorded under the bookkeeper's `uid`, not the PO owner's `uid`;
+- the bookkeeper's manager became the expense approver;
+- the manager received a queue of invoice-matching approvals that were really bookkeeping work;
+- the expense did not clearly record who entered it versus who the purchase belonged to.
 
 The underlying PO already carries the staff member, vendor, job/category, amount, kind, branch, and approval state. For invoice entry against an existing active PO, the bookkeeping user is not asking their own manager to approve their spending. They are recording that an approved purchase has produced an invoice.
 
 ## Desired behavior
 
+Turbo does everything in this section today.
+
 ### Flow comparison
 
-After this branch is deployed, both PO-linked paths use the same green plus UI and keep the same baseline PO-linked validation. The table below calls out only the differences between the regular path and the narrow bookkeeper on-behalf path.
+Both PO-linked paths use the same green plus UI and keep the same baseline PO-linked validation. The table below calls out only the differences between the regular path and the narrow bookkeeper on-behalf path.
 
-| Area                               | Regular PO-linked flow after `book_keeping` deployment                                                                    | Bookkeeper on-behalf flow after `book_keeping` deployment                                                                     |
+| Area                               | Regular PO-linked flow                                                                                                    | Bookkeeper on-behalf flow                                                                                                     |
 |------------------------------------|---------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | Who can use it                     | Any authenticated user.                                                                                                   | Authenticated user with `book_keeper`.                                                                                        |
 | When this path is used             | The expense is being created for the authenticated user, including when the user has `book_keeper` or owns the linked PO. | The expense is being created for another user, and that user is the linked PO owner.                                          |
@@ -132,21 +136,21 @@ The server is still authoritative. If any client submits `uid != auth.id`, the h
 
 ### New claim
 
-Add a new claim named `book_keeper`.
+Turbo has a claim named `book_keeper`.
 
 The claim grants the narrow ability to create an eligible PO-linked expense on behalf of the PO owner. It does not grant broad approval powers, commit powers, report access, payables admin access, or the ability to create arbitrary expenses for arbitrary users.
 
 ### New `expenses.creator` field
 
-Add `creator` to the `expenses` collection:
+The `expenses` collection has a `creator` field:
 
 - type: relation to `users`;
 - max select: 1;
-- required for new rows by hook validation;
+- set by the hook to the authenticated user on every new row, whatever the request sends;
 - backfilled on existing rows as `creator = uid`;
 - immutable after create.
 
-Do not name the field `created`; PocketBase already has the system `created` timestamp. The actor field should be `creator`.
+The field is not named `created` because PocketBase already has the system `created` timestamp. The actor field is `creator`.
 
 ### Eligibility for `creator != uid`
 
@@ -163,7 +167,7 @@ The system may accept `creator != uid` only when all conditions are true:
 - expense `payment_type` is `CorporateCreditCard` or `OnAccount`;
 - the caller is allowed to use the linked PO's branch under existing branch-claim rules.
 
-If any of these conditions are not met, the existing rule applies: `uid` must equal the authenticated user.
+If any of these conditions are not met, the existing rule applies: `uid` must equal the authenticated user. When the creator later edits a bookkeeper-entered draft, the hook checks the same list again, so the PO must still be `Active`.
 
 ### Same-user bookkeeper case
 
@@ -192,13 +196,13 @@ For eligible bookkeeper-entered expenses:
 - approver must be active and hold `book_keeper`;
 - `tapr` is not required for this special creator-as-approver assignment.
 
-Bookkeepers do not gain approval authority over all AP expenses. They can approve only rows where `expenses.approver` is their own user id. For the new flow, that should be true only because the create hook assigned them as the approver on an eligible `creator != uid` record.
+Bookkeepers do not gain approval authority over all AP expenses. They can approve only rows where `expenses.approver` is their own user id. For this flow, that is true only because the create hook assigned them as the approver on an eligible `creator != uid` record.
 
 ### Draft lifecycle
 
 When `creator != uid`, the creator is the operational owner of the draft.
 
-The creator should be able to:
+The creator can:
 
 - see the draft in their expense list;
 - edit the draft while it is unsubmitted;
@@ -208,11 +212,11 @@ The creator should be able to:
 - see it in their pending approval queue after submission;
 - approve it when the normal approval-route state checks pass.
 
-The `uid` user should remain visible as the person the expense is for, but should not become the person responsible for editing an invoice that bookkeeping entered. The `uid` user should be able to view the expense when appropriate, but not approve it unless they are also the assigned approver under existing rules.
+The `uid` user remains visible as the person the expense is for, but is not the person responsible for editing an invoice that bookkeeping entered. The `uid` user can view the expense, but cannot edit, submit, recall or delete it, and cannot approve it unless they are also the assigned approver under existing rules.
 
 ### Queues and visibility
 
-The pending approval queue should continue to be driven by:
+The pending approval queue is driven by:
 
 ```sql
 expenses.approver = auth.id
@@ -222,24 +226,24 @@ AND expenses.approved is blank
 
 Because bookkeeper-entered rows set `approver = creator`, submitted rows where `creator != uid` naturally appear in the creator's approval queue.
 
-The "my expenses" list and expense details visibility need to account for `creator`:
+The "my expenses" list and expense details visibility account for `creator`:
 
-- show rows where `uid = auth.id`;
-- show rows where `creator = auth.id`;
-- continue showing rows where `approver = auth.id` and the row is submitted;
-- keep existing commit/report visibility behavior.
+- both show rows where `uid = auth.id`;
+- both show rows where `creator = auth.id`;
+- expense details also show rows where `approver = auth.id` and the row is submitted;
+- expense details keep the existing commit/report visibility behavior.
 
 This prevents a bookkeeping-entered draft from disappearing immediately after creation.
 
 ### Audit display
 
-Expense details and list rows should show both people when they differ:
+Expense details and list rows show both people when they differ:
 
-- "For" or "Submitted for": `uid_name`;
-- "Entered by": `creator_name`;
-- "Approver": `approver_name`.
+- "Submitted for": `uid_name` (details page);
+- "Entered by": `creator_name` (details page and list rows);
+- the list row also shows `approver_name` once the expense is approved.
 
-When `creator == uid`, the UI can keep the existing simple "Submitted By" language or suppress duplicate creator display.
+When `creator == uid`, the details page keeps the simple "Submitted By" language and list rows show only `uid_name`.
 
 ## Non-goals
 
@@ -256,22 +260,24 @@ This change does not:
 
 ## Implementation plan
 
+Every step in this plan is built. The steps below say what the code does.
+
 ### 1. Data migration
 
-Add a migration that:
+Migration `app/migrations/1777381896_book_keeper_expense_creator.go`:
 
 - creates the `book_keeper` claim if it does not already exist;
 - adds `creator` to `expenses` as a relation to `users`;
 - backfills existing expenses with `creator = uid`;
 - adds indexes useful for list and visibility queries:
   - `expenses(creator, date)`;
-  - optionally `expenses(creator, submitted, date)` if pending/draft creator queries need it.
+  - `expenses(creator, submitted, date)`.
 
-The migration should be idempotent around the claim insert so environments with a manually created claim do not fail.
+The migration is idempotent around the claim insert so environments with a manually created claim do not fail.
 
 ### 2. PocketBase collection rules
 
-Update `expenses` collection rules to recognize the split:
+The `expenses` collection rules recognize the split:
 
 - create rule permits regular creates where `uid` equals auth id;
 - create rule permits the shape of a possible bookkeeper-on-behalf create only for authenticated users with `book_keeper`, with `purchase_order` present, `uid != auth.id`, and an allowed payment type;
@@ -282,7 +288,7 @@ Hook validation remains authoritative. Collection rules are an initial gate for 
 
 ### 3. Expense hook changes
 
-Update `ProcessExpense` and `cleanExpense` so they explicitly calculate the expense actor model:
+`ProcessExpense` and `cleanExpense` explicitly calculate the expense actor model:
 
 1. Resolve `auth.id`.
 2. On create, set `creator = auth.id` server-side, ignoring any submitted `creator`.
@@ -290,57 +296,58 @@ Update `ProcessExpense` and `cleanExpense` so they explicitly calculate the expe
 4. Resolve the linked PO before deciding whether `uid != auth.id` is allowed.
 5. If `uid != auth.id`, validate the full bookkeeper eligibility list.
 6. If eligible, force `uid = po.uid` and `approver = creator`.
-7. If not eligible, keep the existing `uid == auth.id` rule and manager-derived approver.
+7. If `uid != auth.id` and the create is not eligible, refuse it. If `uid == auth.id`, use the manager-derived approver.
 
-The manager/tapr validation should stay in place for regular expenses. The bookkeeper path should validate active `creator` plus `book_keeper` instead.
+The manager/tapr validation stays in place for regular expenses. The bookkeeper path validates active `creator` plus `book_keeper` instead.
 
 ### 4. Routes and SQL projections
 
-Update expense SQL and response structs:
+Expense SQL and response structs:
 
 - include `creator`;
 - include `creator_name`;
 - include creator in details responses;
 - include creator in list responses;
-- update `expenses_select_base.sql` and `expense_details.sql`.
+- both `expenses_select_base.sql` and `expense_details.sql` select them.
 
-Update route predicates:
+Route predicates:
 
-- `/api/expenses/list`: include `creator = auth.id` as well as `uid = auth.id`;
-- `/api/expenses/list?purchase_order=...`: include creator-owned rows for that PO;
-- `/api/expenses/:id/details`: include `creator = auth.id` in the expense visibility predicate;
-- `/api/purchase_orders/:id/expenses`: preserve the existing PO visibility gate, then allow rows visible through the expanded expense predicate.
+- `/api/expenses/list`: includes `creator = auth.id` as well as `uid = auth.id`;
+- `/api/expenses/list?purchase_order=...`: includes creator-owned rows for that PO;
+- `/api/expenses/details/{id}`: includes `creator = auth.id` in the expense visibility predicate;
+- `/api/purchase_orders/visible/{id}/expenses`: keeps the existing PO visibility gate, then allows rows visible through the expanded expense predicate.
 
-The pending and approved approval queues can continue to use `approver = auth.id`.
+The pending and approved approval queues use `approver = auth.id`.
 
 ### 5. Submit, recall, delete, and edit lifecycle
 
-Any route or hook that currently says "only `uid` can do this" needs to use `creator` as the operational owner after the migration backfills existing rows:
+Every expense route or hook that used to say "only `uid` can do this" now uses `creator` as the operational owner:
 
 - regular rows: `creator = uid`;
 - bookkeeper-entered rows: `creator != uid`.
 
-Apply `creator` ownership to draft edit, draft delete, submit, and recall checks. Keep approved/committed locks unchanged.
+`creator` ownership applies to draft edit, draft delete, submit, and recall checks. Approved/committed locks are unchanged.
 
 ### 6. Frontend changes
 
-Update the green plus expense creation flow:
+The green plus expense creation flow:
 
-- ensure the visible PO payload includes `uid`;
-- when creating from `/expenses/add/{poid}`, detect:
+- the visible PO payload includes `uid`;
+- when creating from `/expenses/add/{poid}`, the editor detects:
   - current user has `book_keeper`;
   - linked PO `uid` differs from current user;
   - linked PO has a PO number;
-- set the form's `uid` to the linked PO `uid` for that narrow case;
-- otherwise keep setting `uid` to the authenticated user.
+  - the selected payment type is `OnAccount` or `CorporateCreditCard`;
+- it sends the linked PO `uid` as `uid` for that narrow case;
+- otherwise it sends the authenticated user as `uid`.
 
-The editor should not allow arbitrary user selection for this feature. The only allowed alternate `uid` is the linked PO owner.
+The editor does not allow arbitrary user selection for this feature. The only allowed alternate `uid` is the linked PO owner.
 
-Update list/details displays to show "Entered by" when `creator != uid`, and make action visibility use effective owner rather than raw `uid` for edit/delete/submit/recall.
+List/details displays show "Entered by" when `creator != uid`, and action visibility uses `creator` rather than `uid` for edit/delete/submit/recall.
 
 ### 7. Tests
 
-Add backend tests for:
+Backend tests exist for this flow (the `TestBookKeeper...` tests in `app/expenses_test.go`). The planned coverage was:
 
 - existing expense create still requires `uid = auth.id`;
 - existing manager-derived approver behavior remains unchanged;
@@ -358,7 +365,7 @@ Add backend tests for:
 - pending queue includes submitted bookkeeper-entered rows for the creator;
 - list/details visibility includes creator-owned rows before submission.
 
-Add frontend tests or targeted manual QA for:
+The plan also called for frontend tests or targeted manual QA for these. No automated frontend test covers them:
 
 - green plus from another user's eligible PO sets the expense for the PO owner;
 - green plus from own PO keeps regular behavior;
@@ -367,9 +374,9 @@ Add frontend tests or targeted manual QA for:
 
 ## Rollout notes
 
-This can be shipped without changing historical expense semantics because existing rows backfill `creator = uid`. After the migration, regular expenses should continue to behave exactly as before.
+This shipped without changing historical expense semantics because the migration backfilled existing rows with `creator = uid`. Regular expenses behave as before.
 
-Operational rollout:
+The migration and hook changes are in the code. The planned operational rollout was:
 
 1. Deploy migration and hook changes.
 2. Assign `book_keeper` only to bookkeeping staff who should perform AP invoice entry.
@@ -380,7 +387,9 @@ Operational rollout:
 
 ## Open questions
 
-- Should bookkeeper-entered expenses auto-submit after save, or should they remain explicit draft -> submit -> approve like other expenses?
-- Should the PO owner receive a notification that bookkeeping entered an expense on their behalf?
-- Should the audit language say "Submitted for" or "Incurred by" for `uid`?
-- Should `book_keeper` imply any navigation visibility, or should it only affect the green plus create path?
+The code answers these as follows:
+
+- Bookkeeper-entered expenses do not auto-submit after save. They stay explicit draft -> submit -> approve like other expenses.
+- **Not built.** The PO owner gets no notification that bookkeeping entered an expense on their behalf.
+- The audit language says "Submitted for" for `uid`.
+- `book_keeper` adds no navigation items. The "Pending My Approval" item under Expenses still needs `tapr`, so a bookkeeper without `tapr` approves from the expense's details page or from the `Approve` button on their own expense list.

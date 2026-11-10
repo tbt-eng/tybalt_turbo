@@ -13,8 +13,11 @@ Links: [UI should reflect user permissions #58](https://github.com/tbt-eng/tybal
 - Claims are stored in `claims` and linked via `user_claims`.
 - Backend checks claims in hooks/utilities (e.g., `HasClaimByUserID`), and PocketBase rules guard collections (e.g., admin-only create/update on several collections).
 - UI now loads `user_claims_summary` (global claims) and `user_po_approver_profile` (PO limits/divisions/claims) into `globalStore`, and displays claims in `profile/[uid]`.
+- The sidebar already hides links by claim. `ui/src/lib/navConfig.ts` gives a link a `requiredClaim` or a `canView` function, and `ui/src/routes/+layout.svelte` filters the links and their buttons against the claims in `globalStore`. It tests the raw claim names; there are no capability flags.
 
 #### Proposed model: user capabilities
+
+**Not built.** Turbo has no capabilities view, route, store or helper. The UI reads the raw claims.
 
 Expose an aggregated, read-only “capabilities” view per user that the UI can read at login and refresh periodically.
 
@@ -48,6 +51,8 @@ Notes:
 
 #### Backend work
 
+**Not built.** There is no `app/utilities/capabilities.go`, no `user_capabilities` collection and no `GetUserCapabilities`.
+
 1. Define the mapping from claims → capabilities
 
    - Centralize in Go (new `app/utilities/capabilities.go`) a registry that maps claim names to booleans/limits/lists.
@@ -70,6 +75,8 @@ Notes:
    - Use `HasClaimByUserID`/existing checks as-is; capabilities are an additional, read-only projection.
 
 #### UI work
+
+**Not built.** There is no `capabilitiesStore` and no `can`, `limit` or `list` helper. The sidebar filter described under "Current state" uses claim names.
 
 1. Store and types
 
@@ -97,6 +104,8 @@ Notes:
 
 #### Mapping (initial draft)
 
+**Not built.** No code maps claims to these flags.
+
 - `admin` → `can.view.admin`, `can.view.reports`, `can.edit.users`.
 - `job` → `can.edit.clients`.
 - `busdev` → possibly `can.view.pipeline` if present. This claim alone does not grant client editing.
@@ -105,20 +114,27 @@ Notes:
 
 The confirmed [Project Authorization](project_authorizations.md) rules require
 the `job` claim to maintain clients, contacts, and invoicing profiles. Neither
-`admin` nor `busdev` alone grants this access.
+`admin` nor `busdev` alone grants this access. One exception: a holder of `time`
+can create an invoicing profile, but cannot edit or delete one.
 
 #### Testing
+
+**Not built.**
 
 - Backend: unit test `GetUserCapabilities` for representative users/claims. Prefer seeding `test_pb_data/data.db` with fixture data instead of inserts during tests.
 - UI: render tests for nav/components to verify gating with mocked stores.
 
 #### Rollout
 
+**Not built.** No step is done.
+
 1. Ship backend `user_capabilities` view and UI store behind feature flag (default on).
 2. Convert nav and a few critical screens (admin, purchase orders) first.
 3. Incrementally gate remaining components.
 
 #### Risks and mitigations
+
+**Not built.** These are risks of the proposed model.
 
 - Divergence between server rules and UI flags → keep claim→capability mapping next to server logic; review on claim/rule changes.
 - Stale capabilities → store already refreshes per-navigation with maxAge; provide manual refresh on login/token refresh.

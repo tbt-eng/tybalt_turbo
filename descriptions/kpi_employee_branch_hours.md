@@ -15,7 +15,8 @@ separates hours assigned to a job from hours that have no job.
 ## Pages
 
 - `/reports/kpi` lists the available KPI reports.
-- `/reports/kpi/employee-branch-hours` displays this report.
+- `/reports/kpi/employee-branch-hours` displays this report. Both pages title
+  it Staff Branch Hours.
 - The default period is the complete previous calendar month.
 - Start and end dates are inclusive.
 - Selecting dates does not run the report. The user must select Update.

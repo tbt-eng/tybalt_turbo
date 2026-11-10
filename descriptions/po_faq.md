@@ -30,7 +30,7 @@ For POs, not by manager. Turbo either:
 - auto-assigns you if you qualify for that approval stage, or
 - shows the valid approver list for you to choose from.
 
-For expenses, yes: the approver is automatically set to the submitter's manager.
+For expenses, yes: the approver is automatically set to the submitter's manager. The exception is an expense that a bookkeeper (`book_keeper` claim) creates for another person: the bookkeeper is its approver.
 
 **What is the difference between the primary approver and the second approver?**
 
@@ -45,7 +45,7 @@ If Turbo auto-assigns an approver, that assignment is intentional. If it shows a
 
 **Will staff be notified about PO approvals?**
 
-- When a PO is created or re-submitted, the first approver is notified.
+- When a PO is created, the first approver is notified. Editing a PO that has no first approval yet sends no new email, even when the edit follows a rejection. A meaningful edit to a first-approved PO clears that approval and notifies the first approver again.
 - If second approval is required, the priority second approver is notified after first approval.
 - When the PO becomes `Active`, the creator is notified if someone else approved it.
 - Approvers can also review items in the pending approval queue.

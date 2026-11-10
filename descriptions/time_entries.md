@@ -103,7 +103,9 @@ This means time entries no longer always derive branch from
   restricted branch, such as a company-wide job on the Corporate branch.
   Purchase orders and expenses follow the same rule. An expense linked to a
   purchase order takes the purchase order's branch, so it is still checked when
-  that branch differs from the job's branch.
+  that branch differs from the job's branch. Turbo also skips the check for a
+  purchase order in a PO group that keeps the branch it was created with, and
+  for an expense against a purchase order in a PO group.
 
 ## UI Exposure of Rule (3)
 

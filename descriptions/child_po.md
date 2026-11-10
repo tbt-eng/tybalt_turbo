@@ -29,6 +29,7 @@ When `parent_po` is set, the following are enforced:
 - Parent PO must be `Cumulative`
 - No other non-terminal (`Closed`/`Cancelled`) child POs may exist for the same parent
 - Child PO must match parent on: `job`, `payment_type`, `category`, `description`, `vendor`, `kind`
+- Child PO currency must match the parent PO currency. A blank child currency takes the parent's.
 - Child PO must be of type `One-Time`
 
 #### Expense Validation (`app/hooks/validate_expenses.go`)
@@ -48,7 +49,7 @@ This error is caught by the expenses UI to trigger the child PO creation flow.
 
 - **[TODO]** `existing_child_po` pre-check in expense validation — currently the overflow error is returned without first checking whether the parent already has an active child PO. That check only happens when the user attempts to create the child PO.
 - **[TODO]** Parent PO cancellation protection — a parent PO with children (but no direct expenses) can currently be cancelled. Should block cancel if non-terminal children exist.
-- **[TODO]** Parent PO approval-status-change protection — no guard prevents changes to a parent PO's approval status when it has children.
+- **[TODO]** Parent PO approval-status-change protection — only one guard exists: the revise route (`app/routes/revise_purchase_order.go`) refuses a parent PO that has a child PO that is not `Cancelled` (`po_has_child_pos`). No guard prevents other status changes to a parent PO that has children.
 
 ### Frontend: Implemented
 

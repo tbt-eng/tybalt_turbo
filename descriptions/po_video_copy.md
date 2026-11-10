@@ -4,7 +4,7 @@ Hi!
 
 Turbo now includes a new way to create purchase orders and record expenses.
 
-In general, regular expenses over one hundred dollars require a purchase order. Job-related expenses also require a purchase order unless they are an exempt type such as Fuel Card, Mileage, Daily Allowance, or Personal Reimbursement.
+In general, regular expenses of one hundred dollars or more require a purchase order. Job-related expenses also require a purchase order unless they are an exempt type such as Fuel Card, Mileage, Allowance, or Personal Reimbursement.
 
 Purchase orders are created and approved directly in Turbo.
 
@@ -52,7 +52,7 @@ If the purchase order was already first-approved but is still waiting for second
 
 Most expenses will be charged against an active purchase order.
 
-To do that, open My Purchase Orders, or All Active if you are using someone else's purchase order, and click the green plus icon. This opens the expense editor with the purchase order information already filled in.
+To do that, open My Purchase Orders, or Search if you are using someone else's purchase order, and click the green plus icon. This opens the expense editor with the purchase order information already filled in.
 
 Review the details, add the attachment if required, and click Save. That creates the expense as a draft.
 
@@ -70,6 +70,6 @@ After approval, the expense still must be committed before it is ready for payou
 
 For direct expenses, click the plus icon to the right of My Expenses.
 
-Use this path for exempt expense types such as Fuel Card, Mileage, Daily Allowance, and Personal Reimbursement. It is also used for regular non-job expenses under one hundred dollars.
+Use this path for exempt expense types such as Fuel Card, Mileage, Allowance, and Personal Reimbursement. It is also used for regular non-job expenses under one hundred dollars.
 
 For normal job-related expenses, a purchase order is still required even if the amount is under one hundred dollars.

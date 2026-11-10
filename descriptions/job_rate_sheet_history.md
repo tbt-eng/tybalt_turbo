@@ -1,6 +1,7 @@
 # Job rate sheet history
 
-Status: Proposed
+Status: Proposed. **Not built.** The code has no `job_rate_sheets` collection.
+A project has one rate sheet, and it prices all of the project's time.
 Last updated: 2026-10-15
 
 ## Current behaviour
@@ -18,6 +19,9 @@ when all of these hold:
   with `missing_claim`.
 - The new sheet is active.
 - The sheet is replaced, not cleared. A rate sheet cannot be removed once set.
+
+A project that has no rate sheet needs no `rate_sheet_revise` claim: any active
+`job` holder can set an active sheet on it.
 
 As of 2026-10-15, no users hold the `rate_sheet_revise` claim. In practice,
 nobody can change the rate sheet of an existing project.
@@ -54,7 +58,7 @@ the new one.
 
 ## Goal
 
-Record which rate sheet applies to a project from which date. Price each time
+**Not built.** Record which rate sheet applies to a project from which date. Price each time
 entry with the sheet in effect on the entry's date. Keep the history editable
 by `rate_sheet_revise` holders so a wrong assignment can be corrected.
 
@@ -64,7 +68,7 @@ expense date.
 
 ## Data model
 
-New collection `job_rate_sheets`:
+**Not built.** New collection `job_rate_sheets`:
 
 | Field            | Type                                | Notes                                                              |
 | ---------------- | ----------------------------------- | ------------------------------------------------------------------ |
@@ -86,6 +90,8 @@ Indexes:
 
 ### Row rules
 
+**Not built.** These rules are part of the proposal.
+
 - A project with a rate sheet has exactly one opening row. It covers all time
   before the first dated row, so no entry falls outside the history.
 - A dated row applies from its `effective_date`, inclusive, until the next
@@ -106,7 +112,7 @@ Indexes:
 
 ### `jobs.rate_sheet`
 
-Keep the field. A hook keeps it equal to the sheet on the latest row (the
+**Not built.** Keep the field. A hook keeps it equal to the sheet on the latest row (the
 latest `effective_date`, or the opening row if there are no dated rows). It is
 written in the same transaction as the history change.
 
@@ -125,6 +131,8 @@ action.
 
 ## Permissions
 
+**Not built.** These permissions are part of the proposal.
+
 - **View:** anyone who can view the job.
 - **Create, edit, or delete a row:** an active user with both the `job` and
   `rate_sheet_revise` claims, matching today's rule for changing a project's
@@ -140,7 +148,7 @@ collection's create, update, and delete rules are null.
 
 ## Pricing
 
-Only `job_priced_time_entries.sql` changes. Every time valuation already uses
+**Not built.** Only `job_priced_time_entries.sql` changes. Every time valuation already uses
 it: `job_wip_api.go`, `wip_reports.go`, `job_staff_summary_api.go`,
 `job_divisions_summary_api.go`, and `job_wip_missing_rates.go`.
 
@@ -177,7 +185,7 @@ stay as they are.
 
 ### Performance
 
-A project has only a few rows, and the `(job, effective_date)` index covers
+**Not built.** A project has only a few rows, and the `(job, effective_date)` index covers
 the scan. WIP reports load hundreds of jobs at once, so repeat the measurements
 in `wip_performance.md` before and after, on the same production snapshot.
 
@@ -187,7 +195,7 @@ in `wip_performance.md` before and after, on the same production snapshot.
 
 `JobTimeValuation` returns one `rate_sheet_name` and `rate_sheet_revision`.
 `TimeSummaryTable.svelte` reads `rows[0].rate_sheet_revision === null` to
-decide that a job has no sheet. With history, a job's time can be priced by
+decide that a job has no sheet. **Not built.** With history, a job's time can be priced by
 several sheets.
 
 - Replace the single name and revision with a `rate_sheets` list of
@@ -200,10 +208,13 @@ several sheets.
 
 ### Missing rates
 
-The breakdown groups missing-role-rate hours by sheet. A role can be priced in
+**Not built.** The breakdown groups missing-role-rate hours by sheet. A role can be priced in
 one period and not in the next.
 
 ### Job editor and details
+
+**Not built.** Today the selector can be edited, and job details has no Rate sheets
+section.
 
 - On existing projects the rate sheet selector is read-only, and shows the
   current sheet.
@@ -217,6 +228,8 @@ one period and not in the next.
 
 ## Migration
 
+**Not built.** No migration creates `job_rate_sheets`.
+
 1. Create `job_rate_sheets` and its indexes.
 2. Backfill one opening row for every project with a non-empty `rate_sheet`,
    including imported jobs. Leave `reason` empty and `created_by` unset on
@@ -229,6 +242,8 @@ all time, using its current sheet. Run the WIP report and a sample of job
 summaries before and after the migration and compare the results.
 
 ## Tests
+
+**Not built.** These tests do not exist.
 
 - **Pricing:** entries before, on, and after a dated row; several dated rows;
   an inactive sheet in history; a role present in one sheet and missing from
@@ -245,6 +260,8 @@ summaries before and after the migration and compare the results.
 - **Migration:** WIP values are identical before and after the backfill.
 
 ## Open questions
+
+**Not built.** These questions are about the proposal.
 
 - **Invoiced periods:** when invoiced amounts are tracked
   (`WIP_invoiced_amount_tracking.md`), should a dated row earlier than the last

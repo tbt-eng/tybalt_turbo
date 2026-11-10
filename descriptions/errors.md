@@ -34,6 +34,8 @@ It is an array of objects with the following properties:
 
 - `message`: The error message to display.
 - `id`: The id of the error message.
+- `source`: Optional. Its only value is `"auth-session"`, which marks an error
+  about the sign-in session.
 
 The id is used to identify the error message when it is dismissed.
 
@@ -44,13 +46,14 @@ errorMessages array.
 ### Adding errors
 
 The `addError` function is a function of the global store and is used to add an
-error to the errorMessages array. It takes a single string argument representing
-the error message. A unique id is generated for the error message and added to
-the array.
+error to the errorMessages array. It takes a string argument representing
+the error message and an optional `{ source }` option. A unique id is generated
+for the error message and added to the array.
 
 ### Dismissing errors
 
 The `dismissError` function is a function of the global store and is used to
 dismiss an error from the errorMessages array. It takes a single string argument
 representing the id of the error to dismiss. The error is removed from the
-array.
+array. The `clearErrors` function removes every error, or only the errors of one
+`source`.

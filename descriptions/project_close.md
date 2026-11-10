@@ -81,9 +81,9 @@ Proposal note, only when an auto-award happens:
 In one transaction:
 
 1. proposal auto-award (if applicable)
-2. project close
-3. project note
-4. proposal note (if applicable)
+2. proposal note (if applicable)
+3. project close
+4. project note
 
 Any failure rolls back all of them.
 

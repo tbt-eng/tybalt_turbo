@@ -1,5 +1,9 @@
 # Invoiced Amount Tracking for Job POs, Expenses Feature (Phase 2)
 
+**Not built.** Turbo has no `po_invoicing_records` collection, no invoicing
+routes, no `Invoicing POs` tab and no `invoicing` claim. This document is a
+plan.
+
 Tracking issue: [Track client-invoiced amounts against job POs #151](https://github.com/tbt-eng/tybalt_turbo/issues/151)
 
 TO ADD LATER FEB 25 2026:
@@ -14,7 +18,7 @@ Last updated: 2026-02-18
 
 ## Context
 
-On job details (`/jobs/{id}/details#pos`), the current `Active POs` tab only shows Active purchase orders. We need a second tab for invoicing workflows that shows all job-referencing POs that can legitimately have client billing recorded against them.
+On job details (`/jobs/{id}/details#pos`), the current `POs` tab shows only Active purchase orders and purchase orders under revision. We need a second tab for invoicing workflows that shows all job-referencing POs that can legitimately have client billing recorded against them.
 
 This feature is for tracking what has already been billed to the client for work tied to a PO, including:
 
@@ -28,6 +32,8 @@ This feature is for tracking what has already been billed to the client for work
 ## Scope
 
 ## In scope
+
+**Not built.**
 
 - Add `Invoicing POs` tab on job details.
 - Show eligible POs for the job (rules below).
@@ -43,6 +49,8 @@ This feature is for tracking what has already been billed to the client for work
 - Replacing existing client notes.
 
 ## Eligibility Rules (Normative)
+
+**Not built.**
 
 A PO is eligible for invoicing records only if all are true:
 
@@ -61,6 +69,8 @@ Rationale:
 
 ## D1. Use a dedicated collection, not `client_notes`
 
+**Not built.**
+
 Recommendation: create `po_invoicing_records` collection.
 
 Why:
@@ -71,6 +81,8 @@ Why:
 
 ## D2. Append-only records (phase 1)
 
+**Not built.**
+
 - Creation allowed.
 - Update/delete disallowed in phase 1.
 - Corrections handled by adding compensating entries (if needed later, add explicit adjustment flow).
@@ -79,11 +91,15 @@ This preserves clear audit history (`who`, `when`).
 
 ## D3. Amount semantics
 
+**Not built.**
+
 - `amount` means gross client invoice amount (taxes + fees included).
 - Must be positive.
 - Stored as currency amount with 2-decimal precision semantics.
 
 ## D4. Invoice number
+
+**Not built.**
 
 - Dedicated `invoice_number` field on each record.
 - Optional in phase 1 (can be made required later if operations demands).
@@ -96,18 +112,21 @@ Current:
 
 - `Time`
 - `Expenses`
-- `Active POs`
+- `POs`
+- `WIP`
 
-Proposed:
+Proposed (**Not built.**):
 
 - `Time`
 - `Expenses`
-- `Active POs`
+- `POs`
 - `Invoicing POs`
 
-`Active POs` remains unchanged.
+`POs` remains unchanged.
 
 ## Invoicing POs list content
+
+**Not built.**
 
 Each PO row should show:
 
@@ -127,6 +146,8 @@ Optional row expand/collapsible section:
 - list of invoicing records (newest first)
 
 ## Add Invoice Record form
+
+**Not built.**
 
 Fields:
 
@@ -168,12 +189,16 @@ Recommended indexes:
 
 ## Job tab endpoints
 
+**Not built.**
+
 - `GET /api/jobs/{id}/invoicing_pos/summary`
 - `GET /api/jobs/{id}/invoicing_pos/list`
 
 Behavior mirrors existing `.../pos/summary` and `.../pos/list` patterns, but uses invoicing eligibility rules and includes invoicing aggregates.
 
 ## PO invoicing record endpoints
+
+**Not built.**
 
 - `GET /api/purchase_orders/{id}/invoicing_records`
 - `POST /api/purchase_orders/{id}/invoicing_records`
@@ -191,6 +216,8 @@ Server derives:
 - `job` and `client` from PO/job linkage
 
 ## Validation Rules (Normative)
+
+**Not built.**
 
 On create:
 
@@ -214,12 +241,16 @@ Initial recommendation:
 
 ## Implementation Notes (Codebase Fit)
 
+**Not built.** The files and components named here exist; the invoicing work does not.
+
 - Existing job details tab framework (`JobDetailTab`) can be reused with new summary/list endpoints.
 - Existing active PO SQL (`app/routes/job_pos.sql`, `app/routes/job_po_summary.sql`) can be cloned/adapted for invoicing-eligible PO logic.
 - New `PO Invoicing` UI component should mirror `POsTabContent` style and add record list + create action.
 - Keep `client_notes` untouched for phase 1.
 
 ## Reporting / Derived Metrics
+
+**Not built.**
 
 Per PO:
 
@@ -233,6 +264,8 @@ Job-level (optional phase 1.5):
 
 ## Test Plan
 
+**Not built.** These tests do not exist.
+
 ## Backend
 
 - eligibility enforcement by kind/status/job linkage
@@ -245,6 +278,8 @@ Job-level (optional phase 1.5):
 
 ## UI
 
+**Not built.**
+
 - `Invoicing POs` tab appears and loads
 - row action opens/uses create form
 - successful create updates row aggregates/history
@@ -252,12 +287,16 @@ Job-level (optional phase 1.5):
 
 ## Rollout
 
+**Not built.**
+
 1. Add collection + migrations + API handlers + tests.
 2. Add UI tab + components + integration wiring.
 3. Seed fixture data for happy-path and invalid-state tests.
 4. Release behind normal auth/claim controls (no feature flag required unless requested).
 
 ## Open Questions
+
+**Not built.** These questions are still open.
 
 1. Should `invoice_number` be mandatory at creation time?
 2. Should future-dated `invoiced_on` be allowed?
