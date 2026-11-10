@@ -3,6 +3,9 @@
     "id": "po-approval-01",
     "category": "po-approval",
     "question": "The second-approval threshold for our PO's kind is $500. My PO total is exactly $500 and the approver I picked has a limit of exactly $500. Does the PO need a second approval, and can that approver approve it?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "It needs only one approval, and that approver can give it. Turbo requires a second approval only when the approval total is strictly greater than the kind's threshold, so a total equal to the threshold stays a single-approval PO. On a single-approval PO the approver's limit must be at least the total, so a limit exactly equal to the total is enough. At $500.01 the PO would need two approvals, and an approver with a $500 limit could then give only the first one.",
     "key_points": [
       "No second approval: it is required only when the total is strictly greater than the threshold.",
@@ -35,6 +38,9 @@
     "id": "po-approval-02",
     "category": "po-approval",
     "question": "One of our executives shows up in the Approver list when I create a small PO, but for a large PO they are missing from that list and only appear under Priority Second Approver. Why?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Because the large PO needs two approvals, and Turbo then splits the qualified approvers into two lists that don't overlap. When the approval total is above the kind's second-approval threshold, the Approver list holds only people whose limit is above zero but below the total. They vet the request. Anyone whose limit covers the total appears only under Priority Second Approver, because that person gives final approval. On a PO that needs one approval, the Approver list holds only people whose limit covers the total, so the executive is there. The one exception is the creator: a creator whose own limit covers the total is still offered as the approver.",
     "key_points": [
       "When two approvals are required, the Approver list holds only approvers with a limit above zero and below the PO total.",
@@ -74,6 +80,9 @@
     "id": "po-approval-03",
     "category": "po-approval",
     "question": "I'm creating a Recurring PO: $2,000 monthly, start date May 4, 2026, end date September 4, 2026. What amount do the approvers' limits have to cover?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "$8,000. On a Recurring PO the total you enter is one payment, and approval uses that total times the number of payments. Turbo counts payments from the start date up to, but not including, the end date. Monthly from May 4 to September 4 gives four payments: May 4, June 4, July 4 and August 4. The September 4 payment falls on the end date, so it doesn't count. The $8,000 decides whether a second approval is needed and whose limits are high enough. With an end date of September 5 it would be five payments and $10,000.",
     "key_points": [
       "The approval amount is the per-payment total multiplied by the number of payments, not $2,000.",
@@ -113,6 +122,9 @@
     "id": "po-approval-04",
     "category": "po-approval",
     "question": "My PO is in US dollars. Are the approvers' limits compared with the US-dollar total? And if the exchange rate changes before the PO is approved, which amount counts?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Limits are in the home currency, Canadian dollars. Each time the PO is saved, Turbo multiplies its approval total by that currency's exchange rate at that moment and stores the Canadian-dollar amount on the PO. When someone approves, Turbo compares that stored amount, not the US-dollar figure, with the second-approval threshold and with the approver's limit. A later change in the exchange rate doesn't change the stored amount. Turbo works it out again only when the PO is saved again, for example when you edit or revise it.",
     "key_points": [
       "Limits and the second-approval threshold are compared with the home-currency (CAD) amount, not the foreign-currency total.",
@@ -152,6 +164,10 @@
     "id": "po-approval-05",
     "category": "po-approval",
     "question": "I'm an approver with a high limit. I'm creating a large PO of my own that would normally need two approvals, and my limit covers the whole amount. Does anyone else have to approve it?",
+    "held": [
+      "po_approver",
+      "time"
+    ],
     "ideal_answer": "No. When your own PO needs two approvals and your limit covers its total, Turbo hides both approver fields and sets you as the approver and as the priority second approver. Saving does not approve it. The PO stays Unapproved, and you can still edit it. When you select Approve, Turbo records the first approval and the second approval together in one step and makes the PO Active. Nobody else is asked.",
     "key_points": [
       "Nobody else must approve: the creator is set as both the approver and the priority second approver."
@@ -192,6 +208,10 @@
     "id": "po-approval-06",
     "category": "po-approval",
     "question": "A PO has its first approval. My limit is high enough to give the final approval and I can open the PO, but I'm not its priority second approver and I see no Approve button. Why, and when will I get one?",
+    "held": [
+      "po_approver",
+      "time"
+    ],
     "ideal_answer": "After the first approval, only the priority second approver has the PO in Pending My Approval. That lasts 24 hours by default. An app setting can change the number of hours, and a missing or invalid value means 24. During that time other approvers whose limit covers the total can open the PO, but the Approve and Reject buttons show only when the PO is in your own pending list. Once that time has passed since the first approval, the PO joins the pending list of every approver who can give final approval, and you get the buttons.",
     "key_points": [
       "At first only the priority second approver has the PO pending.",
@@ -231,6 +251,9 @@
     "id": "po-approval-07",
     "category": "po-approval",
     "question": "A PO already has its first approval and is waiting for the second approver. Can it still be rejected? What state is it in afterwards?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Yes. A PO can be rejected for as long as it isn't Active, so a first approval doesn't protect it. Rejection doesn't change the status. The PO stays Unapproved, and Turbo records the rejection date, the reason and who rejected it. The rejection itself doesn't remove the first approval. While the PO is rejected, nobody can approve it: Turbo answers that rejected purchase orders cannot be approved. The creator has to select Edit and Resubmit and save. Saving clears the rejection.",
     "key_points": [
       "Yes: a PO with a first approval can still be rejected because it isn't Active yet.",
@@ -272,6 +295,9 @@
     "id": "po-approval-08",
     "category": "po-approval",
     "question": "My PO has its first approval and is waiting for the priority second approver. If I edit the PO and only pick a different priority second approver, do I keep the first approval?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "No. On a PO that already has its first approval, Turbo treats a change to almost any field as a meaningful edit, and both approver fields count. It ignores only the approval, rejection, cancel and close stamps, the PO number and the status. So picking a different priority second approver clears the first approval, and the first approver has to approve the PO again before the second approver can act. This reset happens only when the PO already has a first approval. Before that, an edit has nothing to reset.",
     "key_points": [
       "No: the first approval is cleared and the first approver must approve again.",
@@ -311,6 +337,9 @@
     "id": "po-approval-09",
     "category": "po-approval",
     "question": "What happens if my PO's total is higher than every approver's limit for that kind? Does it go to whoever has the highest limit?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "No. Turbo has no fallback and doesn't pass the PO to the person with the highest limit. Final approval must come from someone whose limit for that kind is at least the PO's approval total. If nobody qualifies, you can't save the PO. On a PO that needs two approvals, the form says that no second-stage approver can final-approve the amount. On a PO that needs one approval, it says no eligible primary approvers are available. The server refuses the save as well. The messages tell you to contact an administrator.",
     "key_points": [
       "There is no fallback to the approver with the highest limit; Turbo returns an error instead.",
@@ -349,6 +378,10 @@
     "id": "po-approval-10",
     "category": "po-approval",
     "question": "A PO that needs only one approval was assigned to me. Before I approved it, an admin lowered my limit below the PO's total. Can I still approve it?",
+    "held": [
+      "po_approver",
+      "time"
+    ],
     "ideal_answer": "No. Turbo works out who may approve from the current limits each time someone selects Approve, not from the limits when the PO was created. On a PO that needs one approval, the assigned approver's limit must be at least the total. Yours is now lower, so Turbo refuses with the message that the assigned approver is not valid for first-stage approval. The PO stays Unapproved. The creator has to edit it and select an approver whose limit covers the total, or an admin has to raise your limit again.",
     "key_points": [
       "No: Turbo checks limits again at the moment of approval, using the current limits."
@@ -390,6 +423,9 @@
     "id": "po-approval-11",
     "category": "po-approval",
     "question": "We're buying a laptop for a project, so the PO has a job and its kind is Computer. Does Turbo check the approver's project limit or their computer limit?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "The computer limit. The PO's kind alone decides which of an approver's limits Turbo checks. Each kind (capital, project, sponsorship, staff and social, media and event, computer) has its own limit. A job on a Computer PO doesn't switch it to the project limit. The second-approval threshold also comes from the kind. The job matters only for a PO with no recognised kind, such as an old record: Turbo then uses the project limit if the PO has a job and the capital limit if it doesn't.",
     "key_points": [
       "The computer limit applies, not the project limit.",
@@ -431,6 +467,9 @@
     "id": "po-lifecycle-01",
     "category": "po-lifecycle",
     "question": "Our Recurring PO's end date has passed, but the PO still shows Active. Will Turbo close it on its own now that the end date is behind us?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "No. Turbo never closes a PO because of a date. A Recurring PO closes automatically only when a committer commits its last expected expense: at each commit, Turbo counts the committed expenses and compares the count with the number of payments that the PO allows. If fewer expenses are committed, the PO stays Active after its end date. It is of little use by then, because Turbo refuses an expense dated after the end date. Payables staff can close it by hand once it has a committed expense.",
     "key_points": [
       "Turbo does not close a PO when its end date passes; none of its scheduled jobs changes a PO's status.",
@@ -469,6 +508,9 @@
     "id": "po-lifecycle-02",
     "category": "po-lifecycle",
     "question": "I created my PO in late October, but it was approved in November and its number starts with November's year and month. Why doesn't the PO number match the date on the PO?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Turbo assigns the PO number at final approval, when the PO becomes Active. It doesn't assign one when you create the PO. The first four digits are the year and month on the server's clock at that moment, so they show when the PO was approved, not the date that you entered on it. The last four digits are the next number in that month's sequence. A PO that already has a number keeps it, so a revised PO doesn't get a new number when it is approved again.",
     "key_points": [
       "Turbo assigns the PO number when the PO becomes Active at final approval, not when the PO is created.",
@@ -501,6 +543,9 @@
     "id": "po-lifecycle-03",
     "category": "po-lifecycle",
     "question": "My Cumulative PO went over its total, so I created a child PO for the extra invoice. Another invoice has now arrived, and Turbo won't let me create a second child PO. Why?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "A parent PO can have only one open child at a time. Turbo refuses a new child PO while the parent has any other child that isn't Closed or Cancelled. A child that waits for approval blocks the new one, and so does an Active child whose expense isn't committed yet. A child PO is always One-Time, so it closes when a committer commits its expense. After that, or after the child is cancelled, you can create the next one. One parent can have at most 99 numbered child POs.",
     "key_points": [
       "A parent PO can have only one child PO at a time that is not Closed or Cancelled.",
@@ -539,6 +584,9 @@
     "id": "po-lifecycle-04",
     "category": "po-lifecycle",
     "question": "A PO that I use shows Under revision, and I can see that the revision was rejected. Why can't I see the reason for the rejection?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Any signed-in user can still see a PO under revision, because everyone could see it while it was Active. But Turbo shows the rejection reason to only three people: the PO's creator, its assigned approver and the person who rejected it. For everyone else, Turbo returns a blank reason. You can still see that it was rejected and that it now waits on its creator, who must resubmit it or cancel it. Ask the creator for the reason.",
     "key_points": [
       "Turbo shows the rejection reason of a revision only to the creator, the assigned approver and the person who rejected it.",
@@ -577,6 +625,10 @@
     "id": "po-lifecycle-05",
     "category": "po-lifecycle",
     "question": "Payables staff tried to close a Cumulative PO by hand and Turbo refused. Which expenses on a PO block a manual close, and which don't?",
+    "held": [
+      "payables_admin",
+      "time"
+    ],
     "ideal_answer": "An expense blocks a manual close if it is submitted, not committed and not rejected. That covers an expense that waits for its approver and an approved expense that waits for commit. The error names the approvers who must act. Draft expenses and rejected expenses don't block the close. The PO also needs at least one committed expense. With none, Turbo tells payables staff to cancel the PO instead. A One-Time PO can never be closed by hand.",
     "key_points": [
       "Any expense that is submitted, not committed and not rejected blocks a manual close, including an approved expense that waits for commit.",
@@ -609,6 +661,9 @@
     "id": "po-lifecycle-06",
     "category": "po-lifecycle",
     "question": "Two of us each saved an expense against the same One-Time PO. Mine was committed first, and now my colleague can't submit theirs. What happened?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Turbo doesn't stop a second expense from being saved against a One-Time PO while the PO is Active. But a One-Time PO closes as soon as a committer commits one expense against it. Yours was committed, so the PO is now Closed. An expense can be submitted, approved or committed only while its PO is Active, so Turbo refuses your colleague's expense because the purchase order is not Active.",
     "key_points": [
       "Committing the first expense closes the One-Time PO.",
@@ -647,6 +702,9 @@
     "id": "po-lifecycle-07",
     "category": "po-lifecycle",
     "question": "I recorded an expense against a colleague's PO. Now that the PO is closed, I can't open it any more. Who can still see a closed PO?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Every signed-in user can see an Active PO. Once it is Closed or Cancelled, Turbo shows it only to people linked to it: its creator, its approver, its second approver, the manager and alternate manager of its job, and staff with report access. Recording an expense against the PO doesn't put you on that list, so you can no longer open it. Two other groups keep access: staff with PO group or admin access can see grouped POs, and staff who enter manually created POs can see those.",
     "key_points": [
       "A Closed or Cancelled PO is visible to its creator, its approver, its second approver and staff with report access.",
@@ -685,6 +743,10 @@
     "id": "po-lifecycle-08",
     "category": "po-lifecycle",
     "question": "I'm creating a PO group from a CSV file of staff. If one row has a mistake, does Turbo still create the POs for the other rows? And is there a limit on the number of rows?",
+    "held": [
+      "super_po",
+      "time"
+    ],
     "ideal_answer": "No. A PO group is all or nothing. Turbo checks every row first. If any row has an error, it creates no group and no POs, and it returns each row with its errors so that you can fix the file. When every row passes, Turbo creates the group and one Unapproved PO for each row in a single transaction. A staff member's email can appear only once in the file: a repeated email is an error on each of those rows. One upload can have at most 1,000 rows.",
     "key_points": [
       "If any row has an error, Turbo creates no group and no POs.",
@@ -723,6 +785,9 @@
     "id": "expenses-01",
     "category": "expenses",
     "question": "The total on my mileage expense changed when it was committed. I did not edit it. Why?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Turbo prices mileage in rate tiers that depend on how far you have already driven in the current mileage period. When you save, it counts only your committed mileage expenses dated before this one, back to the latest mileage reset date. Mileage that is still a draft, submitted or approved does not count. At commit, Turbo calculates the total again with the same rule. If other mileage expenses of yours were committed in the meantime, your distance so far is higher. That can move some or all of this trip into another rate tier, so the total changes.",
     "key_points": [
       "Turbo recalculates the total of a mileage expense when it is committed.",
@@ -764,6 +829,9 @@
     "id": "expenses-02",
     "category": "expenses",
     "question": "Allowance rates went up on the first of this month. Today I am entering a dinner and lodging allowance for a night last month. Which rates does Turbo use, and can I adjust the amount?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Turbo uses the rates in effect on the expense date, not on the day you enter it. It takes the newest rate set whose effective date is on or before the expense date, so a night last month gets last month's rates. The total is the sum of the rates for each type you select, here Dinner plus Lodging. You can't adjust it. On every save Turbo overwrites the total, replaces the description with \"Allowance for Dinner, Lodging\" and clears the vendor.",
     "key_points": [
       "Rates come from the newest rate set whose effective date is on or before the expense date, not the date of entry.",
@@ -799,6 +867,9 @@
     "id": "expenses-03",
     "category": "expenses",
     "question": "I paid US$80 out of my own pocket and I have no PO. That is under the $100 limit, so why does Turbo say that I need a purchase order?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "The no-PO limit is in Canadian dollars. For a foreign-currency expense Turbo compares the Canadian amount, not the foreign amount. It uses the Canadian settled total on the expense if one is entered. If none is entered, it uses the expense total multiplied by the currency's current exchange rate. If that Canadian amount is at or above the limit, the expense needs a PO. The limit is a setting, and its default is $100. So US$80 needs a PO whenever it comes to CAD $100 or more.",
     "key_points": [
       "The no-PO limit is compared with the Canadian-dollar amount, not with the foreign-currency total."
@@ -840,6 +911,9 @@
     "id": "expenses-04",
     "category": "expenses",
     "question": "For a foreign-currency expense that I paid myself, is there a limit on the Canadian-dollar amount that I can enter as the settled total?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Yes. For the Expense payment type in a foreign currency, you enter the Canadian settled total yourself, and it must be greater than zero. Turbo multiplies the expense total by the currency's current exchange rate. It accepts a settled total only if it is within 20% above or below that amount. Outside that range Turbo refuses the save and shows the allowed range. Turbo runs the same check again when you submit, so a large change in the exchange rate between save and submit can block the submit.",
     "key_points": [
       "The settled total must be within 20% (above or below) of the expense total multiplied by the current exchange rate."
@@ -881,6 +955,10 @@
     "id": "expenses-05",
     "category": "expenses",
     "question": "Can a committer reject an expense that the manager has not approved yet?",
+    "held": [
+      "commit",
+      "time"
+    ],
     "ideal_answer": "No, unless the committer is also the approver of that expense. A committer who is not the assigned approver can reject only an approved expense. Otherwise Turbo answers \"only approved records can be rejected by a commit user\". The assigned approver can reject a submitted expense before or after approving it. Nobody can reject an expense that is committed, or one that is already rejected.",
     "key_points": [
       "A committer who is not the expense's approver can reject only an approved expense."
@@ -916,6 +994,10 @@
     "id": "expenses-06",
     "category": "expenses",
     "question": "I am set as my own manager. What happens when I submit my expense, and can I recall it afterwards to fix a mistake?",
+    "held": [
+      "tapr",
+      "time"
+    ],
     "ideal_answer": "Turbo approves the expense at the moment you submit it. When the person who submits is both the owner and the approver of the expense, submit also sets the approval, so there is no separate approval step. You can't recall it after that. Recall works only for an expense that is not approved, or for one that is rejected. To change it, the expense must be rejected first. You can reject it yourself as its approver, or a committer can reject it. Then recall it, edit it and submit it again.",
     "key_points": [
       "Submit approves the expense immediately when the submitter is both its owner and its approver.",
@@ -957,6 +1039,9 @@
     "id": "expenses-07",
     "category": "expenses",
     "question": "My manager left the company and their account is now inactive. Who approves my expenses now?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Nobody takes over automatically. Each time you save an expense, Turbo sets its approver to the manager on your profile. If that manager is not an active user, Turbo refuses the save with \"your manager must be an active user to create expenses\". It also refuses the save if the manager lacks the permission to approve time and expenses. Turbo does not fall back to another person. Choose a new, active manager on your profile. After that you can save expenses again, and that manager becomes the approver of each expense you save.",
     "key_points": [
       "If that manager is inactive, Turbo refuses to save the expense.",
@@ -998,6 +1083,9 @@
     "id": "expenses-08",
     "category": "expenses",
     "question": "A bookkeeper entered an expense against my purchase order for me. Does my manager approve it, and can I edit it?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "No to both. The expense is recorded under you, because its owner must be the owner of the PO. But Turbo sets the approver to the bookkeeper who created it, not to your manager. Only the creator can edit the expense, so you can't change it. A bookkeeper can do this only for a PO that another person owns, and only with the On Account or Corporate Credit Card payment type. If the bookkeeper owns the PO, the normal rules apply and the bookkeeper's manager approves.",
     "key_points": [
       "The approver is the bookkeeper who created the expense, not the owner's manager.",
@@ -1039,6 +1127,9 @@
     "id": "expenses-09",
     "category": "expenses",
     "question": "A Cumulative PO for $1,000 shows only $400 of committed expenses. Why does Turbo refuse my $500 expense and say that the expenses exceed the PO total?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "When you save an expense against a Cumulative PO, Turbo adds up every expense already entered against that PO, in any status and from any person. Drafts, submitted, approved and rejected expenses count, not only committed ones. If that sum plus your expense is more than the PO total, even by one cent, Turbo refuses the save. The small overage allowance that One-Time and Recurring POs get does not apply here. So other expenses that are not committed, worth more than $100 together, already use part of this PO.",
     "key_points": [
       "On save, Turbo sums all expenses already entered against the PO in any status, not only committed ones."
@@ -1080,6 +1171,9 @@
     "id": "expenses-10",
     "category": "expenses",
     "question": "Turbo refused my receipt and said that the file was already uploaded to another expense. Will it work if I rename the file? Can anyone attach one invoice to two expenses?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Renaming the file won't help. Turbo compares a fingerprint (a SHA-256 hash) of the file's content, not its name. If another expense already uses a file with the same content, Turbo refuses the upload from a regular user. Only a bookkeeper can attach the same file to a second expense, and only on an expense against a PO. If no other expense uses the earlier file any more, for example because that expense was deleted, Turbo accepts the upload.",
     "key_points": [
       "Turbo detects a duplicate by a hash of the file content, so renaming the file does not help.",
@@ -1121,6 +1215,9 @@
     "id": "expenses-11",
     "category": "expenses",
     "question": "I used Copy to tomorrow on a mileage expense dated two weeks ago. What date does the copy get, and do I still have to submit it?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "The copy gets the day after the original expense's date, not tomorrow's calendar date. So the copy of an expense from two weeks ago is dated one day later than that expense. The copy is a new draft. It is not submitted, approved or committed, whatever the status of the original, so you must submit it. Turbo also processes the copy with the normal rules for its new date. The total is calculated again, and the copy can fail, for example if your vehicle insurance expires before the new date.",
     "key_points": [
       "The copy's date is the original expense's date plus one day, not today's date plus one day.",
@@ -1162,6 +1259,9 @@
     "id": "time-01",
     "category": "time",
     "question": "I worked a 16.5 hour shift and had 2 hours of meals. Why won't Turbo save that as one time entry?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "One time entry can hold at most 18 hours, and meals hours count toward that total. Turbo adds the hours and the meals hours on the entry and rejects it when the sum is over 18, with the message \"Total hours must not exceed 18\". Your entry adds up to 18.5. Turbo checks this on each entry when you save it. Split the shift into two entries.",
     "key_points": [
       "Hours plus meals hours on one time entry can't exceed 18.",
@@ -1194,6 +1294,9 @@
     "id": "time-02",
     "category": "time",
     "question": "I'm paid hourly and worked 46 hours this week. How many of those hours can I add to my overtime bank?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Two. When you submit the week, Turbo adds up your worked hours (entries with the R or RT time type, with or without a job) and subtracts the hours you banked. The result can't be under 44. With 46 worked hours you can bank at most 2; banking 2.5 or more fails with \"banked hours cannot bring your total worked hours below 44 hours on a time sheet\". Time off hours don't count toward the 44. You can have only one banking entry on a time sheet, and salaried staff can't bank overtime at all.",
     "key_points": [
       "At most 2 hours can be banked (46 minus 44).",
@@ -1232,6 +1335,9 @@
     "id": "time-03",
     "category": "time",
     "question": "I'm on salary and was off sick on Tuesday. I entered it as sick time, but now the week won't submit. Why?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Salaried staff can't claim sick time. Turbo doesn't check this when you save the entry. It checks it when you submit the week, where it looks at the whole week together with the salary setting on your staff profile. If you are salaried and any entry in the week is sick time, submit fails with \"salaried staff cannot claim OS. Please use OP or OV instead\". Change the entry's time type to PPTO (OP) or vacation (OV), then submit again.",
     "key_points": [
       "Salaried staff cannot claim sick time (OS)."
@@ -1272,6 +1378,9 @@
     "id": "time-04",
     "category": "time",
     "question": "I still have some vacation hours left, but I'd like to use PPTO for a day off this week. Will Turbo let me submit that?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "No. You must use up your vacation before you claim PPTO. At submit, Turbo takes your opening vacation balance and subtracts every vacation entry dated after your opening date, up to the end of the week you are submitting. If anything is left and the week has a PPTO entry, submit fails with \"exhaust your vacation balance (N hours) prior to claiming PPTO\". Vacation on the same week counts as used. So you can put the rest of your vacation and some PPTO on one week, as long as the vacation brings your balance to zero.",
     "key_points": [
       "A week with a PPTO entry is refused while any vacation balance remains."
@@ -1306,6 +1415,9 @@
     "id": "time-05",
     "category": "time",
     "question": "It's the start of a new year. My week of regular hours submitted fine, but a week with one vacation day fails and says my opening balances were set for an earlier period. Why only that week?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Turbo checks your opening balances only when the week has vacation or PPTO on it. At submit, it finds the latest payroll year-end date that is on or before the week ending. If that date is later than the opening date on your staff profile, your balances still belong to the old year. Turbo then refuses the week so that you can't claim expired time off. A week with no vacation or PPTO skips this check, so it goes through. Ask accounting to update your opening balances for the new period, then submit again.",
     "key_points": [
       "The opening balance check runs only when the week has vacation or PPTO entries.",
@@ -1347,6 +1459,10 @@
     "id": "time-06",
     "category": "time",
     "question": "A manager shared one of their staff's time sheets with me because they are going on leave. Can I approve it for them?",
+    "held": [
+      "tapr",
+      "time"
+    ],
     "ideal_answer": "No. Sharing makes you a viewer. You can open the time sheet and see its entries, but you can't act on it. Approve works only for the approver recorded on the time sheet. Anyone else gets \"you are not authorized to approve this record\". Reject is also limited: only that approver can reject, or a committer once the time sheet is approved.",
     "key_points": [
       "Sharing gives view access only.",
@@ -1385,6 +1501,10 @@
     "id": "time-07",
     "category": "time",
     "question": "A staff member's time sheet is approved but not committed yet, and one entry has the wrong hours. Can I correct it with a time amendment?",
+    "held": [
+      "tame",
+      "time"
+    ],
     "ideal_answer": "No. A time amendment applies only to a week whose time sheet is already committed. When you save an amendment, Turbo looks for that person's time sheet for the week of the amendment date. If the time sheet exists but is not committed, Turbo refuses the amendment and tells you to create a time entry instead. So the fix belongs in the entries: the time sheet is rejected, the staff member recalls it, edits the entry and submits again. If no time sheet exists for that week, the amendment is refused too, unless you tick the box that skips the time sheet check.",
     "key_points": [
       "An amendment is accepted only when the person's time sheet for that week is committed.",
@@ -1417,6 +1537,11 @@
     "id": "time-08",
     "category": "time",
     "question": "I committed a time amendment today for work that was done three weeks ago. Which week's payroll report will it show in?",
+    "held": [
+      "commit",
+      "tame",
+      "time"
+    ],
     "ideal_answer": "The week in which you committed it, not the week of the work. When a committer commits an amendment, Turbo stamps it with a committed week ending. That is the Saturday on or after the commit date; if you commit on a Saturday, it is that same day. The payroll report selects committed amendments by this committed week ending and labels them with it. The amendment keeps its original date and week, but they don't decide which payroll it lands in. An amendment that is not committed doesn't appear in the payroll report at all.",
     "key_points": [
       "A committed amendment counts in the week it was committed, not the week of its work date."
@@ -1457,6 +1582,9 @@
     "id": "time-09",
     "category": "time",
     "question": "I tried \"Copy entries to next week\" on last week's time sheet and it failed. I had already entered Monday of the new week. Is that the reason?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Yes. The copy works only when the next week is empty. Turbo refuses it if you already have a time sheet for that week, or if you have any time entry in that week, even one. Delete the Monday entry and copy again, then re-enter or edit Monday. When the copy works, each entry on the source time sheet becomes a new entry dated 7 days later. The copies are ordinary unsubmitted entries under Entries, so you can edit them and you must still submit the week. Each copy passes the normal entry checks; if one fails, nothing is copied.",
     "key_points": [
       "The copy is refused if any time entry already exists in the next week.",
@@ -1495,6 +1623,9 @@
     "id": "time-10",
     "category": "time",
     "question": "I saved all my entries for last week but never pressed Submit. Do I show on the Missing list in time tracking, and can someone take me off it?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Yes, you show as missing. The Missing list has everyone whose staff profile says a time sheet is expected and who has no time sheet for that week. Saved entries don't count, because a time sheet exists only after you submit the week. Once you submit, you leave the list, even while the time sheet is still pending. A committer can also select Ignore This Week, which moves you to the Ignored list for that week only. Staff with report access can see these lists but can't ignore anyone.",
     "key_points": [
       "Missing means no time sheet exists for the week; saved but unsubmitted entries do not count.",
@@ -1533,6 +1664,10 @@
     "id": "jobs-01",
     "category": "jobs",
     "question": "Is there a limit on how many subjobs one project can have? And if an earlier subjob number is unused, does Turbo fill that gap?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "Yes, there is a limit. Turbo numbers a new subjob as the highest existing suffix on that project plus one, written with two digits (for example -06 after -05). It never fills gaps below the highest suffix. The suffix cannot pass 99, so once a subjob ending in -99 exists, Turbo refuses to create another subjob for that project, even if lower numbers are free. Only a top-level project number can be a parent, so a subjob cannot have subjobs of its own.",
     "key_points": [
       "The subjob suffix cannot go above 99; the next creation after that fails.",
@@ -1565,6 +1700,10 @@
     "id": "jobs-02",
     "category": "jobs",
     "question": "A cancelled proposal has a typo in its number. Cancelled proposals can't be edited, so can the number still be corrected, and who can do it?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "Yes. Change number is a separate action that only a user with the admin claim can use; procurement rights alone are not enough. It writes the new number directly and skips the normal job save rules, so the lock on cancelled proposals does not stop it. The new number must still be a valid, unused number of the same kind: a proposal keeps a number that starts with P, a project cannot take one, and a top-level job and a subjob cannot swap forms. Job editing must also be switched on.",
     "key_points": [
       "Only a holder of the admin claim can change a job number.",
@@ -1603,6 +1742,9 @@
     "id": "jobs-03",
     "category": "jobs",
     "question": "I'm the manager of a project but I'm not in procurement. What can I change on the project myself, and does that still work while job editing is switched off?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "You can change only the division hours (allocations). The project's manager or alternate manager may save allocations without the job claim, but any change to the project's other fields is refused; those need procurement. You must also be an active user. The allocation save checks the job editing switch too, so it is refused while job editing is off. That switch is a setting in app_config, and it is on by default when the setting is missing.",
     "key_points": [
       "A project's manager or alternate manager without the job claim can save division hour allocations only.",
@@ -1641,6 +1783,10 @@
     "id": "jobs-04",
     "category": "jobs",
     "question": "I tried to close a project and Turbo said its proposal must be Awarded first. A colleague closed another project whose proposal was still Submitted, and Turbo awarded that proposal by itself. Why the difference?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "Close project needs the linked proposal to be Awarded. If the proposal is In Progress or Submitted and is still flagged as imported from the legacy system, the close awards it automatically and adds a note to the proposal. If the proposal is not an imported one, Turbo will not award it for you: procurement must set it to Awarded first, then close the project. A proposal that is Not Awarded, Cancelled or No Bid blocks the close completely.",
     "key_points": [
       "An In Progress or Submitted proposal that is flagged as imported is awarded automatically when the project closes.",
@@ -1673,6 +1819,10 @@
     "id": "jobs-05",
     "category": "jobs",
     "question": "A staff member left and we deactivated their account, but they are still the manager on several Active projects. Can procurement still edit those projects, and can they close them?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "Editing fails until the manager is replaced. Any save that changes something other than the status gets full validation, which requires the manager, and the alternate manager if one is set, to be active users. Procurement must choose an active manager in that same save. Closing still works: a save that only changes a project's status to Closed or Cancelled skips that validation, so the project can be closed or cancelled with the inactive manager still on it.",
     "key_points": [
       "A normal edit of the project is refused while its manager is inactive.",
@@ -1711,6 +1861,10 @@
     "id": "jobs-06",
     "category": "jobs",
     "question": "One subjob of a project is really for a different client than its parent. Can I change the client on just that subjob?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "No. A subjob always uses its parent project's client, and Change Client refuses to run on a subjob. To change it, procurement changes the client on the parent project. That moves the parent and every one of its subjobs to the new client together, and you must confirm the list of subjobs. You also have to choose a contact and an invoicing profile that belong to the new client, and give a reason of at least 20 characters.",
     "key_points": [
       "A subjob's client cannot be changed on its own; the action is refused on a subjob.",
@@ -1749,6 +1903,9 @@
     "id": "jobs-07",
     "category": "jobs",
     "question": "I created a project request by mistake. Can I delete it?",
+    "held": [
+      "time"
+    ],
     "ideal_answer": "Not yourself. Only an admin can delete a project request, and only once it is abandoned, which means 60 days have passed since the request was last edited. Submitting it does not reset that clock; only an edit does. Until then it stays in your list. When an admin deletes it, its uploaded PDF and division hours are deleted with it.",
     "key_points": [
       "The creator cannot delete their own request; only an admin can.",
@@ -1788,6 +1945,10 @@
     "id": "jobs-08",
     "category": "jobs",
     "question": "Procurement proposed a new value for a project and it is waiting for approval. Then someone edited the project's details. Now the approver gets an error that the job changed. Why, and how do we get it approved?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "A value change is approved against a snapshot of the job taken when the value change was last saved: the job's fields, its related records such as the client, contacts, invoicing profile and rate sheet, its latest approval and its division hours. If any of that changes, approval is refused, so the approver never approves data they did not see. Procurement must open the value change and save it again. That records the current data and sends it back to the approver. The project value stays the same until it is approved.",
     "key_points": [
       "Approval is tied to the job data recorded when the value change was last saved.",
@@ -1827,6 +1988,11 @@
     "id": "jobs-09",
     "category": "jobs",
     "question": "We activated a new revision of a rate sheet. Do projects that already use the old revision switch to the new rates?",
+    "held": [
+      "job",
+      "rate_sheet_revise",
+      "time"
+    ],
     "ideal_answer": "No. Activating a revision only deactivates the other revisions with the same name. Each project keeps the exact revision it was given, and Turbo keeps pricing that project's time with it even though it is now inactive. To move a project, a person with the permission to revise rate sheets must change the project's rate sheet to an active sheet. Be careful: time entries store no rate, so the change reprices all of the project's past time, not only new time.",
     "key_points": [
       "Existing projects stay on the revision they were assigned; nothing switches automatically.",
@@ -1865,6 +2031,10 @@
     "id": "jobs-10",
     "category": "jobs",
     "question": "Turbo won't let me delete a client that has no jobs. What else keeps a client from being deleted?",
+    "held": [
+      "job",
+      "time"
+    ],
     "ideal_answer": "A client can be deleted only when nothing still uses it. Apart from jobs where it is the client, the delete is refused when the client is the job owner on any job, is the client or owner on any project request, has any invoicing profile, or has any client note. Contacts alone do not block it: unused contacts are deleted with the client. But a contact that a job, a project request or an invoicing profile still uses stops the delete.",
     "key_points": [
       "Being the job owner on any job blocks the delete, not only being the job's client.",

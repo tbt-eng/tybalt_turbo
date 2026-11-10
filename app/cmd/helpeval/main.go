@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -39,9 +40,13 @@ import (
 
 // Case is one question of the benchmark.
 type Case struct {
-	ID          string   `json:"id"`
-	Category    string   `json:"category"`
-	Question    string   `json:"question"`
+	ID       string `json:"id"`
+	Category string `json:"category"`
+	Question string `json:"question"`
+	// Held names the claims of the person who asks. A question that starts
+	// with "I'm a committer" is asked as a committer, so the prompt and the
+	// question agree. Every question has "time", as all staff do.
+	Held        []string `json:"held"`
 	IdealAnswer string   `json:"ideal_answer"`
 	KeyPoints   []string `json:"key_points"`
 	// ExtraPoints are true and in the ideal answer, but an answer can be correct
@@ -145,7 +150,7 @@ func main() {
 	flag.IntVar(&o.limit, "limit", 0, "run at most this many questions")
 	flag.IntVar(&o.parallel, "parallel", 4, "questions to ask at the same time")
 	flag.BoolVar(&o.force, "force", false, "ask again the questions that have a result")
-	flag.StringVar(&o.held, "held", "", "claims that the person who asks holds, with commas between them")
+	flag.StringVar(&o.held, "held", "", "ask every question as a person with these claims, with commas between them, and not with the claims that each question names")
 	flag.Parse()
 
 	if err := run(context.Background(), o, helpchat.NewService(), os.Stdout); err != nil {
@@ -227,6 +232,18 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 	if err != nil {
 		return err
 	}
+	// A claim that Turbo does not have would make a prompt that no user gets.
+	known := map[string]bool{}
+	for _, claim := range claims {
+		known[claim.Name] = true
+	}
+	for _, c := range cases {
+		for _, name := range append(slices.Clone(c.Held), held...) {
+			if !known[name] {
+				return fmt.Errorf("%s: there is no claim %q in %s", c.ID, name, o.claims)
+			}
+		}
+	}
 
 	var mu sync.Mutex
 	save := func(c Case, row Row, given string, result *helpchat.EvalResult) {
@@ -259,7 +276,12 @@ func run(ctx context.Context, o options, service *helpchat.Service, out *os.File
 			row, result, given = old.Row, old.Result, old.Given
 			row.Points = len(c.KeyPoints)
 		} else {
-			request := helpchat.EvalRequest{Settings: settings, AllClaims: claims, Held: held, Question: c.Question, NoTools: o.mode == "notools"}
+			// --held asks every question as one kind of person.
+			asker := c.Held
+			if len(held) > 0 {
+				asker = held
+			}
+			request := helpchat.EvalRequest{Settings: settings, AllClaims: claims, Held: asker, Question: c.Question, NoTools: o.mode == "notools"}
 			if o.mode == "oracle" {
 				for _, source := range c.Sources {
 					text, err := service.SourceText(settings, source.Path, source.Start, source.End)

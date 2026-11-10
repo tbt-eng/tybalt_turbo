@@ -20,6 +20,7 @@ type stubModel struct {
 	asked    []string
 	judged   int
 	sawGiven bool
+	contexts map[string]string
 	sawTools []int
 }
 
@@ -59,6 +60,10 @@ func (s *stubSession) Next(_ context.Context, onText func(string)) (*helpchat.Re
 		m.asked = append(m.asked, s.request.Question)
 		m.sawTools = append(m.sawTools, len(s.request.Tools))
 		m.sawGiven = m.sawGiven || strings.Contains(s.request.Context, "# Source for this question")
+		if m.contexts == nil {
+			m.contexts = map[string]string{}
+		}
+		m.contexts[s.request.Question] = s.request.Context
 		return &helpchat.Reply{
 			ToolCalls:  []helpchat.ToolCall{{ID: "t1", Name: "search_turbo", Input: json.RawMessage(`{"query":"runTurn turnResult tool loop"}`)}},
 			StopReason: "tool_use",
@@ -97,7 +102,7 @@ func testService(t *testing.T, model helpchat.Model) *helpchat.Service {
 func writeCases(t *testing.T, dir string) string {
 	t.Helper()
 	cases := []Case{
-		{ID: "a-01", Category: "a", Question: "The first question?", IdealAnswer: "Yes.", KeyPoints: []string{"Yes"},
+		{ID: "a-01", Category: "a", Question: "The first question?", Held: []string{"commit", "time"}, IdealAnswer: "Yes.", KeyPoints: []string{"Yes"},
 			Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 115, End: 130}}, InUserDocs: "no"},
 		{ID: "a-02", Category: "a", Question: "The second question?", IdealAnswer: "No.", KeyPoints: []string{"No"},
 			Sources: []SourceRange{{Path: "app/no/such/file.go", Start: 1, End: 2}}, InUserDocs: "no"},
@@ -165,6 +170,14 @@ func TestAskGradesEachAnswerAndResumes(t *testing.T) {
 		if !strings.Contains(string(text), part) {
 			t.Errorf("the summary lacks %q:\n%s", part, text)
 		}
+	}
+
+	// Each question is asked as the person that it names.
+	if got := model.contexts["The first question?"]; !strings.Contains(got, "The user holds these claims:\n- commit:") || !strings.Contains(got, "\n- time:") {
+		t.Errorf("the first question must be asked as a committer:\n%.300s", got)
+	}
+	if got := model.contexts["The second question?"]; !strings.Contains(got, "The user holds no claims.") {
+		t.Errorf("the second question names no claims:\n%.200s", got)
 	}
 
 	// A second run asks nothing, because every question has a grade.
@@ -265,6 +278,11 @@ func TestVerdictGrade(t *testing.T) {
 	if grade, stated, _ := parse(after).grade(c); grade != gradePartial || stated != 1 {
 		t.Errorf("text around the JSON: got %s %d", grade, stated)
 	}
+	// One verdict too many: the numbers say which ones are for the key points.
+	extra := `{"points":[{"n":1,"verdict":"stated"},{"n":2,"verdict":"missing"},{"n":3,"verdict":"contradicted"}]}`
+	if grade, stated, _ := parse(extra).grade(c); grade != gradePartial || stated != 1 {
+		t.Errorf("one verdict too many: got %s %d", grade, stated)
+	}
 	for _, bad := range []string{"no json", `{"points":[{"n":1,"verdict":"stated"}]}`, `{"points":[{"n":1,"verdict":"yes"},{"n":2,"verdict":"stated"}]}`} {
 		if _, err := parseVerdict(bad, c); err == nil {
 			t.Errorf("%s: must be an error", bad)
@@ -289,5 +307,46 @@ func TestFound(t *testing.T) {
 		if file != test.file || any != test.any || all != test.all {
 			t.Errorf("%v: got %v %v %v", test.chunks, file, any, all)
 		}
+	}
+}
+
+func TestTheRealQuestionsNameRealClaims(t *testing.T) {
+	cases, err := loadCases("questions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := loadClaims(filepath.Join("..", "..", "test_seed_data", "data", "claims.csv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	known := map[string]bool{}
+	for _, claim := range claims {
+		known[claim.Name] = true
+	}
+	for _, c := range cases {
+		staff := false
+		for _, name := range c.Held {
+			staff = staff || name == "time"
+			if !known[name] {
+				t.Errorf("%s: there is no claim %q", c.ID, name)
+			}
+		}
+		if !staff {
+			t.Errorf("%s: every question is asked by a member of staff, who holds time", c.ID)
+		}
+	}
+	if len(cases) != 50 {
+		t.Errorf("%d questions", len(cases))
+	}
+}
+
+func TestAClaimThatDoesNotExistStopsTheRun(t *testing.T) {
+	devnull, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	defer devnull.Close()
+	o := testOptions(t, t.TempDir(), "ask")
+	o.held = "no_such_claim"
+	model := &stubModel{}
+	if err := run(context.Background(), o, testService(t, model), devnull); err == nil || len(model.asked) != 0 {
+		t.Errorf("err = %v, asked %d", err, len(model.asked))
 	}
 }

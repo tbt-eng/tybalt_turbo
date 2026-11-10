@@ -146,6 +146,20 @@ func parseVerdict(text string, c Case) (*Verdict, error) {
 	if err := json.NewDecoder(strings.NewReader(text[from:])).Decode(&verdict); err != nil {
 		return nil, fmt.Errorf("the judge's reply is not valid JSON: %w", err)
 	}
+	// The judge sometimes adds a verdict, for a wrong claim, to the key points.
+	// Each verdict has the number of its key point, so take one for each number.
+	if len(verdict.Points) > len(c.KeyPoints) {
+		kept := verdict.Points[:0:0]
+		for n := 1; n <= len(c.KeyPoints); n++ {
+			for _, point := range verdict.Points {
+				if point.N == n {
+					kept = append(kept, point)
+					break
+				}
+			}
+		}
+		verdict.Points = kept
+	}
 	if len(verdict.Points) != len(c.KeyPoints) {
 		return nil, fmt.Errorf("the judge gave %d verdicts for %d key points", len(verdict.Points), len(c.KeyPoints))
 	}
