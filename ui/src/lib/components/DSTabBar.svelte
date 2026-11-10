@@ -4,6 +4,9 @@
     label: string;
     href: string;
     active?: boolean;
+    // For a tab that changes the view and not the page. A click calls this and
+    // does not follow href.
+    onselect?: () => void;
   }
   let { tabs, rightContent }: { tabs: TabItem[]; rightContent?: Snippet } = $props();
 </script>
@@ -13,6 +16,12 @@
     <!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass any href -->
     <a
       href={t.href}
+      aria-current={t.active ? "page" : undefined}
+      onclick={(event) => {
+        if (!t.onselect) return;
+        event.preventDefault();
+        t.onselect();
+      }}
       class={`rounded-t px-3 py-1 ${
         t.active
           ? "bg-white font-semibold text-blue-700 shadow-sm"

@@ -1,11 +1,12 @@
 <script lang="ts">
   import { flushSync, onDestroy } from "svelte";
-  import { afterNavigate } from "$app/navigation";
+  import { afterNavigate, goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import DSChat, { type ChatTurnView } from "$lib/components/DSChat.svelte";
   import DSInstantSearch from "$lib/components/DSInstantSearch.svelte";
   import DSSideNav from "$lib/components/DSSideNav.svelte";
+  import DSTabBar from "$lib/components/DSTabBar.svelte";
   import { searchDocs } from "$lib/docs";
   import { answerText, sourceLinks } from "$lib/helpChatFormat";
   import { helpChatEnabled } from "$lib/stores/appConfig";
@@ -56,14 +57,35 @@
     })),
   );
 
-  function opened(key: number, source: string) {
-    helpChat.opened(key, source);
-    // A docs link leaves the conversation. The page must be back before the
-    // browser looks for the link's section.
-    if (source.startsWith("/docs/")) {
-      helpChat.close();
-      flushSync();
-    }
+  const ask = (question: string) => helpChat.ask(question, page.url.pathname);
+
+  // Once there is a conversation, two tabs change between it and the docs.
+  const tabs = $derived(
+    $helpChat.turns.length === 0
+      ? []
+      : [
+          {
+            label: "Docs",
+            href: "#docs",
+            active: !$helpChat.open,
+            onselect: () => helpChat.show(false),
+          },
+          {
+            label: "Ask",
+            href: "#ask",
+            active: $helpChat.open,
+            onselect: () => helpChat.show(true),
+          },
+        ],
+  );
+
+  // A docs link from an answer shows in the Docs tab. The page must be back
+  // before the app looks for the link's section. The conversation stays.
+  function openDoc(href: string) {
+    helpChat.show(false);
+    flushSync();
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- A docs path that the server sent.
+    goto(href);
   }
 
   function copy(key: number) {
@@ -79,40 +101,43 @@
   // This column scrolls by itself, so a new page needs to start at the top.
   let content: HTMLDivElement | undefined = $state();
   afterNavigate(({ to }) => {
-    helpChat.close();
+    // A page that the user opens shows in the Docs tab.
+    helpChat.show(false);
     if (content && !to?.url.hash) content.scrollTop = 0;
-  });
-
-  // The newest words of an answer stay in view while it arrives.
-  $effect(() => {
-    const last = $helpChat.turns.at(-1);
-    if (!content || !$helpChat.open || last?.status !== "running") return;
-    content.scrollTop = content.scrollHeight;
   });
 </script>
 
 <div class="flex h-full flex-col md:flex-row">
   <DSSideNav title="Help" {items} />
-  <DSInstantSearch
-    label={$helpChatEnabled ? "Search Help, or ask a question" : "Search Help"}
-    {search}
-    actionLabel={$helpChatEnabled && !$helpChatBusy ? "Ask Help" : undefined}
-    onaction={(question) => helpChat.ask(question, page.url.pathname)}
-    bind:scroller={content}
-  >
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+    {#if tabs.length > 0}
+      <DSTabBar {tabs} />
+    {/if}
     {#if $helpChat.open}
+      <!-- The conversation has its own box, at the bottom, for the next question. -->
       <DSChat
         {turns}
         notice="Help writes these answers with AI, and they can be wrong. Turbo records your questions and the answers."
+        closeLabel="End chat"
+        onask={ask}
         onrate={helpChat.rate}
         onnote={helpChat.sendNote}
-        onopen={opened}
+        onopen={helpChat.opened}
+        onnavigate={openDoc}
         oncopy={copy}
         onstop={helpChat.stop}
         onclose={helpChat.close}
       />
     {:else}
-      {@render children()}
+      <DSInstantSearch
+        label={$helpChatEnabled ? "Search Help, or ask a question" : "Search Help"}
+        {search}
+        actionLabel={$helpChatEnabled && !$helpChatBusy ? "Ask Help" : undefined}
+        onaction={ask}
+        bind:scroller={content}
+      >
+        {@render children()}
+      </DSInstantSearch>
     {/if}
-  </DSInstantSearch>
+  </div>
 </div>

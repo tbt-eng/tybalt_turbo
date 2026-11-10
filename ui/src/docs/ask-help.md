@@ -17,7 +17,15 @@ Turbo shows **Ask Help** as the first result if you can ask questions.
 2. Press Enter.
 3. Read the answer and open its sources.
 
-Type another question to continue. Select **Close** to go back to the docs.
+Type the next question in the box under the answer.
+
+## Go between the docs and your answers
+
+Help shows two tabs after your first question.
+
+- Select **Docs** to read a page.
+- Select **Ask** to return to your answers.
+- Select **End chat** to remove your answers and the tabs.
 
 ## Check the answer
 

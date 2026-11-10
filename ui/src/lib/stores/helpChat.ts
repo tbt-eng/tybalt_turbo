@@ -27,8 +27,9 @@ export interface ChatTurn {
 }
 
 interface HelpChatState {
+  // The conversation. It stays while the user reads the docs.
   turns: ChatTurn[];
-  // True while the conversation shows in place of the docs page.
+  // True while the conversation shows, and false while the docs show.
   open: boolean;
 }
 
@@ -134,6 +135,12 @@ function stop() {
   abort?.abort();
 }
 
+// Shows the conversation or the docs. The conversation shows only if there is
+// one.
+function show(conversation: boolean) {
+  store.update((state) => ({ ...state, open: conversation && state.turns.length > 0 }));
+}
+
 // Ends the conversation and shows the docs page again.
 function close() {
   stop();
@@ -173,6 +180,7 @@ export const helpChat = {
   subscribe: store.subscribe,
   ask,
   stop,
+  show,
   close,
   rate,
   sendNote,

@@ -11,9 +11,9 @@
 </script>
 
 <script lang="ts">
-  import Icon from "@iconify/svelte";
   import { flushSync, type Snippet } from "svelte";
   import DSActionButton from "./DSActionButton.svelte";
+  import DSLargeInput from "./DSLargeInput.svelte";
 
   // A search bar above one area of the app. While it holds a query, the hits
   // replace the content below it. `search` runs on each keystroke, so it must
@@ -75,9 +75,9 @@
     if (restoreScroll && scroller) scroller.scrollTop = contentScrollTop;
   }
 
-  function oninput(event: Event & { currentTarget: HTMLInputElement }) {
+  function oninput() {
+    // The input has set query. The screen still shows what it showed before.
     if (!searching && scroller) contentScrollTop = scroller.scrollTop;
-    query = event.currentTarget.value;
     active = 0;
     if (query.trim().length < minQueryLength) {
       if (searching) showContent(true);
@@ -122,26 +122,13 @@
 
 <div class="flex min-h-0 min-w-0 flex-1 flex-col">
   <div role="search" data-print-hide class="border-b border-neutral-200 bg-white p-3">
-    <div
-      class="flex items-center gap-2 rounded-sm border border-neutral-400 bg-white px-3 py-2 focus-within:border-blue-700 focus-within:ring-1 focus-within:ring-blue-700"
-    >
-      <Icon icon="mdi:magnify" width="24px" class="shrink-0 text-neutral-500" />
-      <input
-        type="text"
-        enterkeyhint="search"
-        autocomplete="off"
-        spellcheck="false"
-        aria-label={label}
-        placeholder={label}
-        class="min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-neutral-500"
-        value={query}
-        {oninput}
-        {onkeydown}
-      />
-      {#if query}
-        <DSActionButton variant="plain" action={() => clear(true)}>Clear</DSActionButton>
-      {/if}
-    </div>
+    <DSLargeInput bind:value={query} {label} {oninput} {onkeydown}>
+      {#snippet actions()}
+        {#if query}
+          <DSActionButton variant="plain" action={() => clear(true)}>Clear</DSActionButton>
+        {/if}
+      {/snippet}
+    </DSLargeInput>
   </div>
   <div bind:this={scroller} class="min-h-0 flex-1 overflow-y-auto">
     {#if hits}

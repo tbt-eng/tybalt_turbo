@@ -34,6 +34,7 @@ Full rationale and component APIs: ../descriptions/ui_design_system.md.
 | Second navigation column            | DSSideNav                                                                                                                              |
 | Search that replaces the content    | DSInstantSearch                                                                                                                        |
 | Conversation with an assistant      | DSChat                                                                                                                                 |
+| Large search or question bar        | DSLargeInput                                                                                                                           |
 | Tabs                                | DSTabBar                                                                                                                               |
 | Lists of records                    | DSList / DSSearchList                                                                                                                  |
 | Inputs                              | DSTextInput, DSSelector, DSAutoComplete, DSDateInput, DSCurrencyInput, DSToggle, DsCheck, DsFileSelect, DSLocationPicker, DSTokenInput |

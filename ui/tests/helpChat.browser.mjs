@@ -103,7 +103,10 @@ await runBrowserHarness(
       return json({});
     });
 
-    const input = page.getByRole("textbox", { name: /Search Help/ });
+    const search = page.getByRole("textbox", { name: /Search Help/ });
+    const composer = page.getByRole("textbox", { name: "Ask a follow-up" });
+    const docsTab = page.locator('a[href="#docs"]');
+    const askTab = page.locator('a[href="#ask"]');
     const actionRow = page.locator("li[data-action]");
     // The hits are links in the list under the search bar, not in the side menu.
     const hits = page
@@ -112,6 +115,7 @@ await runBrowserHarness(
       .locator("ul > li > a");
     const turns = page.locator("section[data-turn]");
     const pageTitle = (name) => page.getByRole("heading", { level: 1, name, exact: true });
+    const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
     const waitFor = async (check, what) => {
       const deadline = Date.now() + 5000;
       while (Date.now() < deadline) {
@@ -120,33 +124,53 @@ await runBrowserHarness(
       }
       assert.fail(`timed out: ${what}`);
     };
+    // How far a turn's top is below the top of the conversation's view.
+    const turnOffset = (index) =>
+      turns.nth(index).evaluate((section) => {
+        const scroller = section.closest(".overflow-y-auto");
+        return section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      });
 
     await page.goto(`${origin}/docs`);
     await pageTitle("Start here").waitFor();
     await page.getByRole("textbox", { name: "Search Help, or ask a question" }).waitFor();
     await waitFor(() => warmed > 0, "the page asks the server to get the model ready");
+    // Before the first question, Help is the docs with a search bar, and no tabs.
+    assert.equal(await askTab.count(), 0);
 
     // Typing shows the Ask row first, with the hits under it. Nothing is sent.
-    await input.fill("How do I submit my week?");
+    // The pointer rests where the hits appear: a row that appears under a
+    // pointer at rest does not become the chosen row.
+    await page.mouse.move(600, 260);
+    await search.fill("How do I submit my week?");
     await actionRow.waitFor();
+    await page.waitForTimeout(300);
     assert.match(await actionRow.textContent(), /Ask Help: How do I submit my week\?/);
     assert.equal(await actionRow.getAttribute("data-active"), "");
     assert.ok((await hits.count()) > 0, "the docs hits still show");
     assert.equal(asks.length, 0);
 
-    // The arrow keys reach a hit, and come back to the Ask row.
-    await input.press("ArrowDown");
+    // The arrow keys and a pointer that moves reach a hit, and come back.
+    await search.press("ArrowDown");
     assert.equal(await actionRow.getAttribute("data-active"), null);
     assert.equal(await hits.first().getAttribute("data-active"), "");
-    await input.press("ArrowUp");
+    await search.press("ArrowUp");
+    assert.equal(await actionRow.getAttribute("data-active"), "");
+    await hits.first().hover();
+    assert.equal(await hits.first().getAttribute("data-active"), "");
+    await actionRow.hover();
     assert.equal(await actionRow.getAttribute("data-active"), "");
 
-    // Enter asks. The conversation takes the place of the docs page.
-    await input.press("Enter");
+    // Enter asks. The conversation shows in the Ask tab, with the box for the
+    // next question at the bottom, ready to type in.
+    await search.press("Enter");
     await turns.first().getByRole("heading", { name: "How do I submit my week?" }).waitFor();
     await turns.first().getByText("Sources").waitFor();
     assert.equal(await pageTitle("Start here").count(), 0);
-    assert.equal(await input.inputValue(), "");
+    assert.equal(await search.count(), 0);
+    assert.equal(await askTab.getAttribute("aria-current"), "page");
+    assert.equal(await docsTab.getAttribute("aria-current"), null);
+    assert.equal(await focused(), "Ask a follow-up");
     assert.deepEqual(asks[0].body, {
       question: "How do I submit my week?",
       chat: "",
@@ -155,6 +179,10 @@ await runBrowserHarness(
     });
     assert.equal(asks[0].authorization, token);
     await page.getByText("Help writes these answers with AI").waitFor();
+    // The box is under the conversation, at the bottom of the screen.
+    const composerBox = await composer.boundingBox();
+    const turnBox = await turns.first().boundingBox();
+    assert.ok(composerBox.y > turnBox.y && composerBox.y > 600, "the box is at the bottom");
 
     // The answer is Markdown. Text from the model does not become markup.
     const first = turns.first();
@@ -199,30 +227,26 @@ await runBrowserHarness(
     await waitFor(() => feedback.length === 4, "the copy is sent");
     assert.deepEqual(feedback[3].body, { copied: true });
 
-    // A second question continues the chat. A refusal from the server shows
-    // its message, with nothing to rate.
+    // The next question goes in the box at the bottom and continues the chat.
+    // The new question moves to the top of the view.
     askReply = () => ({
       status: 200,
       contentType: "text/event-stream",
       body: answered("turn0000000002"),
     });
-    // The pointer rests where the hits appear. Enter still asks: a row that
-    // appears under a pointer at rest does not become the chosen row.
-    await page.mouse.move(600, 260);
-    await input.fill("And who approves it?");
-    await hits.first().waitFor();
-    await page.waitForTimeout(300);
-    assert.equal(await actionRow.getAttribute("data-active"), "");
-    // A pointer that moves onto a hit chooses it, and back onto the Ask row.
-    await hits.first().hover();
-    assert.equal(await hits.first().getAttribute("data-active"), "");
-    await actionRow.hover();
-    assert.equal(await actionRow.getAttribute("data-active"), "");
-    await input.press("Enter");
+    assert.equal(await page.getByRole("button", { name: "Ask", exact: true }).isDisabled(), true);
+    await composer.fill("And who approves it?");
+    await composer.press("Enter");
     await turns.nth(1).getByText("Sources").waitFor();
     assert.equal(asks[1].body.chat, "chat00000000001");
     assert.equal(await turns.count(), 2);
+    assert.equal(await composer.inputValue(), "");
+    await waitFor(
+      async () => Math.abs((await turnOffset(1)) - 16) < 4,
+      "the new turn is at the top",
+    );
 
+    // A refusal from the server shows its message, with nothing to rate.
     askReply = () => ({
       status: 429,
       contentType: "application/json",
@@ -230,8 +254,8 @@ await runBrowserHarness(
         message: "You have asked a lot of questions in the last hour. Try again later.",
       }),
     });
-    await input.fill("One more?");
-    await input.press("Enter");
+    await composer.fill("One more?");
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
     await turns.nth(2).getByText("You have asked a lot of questions in the last hour.").waitFor();
     assert.equal(await turns.nth(2).getByRole("button").count(), 0);
 
@@ -244,11 +268,12 @@ await runBrowserHarness(
         ["done", { status: "error", message: "Help can't answer now. Try again in a minute." }],
       ]),
     });
-    await input.fill("Does it fail?");
-    await input.press("Enter");
+    await composer.fill("Does it fail?");
+    await composer.press("Enter");
     await turns.nth(3).getByText("Help can't answer now. Try again in a minute.").waitFor();
 
-    // Stop ends an answer that is still on its way.
+    // Stop ends an answer that is still on its way. No second question can
+    // start while one runs.
     let release;
     askReply = () =>
       new Promise((resolve) => {
@@ -259,18 +284,47 @@ await runBrowserHarness(
             body: answered("turn0000000004"),
           });
       });
-    await input.fill("A slow question?");
-    await input.press("Enter");
+    await composer.fill("A slow question?");
+    await composer.press("Enter");
     await turns.nth(4).getByText("Thinking…").waitFor();
-    // No second question can start while one runs.
-    await input.fill("Another one?");
+    const sent = asks.length;
+    assert.equal(await page.getByRole("button", { name: "Ask", exact: true }).count(), 0);
+    await composer.fill("Another one?");
+    await composer.press("Enter");
     await page.waitForTimeout(100);
-    assert.equal(await actionRow.count(), 0);
-    await input.press("Escape");
+    assert.equal(asks.length, sent);
+    assert.equal(await turns.count(), 5);
     await page.getByRole("button", { name: "Stop" }).click();
     await turns.nth(4).getByText("You stopped this answer.").waitFor();
     assert.equal(await page.getByRole("button", { name: "Stop" }).count(), 0);
     release();
+    await composer.fill("");
+
+    // The Docs tab shows the docs and the search bar. The conversation stays.
+    await docsTab.click();
+    await pageTitle("Start here").waitFor();
+    assert.equal(await docsTab.getAttribute("aria-current"), "page");
+    assert.equal(await turns.count(), 0);
+    assert.equal(await composer.count(), 0);
+    await search.waitFor();
+    assert.equal(new URL(page.url()).pathname, "/docs");
+    // A page from the side menu shows in the Docs tab.
+    await page
+      .locator('nav[aria-label="Help"]')
+      .getByRole("link", { name: "Time", exact: true })
+      .click();
+    await pageTitle("Time").waitFor();
+    assert.equal(await docsTab.getAttribute("aria-current"), "page");
+    // The Ask tab brings the conversation back, with its box ready.
+    await askTab.click();
+    await turns.first().waitFor();
+    assert.equal(await turns.count(), 5);
+    assert.equal(await pageTitle("Time").count(), 0);
+    assert.equal(await focused(), "Ask a follow-up");
+    assert.equal(
+      await first.getByRole("button", { name: "You marked this answer as helpful" }).count(),
+      1,
+    );
 
     // A phone keeps the conversation in the screen's width.
     await page.setViewportSize({ width: 375, height: 800 });
@@ -280,12 +334,13 @@ await runBrowserHarness(
     );
     await page.setViewportSize({ width: 1100, height: 720 });
 
-    // A docs link in the answer opens the page at its section and ends the chat.
+    // A docs link in the answer opens the page at its section, in the Docs tab.
     const feedbackBefore = feedback.length;
     await first.locator('a[href="/docs/time#submit-a-week"]').first().click();
     await page.waitForURL("**/docs/time#submit-a-week");
     await pageTitle("Time").waitFor();
     assert.equal(await turns.count(), 0);
+    assert.equal(await docsTab.getAttribute("aria-current"), "page");
     await page.waitForFunction(() => {
       const section = document.querySelector("#submit-a-week");
       const scroller = section?.closest(".overflow-y-auto");
@@ -299,26 +354,38 @@ await runBrowserHarness(
       body: { opened: "/docs/time#submit-a-week" },
     });
 
-    // The next question starts a new chat, from the page that is open.
+    // A question from the search bar continues the same chat, in the Ask tab.
     askReply = () => ({
       status: 200,
       contentType: "text/event-stream",
       body: answered("turn0000000005"),
     });
-    await input.fill("A new chat?");
-    await input.press("Enter");
-    await turns.first().getByText("Sources").waitFor();
+    await search.fill("And from the search bar?");
+    await actionRow.waitFor();
+    await search.press("Enter");
+    await turns.nth(5).getByText("Sources").waitFor();
     assert.deepEqual(asks.at(-1).body, {
-      question: "A new chat?",
-      chat: "",
+      question: "And from the search bar?",
+      chat: "chat00000000001",
       route: "/docs/time",
       surface: "help",
     });
+    assert.equal(await askTab.getAttribute("aria-current"), "page");
 
-    // Close shows the docs page again.
-    await page.getByRole("button", { name: "Close" }).click();
+    // End chat removes the conversation and the tabs. The docs show again, and
+    // the next question starts a new chat.
+    await page.getByRole("button", { name: "End chat" }).click();
     await pageTitle("Time").waitFor();
-    assert.equal(await turns.count(), 0);
+    assert.equal(await askTab.count(), 0);
+    assert.equal(await docsTab.count(), 0);
+    await search.fill("A new chat?");
+    await actionRow.waitFor();
+    await search.press("Enter");
+    await turns.first().getByText("Sources").waitFor();
+    assert.equal(await turns.count(), 1);
+    assert.equal(asks.at(-1).body.chat, "");
+    await page.getByRole("button", { name: "End chat" }).click();
+    await pageTitle("Time").waitFor();
 
     // With the chat off, Help has its search and no Ask row, and asks nothing.
     chatEnabled = false;
@@ -326,16 +393,16 @@ await runBrowserHarness(
     await page.goto(`${origin}/docs`);
     await pageTitle("Start here").waitFor();
     await page.getByRole("textbox", { name: "Search Help", exact: true }).waitFor();
-    await input.fill("How do I submit my week?");
+    await search.fill("How do I submit my week?");
     await hits.first().waitFor();
     assert.equal(await actionRow.count(), 0);
-    await input.press("Enter");
+    await search.press("Enter");
     await page.waitForURL("**/docs/**");
     assert.equal(asks.length, asked);
 
     assert.deepEqual(errors, []);
     console.log(
-      "Help chat checks passed: Ask row, streamed answer, safe markup, sources, feedback, follow-up, errors, stop, links, phone and the off switch.",
+      "Help chat checks passed: Ask row, bottom box, streamed answer, safe markup, sources, feedback, follow-up, errors, stop, tabs, links, phone and the off switch.",
     );
   },
   { app: true },

@@ -189,7 +189,15 @@ A prominent search bar above one area of the app. While it holds a query, the hi
 
 #### `DSChat`
 
-A conversation with an assistant: each question, its answer as it arrives, the sources of the answer, and thumbs to rate it. It takes `turns` and a `notice`, and it reports what the person does through `onrate`, `onnote`, `onopen`, `oncopy`, `onstop` and `onclose`. The caller owns the data and the calls to the server, and it must make each answer's `html` safe: `ui/src/lib/helpChatFormat.ts` does that for Help. A thumbs down asks for an optional note.
+A conversation with an assistant, as a column that fills its space. A line of notice and a button to end the conversation are at the top. Each question follows with its answer as it arrives, the sources of the answer, and thumbs to rate it. The box for the next question is at the bottom. A new question moves to the top of the view, and its answer arrives under it.
+
+It takes `turns` and a `notice`, and it reports what the person does through `onask`, `onrate`, `onnote`, `onopen`, `onnavigate`, `oncopy`, `onstop` and `onclose`. The caller owns the data and the calls to the server, and it must make each answer's `html` safe: `ui/src/lib/helpChatFormat.ts` does that for Help. With `onnavigate`, a link to a page of the app goes through the caller, so the caller can show that page in place of the conversation. A thumbs down asks for an optional note.
+
+Help shows the conversation in an Ask tab beside a Docs tab, with `DSTabBar`. A tab there has `onselect`, which changes the view and does not follow the tab's `href`.
+
+#### `DSLargeInput`
+
+A large one-line input with an icon, for the main thing to type on a page. `DSInstantSearch` uses it for the search bar and `DSChat` uses it for the next question. It takes a `label`, an `icon`, a bindable `value`, and `actions` for buttons inside the box.
 
 #### `DSNotifyDot`
 
