@@ -6,7 +6,7 @@ import (
 )
 
 // Model is the language model. The chat talks to it only through this
-// interface, so tests run with a stub and the SDK's types stay in one file.
+// interface, so tests run with a stub and each API's shapes stay in one file.
 type Model interface {
 	// Start begins one turn. Nothing is sent until Next.
 	Start(request Request) Session

@@ -56,7 +56,7 @@ func TestTheSettingPicksTheProviderForTheNextQuestion(t *testing.T) {
 	if len(openai.bodies) != 1 || len(claude.bodies) != 1 {
 		t.Fatalf("openai got %d requests and claude got %d", len(openai.bodies), len(claude.bodies))
 	}
-	if claude.bodies[0]["model"] != "claude-haiku-5-5" || claude.headers[0].Get("Authorization") != "Bearer anthropic-key" ||
+	if claude.bodies[0]["model"] != "claude-haiku-5-5" || claude.headers[0].Get("x-api-key") != "anthropic-key" ||
 		at(t, claude.bodies[0], "system.0.text") != sharedPrompt(testHandbook) {
 		t.Errorf("the claude request: model %v", claude.bodies[0]["model"])
 	}

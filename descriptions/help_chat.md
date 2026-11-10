@@ -253,7 +253,7 @@ A user can list and view their own rows through the collection API. Nobody can c
 
 The chat talks to a model through the `Model` interface in `model.go`. The tests use a stub.
 
-- `anthropic.go` calls the Claude API with Anthropic's SDK. It is the only file that uses the SDK. It marks the shared prompt for Claude's cache, and it sends the model's thinking blocks back unchanged between tool calls.
+- `anthropic.go` calls the Claude Messages API with plain HTTP. It marks the shared prompt for Claude's cache, and it sends the model's thinking blocks back unchanged between tool calls. It does not use Anthropic's Go SDK: the compiler needs about 2.4 GB of memory for that one package, which a small build machine does not have, and the chat uses one endpoint. The request and the stream are written for API version `2026-10-21`.
 - `openai.go` calls any API in the OpenAI chat completions format, with plain HTTP. It puts the shared prompt first, because these services cache the start of a prompt by themselves.
 - `providers.go` lists the providers: the secret for each key, the address, and the models and effort values that the setting may name.
 

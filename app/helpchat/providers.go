@@ -7,8 +7,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-
-	"github.com/anthropics/anthropic-sdk-go/v2/option"
 )
 
 // A provider is a company whose API runs the model. The setting names one, and
@@ -21,7 +19,7 @@ type provider struct {
 	// keyEnv is the secret that holds the API key. It is a Fly secret in
 	// production. A key is never in the repo, in app_config or in the browser.
 	keyEnv string
-	// baseURL is the API's address. Empty means the SDK's own address.
+	// baseURL is the API's address. Empty means the client's own address.
 	baseURL string
 	// models lists the model ids that the setting may name. Empty means any id.
 	models []string
@@ -106,10 +104,7 @@ func newModel(name string) (Model, error) {
 		return nil, fmt.Errorf("%w: %s is not set", errNotSetUp, p.keyEnv)
 	}
 	if name == providerAnthropic {
-		if p.baseURL != "" {
-			return NewAnthropicModel(key, option.WithBaseURL(p.baseURL)), nil
-		}
-		return NewAnthropicModel(key), nil
+		return NewAnthropicModel(key, p.baseURL), nil
 	}
 	return NewOpenAIModel(key, p.baseURL, p.tokensField), nil
 }

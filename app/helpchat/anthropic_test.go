@@ -9,8 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/anthropics/anthropic-sdk-go/v2/option"
 )
 
 // fakeAPI is a server that speaks the Claude API's streaming format. It lets
@@ -52,7 +50,7 @@ func newFakeAPI(t *testing.T, responses ...string) *fakeAPI {
 }
 
 func (api *fakeAPI) model() Model {
-	return NewAnthropicModel("test-key", option.WithBaseURL(api.server.URL), option.WithMaxRetries(0))
+	return NewAnthropicModel("test-key", api.server.URL)
 }
 
 func sse(events ...string) string {
@@ -186,8 +184,8 @@ func TestTheClaudeRequestHasTheCachedPrefixAndTheTools(t *testing.T) {
 			t.Errorf("the body sets %s", key)
 		}
 	}
-	if got := api.headers[0].Get("Authorization"); got != "Bearer test-key" {
-		t.Errorf("authorization header = %q", got)
+	if key, version := api.headers[0].Get("x-api-key"), api.headers[0].Get("anthropic-version"); key != "test-key" || version != "2026-10-21" {
+		t.Errorf("key header = %q, version header = %q", key, version)
 	}
 
 	// The second request sends the model's own reply back, then the tool result.
@@ -263,5 +261,127 @@ func TestAnErrorFromTheAPIIsAnError(t *testing.T) {
 	reply, err := api.model().Start(testRequest()).Next(context.Background(), func(string) {})
 	if err == nil || reply != nil {
 		t.Fatalf("reply %+v, err %v", reply, err)
+	}
+}
+
+// The model thinks before a tool call. Its thinking blocks must go back with
+// the tool call, as they came, or the API refuses the next request.
+func TestTheModelsThinkingGoesBackWithItsToolCall(t *testing.T) {
+	thinkingReply := sse(append([]string{
+		messageStart,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Search for "}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"time entries."}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig-abc"}}`,
+		`{"type":"content_block_stop","index":0}`,
+		`{"type":"content_block_start","index":1,"content_block":{"type":"redacted_thinking","data":"opaque-data"}}`,
+		`{"type":"content_block_stop","index":1}`,
+		`{"type":"content_block_start","index":2,"content_block":{"type":"text","text":""}}`,
+		`{"type":"content_block_stop","index":2}`,
+		`{"type":"ping"}`,
+		`{"type":"content_block_start","index":3,"content_block":{"type":"tool_use","id":"toolu_9","name":"report_gap","input":{}}}`,
+		`{"type":"content_block_stop","index":3}`,
+	}, messageEnd("tool_use", 40)...)...)
+	api := newFakeAPI(t, thinkingReply, textReply)
+	session := api.model().Start(testRequest())
+	reply, err := session.Next(context.Background(), func(string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A tool call with no input is an empty object, and the thinking is not text.
+	if reply.Text != "" || len(reply.ToolCalls) != 1 || string(reply.ToolCalls[0].Input) != "{}" || reply.Usage.Output != 40 {
+		t.Fatalf("reply = %+v", reply)
+	}
+	session.AddToolResults([]ToolResult{{ID: "toolu_9", Content: "Recorded.", IsError: true}})
+	if _, err := session.Next(context.Background(), func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	body := api.bodies[1]
+	for path, want := range map[string]any{
+		"messages.3.role":                  "assistant",
+		"messages.3.content.0.type":        "thinking",
+		"messages.3.content.0.thinking":    "Search for time entries.",
+		"messages.3.content.0.signature":   "sig-abc",
+		"messages.3.content.1.type":        "redacted_thinking",
+		"messages.3.content.1.data":        "opaque-data",
+		"messages.3.content.2.type":        "tool_use",
+		"messages.3.content.2.id":          "toolu_9",
+		"messages.4.content.0.type":        "tool_result",
+		"messages.4.content.0.is_error":    true,
+		"messages.4.content.0.tool_use_id": "toolu_9",
+	} {
+		if got := at(t, body, path); got != want {
+			t.Errorf("%s = %v, want %v", path, got, want)
+		}
+	}
+	// The empty text block is left out: the API refuses an empty text.
+	if blocks := at(t, body, "messages.3.content").([]any); len(blocks) != 3 {
+		t.Errorf("the reply went back as %d blocks: %v", len(blocks), blocks)
+	}
+	if input, ok := at(t, body, "messages.3.content.2.input").(map[string]any); !ok || len(input) != 0 {
+		t.Errorf("the input of the tool call = %v", at(t, body, "messages.3.content.2.input"))
+	}
+}
+
+func TestAStreamThatFailsOrStopsEarlyIsAnError(t *testing.T) {
+	failed := sse(messageStart, `{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`)
+	cut := sse(messageStart, `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Select"}}`)
+	for name, response := range map[string]string{"overloaded_error: Overloaded": failed, "ended before the answer did": cut, "bad JSON": "data: {not json\n\n"} {
+		api := newFakeAPI(t, response)
+		reply, err := api.model().Start(testRequest()).Next(context.Background(), func(string) {})
+		if err == nil || reply != nil || !strings.Contains(err.Error(), name) {
+			t.Errorf("%s: reply %+v, err %v", name, reply, err)
+		}
+	}
+}
+
+func TestABusyAPIGetsOneMoreTry(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 1 {
+			http.Error(w, `{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`, 529)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, textReply)
+	}))
+	defer server.Close()
+	reply, err := NewAnthropicModel("test-key", server.URL).Start(testRequest()).Next(context.Background(), func(string) {})
+	if err != nil || reply.Text != "Select **Submit**." || calls != 2 {
+		t.Fatalf("reply %+v, err %v, calls %d", reply, err, calls)
+	}
+
+	// A request that the API refuses is not sent again, and the error has its message.
+	calls = 0
+	refuse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		http.Error(w, `{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: must be positive"}}`, http.StatusBadRequest)
+	}))
+	defer refuse.Close()
+	_, err = NewAnthropicModel("test-key", refuse.URL).Start(testRequest()).Next(context.Background(), func(string) {})
+	if err == nil || calls != 1 || !strings.Contains(err.Error(), "400") || !strings.Contains(err.Error(), "max_tokens: must be positive") {
+		t.Errorf("err %v, calls %d", err, calls)
+	}
+}
+
+// With no tools and no effort, the request leaves both out. The benchmark's
+// judge sends such a request.
+func TestARequestWithNoToolsLeavesThemOut(t *testing.T) {
+	api := newFakeAPI(t, textReply)
+	request := Request{Model: "claude-sonnet-5-5", MaxTokens: 4000, Shared: "Grade this.", Question: "The answer."}
+	if _, err := api.model().Start(request).Next(context.Background(), func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	body := api.bodies[0]
+	if _, set := body["tools"]; set {
+		t.Error("the body has tools")
+	}
+	if _, set := body["output_config"]; set {
+		t.Error("the body has an effort")
+	}
+	if len(at(t, body, "system").([]any)) != 1 || at(t, body, "messages.0.content.0.text") != "The answer." {
+		t.Errorf("body = %v", body)
 	}
 }
