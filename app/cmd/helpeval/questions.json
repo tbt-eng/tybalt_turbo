@@ -1,0 +1,1897 @@
+[
+  {
+    "id": "po-approval-01",
+    "category": "po-approval",
+    "question": "The second-approval threshold for our PO's kind is $500. My PO total is exactly $500 and the approver I picked has a limit of exactly $500. Does the PO need a second approval, and can that approver approve it?",
+    "ideal_answer": "It needs only one approval, and that approver can give it. Turbo requires a second approval only when the approval total is strictly greater than the kind's threshold, so a total equal to the threshold stays a single-approval PO. On a single-approval PO the approver's limit must be at least the total, so a limit exactly equal to the total is enough. At $500.01 the PO would need two approvals, and an approver with a $500 limit could then give only the first one.",
+    "key_points": [
+      "No second approval: it is required only when the total is strictly greater than the threshold.",
+      "The approver can approve: on a single-approval PO the limit must be greater than or equal to the total."
+    ],
+    "wrong_if": [
+      "Says a total equal to the threshold needs a second approval.",
+      "Says the approver's limit must be greater than the total."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/po_approvers.go",
+        "start": 86,
+        "end": 88,
+        "why": "second approval needs amount > threshold, and a threshold above zero"
+      },
+      {
+        "path": "app/utilities/po_approvers.go",
+        "start": 190,
+        "end": 198,
+        "why": "single-stage: only a limit below the amount is excluded"
+      }
+    ],
+    "evidence": "func IsSecondApprovalRequired(secondApprovalThreshold float64, amount float64) bool {\n\treturn secondApprovalThreshold > 0 && amount > secondApprovalThreshold\n}",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "Two boundary comparisons point in different directions: the threshold test is exclusive and the limit test is inclusive."
+  },
+  {
+    "id": "po-approval-02",
+    "category": "po-approval",
+    "question": "One of our executives shows up in the Approver list when I create a small PO, but for a large PO they are missing from that list and only appear under Priority Second Approver. Why?",
+    "ideal_answer": "Because the large PO needs two approvals, and Turbo then splits the qualified approvers into two lists that don't overlap. When the approval total is above the kind's second-approval threshold, the Approver list holds only people whose limit is above zero but below the total. They vet the request. Anyone whose limit covers the total appears only under Priority Second Approver, because that person gives final approval. On a PO that needs one approval, the Approver list holds only people whose limit covers the total, so the executive is there. The one exception is the creator: a creator whose own limit covers the total is still offered as the approver.",
+    "key_points": [
+      "When two approvals are required, the Approver list holds only approvers with a limit above zero and below the PO total.",
+      "Approvers whose limit covers the total appear only in the Priority Second Approver list; the two lists don't overlap.",
+      "When one approval is required, the Approver list holds only approvers whose limit covers the total."
+    ],
+    "wrong_if": [
+      "Says the executive lacks authority or division access for the large PO.",
+      "Says the first approver on a two-approval PO must have a limit that covers the total."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/po_approvers.go",
+        "start": 151,
+        "end": 154,
+        "why": "eligibility needs an active user and a limit above zero"
+      },
+      {
+        "path": "app/utilities/po_approvers.go",
+        "start": 186,
+        "end": 212,
+        "why": "how the first-stage and second-stage pools are filled"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 1493,
+        "end": 1500,
+        "why": "the creator exception added to the first approver list"
+      }
+    ],
+    "evidence": "\t\t// Dual-stage pools are intentionally disjoint. An eligible approver whose\n\t\t// limit is below the PO amount can vet the request at the first stage. An\n\t\t// approver whose limit covers the amount gives final approval.\n\t\tif candidate.LimitValue < amount {\n\t\t\tpolicy.FirstStageApprovers = append(policy.FirstStageApprovers, candidate.Approver)",
+    "confirmed_by_test": "app/purchase_orders_approvers_test.go:211",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say a first approver's limit may be below the total, but not that high-limit approvers are removed from the first list."
+  },
+  {
+    "id": "po-approval-03",
+    "category": "po-approval",
+    "question": "I'm creating a Recurring PO: $2,000 monthly, start date May 4, 2026, end date September 4, 2026. What amount do the approvers' limits have to cover?",
+    "ideal_answer": "$8,000. On a Recurring PO the total you enter is one payment, and approval uses that total times the number of payments. Turbo counts payments from the start date up to, but not including, the end date. Monthly from May 4 to September 4 gives four payments: May 4, June 4, July 4 and August 4. The September 4 payment falls on the end date, so it doesn't count. The $8,000 decides whether a second approval is needed and whose limits are high enough. With an end date of September 5 it would be five payments and $10,000.",
+    "key_points": [
+      "The approval amount is the per-payment total multiplied by the number of payments, not $2,000.",
+      "Payments are counted from the start date up to but not including the end date.",
+      "This PO has 4 payments, so the approval amount is $8,000."
+    ],
+    "wrong_if": [
+      "Says the limits only need to cover $2,000.",
+      "Counts five payments ($10,000) by including September 4."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 673,
+        "end": 673,
+        "why": "approval value is total times occurrences"
+      },
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 676,
+        "end": 705,
+        "why": "payment count, with the end date exclusive"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 49,
+        "end": 70,
+        "why": "a Recurring PO's approval total is set to the calculated value"
+      }
+    ],
+    "evidence": "\treturn occurrences, total * float64(occurrences), nil\n}\n\n// RecurringOccurrences counts the payments scheduled from startDate up to but\n// not including endDate. startDate is the first payment. endDate is exclusive\n// so that a one-year term such as 2026-02-01 to 2027-02-01 has 12 monthly",
+    "confirmed_by_test": "app/utilities/utilities_test.go:203",
+    "in_user_docs": "no",
+    "why_hard": "It needs both the multiply-by-payments rule and the exclusive end date, and the off-by-one is easy to get wrong."
+  },
+  {
+    "id": "po-approval-04",
+    "category": "po-approval",
+    "question": "My PO is in US dollars. Are the approvers' limits compared with the US-dollar total? And if the exchange rate changes before the PO is approved, which amount counts?",
+    "ideal_answer": "Limits are in the home currency, Canadian dollars. Each time the PO is saved, Turbo multiplies its approval total by that currency's exchange rate at that moment and stores the Canadian-dollar amount on the PO. When someone approves, Turbo compares that stored amount, not the US-dollar figure, with the second-approval threshold and with the approver's limit. A later change in the exchange rate doesn't change the stored amount. Turbo works it out again only when the PO is saved again, for example when you edit or revise it.",
+    "key_points": [
+      "Limits and the second-approval threshold are compared with the home-currency (CAD) amount, not the foreign-currency total.",
+      "The CAD amount is calculated with the exchange rate at the time the PO is saved, and stored on the PO.",
+      "Approval uses the stored amount; a later rate change doesn't alter it until the PO is saved again."
+    ],
+    "wrong_if": [
+      "Says the US-dollar figure is compared directly with the limits.",
+      "Says the amount is converted again at the rate on the day of approval."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 86,
+        "end": 108,
+        "why": "on save, the home-currency approval total is stored from the currency's rate"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 299,
+        "end": 309,
+        "why": "approval builds the policy from the stored home-currency total"
+      },
+      {
+        "path": "app/utilities/currencies.go",
+        "start": 215,
+        "end": 225,
+        "why": "the stored home amount is read back, with a fallback to the approval total"
+      }
+    ],
+    "evidence": "\tpurchaseOrderRecord.Set(\"approval_total_home\", purchaseOrderRecord.GetFloat(\"approval_total\")*utilities.CurrencyRateOrOne(currencyInfo))",
+    "confirmed_by_test": "app/hooks/purchase_orders_test.go:75",
+    "in_user_docs": "no",
+    "why_hard": "The answer joins the save hook and the approve route: the conversion happens once at save, not at approval."
+  },
+  {
+    "id": "po-approval-05",
+    "category": "po-approval",
+    "question": "I'm an approver with a high limit. I'm creating a large PO of my own that would normally need two approvals, and my limit covers the whole amount. Does anyone else have to approve it?",
+    "ideal_answer": "No. When your own PO needs two approvals and your limit covers its total, Turbo hides both approver fields and sets you as the approver and as the priority second approver. Saving does not approve it. The PO stays Unapproved, and you can still edit it. When you select Approve, Turbo records the first approval and the second approval together in one step and makes the PO Active. Nobody else is asked.",
+    "key_points": [
+      "Nobody else must approve: the creator is set as both the approver and the priority second approver."
+    ],
+    "extra_points": [
+      "One Approve action records both the first and the second approval and makes the PO Active."
+    ],
+    "wrong_if": [
+      "Says a different person must give the second approval.",
+      "Says the PO becomes Active as soon as it is saved."
+    ],
+    "sources": [
+      {
+        "path": "ui/src/lib/components/PurchaseOrdersEditor.svelte",
+        "start": 823,
+        "end": 828,
+        "why": "the form assigns the creator to both stages"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 920,
+        "end": 934,
+        "why": "a create or update must leave the status Unapproved"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 335,
+        "end": 371,
+        "why": "activation sets the status to Active; a caller who can give final approval completes both stages in one call"
+      }
+    ],
+    "evidence": "\t\t\t\t\tpo.Set(\"approver\", userId)\n\t\t\t\t\tpo.Set(\"approved\", now)\n\t\t\t\t\tpo.Set(\"second_approver\", userId)\n\t\t\t\t\tpo.Set(\"second_approval\", now)\n\t\t\t\t\trecordNowFirstApproved = true\n\t\t\t\t\trecordActivated = true",
+    "confirmed_by_test": "app/purchase_orders_routes_test.go:200",
+    "in_user_docs": "partly",
+    "why_hard": "It combines the form's hidden self-assignment, the rule that saving never approves, and the one-step double approval."
+  },
+  {
+    "id": "po-approval-06",
+    "category": "po-approval",
+    "question": "A PO has its first approval. My limit is high enough to give the final approval and I can open the PO, but I'm not its priority second approver and I see no Approve button. Why, and when will I get one?",
+    "ideal_answer": "After the first approval, only the priority second approver has the PO in Pending My Approval. That lasts 24 hours by default. An app setting can change the number of hours, and a missing or invalid value means 24. During that time other approvers whose limit covers the total can open the PO, but the Approve and Reject buttons show only when the PO is in your own pending list. Once that time has passed since the first approval, the PO joins the pending list of every approver who can give final approval, and you get the buttons.",
+    "key_points": [
+      "At first only the priority second approver has the PO pending.",
+      "The wait is 24 hours by default (configurable), counted from the first approval.",
+      "After that, every approver who can give final approval gets it in their pending list."
+    ],
+    "wrong_if": [
+      "Says only the priority second approver can ever give the second approval.",
+      "Says the wait is counted from when the PO was created."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/po_visibility_base.sql",
+        "start": 438,
+        "end": 468,
+        "why": "priority approver path, and the fallback after the timeout from the first approval"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 116,
+        "end": 145,
+        "why": "timeout setting with its 24-hour default"
+      },
+      {
+        "path": "ui/src/routes/pos/[poid]/details/+page.ts",
+        "start": 12,
+        "end": 21,
+        "why": "the page allows approve or reject only when the PO is pending for the caller"
+      }
+    ],
+    "evidence": "          -- Stage 2 fallback queue after timeout expiration.\n          po.approved != ''\n          AND po.second_approval = ''\n          AND po.approved < strftime('%Y-%m-%d %H:%M:%fZ', 'now', '-' || CAST({:timeoutHours} AS TEXT) || ' hours')",
+    "confirmed_by_test": "app/purchase_orders_visibility_test.go:488",
+    "in_user_docs": "no",
+    "why_hard": "Being able to see a PO and being able to act on it are separate rules, and the delay is a config value with a code default."
+  },
+  {
+    "id": "po-approval-07",
+    "category": "po-approval",
+    "question": "A PO already has its first approval and is waiting for the second approver. Can it still be rejected? What state is it in afterwards?",
+    "ideal_answer": "Yes. A PO can be rejected for as long as it isn't Active, so a first approval doesn't protect it. Rejection doesn't change the status. The PO stays Unapproved, and Turbo records the rejection date, the reason and who rejected it. The rejection itself doesn't remove the first approval. While the PO is rejected, nobody can approve it: Turbo answers that rejected purchase orders cannot be approved. The creator has to select Edit and Resubmit and save. Saving clears the rejection.",
+    "key_points": [
+      "Yes: a PO with a first approval can still be rejected because it isn't Active yet.",
+      "The status stays Unapproved; the rejection date, reason and rejector are recorded."
+    ],
+    "extra_points": [
+      "A rejected PO can't be approved until the creator saves it again, which clears the rejection."
+    ],
+    "wrong_if": [
+      "Says a PO can't be rejected once it has its first approval.",
+      "Says rejection gives the PO a Rejected or Cancelled status."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 873,
+        "end": 889,
+        "why": "a first-approved PO can still be rejected; only the rejection fields are set"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 290,
+        "end": 297,
+        "why": "a rejected PO can't be approved"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 110,
+        "end": 118,
+        "why": "saving the PO clears the rejection fields"
+      }
+    ],
+    "evidence": "\t\t\tif !po.GetDateTime(\"rejected\").IsZero() {\n\t\t\t\thttpResponseStatusCode = http.StatusBadRequest\n\t\t\t\treturn &CodeError{\n\t\t\t\t\tCode:    \"po_rejected\",\n\t\t\t\t\tMessage: \"rejected purchase orders cannot be approved\",\n\t\t\t\t}",
+    "confirmed_by_test": "app/purchase_orders_routes_test.go:903",
+    "in_user_docs": "partly",
+    "why_hard": "The docs cover rejection in general but not rejection between the two approvals or the block on approving a rejected PO."
+  },
+  {
+    "id": "po-approval-08",
+    "category": "po-approval",
+    "question": "My PO has its first approval and is waiting for the priority second approver. If I edit the PO and only pick a different priority second approver, do I keep the first approval?",
+    "ideal_answer": "No. On a PO that already has its first approval, Turbo treats a change to almost any field as a meaningful edit, and both approver fields count. It ignores only the approval, rejection, cancel and close stamps, the PO number and the status. So picking a different priority second approver clears the first approval, and the first approver has to approve the PO again before the second approver can act. This reset happens only when the PO already has a first approval. Before that, an edit has nothing to reset.",
+    "key_points": [
+      "No: the first approval is cleared and the first approver must approve again.",
+      "Changing the approver or the priority second approver counts as a meaningful change.",
+      "The reset applies only to a PO that already has its first approval."
+    ],
+    "wrong_if": [
+      "Says only changes to the total, vendor or description reset approvals.",
+      "Says the PO goes straight to the new second approver."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 630,
+        "end": 648,
+        "why": "the only fields ignored when Turbo looks for a meaningful change"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 681,
+        "end": 706,
+        "why": "when an edit resets approvals"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 949,
+        "end": 957,
+        "why": "the reset clears the first approval"
+      }
+    ],
+    "evidence": "\tif shouldResetApprovals {\n\t\t// Clear approval state for meaningful edits to first-approved in-flight POs.\n\t\trecord.Set(\"approved\", \"\")\n\t\trecord.Set(\"approver\", \"\")\n\t\trecord.Set(\"second_approval\", \"\")\n\t\trecord.Set(\"second_approver\", \"\")",
+    "confirmed_by_test": "app/purchase_orders_test.go:2308",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say a meaningful change resets approvals but never say that swapping an approver is one."
+  },
+  {
+    "id": "po-approval-09",
+    "category": "po-approval",
+    "question": "What happens if my PO's total is higher than every approver's limit for that kind? Does it go to whoever has the highest limit?",
+    "ideal_answer": "No. Turbo has no fallback and doesn't pass the PO to the person with the highest limit. Final approval must come from someone whose limit for that kind is at least the PO's approval total. If nobody qualifies, you can't save the PO. On a PO that needs two approvals, the form says that no second-stage approver can final-approve the amount. On a PO that needs one approval, it says no eligible primary approvers are available. The server refuses the save as well. The messages tell you to contact an administrator.",
+    "key_points": [
+      "There is no fallback to the approver with the highest limit; Turbo returns an error instead.",
+      "The PO can't be saved: the form blocks Save and the server refuses the save."
+    ],
+    "wrong_if": [
+      "Says the PO is routed to the highest-limit approver or to an executive automatically.",
+      "Says the PO saves and waits without an approver."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 1479,
+        "end": 1485,
+        "why": "the second approver list returns an error when nobody can final-approve"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 604,
+        "end": 616,
+        "why": "the save is refused when the approver is invalid or a pool is empty"
+      },
+      {
+        "path": "ui/src/lib/components/PurchaseOrdersEditor.svelte",
+        "start": 834,
+        "end": 855,
+        "why": "the form blocks Save when a pool is empty"
+      }
+    ],
+    "evidence": "\t\t\tif meta.SecondApprovalRequired && !requesterQualifies && len(approvers) == 0 {\n\t\t\t\treturn e.JSON(http.StatusBadRequest, map[string]any{\n\t\t\t\t\t\"code\":        \"second_pool_empty\",\n\t\t\t\t\t\"message\":     \"no second-stage approvers can final-approve this amount; contact an administrator\",\n\t\t\t\t\t\"occurrences\": occurrences,",
+    "confirmed_by_test": "app/purchase_orders_approvers_test.go:299",
+    "in_user_docs": "no",
+    "why_hard": "People expect an escalation path; the code has none and blocks the save in three places."
+  },
+  {
+    "id": "po-approval-10",
+    "category": "po-approval",
+    "question": "A PO that needs only one approval was assigned to me. Before I approved it, an admin lowered my limit below the PO's total. Can I still approve it?",
+    "ideal_answer": "No. Turbo works out who may approve from the current limits each time someone selects Approve, not from the limits when the PO was created. On a PO that needs one approval, the assigned approver's limit must be at least the total. Yours is now lower, so Turbo refuses with the message that the assigned approver is not valid for first-stage approval. The PO stays Unapproved. The creator has to edit it and select an approver whose limit covers the total, or an admin has to raise your limit again.",
+    "key_points": [
+      "No: Turbo checks limits again at the moment of approval, using the current limits."
+    ],
+    "extra_points": [
+      "A single-approval PO needs the assigned approver's limit to be at least the total.",
+      "The approval is refused (assigned approver is not valid) and the PO stays Unapproved."
+    ],
+    "wrong_if": [
+      "Says the assignment made at creation still lets the approver approve.",
+      "Says the PO is passed to another approver automatically."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 299,
+        "end": 333,
+        "why": "the approve route builds the policy from current limits and tests the assigned approver"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 415,
+        "end": 421,
+        "why": "approval is refused when the assigned approver is no longer valid"
+      },
+      {
+        "path": "app/utilities/po_approvers.go",
+        "start": 190,
+        "end": 198,
+        "why": "single-stage approvers need a limit that covers the amount"
+      }
+    ],
+    "evidence": "\t\t\t\t\tif assignedApproverID == \"\" || !assignedApproverValidForFirstStage {\n\t\t\t\t\t\thttpResponseStatusCode = http.StatusBadRequest\n\t\t\t\t\t\treturn &CodeError{\n\t\t\t\t\t\t\tCode:    \"invalid_approver_for_stage\",\n\t\t\t\t\t\t\tMessage: \"assigned approver is not valid for first-stage approval\",\n\t\t\t\t\t\t}",
+    "confirmed_by_test": "app/purchase_orders_routes_test.go:286",
+    "in_user_docs": "no",
+    "why_hard": "The answer depends on knowing that eligibility is recomputed at approval time and not frozen when the PO is saved."
+  },
+  {
+    "id": "po-approval-11",
+    "category": "po-approval",
+    "question": "We're buying a laptop for a project, so the PO has a job and its kind is Computer. Does Turbo check the approver's project limit or their computer limit?",
+    "ideal_answer": "The computer limit. The PO's kind alone decides which of an approver's limits Turbo checks. Each kind (capital, project, sponsorship, staff and social, media and event, computer) has its own limit. A job on a Computer PO doesn't switch it to the project limit. The second-approval threshold also comes from the kind. The job matters only for a PO with no recognised kind, such as an old record: Turbo then uses the project limit if the PO has a job and the capital limit if it doesn't.",
+    "key_points": [
+      "The computer limit applies, not the project limit.",
+      "The PO's kind alone selects the limit; having a job doesn't change it."
+    ],
+    "extra_points": [
+      "Only a PO with no recognised kind falls back by job: project limit with a job, capital limit without."
+    ],
+    "wrong_if": [
+      "Says any PO with a job uses the project limit.",
+      "Says the approver needs both the project limit and the computer limit to cover the total."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/expenditure_kinds.go",
+        "start": 33,
+        "end": 40,
+        "why": "each kind maps to its own limit"
+      },
+      {
+        "path": "app/utilities/expenditure_kinds.go",
+        "start": 103,
+        "end": 124,
+        "why": "the limit is chosen by kind; the job is used only as a fallback"
+      },
+      {
+        "path": "app/utilities/po_approvers.go",
+        "start": 129,
+        "end": 138,
+        "why": "the limit and the threshold are both resolved from the kind"
+      }
+    ],
+    "evidence": "\tcolumn, ok := nameToPOApproverColumn[name]\n\tif !ok {\n\t\treturn \"\", fmt.Errorf(\"unsupported expenditure kind id %q (name %q)\", kindID, name)\n\t}\n\treturn column, nil",
+    "confirmed_by_test": "app/purchase_orders_approvers_test.go:347",
+    "in_user_docs": "no",
+    "why_hard": "The project kind requires a job, so it is natural to assume that any PO with a job uses the project limit."
+  },
+  {
+    "id": "po-lifecycle-01",
+    "category": "po-lifecycle",
+    "question": "Our Recurring PO's end date has passed, but the PO still shows Active. Will Turbo close it on its own now that the end date is behind us?",
+    "ideal_answer": "No. Turbo never closes a PO because of a date. A Recurring PO closes automatically only when a committer commits its last expected expense: at each commit, Turbo counts the committed expenses and compares the count with the number of payments that the PO allows. If fewer expenses are committed, the PO stays Active after its end date. It is of little use by then, because Turbo refuses an expense dated after the end date. Payables staff can close it by hand once it has a committed expense.",
+    "key_points": [
+      "Turbo does not close a PO when its end date passes; none of its scheduled jobs changes a PO's status.",
+      "A Recurring PO closes automatically only at a commit, when the count of committed expenses reaches its expected number of payments."
+    ],
+    "wrong_if": [
+      "Says Turbo closes or expires a Recurring PO automatically on or after its end date.",
+      "Says a Recurring PO closes when the amount spent reaches its total."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/commit_record.go",
+        "start": 226,
+        "end": 251,
+        "why": "the only automatic close of a Recurring PO: at commit, by count of committed expenses"
+      },
+      {
+        "path": "app/cron/cron.go",
+        "start": 10,
+        "end": 59,
+        "why": "every scheduled job; none closes or expires a purchase order"
+      },
+      {
+        "path": "app/hooks/validate_expenses.go",
+        "start": 263,
+        "end": 266,
+        "why": "an expense date after the end date fails validation"
+      }
+    ],
+    "evidence": "case \"Recurring\":\n\t// Pass 1 for this commit because its committed state is not saved yet.\n\t// Other not-committed expenses do not contribute to the count.\n\texhausted, err := utilities.RecurringPurchaseOrderExhausted(txApp, purchaseOrderRecord, 1)",
+    "confirmed_by_test": "app/recurring_purchase_order_commit_test.go:15",
+    "in_user_docs": "partly",
+    "why_hard": "The answer is a negative: the reader must see that only a commit or a manual close ever sets a PO to Closed, and that no scheduled job does."
+  },
+  {
+    "id": "po-lifecycle-02",
+    "category": "po-lifecycle",
+    "question": "I created my PO in late October, but it was approved in November and its number starts with November's year and month. Why doesn't the PO number match the date on the PO?",
+    "ideal_answer": "Turbo assigns the PO number at final approval, when the PO becomes Active. It doesn't assign one when you create the PO. The first four digits are the year and month on the server's clock at that moment, so they show when the PO was approved, not the date that you entered on it. The last four digits are the next number in that month's sequence. A PO that already has a number keeps it, so a revised PO doesn't get a new number when it is approved again.",
+    "key_points": [
+      "Turbo assigns the PO number when the PO becomes Active at final approval, not when the PO is created.",
+      "The year and month in the number come from the date of approval, not from the PO's own date."
+    ],
+    "wrong_if": [
+      "Says the number is built from the PO's date or from the day the PO was created.",
+      "Says the number is assigned when the PO is first saved."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 335,
+        "end": 350,
+        "why": "the number is generated on activation, and only if the PO has none"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 1194,
+        "end": 1201,
+        "why": "the YYMM prefix comes from the current time"
+      }
+    ],
+    "evidence": "currentYear := time.Now().Year()\ncurrentMonth := int(time.Now().Month())\n...\nprefix := fmt.Sprintf(\"%d%02d-\", currentYear%100, currentMonth)",
+    "confirmed_by_test": "app/purchase_orders_test.go:2633",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say only that an Active PO has a number; the PO has its own date field, and only the code shows that the number uses the approval time."
+  },
+  {
+    "id": "po-lifecycle-03",
+    "category": "po-lifecycle",
+    "question": "My Cumulative PO went over its total, so I created a child PO for the extra invoice. Another invoice has now arrived, and Turbo won't let me create a second child PO. Why?",
+    "ideal_answer": "A parent PO can have only one open child at a time. Turbo refuses a new child PO while the parent has any other child that isn't Closed or Cancelled. A child that waits for approval blocks the new one, and so does an Active child whose expense isn't committed yet. A child PO is always One-Time, so it closes when a committer commits its expense. After that, or after the child is cancelled, you can create the next one. One parent can have at most 99 numbered child POs.",
+    "key_points": [
+      "A parent PO can have only one child PO at a time that is not Closed or Cancelled.",
+      "An Unapproved child and an Active child both block a new child PO."
+    ],
+    "wrong_if": [
+      "Says a parent PO can have several open child POs at once.",
+      "Says only a child that waits for approval blocks a new one, and an Active child doesn't."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 369,
+        "end": 399,
+        "why": "refuses a child while another child of the parent is not Closed or Cancelled"
+      },
+      {
+        "path": "app/hooks/purchase_orders.go",
+        "start": 521,
+        "end": 521,
+        "why": "a child PO must be One-Time"
+      },
+      {
+        "path": "app/routes/purchase_orders.go",
+        "start": 1250,
+        "end": 1252,
+        "why": "the 99-child limit on the number suffix"
+      }
+    ],
+    "evidence": "otherChildPOs, err := app.FindRecordsByFilter(\"purchase_orders\", \"parent_po = {:parentId} && status != 'Closed' && status != 'Cancelled' && id != {:id}\", \"\", 0, 0, dbx.Params{",
+    "confirmed_by_test": "app/purchase_orders_test.go:1091",
+    "in_user_docs": "no",
+    "why_hard": "The docs describe one child PO; the one-open-child rule and the fact that an Active child also blocks are only in the validation code."
+  },
+  {
+    "id": "po-lifecycle-04",
+    "category": "po-lifecycle",
+    "question": "A PO that I use shows Under revision, and I can see that the revision was rejected. Why can't I see the reason for the rejection?",
+    "ideal_answer": "Any signed-in user can still see a PO under revision, because everyone could see it while it was Active. But Turbo shows the rejection reason to only three people: the PO's creator, its assigned approver and the person who rejected it. For everyone else, Turbo returns a blank reason. You can still see that it was rejected and that it now waits on its creator, who must resubmit it or cancel it. Ask the creator for the reason.",
+    "key_points": [
+      "Turbo shows the rejection reason of a revision only to the creator, the assigned approver and the person who rejected it.",
+      "Everyone else gets a blank rejection reason."
+    ],
+    "wrong_if": [
+      "Says only the creator and the approvers can see a PO while it is under revision.",
+      "Says everyone who can open the PO can read the rejection reason."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/po_visibility_base.sql",
+        "start": 170,
+        "end": 176,
+        "why": "blanks the rejection reason of a revision for anyone but creator, approver and rejector"
+      },
+      {
+        "path": "app/routes/po_visibility_base.sql",
+        "start": 355,
+        "end": 362,
+        "why": "a revision is visible to every caller"
+      },
+      {
+        "path": "ui/src/lib/poVisibility.ts",
+        "start": 28,
+        "end": 36,
+        "why": "a rejected revision waits on its creator to resubmit or cancel"
+      }
+    ],
+    "evidence": "WHEN\n  __PO_IS_REVISION__\n  AND {:userId} NOT IN (po.uid, po.approver, po.rejector)\nTHEN ''\nELSE po.rejection_reason",
+    "confirmed_by_test": "app/purchase_order_revise_test.go:348",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say everyone sees Under revision, but the per-field rule that hides the reason is only in the visibility query."
+  },
+  {
+    "id": "po-lifecycle-05",
+    "category": "po-lifecycle",
+    "question": "Payables staff tried to close a Cumulative PO by hand and Turbo refused. Which expenses on a PO block a manual close, and which don't?",
+    "ideal_answer": "An expense blocks a manual close if it is submitted, not committed and not rejected. That covers an expense that waits for its approver and an approved expense that waits for commit. The error names the approvers who must act. Draft expenses and rejected expenses don't block the close. The PO also needs at least one committed expense. With none, Turbo tells payables staff to cancel the PO instead. A One-Time PO can never be closed by hand.",
+    "key_points": [
+      "Any expense that is submitted, not committed and not rejected blocks a manual close, including an approved expense that waits for commit.",
+      "Draft expenses and rejected expenses don't block a manual close."
+    ],
+    "wrong_if": [
+      "Says an approved expense that waits for commit doesn't block the close.",
+      "Says a draft or rejected expense blocks the close."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/close_purchase_order.go",
+        "start": 50,
+        "end": 77,
+        "why": "One-Time can't be closed manually; at least one committed expense is required"
+      },
+      {
+        "path": "app/routes/close_purchase_order.go",
+        "start": 143,
+        "end": 194,
+        "why": "the expenses that block (submitted, not committed, not rejected) and the message that names their approvers"
+      }
+    ],
+    "evidence": "WHERE e.purchase_order = {:poId}\n\tAND e.submitted = 1\n\tAND COALESCE(e.committed, '') = ''\n\tAND COALESCE(e.rejected, '') = ''",
+    "confirmed_by_test": "app/purchase_order_manual_close_test.go:11",
+    "in_user_docs": "partly",
+    "why_hard": "Three separate checks decide a manual close, and the pending-expense check has exclusions (drafts, rejected) that only the SQL shows."
+  },
+  {
+    "id": "po-lifecycle-06",
+    "category": "po-lifecycle",
+    "question": "Two of us each saved an expense against the same One-Time PO. Mine was committed first, and now my colleague can't submit theirs. What happened?",
+    "ideal_answer": "Turbo doesn't stop a second expense from being saved against a One-Time PO while the PO is Active. But a One-Time PO closes as soon as a committer commits one expense against it. Yours was committed, so the PO is now Closed. An expense can be submitted, approved or committed only while its PO is Active, so Turbo refuses your colleague's expense because the purchase order is not Active.",
+    "key_points": [
+      "Committing the first expense closes the One-Time PO.",
+      "An expense can't be submitted, approved or committed when its PO is not Active."
+    ],
+    "wrong_if": [
+      "Says Turbo prevents a second expense from being created against a One-Time PO.",
+      "Says the second expense can still be submitted or committed after the PO closes."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/validate_expenses.go",
+        "start": 291,
+        "end": 308,
+        "why": "a One-Time PO only limits each expense's amount; blocking a second expense is still a TODO"
+      },
+      {
+        "path": "app/routes/commit_record.go",
+        "start": 213,
+        "end": 240,
+        "why": "commit needs an Active PO, and a commit closes a One-Time PO"
+      },
+      {
+        "path": "app/routes/expense_purchase_order_validation.go",
+        "start": 12,
+        "end": 46,
+        "why": "submit and approve need an Active PO"
+      }
+    ],
+    "evidence": "case \"One-Time\":\n\tclosePurchaseOrderBySystem(purchaseOrderRecord, now)\n\tdirtyPurchaseOrderRecord = true",
+    "confirmed_by_test": "app/recurring_purchase_order_commit_test.go:184",
+    "in_user_docs": "partly",
+    "why_hard": "It joins three rules in three files: no create-time block, auto-close on the first commit, and the Active check on later expense steps."
+  },
+  {
+    "id": "po-lifecycle-07",
+    "category": "po-lifecycle",
+    "question": "I recorded an expense against a colleague's PO. Now that the PO is closed, I can't open it any more. Who can still see a closed PO?",
+    "ideal_answer": "Every signed-in user can see an Active PO. Once it is Closed or Cancelled, Turbo shows it only to people linked to it: its creator, its approver, its second approver, the manager and alternate manager of its job, and staff with report access. Recording an expense against the PO doesn't put you on that list, so you can no longer open it. Two other groups keep access: staff with PO group or admin access can see grouped POs, and staff who enter manually created POs can see those.",
+    "key_points": [
+      "A Closed or Cancelled PO is visible to its creator, its approver, its second approver and staff with report access.",
+      "The manager and alternate manager of the PO's job can also see a Closed or Cancelled PO."
+    ],
+    "wrong_if": [
+      "Says a closed PO stays visible to everyone who could see it while it was Active.",
+      "Says only the creator and the approvers can see a closed PO, leaving out the job's manager and alternate manager."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/po_visibility_base.sql",
+        "start": 258,
+        "end": 285,
+        "why": "who sees Active, and who sees Closed or Cancelled purchase orders"
+      },
+      {
+        "path": "app/routes/po_visibility_base.sql",
+        "start": 364,
+        "end": 379,
+        "why": "extra visibility for manually created POs and PO group members"
+      },
+      {
+        "path": "app/routes/visible_po_by_id.sql",
+        "start": 87,
+        "end": 97,
+        "why": "the PO opens only if one of the visibility flags is set"
+      }
+    ],
+    "evidence": "po.status IN ('Cancelled', 'Closed')\nAND (\n  po.uid = {:userId}\n  OR po.approver = {:userId}\n  OR po.second_approver = {:userId}\n  OR j.manager = {:userId}",
+    "confirmed_by_test": "app/purchase_orders_visibility_test.go:134",
+    "in_user_docs": "no",
+    "why_hard": "Visibility narrows when the status changes, and the design note lists creator, approvers and report holders but leaves out the job managers that the query includes."
+  },
+  {
+    "id": "po-lifecycle-08",
+    "category": "po-lifecycle",
+    "question": "I'm creating a PO group from a CSV file of staff. If one row has a mistake, does Turbo still create the POs for the other rows? And is there a limit on the number of rows?",
+    "ideal_answer": "No. A PO group is all or nothing. Turbo checks every row first. If any row has an error, it creates no group and no POs, and it returns each row with its errors so that you can fix the file. When every row passes, Turbo creates the group and one Unapproved PO for each row in a single transaction. A staff member's email can appear only once in the file: a repeated email is an error on each of those rows. One upload can have at most 1,000 rows.",
+    "key_points": [
+      "If any row has an error, Turbo creates no group and no POs.",
+      "An upload can have at most 1,000 rows."
+    ],
+    "wrong_if": [
+      "Says Turbo creates the POs for the valid rows and skips the rows with errors.",
+      "Says one staff member can get two POs from the same upload."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/purchase_order_groups.go",
+        "start": 768,
+        "end": 807,
+        "why": "any row error stops the create; otherwise the group and all POs are saved in one transaction"
+      },
+      {
+        "path": "app/routes/purchase_order_groups.go",
+        "start": 435,
+        "end": 436,
+        "why": "a repeated email is a row error"
+      },
+      {
+        "path": "app/routes/purchase_order_groups.go",
+        "start": 29,
+        "end": 29,
+        "why": "the 1,000 row limit, which lines 331-332 enforce"
+      }
+    ],
+    "evidence": "if preview.ErrorCount > 0 {\n\treturn respondPurchaseOrderGroupError(e, &purchaseOrderGroupRowsError{preview: preview})\n}",
+    "confirmed_by_test": "app/purchase_order_groups_test.go:531",
+    "in_user_docs": "no",
+    "why_hard": "The docs only say that PO groups exist; the all-or-nothing rule, the duplicate check and the row limit are only in the route code."
+  },
+  {
+    "id": "expenses-01",
+    "category": "expenses",
+    "question": "The total on my mileage expense changed when it was committed. I did not edit it. Why?",
+    "ideal_answer": "Turbo prices mileage in rate tiers that depend on how far you have already driven in the current mileage period. When you save, it counts only your committed mileage expenses dated before this one, back to the latest mileage reset date. Mileage that is still a draft, submitted or approved does not count. At commit, Turbo calculates the total again with the same rule. If other mileage expenses of yours were committed in the meantime, your distance so far is higher. That can move some or all of this trip into another rate tier, so the total changes.",
+    "key_points": [
+      "Turbo recalculates the total of a mileage expense when it is committed.",
+      "Only committed mileage expenses count toward the distance so far; drafts, submitted and approved ones do not."
+    ],
+    "extra_points": [
+      "The distance so far covers the person's mileage dated before this expense, back to the most recent mileage reset date on or before the expense date."
+    ],
+    "wrong_if": [
+      "Says the mileage total is fixed once the expense is saved or submitted.",
+      "Says all mileage entered in the year counts toward the tiers, including expenses that are not committed."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 329,
+        "end": 337,
+        "why": "the period starts at the latest mileage reset date on or before the expense date"
+      },
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 348,
+        "end": 367,
+        "why": "prior distance sums only committed mileage of the same user dated earlier"
+      },
+      {
+        "path": "app/routes/commit_record.go",
+        "start": 193,
+        "end": 199,
+        "why": "commit recalculates and overwrites the mileage total"
+      }
+    ],
+    "evidence": "WHERE payment_type = 'Mileage'\n  AND committed != ''\n  AND uid = {:uid}\n  AND date >= {:resetDate}",
+    "confirmed_by_test": "app/expenses_test.go:4560",
+    "in_user_docs": "no",
+    "why_hard": "The answer needs two facts from different files: tiers use committed-only prior distance, and commit recomputes the total."
+  },
+  {
+    "id": "expenses-02",
+    "category": "expenses",
+    "question": "Allowance rates went up on the first of this month. Today I am entering a dinner and lodging allowance for a night last month. Which rates does Turbo use, and can I adjust the amount?",
+    "ideal_answer": "Turbo uses the rates in effect on the expense date, not on the day you enter it. It takes the newest rate set whose effective date is on or before the expense date, so a night last month gets last month's rates. The total is the sum of the rates for each type you select, here Dinner plus Lodging. You can't adjust it. On every save Turbo overwrites the total, replaces the description with \"Allowance for Dinner, Lodging\" and clears the vendor.",
+    "key_points": [
+      "Rates come from the newest rate set whose effective date is on or before the expense date, not the date of entry.",
+      "Turbo overwrites the total and the description (\"Allowance for ...\") on save, so the user cannot set them."
+    ],
+    "extra_points": [
+      "The total is the sum of the rates of the selected allowance types."
+    ],
+    "wrong_if": [
+      "Says Turbo uses the rates current on the day the expense is entered or submitted.",
+      "Says the user can type their own amount or description for an allowance."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 587,
+        "end": 598,
+        "why": "picks the newest rate record with effective date on or before the expense date"
+      },
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 326,
+        "end": 342,
+        "why": "sums the selected types' rates, then overwrites total, description and vendor"
+      }
+    ],
+    "evidence": "expenseRateRecords, findErr := app.FindRecordsByFilter(\"expense_rates\", \"effective_date <= {:expenseDate}\", \"-effective_date\", 1, 0, dbx.Params{",
+    "confirmed_by_test": "app/expenses_test.go:188",
+    "in_user_docs": "no",
+    "why_hard": "The user docs say only that Turbo sets the amount; which rate set applies and that the description is replaced are only in the code."
+  },
+  {
+    "id": "expenses-03",
+    "category": "expenses",
+    "question": "I paid US$80 out of my own pocket and I have no PO. That is under the $100 limit, so why does Turbo say that I need a purchase order?",
+    "ideal_answer": "The no-PO limit is in Canadian dollars. For a foreign-currency expense Turbo compares the Canadian amount, not the foreign amount. It uses the Canadian settled total on the expense if one is entered. If none is entered, it uses the expense total multiplied by the currency's current exchange rate. If that Canadian amount is at or above the limit, the expense needs a PO. The limit is a setting, and its default is $100. So US$80 needs a PO whenever it comes to CAD $100 or more.",
+    "key_points": [
+      "The no-PO limit is compared with the Canadian-dollar amount, not with the foreign-currency total."
+    ],
+    "extra_points": [
+      "Turbo uses the Canadian settled total when one is entered; otherwise it uses the total multiplied by the current exchange rate.",
+      "A Canadian amount at or above the limit requires a PO; the limit is configurable and has a default in code ($100)."
+    ],
+    "wrong_if": [
+      "Says the limit is applied to the amount in the expense's own currency, so US$80 is under the limit.",
+      "Says only amounts above the limit need a PO (an amount equal to the limit also needs one)."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/validate_expenses.go",
+        "start": 132,
+        "end": 143,
+        "why": "picks the settled total, or total times rate, as the amount to compare"
+      },
+      {
+        "path": "app/hooks/validate_expenses.go",
+        "start": 329,
+        "end": 341,
+        "why": "requires a PO when that amount is at or above the no-PO limit"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 273,
+        "end": 286,
+        "why": "the limit is read from configuration and falls back to the default constant ($100)"
+      }
+    ],
+    "evidence": "comparableSettledTotal := expenseRecord.GetFloat(\"settled_total\")\nif comparableSettledTotal <= 0 {\n\tif isHomeCurrency {\n\t\tcomparableSettledTotal = expenseRecord.GetFloat(\"total\")\n\t} else {\n\t\tcomparableSettledTotal = utilities.IndicativeHomeAmount(",
+    "confirmed_by_test": "app/hooks/validate_expenses_test.go:248",
+    "in_user_docs": "partly",
+    "why_hard": "The user docs give the $100 limit but not that a foreign-currency expense is measured by its Canadian equivalent."
+  },
+  {
+    "id": "expenses-04",
+    "category": "expenses",
+    "question": "For a foreign-currency expense that I paid myself, is there a limit on the Canadian-dollar amount that I can enter as the settled total?",
+    "ideal_answer": "Yes. For the Expense payment type in a foreign currency, you enter the Canadian settled total yourself, and it must be greater than zero. Turbo multiplies the expense total by the currency's current exchange rate. It accepts a settled total only if it is within 20% above or below that amount. Outside that range Turbo refuses the save and shows the allowed range. Turbo runs the same check again when you submit, so a large change in the exchange rate between save and submit can block the submit.",
+    "key_points": [
+      "The settled total must be within 20% (above or below) of the expense total multiplied by the current exchange rate."
+    ],
+    "extra_points": [
+      "For a foreign-currency out-of-pocket (Expense type) expense, the settled total must be greater than 0.",
+      "Turbo checks this on save and again on submit."
+    ],
+    "wrong_if": [
+      "Says any Canadian amount is accepted, or that there is no tolerance check.",
+      "Says payables staff enter the settled total for an out-of-pocket foreign expense."
+    ],
+    "sources": [
+      {
+        "path": "app/utilities/currencies.go",
+        "start": 172,
+        "end": 193,
+        "why": "the allowed range is the rate-converted amount plus or minus the 20% ratio"
+      },
+      {
+        "path": "app/hooks/validate_expenses.go",
+        "start": 343,
+        "end": 357,
+        "why": "save-time check for foreign out-of-pocket expenses"
+      },
+      {
+        "path": "app/routes/submit_record.go",
+        "start": 99,
+        "end": 118,
+        "why": "the same check runs again on submit"
+      }
+    ],
+    "evidence": "expected = IndicativeHomeAmount(amount, info)\nmin = RoundCurrencyAmount(expected * (1 - ForeignSettlementToleranceRatio))\nmax = RoundCurrencyAmount(expected * (1 + ForeignSettlementToleranceRatio))",
+    "confirmed_by_test": "app/hooks/validate_expenses_test.go:649",
+    "in_user_docs": "no",
+    "why_hard": "The 20% band is a constant in the code and is in neither the user docs nor the design note."
+  },
+  {
+    "id": "expenses-05",
+    "category": "expenses",
+    "question": "Can a committer reject an expense that the manager has not approved yet?",
+    "ideal_answer": "No, unless the committer is also the approver of that expense. A committer who is not the assigned approver can reject only an approved expense. Otherwise Turbo answers \"only approved records can be rejected by a commit user\". The assigned approver can reject a submitted expense before or after approving it. Nobody can reject an expense that is committed, or one that is already rejected.",
+    "key_points": [
+      "A committer who is not the expense's approver can reject only an approved expense."
+    ],
+    "extra_points": [
+      "The assigned approver can reject a submitted expense whether or not it is approved.",
+      "A committed expense, or one that is already rejected, cannot be rejected."
+    ],
+    "wrong_if": [
+      "Says a committer can reject any submitted expense.",
+      "Says the approver can no longer reject an expense after approving it."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/reject_record.go",
+        "start": 57,
+        "end": 83,
+        "why": "who may reject, and the approved-only rule for commit holders"
+      },
+      {
+        "path": "app/routes/reject_record.go",
+        "start": 139,
+        "end": 161,
+        "why": "must be submitted, not committed, not already rejected"
+      }
+    ],
+    "evidence": "if !isApprover && hasCommitClaim && record.GetDateTime(\"approved\").IsZero() {\n\thttpResponseStatusCode = http.StatusBadRequest\n\treturn &CodeError{\n\t\tCode:    \"record_not_approved\",\n\t\tMessage: \"only approved records can be rejected by a commit user\",",
+    "confirmed_by_test": "app/expenses_test.go:2579",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say a committer rejects approved expenses but do not say that an unapproved one is refused, or that the approver can still reject after approval."
+  },
+  {
+    "id": "expenses-06",
+    "category": "expenses",
+    "question": "I am set as my own manager. What happens when I submit my expense, and can I recall it afterwards to fix a mistake?",
+    "ideal_answer": "Turbo approves the expense at the moment you submit it. When the person who submits is both the owner and the approver of the expense, submit also sets the approval, so there is no separate approval step. You can't recall it after that. Recall works only for an expense that is not approved, or for one that is rejected. To change it, the expense must be rejected first. You can reject it yourself as its approver, or a committer can reject it. Then recall it, edit it and submit it again.",
+    "key_points": [
+      "Submit approves the expense immediately when the submitter is both its owner and its approver.",
+      "An approved expense cannot be recalled unless it is rejected."
+    ],
+    "extra_points": [
+      "To change it, the approver or a committer must reject it first; a rejected expense can be recalled."
+    ],
+    "wrong_if": [
+      "Says the person must still approve the expense separately after submitting it.",
+      "Says the expense can be recalled at any time before commit."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/submit_record.go",
+        "start": 131,
+        "end": 135,
+        "why": "submit sets approved when owner, submitter and approver are the same person"
+      },
+      {
+        "path": "app/routes/recall_record.go",
+        "start": 67,
+        "end": 74,
+        "why": "approved and not rejected cannot be recalled"
+      },
+      {
+        "path": "app/routes/reject_record.go",
+        "start": 57,
+        "end": 83,
+        "why": "the approver or a commit holder may reject an approved expense"
+      }
+    ],
+    "evidence": "record.Set(\"submitted\", true)\nif collectionName == \"expenses\" && record.GetString(\"uid\") == userId && record.GetString(\"approver\") == userId {\n\trecord.Set(\"approved\", time.Now())\n}",
+    "confirmed_by_test": "app/expenses_test.go:1961",
+    "in_user_docs": "partly",
+    "why_hard": "Auto-approval on submit is only in the code, and it combines with the recall rule to produce a dead end the user would not expect."
+  },
+  {
+    "id": "expenses-07",
+    "category": "expenses",
+    "question": "My manager left the company and their account is now inactive. Who approves my expenses now?",
+    "ideal_answer": "Nobody takes over automatically. Each time you save an expense, Turbo sets its approver to the manager on your profile. If that manager is not an active user, Turbo refuses the save with \"your manager must be an active user to create expenses\". It also refuses the save if the manager lacks the permission to approve time and expenses. Turbo does not fall back to another person. Choose a new, active manager on your profile. After that you can save expenses again, and that manager becomes the approver of each expense you save.",
+    "key_points": [
+      "If that manager is inactive, Turbo refuses to save the expense.",
+      "Turbo substitutes no other approver; the manager on the profile must be changed."
+    ],
+    "extra_points": [
+      "The approver is taken from the manager on the owner's profile each time the expense is saved."
+    ],
+    "wrong_if": [
+      "Says the alternate manager, the manager's manager or an admin approves instead.",
+      "Says the expense is saved and waits without an approver."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 59,
+        "end": 67,
+        "why": "the cleaning step sets the approver from the manager, or fails"
+      },
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 430,
+        "end": 468,
+        "why": "reads the profile's manager, refuses an inactive one or one without the approver claim, then sets the approver"
+      },
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 738,
+        "end": 741,
+        "why": "the cleaning step runs on every create and update"
+      }
+    ],
+    "evidence": "if !active {\n\treturn &errs.HookError{\n\t\tStatus:  http.StatusBadRequest,\n\t\tMessage: \"your manager must be an active user to create expenses\",",
+    "confirmed_by_test": "app/expenses_test.go:4826",
+    "in_user_docs": "partly",
+    "why_hard": "The glossary says the profile manager approves, but only the code shows that an inactive manager blocks saving and that there is no fallback."
+  },
+  {
+    "id": "expenses-08",
+    "category": "expenses",
+    "question": "A bookkeeper entered an expense against my purchase order for me. Does my manager approve it, and can I edit it?",
+    "ideal_answer": "No to both. The expense is recorded under you, because its owner must be the owner of the PO. But Turbo sets the approver to the bookkeeper who created it, not to your manager. Only the creator can edit the expense, so you can't change it. A bookkeeper can do this only for a PO that another person owns, and only with the On Account or Corporate Credit Card payment type. If the bookkeeper owns the PO, the normal rules apply and the bookkeeper's manager approves.",
+    "key_points": [
+      "The approver is the bookkeeper who created the expense, not the owner's manager.",
+      "Only the creator can edit the expense."
+    ],
+    "extra_points": [
+      "The expense owner is the PO owner, not the bookkeeper."
+    ],
+    "wrong_if": [
+      "Says the PO owner's manager (or the bookkeeper's manager) approves the expense.",
+      "Says the PO owner can edit or submit the expense because it is in their name."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 59,
+        "end": 64,
+        "why": "on the bookkeeper path the approver is set to the creator"
+      },
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 564,
+        "end": 588,
+        "why": "owner must match the PO owner, not the bookkeeper's own PO, and only two payment types"
+      },
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 665,
+        "end": 678,
+        "why": "only the creator can edit"
+      }
+    ],
+    "evidence": "if creatorApprover {\n\tcreatorUID := expenseRecord.GetString(\"creator\")\n\tif err := validateBookkeeperApprover(app, creatorUID); err != nil {\n\t\treturn err\n\t}\n\texpenseRecord.Set(\"approver\", creatorUID)",
+    "confirmed_by_test": "app/expenses_test.go:1062",
+    "in_user_docs": "no",
+    "why_hard": "It contradicts the general rule in the docs that your manager approves your expenses, and owner and creator are different people here."
+  },
+  {
+    "id": "expenses-09",
+    "category": "expenses",
+    "question": "A Cumulative PO for $1,000 shows only $400 of committed expenses. Why does Turbo refuse my $500 expense and say that the expenses exceed the PO total?",
+    "ideal_answer": "When you save an expense against a Cumulative PO, Turbo adds up every expense already entered against that PO, in any status and from any person. Drafts, submitted, approved and rejected expenses count, not only committed ones. If that sum plus your expense is more than the PO total, even by one cent, Turbo refuses the save. The small overage allowance that One-Time and Recurring POs get does not apply here. So other expenses that are not committed, worth more than $100 together, already use part of this PO.",
+    "key_points": [
+      "On save, Turbo sums all expenses already entered against the PO in any status, not only committed ones."
+    ],
+    "extra_points": [
+      "That sum plus the new expense may not exceed the PO total, not even by one cent.",
+      "The overage allowance that One-Time and Recurring POs get does not apply to this check on a Cumulative PO."
+    ],
+    "wrong_if": [
+      "Says only committed expenses count toward the Cumulative PO total when an expense is saved.",
+      "Says a Cumulative PO allows expenses to go over its total by an allowance."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/expenses.go",
+        "start": 839,
+        "end": 841,
+        "why": "the save path asks for the total of all expenses, not committed-only"
+      },
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 739,
+        "end": 745,
+        "why": "without the committed-only flag the sum has no status filter"
+      },
+      {
+        "path": "app/hooks/validate_expenses.go",
+        "start": 78,
+        "end": 81,
+        "why": "strict comparison in cents against the PO total, with no excess"
+      }
+    ],
+    "evidence": "newTotalCents := utilities.CurrencyAmountToCents(existingExpensesTotal) + utilities.CurrencyAmountToCents(expenseRecord.GetFloat(\"total\"))\npoTotalCents := utilities.CurrencyAmountToCents(poTotal)\nif newTotalCents > poTotalCents {",
+    "confirmed_by_test": "app/hooks/validate_expenses_test.go:864",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say the expenses together cannot exceed the total, but not that not-yet-committed and rejected expenses count; the commit step uses a different, committed-only sum."
+  },
+  {
+    "id": "expenses-10",
+    "category": "expenses",
+    "question": "Turbo refused my receipt and said that the file was already uploaded to another expense. Will it work if I rename the file? Can anyone attach one invoice to two expenses?",
+    "ideal_answer": "Renaming the file won't help. Turbo compares a fingerprint (a SHA-256 hash) of the file's content, not its name. If another expense already uses a file with the same content, Turbo refuses the upload from a regular user. Only a bookkeeper can attach the same file to a second expense, and only on an expense against a PO. If no other expense uses the earlier file any more, for example because that expense was deleted, Turbo accepts the upload.",
+    "key_points": [
+      "Turbo detects a duplicate by a hash of the file content, so renaming the file does not help.",
+      "Only a bookkeeper can reuse the file, and only on an expense against a PO."
+    ],
+    "extra_points": [
+      "A regular user cannot attach a file that another expense already uses."
+    ],
+    "wrong_if": [
+      "Says the check is by file name, or that renaming the file gets around it.",
+      "Says nobody can ever attach the same file to two expenses."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/expense_documents.go",
+        "start": 117,
+        "end": 137,
+        "why": "duplicate handling: in use by another expense, bookkeeper claim, PO-backed"
+      },
+      {
+        "path": "app/hooks/helper.go",
+        "start": 84,
+        "end": 88,
+        "why": "the fingerprint is a SHA-256 of the file content"
+      },
+      {
+        "path": "app/hooks/expense_documents.go",
+        "start": 235,
+        "end": 253,
+        "why": "in use means another expense references the same document"
+      }
+    ],
+    "evidence": "if !documentInUse {\n\treturn existingDocument.Id, nil\n}\nif !hasBookKeeperClaim {\n\treturn \"\", duplicateAttachmentError()\n}",
+    "confirmed_by_test": "app/expenses_test.go:1293",
+    "in_user_docs": "no",
+    "why_hard": "It needs the content-hash rule, the bookkeeper exception with its PO condition, and the orphaned-file case, none of which are in the user docs."
+  },
+  {
+    "id": "expenses-11",
+    "category": "expenses",
+    "question": "I used Copy to tomorrow on a mileage expense dated two weeks ago. What date does the copy get, and do I still have to submit it?",
+    "ideal_answer": "The copy gets the day after the original expense's date, not tomorrow's calendar date. So the copy of an expense from two weeks ago is dated one day later than that expense. The copy is a new draft. It is not submitted, approved or committed, whatever the status of the original, so you must submit it. Turbo also processes the copy with the normal rules for its new date. The total is calculated again, and the copy can fail, for example if your vehicle insurance expires before the new date.",
+    "key_points": [
+      "The copy's date is the original expense's date plus one day, not today's date plus one day.",
+      "The copy is a new, unsubmitted draft whatever the status of the original."
+    ],
+    "extra_points": [
+      "Turbo runs the normal expense processing on the copy for its new date, so the total is calculated again and validation can fail."
+    ],
+    "wrong_if": [
+      "Says the copy is dated tomorrow, counted from today.",
+      "Says the copy keeps the submitted or approved status, or the total, of the original."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/copy_expense.go",
+        "start": 19,
+        "end": 31,
+        "why": "only user-entered fields are copied; no workflow state or total"
+      },
+      {
+        "path": "app/routes/copy_expense.go",
+        "start": 106,
+        "end": 110,
+        "why": "new record dated the original date plus one day"
+      },
+      {
+        "path": "app/routes/copy_expense.go",
+        "start": 126,
+        "end": 132,
+        "why": "the copy runs through normal expense processing before it is saved"
+      }
+    ],
+    "evidence": "newRecord.Set(\"date\", originalDate.AddDate(0, 0, 1).Format(\"2006-01-02\"))",
+    "confirmed_by_test": "app/copy_expense_test.go:80",
+    "in_user_docs": "partly",
+    "why_hard": "The button's name suggests tomorrow's date; the code adds one day to the source expense's date instead."
+  },
+  {
+    "id": "time-01",
+    "category": "time",
+    "question": "I worked a 16.5 hour shift and had 2 hours of meals. Why won't Turbo save that as one time entry?",
+    "ideal_answer": "One time entry can hold at most 18 hours, and meals hours count toward that total. Turbo adds the hours and the meals hours on the entry and rejects it when the sum is over 18, with the message \"Total hours must not exceed 18\". Your entry adds up to 18.5. Turbo checks this on each entry when you save it. Split the shift into two entries.",
+    "key_points": [
+      "Hours plus meals hours on one time entry can't exceed 18.",
+      "Meals hours count toward the 18 (16.5 + 2 = 18.5 is rejected)."
+    ],
+    "wrong_if": [
+      "Says the limit is 24 hours or that there is no limit on an entry.",
+      "Says meals hours are not counted in the limit."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/time_entries.go",
+        "start": 136,
+        "end": 160,
+        "why": "total = hours + meals hours; max 18 total, max 3 meals, half-hour rule"
+      },
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 273,
+        "end": 288,
+        "why": "hours must be a positive multiple of 0.5"
+      }
+    ],
+    "evidence": "totalHours := timeEntryRecord.GetFloat(\"hours\") + timeEntryRecord.GetFloat(\"meals_hours\")\n\"global\":                validation.Validate(totalHours, validation.Max(18.0).Error(\"Total hours must not exceed 18\")),\n\"meals_hours\":           validation.Validate(timeEntryRecord.Get(\"meals_hours\"), validation.Max(3.0).Error(\"Meals Hours must not exceed 3\")),",
+    "confirmed_by_test": "app/hooks/hooks_test.go:96",
+    "in_user_docs": "no",
+    "why_hard": "The 18 hour cap is on hours plus meals hours together, which only the save hook shows."
+  },
+  {
+    "id": "time-02",
+    "category": "time",
+    "question": "I'm paid hourly and worked 46 hours this week. How many of those hours can I add to my overtime bank?",
+    "ideal_answer": "Two. When you submit the week, Turbo adds up your worked hours (entries with the R or RT time type, with or without a job) and subtracts the hours you banked. The result can't be under 44. With 46 worked hours you can bank at most 2; banking 2.5 or more fails with \"banked hours cannot bring your total worked hours below 44 hours on a time sheet\". Time off hours don't count toward the 44. You can have only one banking entry on a time sheet, and salaried staff can't bank overtime at all.",
+    "key_points": [
+      "At most 2 hours can be banked (46 minus 44).",
+      "Worked hours minus banked hours must be at least 44 on the time sheet."
+    ],
+    "wrong_if": [
+      "Says any hours over 40 can be banked.",
+      "Says there is no limit on banked hours."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 121,
+        "end": 161,
+        "why": "one bank entry, salaried barred, worked hours are R and RT entries, time off tallied apart"
+      },
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 166,
+        "end": 173,
+        "why": "the 44 hour floor"
+      },
+      {
+        "path": "app/routes/bundle_timesheet.go",
+        "start": 127,
+        "end": 132,
+        "why": "the week-level validation runs at submit"
+      }
+    ],
+    "evidence": "if bankedHours > 0 && jobHours+nonJobHours-bankedHours < 44 {\n\treturn &CodeError{\n\t\tCode:    \"too_many_banked_hours\",\n\t\tMessage: \"banked hours cannot bring your total worked hours below 44 hours on a time sheet\",",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The 44 hour floor exists only in the submit validation and needs arithmetic to apply."
+  },
+  {
+    "id": "time-03",
+    "category": "time",
+    "question": "I'm on salary and was off sick on Tuesday. I entered it as sick time, but now the week won't submit. Why?",
+    "ideal_answer": "Salaried staff can't claim sick time. Turbo doesn't check this when you save the entry. It checks it when you submit the week, where it looks at the whole week together with the salary setting on your staff profile. If you are salaried and any entry in the week is sick time, submit fails with \"salaried staff cannot claim OS. Please use OP or OV instead\". Change the entry's time type to PPTO (OP) or vacation (OV), then submit again.",
+    "key_points": [
+      "Salaried staff cannot claim sick time (OS)."
+    ],
+    "extra_points": [
+      "The block happens when the week is submitted, not when the entry is saved."
+    ],
+    "wrong_if": [
+      "Says the sick balance is used up.",
+      "Says the manager must approve sick time first."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 224,
+        "end": 231,
+        "why": "salaried staff with a sick entry are refused"
+      },
+      {
+        "path": "app/routes/bundle_timesheet.go",
+        "start": 127,
+        "end": 132,
+        "why": "the week-level validation runs at submit"
+      },
+      {
+        "path": "app/hooks/time_entries.go",
+        "start": 196,
+        "end": 252,
+        "why": "the save hook has no salary check"
+      }
+    ],
+    "evidence": "if _, ok := nonWorkHoursTally[\"OS\"]; ok && salary {\n\treturn &CodeError{\n\t\tCode:    \"salary_with_time_type_OS\",\n\t\tMessage: \"salaried staff cannot claim OS. Please use OP or OV instead\",",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The entry saves without complaint; the salaried rule only fires in the week-level check at submit."
+  },
+  {
+    "id": "time-04",
+    "category": "time",
+    "question": "I still have some vacation hours left, but I'd like to use PPTO for a day off this week. Will Turbo let me submit that?",
+    "ideal_answer": "No. You must use up your vacation before you claim PPTO. At submit, Turbo takes your opening vacation balance and subtracts every vacation entry dated after your opening date, up to the end of the week you are submitting. If anything is left and the week has a PPTO entry, submit fails with \"exhaust your vacation balance (N hours) prior to claiming PPTO\". Vacation on the same week counts as used. So you can put the rest of your vacation and some PPTO on one week, as long as the vacation brings your balance to zero.",
+    "key_points": [
+      "A week with a PPTO entry is refused while any vacation balance remains."
+    ],
+    "extra_points": [
+      "Vacation on the same time sheet counts as used, so PPTO passes once vacation reaches zero."
+    ],
+    "wrong_if": [
+      "Says staff can freely choose between PPTO and vacation.",
+      "Says vacation on the same time sheet does not count toward using up the balance."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 327,
+        "end": 346,
+        "why": "how used vacation is summed (after opening date, up to this week ending)"
+      },
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 389,
+        "end": 396,
+        "why": "PPTO refused while vacation remains"
+      }
+    ],
+    "evidence": "if _, pptoClaimed := nonWorkHoursTally[\"OP\"]; pptoClaimed && openingOV-usedOV > 0 {\n\treturn &CodeError{\n\t\tCode:    \"ppto_used_before_ov\",\n\t\tMessage: fmt.Sprintf(\"exhaust your vacation balance (%v hours) prior to claiming PPTO\", openingOV-usedOV),",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "An ordering rule between two time off kinds, with the twist that same-week vacation counts as used."
+  },
+  {
+    "id": "time-05",
+    "category": "time",
+    "question": "It's the start of a new year. My week of regular hours submitted fine, but a week with one vacation day fails and says my opening balances were set for an earlier period. Why only that week?",
+    "ideal_answer": "Turbo checks your opening balances only when the week has vacation or PPTO on it. At submit, it finds the latest payroll year-end date that is on or before the week ending. If that date is later than the opening date on your staff profile, your balances still belong to the old year. Turbo then refuses the week so that you can't claim expired time off. A week with no vacation or PPTO skips this check, so it goes through. Ask accounting to update your opening balances for the new period, then submit again.",
+    "key_points": [
+      "The opening balance check runs only when the week has vacation or PPTO entries.",
+      "Submit is refused when the latest payroll year-end date on or before the week ending is after the opening date on the staff profile."
+    ],
+    "extra_points": [
+      "Accounting must update the opening balances before the week can be submitted."
+    ],
+    "wrong_if": [
+      "Says the vacation balance is too low or used up.",
+      "Says every time sheet is blocked until balances are updated."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/bundle_timesheet.go",
+        "start": 103,
+        "end": 116,
+        "why": "picks the latest payroll year-end date on or before the week ending"
+      },
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 304,
+        "end": 309,
+        "why": "the out-of-date check, only with vacation or PPTO"
+      },
+      {
+        "path": "app/routes/validate_time_entries.go",
+        "start": 181,
+        "end": 191,
+        "why": "discretionary time off means PPTO plus vacation"
+      }
+    ],
+    "evidence": "if discretionaryTimeOff > 0 && payrollYearEndDateAsTime.After(openingDateAsTime) {\n\treturn &CodeError{\n\t\tCode:    \"opening_balances_out_of_date\",",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "Needs the link between payroll year-end dates, the profile opening date and the fact that the check is skipped without vacation or PPTO."
+  },
+  {
+    "id": "time-06",
+    "category": "time",
+    "question": "A manager shared one of their staff's time sheets with me because they are going on leave. Can I approve it for them?",
+    "ideal_answer": "No. Sharing makes you a viewer. You can open the time sheet and see its entries, but you can't act on it. Approve works only for the approver recorded on the time sheet. Anyone else gets \"you are not authorized to approve this record\". Reject is also limited: only that approver can reject, or a committer once the time sheet is approved.",
+    "key_points": [
+      "Sharing gives view access only.",
+      "Only the approver recorded on the time sheet can approve it."
+    ],
+    "wrong_if": [
+      "Says a person the time sheet is shared with can approve or reject it.",
+      "Says any manager can approve any time sheet."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/approve_record.go",
+        "start": 52,
+        "end": 59,
+        "why": "only the recorded approver may approve"
+      },
+      {
+        "path": "app/routes/timesheet_details.go",
+        "start": 113,
+        "end": 122,
+        "why": "a reviewer may view the time sheet"
+      },
+      {
+        "path": "app/routes/reject_record.go",
+        "start": 57,
+        "end": 83,
+        "why": "reject is limited to the approver and to committers on approved records"
+      }
+    ],
+    "evidence": "if record.GetString(\"approver\") != userId {\n\thttpResponseStatusCode = http.StatusForbidden\n\treturn &CodeError{\n\t\tCode:    \"unauthorized\",\n\t\tMessage: \"you are not authorized to approve this record\",",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "\"Share with another manager\" suggests delegation, but the code grants viewing only."
+  },
+  {
+    "id": "time-07",
+    "category": "time",
+    "question": "A staff member's time sheet is approved but not committed yet, and one entry has the wrong hours. Can I correct it with a time amendment?",
+    "ideal_answer": "No. A time amendment applies only to a week whose time sheet is already committed. When you save an amendment, Turbo looks for that person's time sheet for the week of the amendment date. If the time sheet exists but is not committed, Turbo refuses the amendment and tells you to create a time entry instead. So the fix belongs in the entries: the time sheet is rejected, the staff member recalls it, edits the entry and submits again. If no time sheet exists for that week, the amendment is refused too, unless you tick the box that skips the time sheet check.",
+    "key_points": [
+      "An amendment is accepted only when the person's time sheet for that week is committed.",
+      "If the time sheet exists but is not committed, the amendment is refused and the fix must be made in the time entries."
+    ],
+    "wrong_if": [
+      "Says an amendment can be added to any submitted or approved time sheet.",
+      "Says an amendment edits the original time entry."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/time_amendments.go",
+        "start": 210,
+        "end": 261,
+        "why": "time sheet lookup, the not-committed refusal and the skip option"
+      },
+      {
+        "path": "ui/src/lib/components/TimeAmendmentsEditor.svelte",
+        "start": 332,
+        "end": 337,
+        "why": "the skip-check box on the amendment form"
+      }
+    ],
+    "evidence": "if timeSheetRecords[0].GetDateTime(\"committed\").IsZero() {\n\treturn apis.NewApiError(http.StatusBadRequest, \"Found time_sheets record has not been committed. Create a time_entries record instead.\", ...",
+    "confirmed_by_test": "app/time_amendments_test.go:124",
+    "in_user_docs": "partly",
+    "why_hard": "The docs say amendments correct committed time sheets but not that Turbo refuses one for an not-yet-committed week."
+  },
+  {
+    "id": "time-08",
+    "category": "time",
+    "question": "I committed a time amendment today for work that was done three weeks ago. Which week's payroll report will it show in?",
+    "ideal_answer": "The week in which you committed it, not the week of the work. When a committer commits an amendment, Turbo stamps it with a committed week ending. That is the Saturday on or after the commit date; if you commit on a Saturday, it is that same day. The payroll report selects committed amendments by this committed week ending and labels them with it. The amendment keeps its original date and week, but they don't decide which payroll it lands in. An amendment that is not committed doesn't appear in the payroll report at all.",
+    "key_points": [
+      "A committed amendment counts in the week it was committed, not the week of its work date."
+    ],
+    "extra_points": [
+      "The committed week ending is the Saturday on or after the commit date."
+    ],
+    "wrong_if": [
+      "Says the amendment is added to the payroll week of the original work date.",
+      "Says the original committed time sheet is changed."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/commit_record.go",
+        "start": 156,
+        "end": 171,
+        "why": "commit stamps the committed week ending from the commit date"
+      },
+      {
+        "path": "app/utilities/utilities.go",
+        "start": 54,
+        "end": 72,
+        "why": "week ending is the Saturday on or after a date"
+      },
+      {
+        "path": "app/reports/payroll_time.sql",
+        "start": 82,
+        "end": 126,
+        "why": "payroll selects amendments by committed week ending"
+      }
+    ],
+    "evidence": "weekEnding, err := utilities.GenerateWeekEnding(now.Format(time.DateOnly))\n...\nif record.Collection().Fields.GetByName(\"committed_week_ending\") != nil {\n\trecord.Set(\"committed_week_ending\", weekEnding)\n}\n-- payroll_time.sql: WHERE ta.committed_week_ending = {:weekEnding} AND ta.committed != ''",
+    "confirmed_by_test": "app/time_amendments_test.go:385",
+    "in_user_docs": "no",
+    "why_hard": "Needs the commit handler, the week ending helper and the payroll query together."
+  },
+  {
+    "id": "time-09",
+    "category": "time",
+    "question": "I tried \"Copy entries to next week\" on last week's time sheet and it failed. I had already entered Monday of the new week. Is that the reason?",
+    "ideal_answer": "Yes. The copy works only when the next week is empty. Turbo refuses it if you already have a time sheet for that week, or if you have any time entry in that week, even one. Delete the Monday entry and copy again, then re-enter or edit Monday. When the copy works, each entry on the source time sheet becomes a new entry dated 7 days later. The copies are ordinary unsubmitted entries under Entries, so you can edit them and you must still submit the week. Each copy passes the normal entry checks; if one fails, nothing is copied.",
+    "key_points": [
+      "The copy is refused if any time entry already exists in the next week.",
+      "The copy is refused if a time sheet already exists for the next week."
+    ],
+    "wrong_if": [
+      "Says the copy merges with or overwrites entries already in the next week.",
+      "Says the copy creates a submitted time sheet for the next week."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/copy_timesheet_entries.go",
+        "start": 64,
+        "end": 102,
+        "why": "target week and the two conflict checks"
+      },
+      {
+        "path": "app/routes/copy_timesheet_entries.go",
+        "start": 123,
+        "end": 138,
+        "why": "each entry copied with a 7 day offset inside one transaction"
+      },
+      {
+        "path": "app/routes/copy_time_entry.go",
+        "start": 45,
+        "end": 77,
+        "why": "the copy drops the time sheet link and runs the normal entry checks"
+      }
+    ],
+    "evidence": "if err == nil && existingEntry != nil {\n\thttpResponseStatusCode = http.StatusConflict\n\treturn &CodeError{\n\t\tCode:    \"target_time_entries_exist\",\n\t\tMessage: \"time entries already exist for the next week\",",
+    "confirmed_by_test": "app/copy_timesheet_entries_test.go:112",
+    "in_user_docs": "no",
+    "why_hard": "The all-or-nothing empty-week precondition is only in the copy route."
+  },
+  {
+    "id": "time-10",
+    "category": "time",
+    "question": "I saved all my entries for last week but never pressed Submit. Do I show on the Missing list in time tracking, and can someone take me off it?",
+    "ideal_answer": "Yes, you show as missing. The Missing list has everyone whose staff profile says a time sheet is expected and who has no time sheet for that week. Saved entries don't count, because a time sheet exists only after you submit the week. Once you submit, you leave the list, even while the time sheet is still pending. A committer can also select Ignore This Week, which moves you to the Ignored list for that week only. Staff with report access can see these lists but can't ignore anyone.",
+    "key_points": [
+      "Missing means no time sheet exists for the week; saved but unsubmitted entries do not count.",
+      "Only a committer can ignore a person, and the ignore covers that one week."
+    ],
+    "wrong_if": [
+      "Says saved entries are enough to leave the Missing list.",
+      "Says a manager or a report holder can mark the week as ignored."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/timesheet_tracking.go",
+        "start": 253,
+        "end": 268,
+        "why": "who is listed as missing"
+      },
+      {
+        "path": "app/routes/time_sheet_missing_exceptions.go",
+        "start": 20,
+        "end": 67,
+        "why": "report holders and committers may view; only the commit claim may change exceptions"
+      },
+      {
+        "path": "app/routes/time_sheet_missing_exceptions.go",
+        "start": 127,
+        "end": 170,
+        "why": "the ignore action checks the commit claim and stores person plus week"
+      }
+    ],
+    "evidence": "LEFT JOIN time_sheets ts ON ts.uid = u.id AND ts.week_ending = {:week_ending}\nLEFT JOIN time_sheet_missing_exceptions ex ON ex.uid = u.id AND ex.week_ending = {:week_ending}\n...\nWHERE ts.id IS NULL\n  AND ex.id IS NULL\n  AND COALESCE(ap.time_sheet_expected, 0) = 1",
+    "confirmed_by_test": "app/time_sheet_missing_exceptions_test.go:29",
+    "in_user_docs": "no",
+    "why_hard": "Depends on the SQL definition of missing and on which claim may add an exception."
+  },
+  {
+    "id": "jobs-01",
+    "category": "jobs",
+    "question": "Is there a limit on how many subjobs one project can have? And if an earlier subjob number is unused, does Turbo fill that gap?",
+    "ideal_answer": "Yes, there is a limit. Turbo numbers a new subjob as the highest existing suffix on that project plus one, written with two digits (for example -06 after -05). It never fills gaps below the highest suffix. The suffix cannot pass 99, so once a subjob ending in -99 exists, Turbo refuses to create another subjob for that project, even if lower numbers are free. Only a top-level project number can be a parent, so a subjob cannot have subjobs of its own.",
+    "key_points": [
+      "The subjob suffix cannot go above 99; the next creation after that fails.",
+      "Gaps below the highest suffix are not reused."
+    ],
+    "wrong_if": [
+      "Says there is no limit on the number of subjobs.",
+      "Says Turbo reuses the lowest free subjob number."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/jobs.go",
+        "start": 1295,
+        "end": 1332,
+        "why": "builds the next subjob number: highest suffix + 1, two digits, error above 99"
+      },
+      {
+        "path": "app/hooks/jobs.go",
+        "start": 440,
+        "end": 450,
+        "why": "only a top-level number can be a parent, so subjobs cannot have subjobs"
+      }
+    ],
+    "evidence": "if next > 99 {\n\treturn \"\", fmt.Errorf(\"maximum number of sub-jobs reached (99) for %s\", base)\n}\ncandidate := fmt.Sprintf(\"%s-%02d\", base, next)",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The docs only show an example subjob number; the 99 cap and the highest-plus-one rule exist only in the numbering code."
+  },
+  {
+    "id": "jobs-02",
+    "category": "jobs",
+    "question": "A cancelled proposal has a typo in its number. Cancelled proposals can't be edited, so can the number still be corrected, and who can do it?",
+    "ideal_answer": "Yes. Change number is a separate action that only a user with the admin claim can use; procurement rights alone are not enough. It writes the new number directly and skips the normal job save rules, so the lock on cancelled proposals does not stop it. The new number must still be a valid, unused number of the same kind: a proposal keeps a number that starts with P, a project cannot take one, and a top-level job and a subjob cannot swap forms. Job editing must also be switched on.",
+    "key_points": [
+      "Only a holder of the admin claim can change a job number.",
+      "It works on a Cancelled proposal because it bypasses the normal job save rules."
+    ],
+    "wrong_if": [
+      "Says the number of a cancelled proposal can never be changed.",
+      "Says procurement (the job claim) can change a job number."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_set_number.go",
+        "start": 99,
+        "end": 113,
+        "why": "admin claim is required"
+      },
+      {
+        "path": "app/routes/job_set_number.go",
+        "start": 153,
+        "end": 169,
+        "why": "proposal/project form and top-level/subjob form must not change"
+      },
+      {
+        "path": "app/routes/job_set_number.go",
+        "start": 171,
+        "end": 189,
+        "why": "direct update that skips job hooks, including the cancelled-proposal lock; unique check"
+      }
+    ],
+    "evidence": "// Intentionally update the row directly instead of calling txApp.Save:\n// this admin-only endpoint is a renumber escape hatch and must avoid\n// re-running full jobs request hooks and unrelated record validation\n// (for example cancelled-proposal edit locks or legacy blank fields).",
+    "confirmed_by_test": "app/job_set_number_test.go:82",
+    "in_user_docs": "no",
+    "why_hard": "The docs say nobody can change a Cancelled proposal; the renumber action is an admin-only exception that deliberately skips that lock."
+  },
+  {
+    "id": "jobs-03",
+    "category": "jobs",
+    "question": "I'm the manager of a project but I'm not in procurement. What can I change on the project myself, and does that still work while job editing is switched off?",
+    "ideal_answer": "You can change only the division hours (allocations). The project's manager or alternate manager may save allocations without the job claim, but any change to the project's other fields is refused; those need procurement. You must also be an active user. The allocation save checks the job editing switch too, so it is refused while job editing is off. That switch is a setting in app_config, and it is on by default when the setting is missing.",
+    "key_points": [
+      "A project's manager or alternate manager without the job claim can save division hour allocations only.",
+      "Allocation saves are refused while job editing is switched off."
+    ],
+    "wrong_if": [
+      "Says a project's manager can edit project details such as the description or dates.",
+      "Says allocation changes still work while job editing is off."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_upsert_api.go",
+        "start": 151,
+        "end": 164,
+        "why": "who may save: job claim, or manager/alternate manager for allocations only"
+      },
+      {
+        "path": "app/routes/job_upsert_api.go",
+        "start": 166,
+        "end": 194,
+        "why": "allocation-only path still requires an active user and the editing switch"
+      },
+      {
+        "path": "app/utilities/config.go",
+        "start": 54,
+        "end": 59,
+        "why": "job editing flag and its default of true"
+      }
+    ],
+    "evidence": "if !hasJobClaim && (!isManager || (!allocationOnly && !isProposal)) {\n\thttpResponseStatusCode = http.StatusForbidden\n\treturn &CodeError{Code: \"job_edit_forbidden\", Message: \"only job claim holders may change project fields; assigned managers may save allocations only\"}\n}",
+    "confirmed_by_test": "app/manager_allocations_test.go:130",
+    "in_user_docs": "partly",
+    "why_hard": "It combines a permission exception for managers with the feature flag, and the docs mention allocations only for proposals."
+  },
+  {
+    "id": "jobs-04",
+    "category": "jobs",
+    "question": "I tried to close a project and Turbo said its proposal must be Awarded first. A colleague closed another project whose proposal was still Submitted, and Turbo awarded that proposal by itself. Why the difference?",
+    "ideal_answer": "Close project needs the linked proposal to be Awarded. If the proposal is In Progress or Submitted and is still flagged as imported from the legacy system, the close awards it automatically and adds a note to the proposal. If the proposal is not an imported one, Turbo will not award it for you: procurement must set it to Awarded first, then close the project. A proposal that is Not Awarded, Cancelled or No Bid blocks the close completely.",
+    "key_points": [
+      "An In Progress or Submitted proposal that is flagged as imported is awarded automatically when the project closes.",
+      "An In Progress or Submitted proposal that is not imported blocks the close until it is Awarded."
+    ],
+    "wrong_if": [
+      "Says closing a project always awards its proposal.",
+      "Says a project can be closed whatever the status of its proposal."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_close_api.go",
+        "start": 96,
+        "end": 103,
+        "why": "terminal proposal statuses block the close"
+      },
+      {
+        "path": "app/routes/job_close_api.go",
+        "start": 110,
+        "end": 158,
+        "why": "auto-award only for imported In Progress/Submitted proposals, with a note; otherwise refused"
+      }
+    ],
+    "evidence": "if (refStatus == \"In Progress\" || refStatus == \"Submitted\") && proposalRec.GetBool(\"_imported\") {\n\tproposalRec.Set(\"status\", \"Awarded\")\n\tproposalRec.Set(\"_imported\", false)",
+    "confirmed_by_test": "app/job_close_test.go:416",
+    "in_user_docs": "no",
+    "why_hard": "The outcome depends on a hidden imported flag on the proposal, which the user cannot see and the docs never mention."
+  },
+  {
+    "id": "jobs-05",
+    "category": "jobs",
+    "question": "A staff member left and we deactivated their account, but they are still the manager on several Active projects. Can procurement still edit those projects, and can they close them?",
+    "ideal_answer": "Editing fails until the manager is replaced. Any save that changes something other than the status gets full validation, which requires the manager, and the alternate manager if one is set, to be active users. Procurement must choose an active manager in that same save. Closing still works: a save that only changes a project's status to Closed or Cancelled skips that validation, so the project can be closed or cancelled with the inactive manager still on it.",
+    "key_points": [
+      "A normal edit of the project is refused while its manager is inactive.",
+      "A status-only change to Closed or Cancelled still succeeds."
+    ],
+    "wrong_if": [
+      "Says deactivating a user removes or replaces them as manager on their jobs.",
+      "Says the project cannot be closed until a new manager is chosen."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/jobs.go",
+        "start": 943,
+        "end": 946,
+        "why": "full validation checks that manager and alternate manager are active, on every full save"
+      },
+      {
+        "path": "app/hooks/jobs.go",
+        "start": 351,
+        "end": 361,
+        "why": "a status-only save to Closed or Cancelled is a retirement"
+      },
+      {
+        "path": "app/hooks/jobs.go",
+        "start": 507,
+        "end": 515,
+        "why": "a retirement returns before the rest of validation"
+      }
+    ],
+    "evidence": "// Validate that manager and alternate_manager are active users\nif err := validateManagersAreActive(app, record); err != nil {\n\treturn 0, err\n}",
+    "confirmed_by_test": "app/jobs_test.go:553",
+    "in_user_docs": "no",
+    "why_hard": "It needs two rules together: the active-manager check runs on every full edit, but a status-only close skips full validation."
+  },
+  {
+    "id": "jobs-06",
+    "category": "jobs",
+    "question": "One subjob of a project is really for a different client than its parent. Can I change the client on just that subjob?",
+    "ideal_answer": "No. A subjob always uses its parent project's client, and Change Client refuses to run on a subjob. To change it, procurement changes the client on the parent project. That moves the parent and every one of its subjobs to the new client together, and you must confirm the list of subjobs. You also have to choose a contact and an invoicing profile that belong to the new client, and give a reason of at least 20 characters.",
+    "key_points": [
+      "A subjob's client cannot be changed on its own; the action is refused on a subjob.",
+      "Changing the parent project's client moves all of its subjobs to the new client too."
+    ],
+    "wrong_if": [
+      "Says a subjob can have a different client from its parent.",
+      "Says changing the parent's client leaves its subjobs with the old client."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_change_client.go",
+        "start": 118,
+        "end": 136,
+        "why": "refused on proposals and subjobs; client, contact and invoicing profile are required"
+      },
+      {
+        "path": "app/routes/job_change_client.go",
+        "start": 155,
+        "end": 162,
+        "why": "the project's subjobs are loaded, confirmed and added to the jobs to move"
+      },
+      {
+        "path": "app/routes/job_change_client.go",
+        "start": 207,
+        "end": 213,
+        "why": "every job in the set takes the new client, contact and profile, which must belong to that client"
+      }
+    ],
+    "evidence": "if job.GetString(\"parent\") != \"\" {\n\treturn nil, jobChangeClientError(http.StatusBadRequest, \"\", \"\", \"A subjob uses its parent project's client. Change the parent project's client instead.\")\n}",
+    "confirmed_by_test": "app/job_change_client_test.go:145",
+    "in_user_docs": "partly",
+    "why_hard": "The glossary says a subjob has its parent's client, but only the code shows that the change action refuses subjobs and moves all of them with the parent."
+  },
+  {
+    "id": "jobs-07",
+    "category": "jobs",
+    "question": "I created a project request by mistake. Can I delete it?",
+    "ideal_answer": "Not yourself. Only an admin can delete a project request, and only once it is abandoned, which means 60 days have passed since the request was last edited. Submitting it does not reset that clock; only an edit does. Until then it stays in your list. When an admin deletes it, its uploaded PDF and division hours are deleted with it.",
+    "key_points": [
+      "The creator cannot delete their own request; only an admin can.",
+      "An admin can delete it only when the request is abandoned.",
+      "Abandoned means 60 days since the request was last edited."
+    ],
+    "wrong_if": [
+      "Says the creator can delete a draft request.",
+      "Says an admin can delete any request at any time."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_requests.go",
+        "start": 870,
+        "end": 903,
+        "why": "delete requires the admin claim and an abandoned request; removes the PDF and allocations"
+      },
+      {
+        "path": "app/routes/job_requests.go",
+        "start": 129,
+        "end": 131,
+        "why": "abandoned is measured from the last edit"
+      },
+      {
+        "path": "app/utilities/project_authorization.go",
+        "start": 16,
+        "end": 16,
+        "why": "the abandonment period is 60 days"
+      }
+    ],
+    "evidence": "if !abandonedRequest(r) {\n\treturn workflowError(\"Only abandoned requests can be deleted.\")\n}",
+    "confirmed_by_test": "app/job_requests_test.go:584",
+    "in_user_docs": "no",
+    "why_hard": "The docs describe recall and reject but never deletion; the admin-only, 60-day rule is only in the code."
+  },
+  {
+    "id": "jobs-08",
+    "category": "jobs",
+    "question": "Procurement proposed a new value for a project and it is waiting for approval. Then someone edited the project's details. Now the approver gets an error that the job changed. Why, and how do we get it approved?",
+    "ideal_answer": "A value change is approved against a snapshot of the job taken when the value change was last saved: the job's fields, its related records such as the client, contacts, invoicing profile and rate sheet, its latest approval and its division hours. If any of that changes, approval is refused, so the approver never approves data they did not see. Procurement must open the value change and save it again. That records the current data and sends it back to the approver. The project value stays the same until it is approved.",
+    "key_points": [
+      "Approval is tied to the job data recorded when the value change was last saved.",
+      "If the data has changed since, the approval is refused.",
+      "Procurement must save the value change again before it can be approved."
+    ],
+    "wrong_if": [
+      "Says the approver can still approve after reloading the page.",
+      "Says procurement must create a second value change for the job."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/job_attachments.go",
+        "start": 340,
+        "end": 358,
+        "why": "what the review token covers: job, related records, latest approval, allocations"
+      },
+      {
+        "path": "app/routes/job_attachments.go",
+        "start": 464,
+        "end": 500,
+        "why": "saving the value change records the current token and returns it to pending"
+      },
+      {
+        "path": "app/routes/job_attachments.go",
+        "start": 574,
+        "end": 584,
+        "why": "approval is refused when the current token differs from the saved one"
+      }
+    ],
+    "evidence": "if token != a.GetString(\"review_token\") {\n\treturn apis.NewApiError(http.StatusConflict, \"The job changed. Ask a job editor to save and review this value change again.\", nil)\n}",
+    "confirmed_by_test": "app/job_attachments_test.go:156",
+    "in_user_docs": "no",
+    "why_hard": "It is an interaction between two screens: an ordinary job edit silently invalidates a pending value approval."
+  },
+  {
+    "id": "jobs-09",
+    "category": "jobs",
+    "question": "We activated a new revision of a rate sheet. Do projects that already use the old revision switch to the new rates?",
+    "ideal_answer": "No. Activating a revision only deactivates the other revisions with the same name. Each project keeps the exact revision it was given, and Turbo keeps pricing that project's time with it even though it is now inactive. To move a project, a person with the permission to revise rate sheets must change the project's rate sheet to an active sheet. Be careful: time entries store no rate, so the change reprices all of the project's past time, not only new time.",
+    "key_points": [
+      "Existing projects stay on the revision they were assigned; nothing switches automatically.",
+      "A project's time is priced with its assigned revision even when that revision is inactive."
+    ],
+    "wrong_if": [
+      "Says projects on the old revision move to the new revision automatically.",
+      "Says a rate sheet change on a project applies only to time entered after the change."
+    ],
+    "sources": [
+      {
+        "path": "app/routes/rate_sheets_api.go",
+        "start": 73,
+        "end": 83,
+        "why": "activation deactivates other revisions of the same name and touches no jobs"
+      },
+      {
+        "path": "app/routes/job_priced_time_entries.sql",
+        "start": 1,
+        "end": 17,
+        "why": "time is priced with the job's assigned sheet, even when inactive; changes recalculate past values"
+      },
+      {
+        "path": "app/hooks/jobs.go",
+        "start": 1099,
+        "end": 1141,
+        "why": "changing a project's rate sheet requires rate_sheet_revise and it cannot be cleared"
+      }
+    ],
+    "evidence": "-- Use the assigned revision even when it is inactive. Rate changes therefore\n-- recalculate past values.",
+    "confirmed_by_test": "app/hooks/rate_sheets_test.go:192",
+    "in_user_docs": "no",
+    "why_hard": "A design note proposes dated rate sheet history that is not built; the real behavior is spread over the activation route, the job hook and a pricing query."
+  },
+  {
+    "id": "jobs-10",
+    "category": "jobs",
+    "question": "Turbo won't let me delete a client that has no jobs. What else keeps a client from being deleted?",
+    "ideal_answer": "A client can be deleted only when nothing still uses it. Apart from jobs where it is the client, the delete is refused when the client is the job owner on any job, is the client or owner on any project request, has any invoicing profile, or has any client note. Contacts alone do not block it: unused contacts are deleted with the client. But a contact that a job, a project request or an invoicing profile still uses stops the delete.",
+    "key_points": [
+      "Being the job owner on any job blocks the delete, not only being the job's client.",
+      "Any invoicing profile or any client note for the client blocks the delete.",
+      "A project request that names the client blocks the delete."
+    ],
+    "wrong_if": [
+      "Says only jobs stop a client from being deleted.",
+      "Says all of the client's contacts must be deleted first."
+    ],
+    "sources": [
+      {
+        "path": "app/hooks/client_setup.go",
+        "start": 15,
+        "end": 38,
+        "why": "the list of records that keep a client, contact or invoicing profile in use; contacts cascade"
+      },
+      {
+        "path": "app/hooks/client_setup.go",
+        "start": 104,
+        "end": 141,
+        "why": "the delete is refused while any listed record still uses it, including on cascaded deletes"
+      }
+    ],
+    "evidence": "{\"jobs\", \"client\"},\n{\"jobs\", \"job_owner\"},\n{\"job_requests\", \"client\"},\n{\"job_requests\", \"job_owner\"},\n{\"client_invoicing_information\", \"client\"},\n{\"client_notes\", \"client\"},",
+    "confirmed_by_test": "app/clients_test.go:149",
+    "in_user_docs": "partly",
+    "why_hard": "The docs only say Delete is hidden for clients in use; what counts as in use, such as a single note or a job-owner link, is only in the code."
+  }
+]

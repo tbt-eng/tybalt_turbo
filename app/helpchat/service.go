@@ -47,24 +47,8 @@ var errNotSetUp = errors.New("help chat is not set up")
 // call. A server with no key for the provider, or with no corpus, has no chat,
 // and the rest of Turbo is not affected.
 func (s *Service) ready(settings Settings) (Model, error) {
-	s.indexOnce.Do(func() {
-		if s.Index != nil {
-			return
-		}
-		// In development the server runs in app/, and the repo is one folder up.
-		// Open then reads the files on disk. In production it finds no repo and
-		// uses the corpus in the binary.
-		corpus, err := helpcorpus.Open("..")
-		if err != nil {
-			s.indexErr = fmt.Errorf("%w: %w", errNotSetUp, err)
-			return
-		}
-		if s.Index, err = helpcorpus.NewIndex(corpus); err != nil {
-			s.indexErr = fmt.Errorf("%w: %w", errNotSetUp, err)
-		}
-	})
-	if s.indexErr != nil {
-		return nil, s.indexErr
+	if err := s.loadIndex(); err != nil {
+		return nil, err
 	}
 	if s.Model != nil {
 		return s.Model, nil
@@ -86,6 +70,27 @@ func (s *Service) ready(settings Settings) (Model, error) {
 	}
 	s.models[settings.Provider] = model
 	return model, nil
+}
+
+// loadIndex builds the search index on the first call. It needs no model.
+func (s *Service) loadIndex() error {
+	s.indexOnce.Do(func() {
+		if s.Index != nil {
+			return
+		}
+		// In development the server runs in app/, and the repo is one folder up.
+		// Open then reads the files on disk. In production it finds no repo and
+		// uses the corpus in the binary.
+		corpus, err := helpcorpus.Open("..")
+		if err != nil {
+			s.indexErr = fmt.Errorf("%w: %w", errNotSetUp, err)
+			return
+		}
+		if s.Index, err = helpcorpus.NewIndex(corpus); err != nil {
+			s.indexErr = fmt.Errorf("%w: %w", errNotSetUp, err)
+		}
+	})
+	return s.indexErr
 }
 
 // build names the code that answers: the app version and its git commit.

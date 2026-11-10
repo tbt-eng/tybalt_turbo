@@ -14,6 +14,9 @@ app/pb_public/
 app/helpcorpus/data/*
 !app/helpcorpus/data/.gitkeep
 
+# the results of a Help chat benchmark run (go run ./cmd/helpeval)
+app/cmd/helpeval/runs/
+
 # import data
 import_data/*.parquet
 import_data/*.duckdb

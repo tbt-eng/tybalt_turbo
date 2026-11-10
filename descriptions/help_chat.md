@@ -112,6 +112,45 @@ A provider that speaks the OpenAI format needs one entry in `app/helpchat/provid
 
 Tests send real requests from both clients to local servers that speak each API's format. No test, and nobody yet, has sent a question to Anthropic, OpenAI or OpenRouter from this code. Do step 5 with each provider before you rely on it.
 
+## Measure the answers
+
+`app/cmd/helpeval` is the benchmark. `questions.json` holds hard questions about how Turbo behaves. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.
+
+Run it from `app/`, with the provider's key in the shell:
+
+| Command | What it measures | Cost |
+| --- | --- | --- |
+| `go run ./cmd/helpeval --mode search` | The question itself as one search. Did the result hold the right lines? | None. No model. |
+| `go run ./cmd/helpeval --mode replay --out <run>` | The searches that the model wrote in an earlier run, sent to the search as it is now. Use it to test a change to the search or the chunks before a run that costs money. | None. No model. |
+| `go run ./cmd/helpeval --mode ask` | The chat as it is: the same prompt, tools and tool loop as `/api/help/ask`. | Model and judge |
+| `go run ./cmd/helpeval --mode oracle` | The chat with the right source in its prompt. This is the best that a perfect search can give. | Model and judge |
+| `go run ./cmd/helpeval --mode notools` | The chat with the handbook and no tools. | Model and judge |
+| `go run ./cmd/helpeval --mode judge-check` | The judge, on answers whose grade is known. Run it after a change to the judge or to the questions. | Judge |
+
+`--model`, `--effort` and `--provider` choose the model that answers. `--only` and `--limit` choose questions. A run writes `results.jsonl`, `summary.md` and one trace for each question to `cmd/helpeval/runs/`, which git ignores. A second run with the same settings asks only the questions that have no grade. `--mode regrade --out <folder>` grades the saved answers again.
+
+How to read a run:
+
+- A second model, the judge, says for each key point if the answer states it, misses it or contradicts it. The code makes the grade: **correct** (every key point, nothing wrong), **partial** (some key points, nothing wrong), **wrong** (a statement that the reference contradicts), or **abstained** (the chat said that it does not know). A wrong answer is worse than an abstained one.
+- A failure of the API is an **error**. It is not in the numbers.
+- `ask` compared with `oracle` shows what the search costs. `oracle` compared with a stronger model shows what the model costs. `ask` compared with `notools` shows what the tools give.
+- 50 questions asked one time can't show a difference of less than about 14 points. For a smaller difference, run again and compare question by question.
+- The judge can be too strict. Read the answers that it grades as wrong before you act on the number.
+
+Add a question when Help gives a wrong answer about behavior. Read the code, write the key points from it, and cite the lines. A change to the code can make a reference answer wrong: when a run marks a good answer as wrong, check the reference first.
+
+Each question lists as key points only what an answer must state to answer the question that was asked. Other true facts are in `extra_points`, which nothing grades.
+
+Runs on 2026-11-10 with `claude-haiku-5-5` at low effort:
+
+| Run | Graded | Correct | Wrong | Key points stated | The searches returned the right lines |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| One list of 6 chunks, notes and code together | 50 | 26 | 7 | 69% | 27 |
+| Code and notes as two groups, with the search rules in the prompt | 47 | 32 | 1 | 82% | 42 |
+| The right source in the prompt (`oracle`, with the first prompt) | 49 | 40 | 2 | 88% | |
+
+In the first run, two chunks in three that a search returned were design notes, and almost every wrong answer came from a question where the search did not return the code. The second run costs more: 2.6 tool calls for each question and not 1.9, about 90% more input tokens, and about one second more before the first word.
+
 ## Rules that must hold
 
 1. A visitor who is not signed in gets nothing from the chat. Every route under `/api/help` uses `apis.RequireAuth("users")`. The corpus is embedded from `app/helpcorpus/data`, which is not in `pb_public`, and no route serves it.
