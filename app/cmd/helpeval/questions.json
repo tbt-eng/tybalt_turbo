@@ -1903,44 +1903,47 @@
   {
     "id": "jobs-07",
     "category": "jobs",
-    "question": "I created a project request by mistake. Can I delete it?",
+    "question": "I created a project request by mistake and I already submitted it. Can I delete it?",
     "held": [
       "time"
     ],
-    "ideal_answer": "Not yourself. Only an admin can delete a project request, and only once it is abandoned, which means 60 days have passed since the request was last edited. Submitting it does not reset that clock; only an edit does. Until then it stays in your list. When an admin deletes it, its uploaded PDF and division hours are deleted with it.",
+    "ideal_answer": "Yes, but recall it first. You can delete your own request only while its status is Draft, Recalled or Rejected, which are the statuses in which you can edit it. A submitted request is in review, so select Recall for editing, then Delete request, then Delete. Its uploaded PDF and division hours are deleted with it. Nobody else can delete your request, except an admin, and an admin can do so only once it is abandoned: 60 days after the request was last edited.",
     "key_points": [
-      "The creator cannot delete their own request; only an admin can.",
-      "An admin can delete it only when the request is abandoned.",
-      "Abandoned means 60 days since the request was last edited."
+      "The creator can delete their own request while its status is Draft, Recalled or Rejected.",
+      "A submitted request must be recalled before its creator can delete it."
     ],
     "wrong_if": [
-      "Says the creator can delete a draft request.",
-      "Says an admin can delete any request at any time."
+      "Says that only an admin can delete a project request.",
+      "Says that the creator can delete a request that is in review without a recall."
     ],
     "sources": [
       {
         "path": "app/routes/job_requests.go",
         "start": 870,
-        "end": 903,
-        "why": "delete requires the admin claim and an abandoned request; removes the PDF and allocations"
+        "end": 912,
+        "why": "delete: a creator who can edit the request, or an admin when the request is abandoned; removes the PDF and allocations"
+      },
+      {
+        "path": "app/routes/job_requests.go",
+        "start": 164,
+        "end": 179,
+        "why": "the creator can edit a request only when it is Draft, Recalled or Rejected"
       },
       {
         "path": "app/routes/job_requests.go",
         "start": 129,
         "end": 131,
         "why": "abandoned is measured from the last edit"
-      },
-      {
-        "path": "app/utilities/project_authorization.go",
-        "start": 16,
-        "end": 16,
-        "why": "the abandonment period is 60 days"
       }
     ],
-    "evidence": "if !abandonedRequest(r) {\n\treturn workflowError(\"Only abandoned requests can be deleted.\")\n}",
-    "confirmed_by_test": "app/job_requests_test.go:584",
-    "in_user_docs": "no",
-    "why_hard": "The docs describe recall and reject but never deletion; the admin-only, 60-day rule is only in the code."
+    "evidence": "\t\t\tif requestEditable(tx, r, e.Auth) != nil {\n\t\t\t\tif err := workflowClaim(tx, e.Auth, \"admin\"); err != nil {",
+    "confirmed_by_test": "app/job_requests_test.go:656",
+    "in_user_docs": "partly",
+    "why_hard": "The request is in review, and the docs give the statuses for a delete in one line; the chat must put the recall before the delete. An older rule let only an admin delete a request.",
+    "extra_points": [
+      "An admin can delete a request only once it is abandoned, 60 days after its last edit.",
+      "The uploaded PDF and the division hours are deleted with the request."
+    ]
   },
   {
     "id": "jobs-08",

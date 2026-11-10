@@ -132,9 +132,9 @@
     "name": "jobs-07 (ask-claude-haiku-5-5-low)",
     "case": "jobs-07",
     "expect": [
-      "correct"
+      "wrong"
     ],
-    "why": "States all three key points, the last two in its final paragraph.",
+    "why": "The answer was correct under the old rule. The creator can now delete a request that is Draft, Recalled or Rejected, and the answer says that only an admin can delete one, which the question lists as a wrong claim.",
     "answer": "You can't delete a project request yourself. Instead, **Recall for editing** it, then fix or leave it. This works until procurement creates the job. [Project requests](/docs/project-requests)\n\n1. Open the request.\n2. Select **Recall for editing**.\n3. Correct the details, or leave it as is.\n\nIf the request should not go ahead, procurement can reject it before creating the job. Procurement enters a reason and selects **Reject**. [Project requests](/docs/project-requests)\n\nAn admin can delete a request that has had no edits for at least 60 days. Ask an admin if you need it removed sooner. [S6] Deleting a request also deletes its attachment. [S2]"
   },
   {
