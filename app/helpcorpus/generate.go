@@ -50,9 +50,15 @@ type source struct {
 	skipFiles []string
 	// skipSuffixes leave out files by the end of their name.
 	skipSuffixes []string
+	// optional is a source that the corpus can be built without.
+	optional bool
 }
 
 const docsRoot = "ui/src/docs"
+
+// CollectionsRoot holds the collection files: one for each PocketBase
+// collection, with its access rules and fields. See cmd/helpcollections.
+const CollectionsRoot = "app/helpcorpus/collections"
 
 // sources lists what the corpus holds. A new folder inside a root is part of
 // the corpus from the next build.
@@ -92,6 +98,16 @@ var sources = []source{
 		skipSuffixes: []string{"_test.go"},
 	},
 	{
+		// One file for each PocketBase collection: who may list, view, create,
+		// update and delete its records, and its fields. go run
+		// ./cmd/helpcollections writes them from the migrations.
+		kind: KindCode,
+		root: CollectionsRoot,
+		exts: []string{".md"},
+		// cmd/helpcollections checks that the files are there and are right.
+		optional: true,
+	},
+	{
 		kind:     KindCode,
 		root:     "ui/src",
 		exts:     []string{".svelte", ".ts"},
@@ -117,6 +133,9 @@ func Generate(options Options) (*Corpus, *Stats, error) {
 
 	for _, src := range sources {
 		files, err := readSource(options, src, stats)
+		if src.optional && (errors.Is(err, fs.ErrNotExist) || (err == nil && len(files) == 0)) {
+			continue
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -178,8 +197,9 @@ type file struct {
 
 func readSource(options Options, src source, stats *Stats) ([]file, error) {
 	dir := filepath.Join(options.RepoDir, filepath.FromSlash(src.root))
-	if src.root == "app" && options.AppDir != "" {
-		dir = options.AppDir
+	// The app folder can be somewhere else than under the repo folder.
+	if inApp, ok := strings.CutPrefix(src.root+"/", "app/"); ok && options.AppDir != "" {
+		dir = filepath.Join(options.AppDir, filepath.FromSlash(inApp))
 	}
 
 	var files []file

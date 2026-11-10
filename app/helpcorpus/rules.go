@@ -40,6 +40,9 @@ var ruleRoots = []string{
 	"app/absorb/",
 	"app/constants/",
 	"app/cron/",
+	// The access rules of each PocketBase collection. A person asks "who can
+	// change a profile?", and the rule is a filter such as uid = @request.auth.id.
+	CollectionsRoot + "/",
 	"app/hooks/",
 	"app/notifications/",
 	"app/reports/",
@@ -232,6 +235,11 @@ func RuleSources(options Options) ([]SourceFile, error) {
 			continue
 		}
 		files, err := readSource(options, src, &Stats{})
+		// A build of the corpus needs every source. This list does not: a
+		// folder that is not there has no files that get rules.
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}

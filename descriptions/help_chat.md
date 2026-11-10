@@ -137,6 +137,15 @@ A rule file is tied to its source file in two ways: it has the path of the sourc
 
 The instructions and the glossary are the same in every request, so the model caches them. The first run writes about 216 files and costs a few dollars with `claude-sonnet-5-5`. After that, a run costs a few cents for each file that changed.
 
+### The access rules of the collections
+
+The UI reads and writes many collections through PocketBase's own API: profiles, time entries, expenses, jobs, vendors and more. For those requests the collection's rules decide who may list, view, create, update and delete a record. The rules are in the migrations, and the corpus leaves the migrations out, because an old migration says what a rule was and not what it is. So the chat could not answer "who can change a profile?", and it answered a question about a profile from the code of `admin_profiles`, which has far more of it.
+
+- `go run ./cmd/helpcollections` applies every migration to an empty database and writes one file for each collection to `app/helpcorpus/collections/`: its five rules as they are at the end, its fields with their limits, its indexes, and the query of a view. It calls no model and needs no key.
+- The files are a source of the corpus, as code, and each one gets a rule file like any other source. The rule file says the same in plain words.
+- Run the command after a migration that changes a collection, then `go run ./cmd/helprules`, and commit both. A test (`go test ./cmd/helpcollections/`) and the Docker build fail when the files are not what the migrations give.
+- The rules in the files were compared with the schema of a copy of the production database: all 275 are the same.
+
 ## Measure the answers
 
 `app/cmd/helpeval` is the benchmark. `questions.json` holds 100 hard questions about how Turbo behaves, 10 or 11 in each of ten areas: PO approval, the PO lifecycle, expenses, time, jobs, reports, people and permissions, clients and vendors, other spending rules, and the project workflow with its emails. Their sources are 107 of the 216 source files that have rules, and those files hold two rules in three. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.

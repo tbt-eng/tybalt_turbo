@@ -430,6 +430,7 @@ How to write a rule:
 - "start" and "end": the first and the last line of the code that makes the rule true. Use the smallest range that holds it.
 - Write only what the lines of this file show. Do not guess what another file does. When a rule depends on a function or a value from another file, name it and do not state its result.
 - Leave out how the code is built: reading a request, wrapping an error, logging, types, and queries that only fetch a name.
+- A file in app/helpcorpus/collections lists the access rules of one PocketBase collection, as filters. For such a file, write in plain words who can list, view, create, update and delete the records: one rule for each action, or one rule for two actions that have the same filter. Say which people pass the filter ("the person whose record it is", "that person's manager", "procurement (the job claim)") and what a request must not change. Say plainly when nobody can do an action through the API, and that Turbo's own code can still do it. Add a rule for a field only when its limits would surprise a person, such as a pattern, a short list of allowed values, or a unique index.
 - Write every rule that the file has. Go through the file from its first line to its last, one check and one branch at a time, and do not stop after the main rules. A long file can have 40 rules. A file with nothing that a person can observe gets an empty list.
 - Give the message that Turbo shows. Do not give the HTTP status number.
 

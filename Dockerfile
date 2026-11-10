@@ -75,6 +75,10 @@ RUN cd /app && ./scripts/version.sh go > constants/version.go || \
 # `go run ./cmd/helprules` and commit them before you push.
 COPY ui/src /corpus-src/ui/src
 COPY descriptions /corpus-src/descriptions
+# The files in helpcorpus/collections say who may read and write each
+# PocketBase collection. This fails when a migration changed a collection and
+# the files were not written again: go run ./cmd/helpcollections
+RUN go run ./cmd/helpcollections --check
 RUN go run ./cmd/helpcorpus --repo /corpus-src --app-dir . --require-rules
 
 # Copy built UI from previous stage

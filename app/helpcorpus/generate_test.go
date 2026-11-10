@@ -29,8 +29,10 @@ var fixture = map[string]string{
 	"app/pb_public/index.html":          "<html></html>\n",
 	"app/pb_data/notes.go":              "package data\n",
 	"app/helpcorpus/data/corpus.json":   "{}\n",
-	"app/.env":                          "ANTHROPIC_API_KEY=secret\n",
-	"app/hooks/testdata/sample.go":      "package sample\n",
+	// The file of one PocketBase collection, which cmd/helpcollections writes.
+	"app/helpcorpus/collections/profiles.md": "# Collection: profiles\n\n## Who can update a record (update rule): profiles\n\n```\nuid = @request.auth.id\n```\n",
+	"app/.env":                               "ANTHROPIC_API_KEY=secret\n",
+	"app/hooks/testdata/sample.go":           "package sample\n",
 
 	"ui/src/routes/time/+page.svelte":   "<script lang=\"ts\">\n  let hours = $state(0);\n</script>\n\n<p>{hours}</p>\n",
 	"ui/src/lib/utilities.ts":           "export function shortDate(value: string) {\n  return value;\n}\n",
@@ -97,6 +99,8 @@ func TestGenerateReadsOnlyTheSources(t *testing.T) {
 		"ui/src/docs/expenses.md", "ui/src/docs/start-here.md", "ui/src/docs/time.md", "ui/src/docs/whats-new.md",
 		"descriptions/purchase_orders.md",
 		"app/hooks/expenses.go", "app/main.go", "app/routes/expenses.sql",
+		// The collection files are Markdown, and they are a source of their own.
+		"app/helpcorpus/collections/profiles.md",
 		"ui/src/lib/utilities.ts", "ui/src/routes/time/+page.svelte",
 	}
 	got := chunkPaths(corpus)

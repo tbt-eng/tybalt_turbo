@@ -68,7 +68,7 @@ func TestRuleFileFormatAndParse(t *testing.T) {
 }
 
 func TestHasRules(t *testing.T) {
-	yes := []string{"app/hooks/expenses.go", "app/routes/po_visibility_base.sql", "app/utilities/config.go", "ui/src/lib/poVisibility.ts"}
+	yes := []string{"app/hooks/expenses.go", "app/routes/po_visibility_base.sql", "app/utilities/config.go", "ui/src/lib/poVisibility.ts", "app/helpcorpus/collections/profiles.md"}
 	no := []string{"app/main.go", "app/helpchat/turn.go", "ui/src/lib/components/DSChat.svelte", "ui/src/lib/stores/helpChat.ts", "ui/src/routes/time/+page.svelte", "descriptions/expenses.md"}
 	for _, path := range yes {
 		if !HasRules(path) {
@@ -152,7 +152,7 @@ func TestTheCorpusTakesRulesOnlyForTheSourceAsItIs(t *testing.T) {
 	for _, source := range sources {
 		paths = append(paths, source.Path)
 	}
-	if strings.Join(paths, " ") != "app/hooks/expenses.go app/routes/expenses.sql ui/src/lib/utilities.ts" {
+	if strings.Join(paths, " ") != "app/hooks/expenses.go app/routes/expenses.sql app/helpcorpus/collections/profiles.md ui/src/lib/utilities.ts" {
 		t.Errorf("RuleSources = %v", paths)
 	}
 }
@@ -221,7 +221,7 @@ func TestCheckRulesNamesEachProblem(t *testing.T) {
 	}
 	if !reflect.DeepEqual(status.Stale, []string{"app/hooks/expenses.go"}) ||
 		!reflect.DeepEqual(status.NoPhrases, []string{"app/routes/expenses.sql"}) ||
-		!reflect.DeepEqual(status.Missing, []string{"ui/src/lib/utilities.ts"}) ||
+		!reflect.DeepEqual(status.Missing, []string{"app/helpcorpus/collections/profiles.md", "ui/src/lib/utilities.ts"}) ||
 		len(status.Gone) != 1 || !strings.HasSuffix(status.Gone[0], "app/helpcorpus/rules/app/routes/deleted.go.md") {
 		t.Errorf("status = %+v", status)
 	}
@@ -236,6 +236,8 @@ func TestCheckRulesNamesEachProblem(t *testing.T) {
 	files["app/helpcorpus/rules/app/hooks/expenses.go.md"] = RuleFile{Source: "app/hooks/expenses.go", SHA256: SourceHash(expensesSource)}.Format()
 	files["app/helpcorpus/rules/app/routes/expenses.sql.md"] = RuleFile{Source: "app/routes/expenses.sql", SHA256: SourceHash(sql)}.Format()
 	files["app/helpcorpus/rules/ui/src/lib/utilities.ts.md"] = RuleFile{Source: "ui/src/lib/utilities.ts", SHA256: SourceHash(fixture["ui/src/lib/utilities.ts"])}.Format()
+	const collection = "app/helpcorpus/collections/profiles.md"
+	files["app/helpcorpus/rules/"+collection+".md"] = RuleFile{Source: collection, SHA256: SourceHash(fixture[collection])}.Format()
 	delete(files, "app/helpcorpus/rules/app/routes/deleted.go.md")
 	status, err = CheckRules(Options{RepoDir: writeRepo(t, files, false)})
 	if err != nil || !status.OK() || status.Error() != nil {
