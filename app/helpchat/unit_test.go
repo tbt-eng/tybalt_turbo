@@ -111,7 +111,8 @@ func TestSystemRulesKeepTheDecisions(t *testing.T) {
 		"when the user holds the commit claim or the admin claim and asks how uncommitting works",
 		"do not guess",
 		"You cannot see the user's records.",
-		"When a note and the code differ, the code is right.",
+		"When a note and the code or a rule differ, the note is wrong.",
+		"A rule says in plain words what the code at its lines does.",
 		"Search the code before you answer when the user asks why Turbo did something",
 		"If only a design note shows it, say that Turbo's notes describe it and that you could not confirm it.",
 	} {
@@ -201,9 +202,9 @@ func TestTruncateKeepsWholeCharacters(t *testing.T) {
 	}
 }
 
-func TestSearchPutsCodeBeforeDesignNotes(t *testing.T) {
-	// Notes have headings in plain words, so they outscore the code. The code
-	// must come back all the same, and first.
+func TestSearchReturnsRulesThenCodeThenDesignNotes(t *testing.T) {
+	// Notes have headings in plain words, so they outscore the code. The rules
+	// and the code must come back all the same, and first.
 	corpus := &helpcorpus.Corpus{Format: helpcorpus.FormatVersion}
 	for i := 1; i <= 5; i++ {
 		corpus.Chunks = append(corpus.Chunks, helpcorpus.Chunk{
@@ -211,10 +212,16 @@ func TestSearchPutsCodeBeforeDesignNotes(t *testing.T) {
 			Start: i, End: i, Heading: "Expense approval limit", Text: "The expense approval limit is a plan. Expense approval limit.",
 		})
 	}
-	corpus.Chunks = append(corpus.Chunks, helpcorpus.Chunk{
-		ID: "app/hooks/expenses.go:10", Path: "app/hooks/expenses.go", Kind: helpcorpus.KindCode,
-		Start: 10, End: 20, Heading: "validateExpense", Text: "if total >= limit { return errors.New(\"needs approval\") }",
-	})
+	corpus.Chunks = append(corpus.Chunks,
+		helpcorpus.Chunk{
+			ID: "app/hooks/expenses.go:10", Path: "app/hooks/expenses.go", Kind: helpcorpus.KindCode,
+			Start: 10, End: 20, Heading: "validateExpense", Text: "if total >= limit { return errors.New(\"needs approval\") }",
+		},
+		helpcorpus.Chunk{
+			ID: "rule:app/hooks/expenses.go:1:12", Path: "app/hooks/expenses.go", Kind: helpcorpus.KindRules,
+			Start: 12, End: 14, Heading: "An expense at the limit needs approval", Text: "Turbo asks for approval when the total is the limit or more.",
+		},
+	)
 	index, err := helpcorpus.NewIndex(corpus)
 	if err != nil {
 		t.Fatal(err)
@@ -225,10 +232,29 @@ func TestSearchPutsCodeBeforeDesignNotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(hits) != 1+searchNoteHits {
-		t.Fatalf("got %d hits, want the code chunk and %d notes", len(hits), searchNoteHits)
+	if len(hits) != 2+searchNoteHits {
+		t.Fatalf("got %d hits, want the rule, the code chunk and %d notes", len(hits), searchNoteHits)
 	}
-	if hits[0].Kind != helpcorpus.KindCode || hits[1].Kind != helpcorpus.KindNotes {
-		t.Errorf("the code must be first: %s, %s", hits[0].ID, hits[1].ID)
+	if hits[0].Kind != helpcorpus.KindRules || hits[1].Kind != helpcorpus.KindCode || hits[2].Kind != helpcorpus.KindNotes {
+		t.Errorf("the order must be rule, code, note: %s, %s, %s", hits[0].ID, hits[1].ID, hits[2].ID)
+	}
+
+	// The model reads a rule with its type, its title and the lines of its code.
+	var out strings.Builder
+	writeChunk(&out, "S1", hits[0].Chunk, searchHitChars)
+	want := `<chunk ref="S1" type="rule" path="app/hooks/expenses.go" lines="12-14" in="An expense at the limit needs approval">`
+	if !strings.Contains(out.String(), want) || !strings.Contains(out.String(), "Turbo asks for approval") {
+		t.Errorf("the rule chunk is %q", out.String())
+	}
+	// A read of those lines gives the code, not the rule again.
+	read := index.Read(helpcorpus.Claims{}, "app/hooks/expenses.go", 12, 14)
+	if len(read) != 1 || read[0].Kind != helpcorpus.KindCode {
+		t.Errorf("a read must return the code: %+v", read)
+	}
+	if chunk, ok := index.ChunkByID(helpcorpus.Claims{}, "rule:app/hooks/expenses.go:1:12"); !ok || chunk.Start != 12 {
+		t.Errorf("ChunkByID must find a rule: %+v %v", chunk, ok)
+	}
+	if chunk, ok := index.ChunkByID(helpcorpus.Claims{}, "app/hooks/expenses.go:10"); !ok || chunk.End != 20 {
+		t.Errorf("ChunkByID must find a code chunk: %+v %v", chunk, ok)
 	}
 }

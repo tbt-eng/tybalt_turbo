@@ -24,9 +24,11 @@ const (
 )
 
 const (
-	// One search returns code and design notes as two groups. The notes have
-	// headings in plain words, so in one list they push the code out, and the
-	// code is what says how Turbo behaves today.
+	// One search returns rules, code and design notes as three groups. In one
+	// list, the notes push the code out, because their headings are in plain
+	// words. The code is what says how Turbo behaves today, and a rule says in
+	// plain words what some lines of the code do (see helpcorpus/rules.go).
+	searchRuleHits = 5
 	searchCodeHits = 6
 	searchNoteHits = 2
 	// A search hit shows this much of a chunk. read_source shows all of it.
@@ -292,19 +294,26 @@ func (t *turn) callTool(call ToolCall) ToolResult {
 	return fail("There is no tool with that name.")
 }
 
-// searchCorpus is one search for the model: the best code chunks, then the best
-// chunks of the design notes. The handbook already holds the user docs, so a
-// search leaves them out.
+// searchCorpus is one search for the model: the best rules, then the best code
+// chunks, then the best chunks of the design notes. The handbook already holds
+// the user docs, so a search leaves them out.
 func searchCorpus(index *helpcorpus.Index, claims helpcorpus.Claims, query string) ([]helpcorpus.Hit, error) {
-	code, err := index.Search(claims, query, helpcorpus.SearchOptions{Limit: searchCodeHits, Kinds: []string{helpcorpus.KindCode}})
-	if err != nil {
-		return nil, err
+	var all []helpcorpus.Hit
+	for _, group := range []struct {
+		kind  string
+		limit int
+	}{
+		{helpcorpus.KindRules, searchRuleHits},
+		{helpcorpus.KindCode, searchCodeHits},
+		{helpcorpus.KindNotes, searchNoteHits},
+	} {
+		hits, err := index.Search(claims, query, helpcorpus.SearchOptions{Limit: group.limit, Kinds: []string{group.kind}})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, hits...)
 	}
-	notes, err := index.Search(claims, query, helpcorpus.SearchOptions{Limit: searchNoteHits, Kinds: []string{helpcorpus.KindNotes}})
-	if err != nil {
-		return nil, err
-	}
-	return append(code, notes...), nil
+	return all, nil
 }
 
 // ref returns the short name of a chunk in this turn, such as S3.
@@ -335,8 +344,11 @@ func writeChunk(out *strings.Builder, ref string, chunk helpcorpus.Chunk, maxCha
 // chunkType tells the model what a chunk is, because it trusts the two kinds
 // differently.
 func chunkType(chunk helpcorpus.Chunk) string {
-	if chunk.Kind == helpcorpus.KindNotes {
+	switch chunk.Kind {
+	case helpcorpus.KindNotes:
 		return "design note"
+	case helpcorpus.KindRules:
+		return "rule"
 	}
 	return chunk.Kind
 }

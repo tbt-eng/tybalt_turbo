@@ -94,6 +94,11 @@ func printSummary(corpus *helpcorpus.Corpus, stats *helpcorpus.Stats, out string
 	for _, skipped := range stats.Skipped {
 		fmt.Println("Skipped", skipped)
 	}
+	// The code of these files is in the corpus. Only their rules are missing.
+	if missing := len(stats.NoRules) + len(stats.StaleRules); missing > 0 {
+		fmt.Printf("Rules: %d. %d source files have no rules and %d have rules for an older source. Write them with: go run ./cmd/helprules\n",
+			stats.Rules, len(stats.NoRules), len(stats.StaleRules))
+	}
 }
 
 // audienceLabel shows who may read a chunk, such as "admin + (admin or commit)".

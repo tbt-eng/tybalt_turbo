@@ -30,6 +30,12 @@ type Stats struct {
 	Files int
 	// Skipped lists the files that were too big or were not text.
 	Skipped []string
+	// Rules counts the rules in the corpus. NoRules and StaleRules list the
+	// source files that should have rules and have none, or have rules for an
+	// older source. Neither stops a build: the code is still in the corpus.
+	Rules      int
+	NoRules    []string
+	StaleRules []string
 }
 
 // source is one tree of files to read.
@@ -133,6 +139,23 @@ func Generate(options Options) (*Corpus, *Stats, error) {
 		}
 		if src.kind == KindDocs {
 			docs = files
+		}
+		for _, f := range files {
+			if src.kind != KindCode || !HasRules(f.path) {
+				continue
+			}
+			rules, stale, err := ruleChunks(options, f)
+			if err != nil {
+				return nil, nil, err
+			}
+			switch {
+			case stale:
+				stats.StaleRules = append(stats.StaleRules, f.path)
+			case rules == nil:
+				stats.NoRules = append(stats.NoRules, f.path)
+			}
+			stats.Rules += len(rules)
+			corpus.Chunks = append(corpus.Chunks, rules...)
 		}
 	}
 

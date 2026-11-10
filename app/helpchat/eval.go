@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -36,6 +35,7 @@ type EvalChunk struct {
 	Path  string `json:"path"`
 	Start int    `json:"start"`
 	End   int    `json:"end"`
+	Kind  string `json:"kind,omitempty"`
 }
 
 // EvalToolCall is one tool call of a turn.
@@ -128,24 +128,13 @@ func (s *Service) Evaluate(ctx context.Context, eval EvalRequest) (EvalResult, e
 	return out, nil
 }
 
-// chunkByID finds the lines of a chunk from its id, which is path:start.
+// chunkByID returns the path and the lines of a chunk that a tool returned.
 func (s *Service) chunkByID(ref, id string) EvalChunk {
-	chunk := EvalChunk{Ref: ref, Path: id}
-	cut := strings.LastIndex(id, ":")
-	if cut < 0 {
-		return chunk
+	chunk, ok := s.Index.ChunkByID(helpcorpus.Claims{}, id)
+	if !ok {
+		return EvalChunk{Ref: ref, Path: id}
 	}
-	start, err := strconv.Atoi(id[cut+1:])
-	if err != nil {
-		return chunk
-	}
-	chunk.Path, chunk.Start, chunk.End = id[:cut], start, start
-	for _, found := range s.Index.Read(helpcorpus.Claims{}, chunk.Path, start, start) {
-		if found.ID == id {
-			chunk.End = found.End
-		}
-	}
-	return chunk
+	return EvalChunk{Ref: ref, Path: chunk.Path, Start: chunk.Start, End: chunk.End, Kind: chunk.Kind}
 }
 
 // SearchOnly runs one search as the search_turbo tool does, with no model.
@@ -159,7 +148,7 @@ func (s *Service) SearchOnly(query string) ([]EvalChunk, error) {
 	}
 	chunks := make([]EvalChunk, len(hits))
 	for i, hit := range hits {
-		chunks[i] = EvalChunk{Path: hit.Path, Start: hit.Start, End: hit.End}
+		chunks[i] = EvalChunk{Path: hit.Path, Start: hit.Start, End: hit.End, Kind: hit.Kind}
 	}
 	return chunks, nil
 }

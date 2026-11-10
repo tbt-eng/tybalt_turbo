@@ -162,6 +162,29 @@ func (ix *Index) Search(claims Claims, query string, options SearchOptions) ([]H
 	return hits, rows.Err()
 }
 
+// ChunkByID returns one chunk, if the claims open it.
+func (ix *Index) ChunkByID(claims Claims, id string) (Chunk, bool) {
+	for _, i := range ix.byPath[pathOfID(id)] {
+		if chunk := ix.corpus.Chunks[i]; chunk.ID == id && chunk.Allows(claims) {
+			return chunk, true
+		}
+	}
+	return Chunk{}, false
+}
+
+// pathOfID returns the path in a chunk id: "path:start", or
+// "rule:path:number:start" for a rule.
+func pathOfID(id string) string {
+	parts := strings.Split(id, ":")
+	if parts[0] == "rule" && len(parts) >= 4 {
+		return strings.Join(parts[1:len(parts)-2], ":")
+	}
+	if len(parts) >= 2 {
+		return strings.Join(parts[:len(parts)-1], ":")
+	}
+	return id
+}
+
 // Read returns the chunks of one file that hold the lines from..to, in order,
 // and only chunks that the claims open. It returns at most 8 chunks. A line
 // number below 1 means the start or the end of the file.
@@ -169,7 +192,8 @@ func (ix *Index) Read(claims Claims, path string, from, to int) []Chunk {
 	var chunks []Chunk
 	for _, i := range ix.byPath[path] {
 		chunk := ix.corpus.Chunks[i]
-		if (to >= 1 && chunk.Start > to) || chunk.End < from || !chunk.Allows(claims) {
+		// A rule has the path and the lines of its code. A read is for the code.
+		if (to >= 1 && chunk.Start > to) || chunk.End < from || !chunk.Allows(claims) || chunk.Kind == KindRules {
 			continue
 		}
 		chunks = append(chunks, chunk)

@@ -22,6 +22,7 @@ const (
 	KindDocs  = "docs"  // user docs in ui/src/docs
 	KindNotes = "notes" // design notes in descriptions/
 	KindCode  = "code"  // app and UI source
+	KindRules = "rules" // what a source file does, in plain words (see rules.go)
 )
 
 // Chunk is one piece of one file.

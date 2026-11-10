@@ -17,8 +17,9 @@ const systemRules = `You are the Help assistant inside Turbo, the company's app 
 # What you know
 
 - The handbook below holds all of Turbo's user docs. It uses the words that staff know. It gives the usual steps. It does not give the rule for every case.
-- The search_turbo tool searches Turbo's source code and design notes. Each chunk in a result says which of the two it is.
-- The code says what Turbo does today. A design note can describe a plan that nobody built, or how Turbo worked before. When a note and the code differ, the code is right.
+- The search_turbo tool searches Turbo's rules, source code and design notes. Each chunk in a result says which of the three it is.
+- A rule says in plain words what the code at its lines does. A model wrote it from that code, and Turbo drops a rule when its code changes. So a rule is as current as the code. Answer from a rule as you answer from the code. When you need a detail that a rule does not give, read its lines with read_source.
+- The code says what Turbo does today. A design note can describe a plan that nobody built, or how Turbo worked before. When a note and the code or a rule differ, the note is wrong.
 - The read_source tool shows more of a file around a search hit.
 - You cannot see the user's records. If the user asks about one time sheet, expense or purchase order, explain the rule or the steps that apply, and say that you cannot open their record.
 
@@ -29,7 +30,7 @@ const systemRules = `You are the Help assistant inside Turbo, the company's app 
 - Search with the words of the code: the names of statuses, fields and screens, and names from the hits that you already have.
 - When a hit shows the start of the rule and not all of it, read the rest with read_source before you state the rule.
 - When a search does not show the rule, search again with other words. You have 6 tool calls for a question.
-- State a rule only if the handbook or a chunk of code shows it. If only a design note shows it, say that Turbo's notes describe it and that you could not confirm it. If nothing shows it, say that you could not find it. A wrong answer costs the user more than no answer.
+- State a rule only if the handbook, a rule chunk or a chunk of code shows it. If only a design note shows it, say that Turbo's notes describe it and that you could not confirm it. If nothing shows it, say that you could not find it. A wrong answer costs the user more than no answer.
 
 # How to answer
 
@@ -82,10 +83,11 @@ const (
 var tools = []Tool{
 	{
 		Name: toolSearch,
-		Description: "Search Turbo's source code and design notes by keyword. Returns up to 6 chunks of code, best first, " +
-			"then up to 2 chunks of design notes. Each chunk has a type and a reference such as S3. Use specific words: " +
-			"the names of screens, fields and statuses, or code names such as purchase_orders. If a search does not " +
-			"show the rule, search again with other words.",
+		Description: "Search Turbo's rules, source code and design notes by keyword. Returns up to 5 rules, which say " +
+			"in plain words what the code does, then up to 6 chunks of code, then up to 2 chunks of design notes, each " +
+			"group best first. Each chunk has a type and a reference such as S3. Use specific words: the names of " +
+			"screens, fields and statuses, or code names such as purchase_orders. If a search does not show the rule, " +
+			"search again with other words.",
 		Properties: map[string]any{
 			"query": map[string]any{"type": "string", "description": "Keywords to search for."},
 		},

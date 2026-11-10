@@ -112,6 +112,24 @@ A provider that speaks the OpenAI format needs one entry in `app/helpchat/provid
 
 Tests send real requests from both clients to local servers that speak each API's format. No test, and nobody yet, has sent a question to Anthropic, OpenAI or OpenRouter from this code. Do step 5 with each provider before you rely on it.
 
+## Rules: what the code does, in plain words
+
+The code often has none of the words of a question. The line that approves an expense at submit, when its owner is also its approver, compares three ids. It has no "self", "own" or "automatic". A search with the user's words, or the model's, does not find it.
+
+A rule file fixes this. It says in plain words what one source file does: who may do an action, when Turbo refuses it and with what message, the limits and the defaults, and the cases that give a result a person does not expect. Each rule names the lines of the code that make it true.
+
+- The rule files are in `app/helpcorpus/rules/`, one for each source file, with the path of the source and `.md`. They are Markdown, so a person can read them.
+- A model writes them from the code: `go run ./cmd/helprules` in `app/`, with the provider's key in the shell. The files are in the repo, so the app's build calls no model.
+- Files in `app/hooks`, `app/routes`, `app/utilities`, `app/reports`, `app/notifications`, `app/cron`, `app/constants` and `app/absorb` get rules, and the `.ts` files directly in `ui/src/lib`. `app/helpcorpus/rules.go` has the list.
+- A rule file records the hash of the source that it was written from. The corpus takes a rule file only when the source has that hash today. A source that changed has no rules until someone runs the command again. So a rule can be missing, and can't be out of date. This is the difference from a design note.
+- The command writes rules only for a source that changed, so a second run costs nothing. `go run ./cmd/helprules --check` calls no model, lists the sources whose rules are missing or old, and fails if there are any.
+- Each rule is one chunk of the corpus, with the path and the lines of its code. A source link for a rule opens the code. A rule that names uncommit is left out, as the chat treats a commit as final.
+- One search returns up to 5 rules, then the code, then the design notes. The prompt tells the model to answer from a rule as from the code, and to read the lines when it needs a detail that the rule does not give.
+
+After a change to a source file that has rules, run the command and commit the rule file with the change. Read the new rules: a model wrote them, and a wrong rule gives wrong answers.
+
+The instructions and the glossary are the same in every request, so the model caches them. The first run writes about 216 files and costs a few dollars with `claude-sonnet-5-5`. After that, a run costs a few cents for each file that changed.
+
 ## Measure the answers
 
 `app/cmd/helpeval` is the benchmark. `questions.json` holds hard questions about how Turbo behaves. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.
@@ -141,15 +159,25 @@ Add a question when Help gives a wrong answer about behavior. Read the code, wri
 
 Each question lists as key points only what an answer must state to answer the question that was asked. Other true facts are in `extra_points`, which nothing grades.
 
-Runs on 2026-11-10 with `claude-haiku-5-5` at low effort:
+Runs on 2026-11-10. Each question was asked one time.
 
-| Run | Graded | Correct | Wrong | Key points stated | The searches returned the right lines |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| One list of 6 chunks, notes and code together | 50 | 26 | 7 | 69% | 27 |
-| Code and notes as two groups, with the search rules in the prompt | 47 | 32 | 1 | 82% | 42 |
-| The right source in the prompt (`oracle`, with the first prompt) | 49 | 40 | 2 | 88% | |
+| Run | Graded | Correct | Wrong | Key points stated | The searches returned the right lines | Cost for a question | First word (median) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Haiku 5.5, low effort, with one list of 6 chunks of notes and code | 50 | 26 | 7 | 69% | 27 | $0.0018 | 4.5 s |
+| Haiku 5.5, low effort, with the right source in the prompt (`oracle`) | 49 | 40 | 2 | 88% | | | |
+| Haiku 5.5, low effort, with code and notes as two groups and the search rules in the prompt | 50 | 34 | 1 | 83% | 45 | $0.0029 | 5.5 s |
+| Haiku 5.5, medium effort, the same search and prompt | 50 | 38 | 3 | 89% | 46 | $0.0035 | 6.4 s |
+| Sonnet 5.5, low effort, the same search and prompt | 49 | 38 | 2 | 89% | 45 | $0.039 | 5.7 s |
+| Haiku 5.5, low effort, with the rules: a search returns rules, then code, then notes | 49 | 37 | 0 | 84% | 47 | $0.0024 | 4.4 s |
 
-In the first run, two chunks in three that a search returned were design notes, and almost every wrong answer came from a question where the search did not return the code. The second run costs more: 2.6 tool calls for each question and not 1.9, about 90% more input tokens, and about one second more before the first word.
+What the runs show:
+
+- In the first run, two chunks in three that a search returned were design notes, and almost every wrong answer came from a question where the search did not return the code. Code first, with the search rules, removed most of the wrong answers.
+- The last three runs do not differ by more than chance. Sonnet costs 13 times as much as Haiku for the same result, so the model is not what limits the answers now.
+- Before the rules, what was left was mostly a search that can't find the code because the code does not use the user's words. One question failed in each of those three runs: the code that approves an expense at submit, when the owner is also the approver, has none of the words "self", "own" or "automatic".
+- With the rules, no answer was wrong, and the model needs fewer searches (2.2 for a question and not 2.6), so an answer starts about a second sooner and costs less. The question about your own expense now gets the right answer: the third search found the rule. 46 of the 50 answers cite a rule.
+- The questions that are still partial are mostly not a search problem: the search returned the right lines for 10 of the 12. The model leaves out a fact, or says that it could not confirm it.
+- The benchmark asks as a person with no claims. A question that starts with "I'm a committer" then conflicts with the prompt, and some answers say that the user can't do the task.
 
 ## Rules that must hold
 
@@ -175,7 +203,7 @@ When a user cannot do a task, the answer says who can, in the glossary's words a
 2. Write a `chat_turns` row with status `running`, in the same transaction as the limit checks.
 3. Build the prompt. The first part is the system rules and the handbook (all the user docs). It is the same bytes for every user, so the model caches it. The second part names the user's claims, the page they are on and all the claims in Turbo.
 4. Send the earlier turns of the chat and the question. The server reads the earlier turns from `chat_turns`.
-5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. One search returns up to 6 chunks of code and then up to 2 chunks of design notes, each marked with its type. They are two groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
+5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. One search returns up to 5 rules, then up to 6 chunks of code, then up to 2 chunks of design notes, each marked with its type. They are separate groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
 6. Stream the answer, then the sources that it cites.
 7. Write the result to the row.
 

@@ -5,6 +5,10 @@
 # Documentation
 README.md
 *.md
+# The build of the Help chat corpus reads these Markdown files.
+!ui/src/docs/**
+!descriptions/**
+!app/helpcorpus/rules/**
 
 # IDE and editor files
 .vscode/
