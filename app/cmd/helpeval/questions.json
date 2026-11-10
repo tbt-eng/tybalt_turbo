@@ -1937,7 +1937,7 @@
       }
     ],
     "evidence": "\t\t\tif requestEditable(tx, r, e.Auth) != nil {\n\t\t\t\tif err := workflowClaim(tx, e.Auth, \"admin\"); err != nil {",
-    "confirmed_by_test": "app/job_requests_test.go:656",
+    "confirmed_by_test": "app/job_requests_test.go:667",
     "in_user_docs": "partly",
     "why_hard": "The request is in review, and the docs give the statuses for a delete in one line; the chat must put the recall before the delete. An older rule let only an admin delete a request.",
     "extra_points": [
@@ -3919,25 +3919,25 @@
     "sources": [
       {
         "path": "app/routes/job_request_views.go",
-        "start": 419,
-        "end": 440,
+        "start": 426,
+        "end": 447,
         "why": "matching requests are collected only for a holder of the job claim"
       },
       {
         "path": "app/routes/job_request_views.go",
-        "start": 444,
-        "end": 459,
+        "start": 451,
+        "end": 466,
         "why": "what counts as a match"
       },
       {
         "path": "app/routes/job_request_views.go",
-        "start": 395,
-        "end": 398,
+        "start": 402,
+        "end": 405,
         "why": "proposals are skipped in the list of matching jobs"
       }
     ],
     "evidence": "\t\thasJob, err := utilities.HasClaim(app, e.Auth, \"job\")\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif hasJob {\n\t\t\trequests, err := app.FindAllRecords(\"job_requests\")",
-    "confirmed_by_test": "app/job_requests_test.go:536",
+    "confirmed_by_test": "app/job_requests_test.go:547",
     "in_user_docs": "no",
     "why_hard": "The same page gives two people different lists, and nothing on the page says that one list is hidden."
   },
