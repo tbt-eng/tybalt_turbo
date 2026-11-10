@@ -356,7 +356,7 @@ func TestTheRealQuestionsNameRealClaims(t *testing.T) {
 			t.Errorf("%s: every question is asked by a member of staff, who holds time", c.ID)
 		}
 	}
-	if len(cases) != 100 {
+	if len(cases) != 104 {
 		t.Errorf("%d questions", len(cases))
 	}
 }

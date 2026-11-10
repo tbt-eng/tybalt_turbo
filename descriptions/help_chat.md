@@ -151,7 +151,7 @@ The UI reads and writes many collections through PocketBase's own API: profiles,
 
 ## Measure the answers
 
-`app/cmd/helpeval` is the benchmark. `questions.json` holds 100 hard questions about how Turbo behaves, 10 or 11 in each of ten areas: PO approval, the PO lifecycle, expenses, time, jobs, reports, people and permissions, clients and vendors, other spending rules, and the project workflow with its emails. Their sources are 107 of the 216 source files that have rules, and those files hold two rules in three. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.
+`app/cmd/helpeval` is the benchmark. `questions.json` holds 104 hard questions about how Turbo behaves, 10 or 11 in each of ten areas, and 4 on the access rules of the collections. The ten areas: PO approval, the PO lifecycle, expenses, time, jobs, reports, people and permissions, clients and vendors, other spending rules, and the project workflow with its emails. Their sources are 107 of the 216 source files that have rules, and those files hold two rules in three. Each one has an ideal answer, the key points that a correct answer states, the claims that make an answer wrong, and the lines of source that settle it. An engineer checked each answer against those lines. The corpus leaves out `app/cmd`, so the chat can't find the file.
 
 Run it from `app/`, with the provider's key in the shell:
 
@@ -177,6 +177,19 @@ How to read a run:
 - The judge reads the question, the reference, the key points and the lines of the source that settle the question. With the source it can tell a true statement that the reference does not have from a false one. It still makes mistakes. `judge_cases.json` holds answers that it graded wrong in earlier runs, with the grade that a person gave after reading the code, and answers that are wrong and that it must still catch. `judge-check` says on how many it agrees. When the judge is wrong about an answer in a run, add that answer to the file. Read the answers that it grades as wrong before you act on a number.
 
 The first run with all 100 questions, on 2026-11-10 with `claude-haiku-5-5` at low effort, the rules and their search phrases, and the judge that reads the source: 90 correct, 10 partial, none wrong, and 94% of the key points stated. The searches returned the right lines for 96 questions. The judge flagged three answers, and each flagged statement was true. Of the first 50 questions, 42 were correct. Of the 50 new ones, 48 were. The new questions are easier for this search: their writers found the cases with the help of the rule files, so the questions and the rules use the same words.
+
+Two runs with the rules of the collections and the four questions on access, on the same day:
+
+| Run | Access questions correct (of 4) | The 100 older questions: correct | Partial | Wrong | Searches for a collection rule in them |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Before the rules of the collections (the run above) | | 90 | 10 | 0 | 0 |
+| With them, and a prompt line that said "also search" for a collection rule | 4 | 84 | 15 | 1 | 25 |
+| With them, and the prompt line as it is now | 4 | 87 | 11 | 2 | 10 |
+
+- Before the collection rules had a group of their own and the prompt named them, the same four questions got 1 correct answer.
+- Between the last two runs, which differ by one line of the prompt, 10 of the 100 older grades changed: 6 went up and 4 went down. So a difference of 3 between two runs is chance. The first run is also not a clean base: the design notes and the Claude client changed between it and the others.
+- One loss has a known cause. A rule about a field of `client_notes` said that the job is optional, which is true of the database, and a hook asks for a job or a mark that the note is not for a job. The chat said that the job is optional in both runs. A rule about the fields of a collection now ends with a sentence that says that the code can ask for more. With it, the question was asked three more times: the search returned the same rule of the field each time, and all three answers were correct.
+- The cost for a question did not change: about $0.0025.
 
 The two modes with no model give the same number on every run, so they can show a small change to the search, which a run with a model can't. For how many of the first 50 questions does the search return the lines that settle the answer?
 

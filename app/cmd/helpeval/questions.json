@@ -4303,5 +4303,160 @@
     "confirmed_by_test": "app/timesheet_export_legacy_test.go:120",
     "in_user_docs": "no",
     "why_hard": "The export marks every time sheet as approved, which hides that commit is the real gate."
+  },
+  {
+    "id": "access-01",
+    "category": "access",
+    "question": "I'm away this week, and my default division on my profile is wrong. Can my manager or an admin change my profile for me?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "No. Only you can change your own profile. Turbo accepts a change to a profile only from the person that the profile belongs to. Your manager can see your profile, but can't change it, and an admin can't change it either. What an admin or HR changes is your admin profile, which is a different record with your payroll ID and default branch. Nobody can delete a profile. So sign in and change it yourself: select your email address under Account.",
+    "key_points": [
+      "Only the person that a profile belongs to can change it.",
+      "A manager or an admin cannot change another person's profile."
+    ],
+    "extra_points": [
+      "The admin profile is a different record, which an admin or HR changes.",
+      "Nobody can delete a profile."
+    ],
+    "wrong_if": [
+      "Says that a manager, an admin or HR can change another person's profile.",
+      "Gives the Admin Profiles page as the way to change the default division of a profile."
+    ],
+    "sources": [
+      {
+        "path": "app/helpcorpus/collections/profiles.md",
+        "start": 35,
+        "end": 41,
+        "why": "the update rule: the signed-in person must be the person of the record"
+      },
+      {
+        "path": "app/helpcorpus/collections/profiles.md",
+        "start": 43,
+        "end": 45,
+        "why": "no delete rule"
+      }
+    ],
+    "evidence": "@request.auth.id != \"\" &&\nuid = @request.auth.id &&\n@request.body.uid:changed = false",
+    "confirmed_by_test": "",
+    "in_user_docs": "partly",
+    "why_hard": "The rule is a PocketBase collection rule, and Turbo has two records that people call a profile."
+  },
+  {
+    "id": "access-02",
+    "category": "access",
+    "question": "I manage a team. Whose profiles does Turbo give me in a list of profiles, and can I open the profile of a person who is not on my team?",
+    "held": [
+      "tapr",
+      "time"
+    ],
+    "ideal_answer": "You can open any one profile: every signed-in person can view a single profile. A list of profiles is narrower. It gives you your own profile and the profiles of the people who chose you as their manager. Procurement and the staff who handle time amendments get every profile in a list. Staff who enter manually created purchase orders get the profiles of active people. So a person outside your team is not in your list, but you can still open that person's profile.",
+    "key_points": [
+      "Any signed-in person can view one profile, so a manager can open the profile of a person outside the team.",
+      "A list of profiles gives a manager only their own profile and the profiles of the people whose manager they are."
+    ],
+    "extra_points": [
+      "Procurement and the staff who handle time amendments get every profile in a list."
+    ],
+    "wrong_if": [
+      "Says that a manager cannot open the profile of a person outside the team.",
+      "Says that only an admin can see other people's profiles."
+    ],
+    "sources": [
+      {
+        "path": "app/helpcorpus/collections/profiles.md",
+        "start": 7,
+        "end": 20,
+        "why": "the list rule: own profile, managed people, and three claims"
+      },
+      {
+        "path": "app/helpcorpus/collections/profiles.md",
+        "start": 22,
+        "end": 26,
+        "why": "the view rule: any signed-in person"
+      }
+    ],
+    "evidence": "  uid = @request.auth.id || \n  manager = @request.auth.id || ",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "The list rule and the view rule differ, and both are PocketBase collection rules."
+  },
+  {
+    "id": "access-03",
+    "category": "access",
+    "question": "I'm not in payables. A minute ago I added a vendor and misspelled its name. Why can't I correct it?",
+    "held": [
+      "time"
+    ],
+    "ideal_answer": "Any member of staff can add a vendor, but only payables staff can change one. That includes the vendor that you just added: Turbo does not look at who created it. Only payables staff can delete a vendor too, and only while no purchase order and no expense uses it. Ask payables staff to correct the name.",
+    "key_points": [
+      "A person who is not in payables can add a vendor.",
+      "Only payables staff can change a vendor, also for the person who added it."
+    ],
+    "extra_points": [
+      "Only payables staff can delete a vendor, and only while no purchase order or expense uses it."
+    ],
+    "wrong_if": [
+      "Says that the person who added a vendor can edit it.",
+      "Says that only payables staff can add a vendor."
+    ],
+    "sources": [
+      {
+        "path": "app/helpcorpus/collections/vendors.md",
+        "start": 19,
+        "end": 27,
+        "why": "the create rule: the time claim or the payables_admin claim"
+      },
+      {
+        "path": "app/helpcorpus/collections/vendors.md",
+        "start": 29,
+        "end": 33,
+        "why": "the update rule: the payables_admin claim only"
+      }
+    ],
+    "evidence": "@request.auth.user_claims_via_uid.cid.name ?= 'payables_admin'",
+    "confirmed_by_test": "",
+    "in_user_docs": "no",
+    "why_hard": "Create and update have different rules, and the rules are PocketBase collection rules."
+  },
+  {
+    "id": "access-04",
+    "category": "access",
+    "question": "I approve time sheets. One of my staff has a wrong job on an entry of a time sheet that waits for my approval. Can I correct that entry for them?",
+    "held": [
+      "tapr",
+      "time"
+    ],
+    "ideal_answer": "No. Only the person who owns a time entry can change it, and only while the entry is not on a time sheet. This entry is on a submitted time sheet, so nobody can change it now, not you and not its owner. Reject the time sheet with a reason. The owner can then recall it, correct the entry and submit the week again.",
+    "key_points": [
+      "Only the owner of a time entry can change it; an approver cannot.",
+      "An entry that is on a time sheet can't be changed, so the time sheet must go back to its owner first."
+    ],
+    "extra_points": [
+      "The same holds for deleting an entry."
+    ],
+    "wrong_if": [
+      "Says that the approver can edit an entry on a submitted time sheet.",
+      "Says that the owner can edit the entry while it is on the submitted time sheet."
+    ],
+    "sources": [
+      {
+        "path": "app/helpcorpus/collections/time_entries.md",
+        "start": 40,
+        "end": 59,
+        "why": "the update rule: the owner, with the time claim, and no time sheet on the entry"
+      },
+      {
+        "path": "app/helpcorpus/collections/time_entries.md",
+        "start": 61,
+        "end": 67,
+        "why": "the delete rule: the same conditions"
+      }
+    ],
+    "evidence": "uid = @request.auth.id &&\n@request.auth.user_claims_via_uid.cid.name ?= 'time' &&\ntsid = \"\" &&",
+    "confirmed_by_test": "",
+    "in_user_docs": "partly",
+    "why_hard": "A manager expects to be able to fix a small mistake; the collection rule lets only the owner change an entry, and only before it is on a time sheet."
   }
 ]
