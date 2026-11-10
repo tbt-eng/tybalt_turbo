@@ -27,8 +27,19 @@ func main() {
 	app := flag.String("app-dir", "", "the Go app folder, if it is not <repo>/app")
 	out := flag.String("out", filepath.Join("helpcorpus", "data", "corpus.json"), "the corpus file to write")
 	quiet := flag.Bool("quiet", false, "print no summary")
+	requireRules := flag.Bool("require-rules", false, "fail if a rule file is missing or does not match its source file")
 	flag.Parse()
 
+	if *requireRules {
+		status, err := helpcorpus.CheckRules(helpcorpus.Options{RepoDir: *repo, AppDir: *app})
+		if err == nil {
+			err = status.Error()
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "helpcorpus:", err)
+			os.Exit(1)
+		}
+	}
 	if err := run(*repo, *app, *out, *quiet); err != nil {
 		fmt.Fprintln(os.Stderr, "helpcorpus:", err)
 		os.Exit(1)

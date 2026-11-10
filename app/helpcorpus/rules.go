@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -284,4 +286,90 @@ func ruleChunks(options Options, f file) (chunks []Chunk, stale bool, err error)
 		})
 	}
 	return chunks, false, nil
+}
+
+// RuleStatus lists the rule files that need work. A build of the corpus goes
+// on without them, so a test, the pre-push hook and the Docker build check it.
+type RuleStatus struct {
+	// Missing are source files that get rules and have no rule file.
+	Missing []string
+	// Stale are source files that changed after their rules were written.
+	Stale []string
+	// NoPhrases are source files with a rule that has no search phrases.
+	NoPhrases []string
+	// Gone are rule files whose source file is gone.
+	Gone []string
+}
+
+// OK reports that every rule file is there and is for its source as it is.
+func (s RuleStatus) OK() bool {
+	return len(s.Missing)+len(s.Stale)+len(s.NoPhrases)+len(s.Gone) == 0
+}
+
+// Error says what to do, with the files, or is nil when the status is OK.
+func (s RuleStatus) Error() error {
+	if s.OK() {
+		return nil
+	}
+	var out strings.Builder
+	out.WriteString("the rule files in helpcorpus/rules do not match the source")
+	for _, group := range []struct {
+		what  string
+		files []string
+	}{
+		{"changed after its rules were written", s.Stale},
+		{"has no rule file", s.Missing},
+		{"has a rule with no search phrases", s.NoPhrases},
+		{"is a rule file whose source is gone", s.Gone},
+	} {
+		for _, file := range group.files {
+			fmt.Fprintf(&out, "\n  %s %s", file, group.what)
+		}
+	}
+	out.WriteString("\nIn app/, with the key of the model provider in the shell, run: go run ./cmd/helprules\nThen commit the rule files with the change to the source.")
+	return errors.New(out.String())
+}
+
+// CheckRules compares every rule file with its source file.
+func CheckRules(options Options) (RuleStatus, error) {
+	var status RuleStatus
+	appDir := appDirOf(options)
+	sources, err := RuleSources(options)
+	if err != nil {
+		return status, err
+	}
+	want := map[string]bool{}
+	for _, source := range sources {
+		want[RuleFilePath(appDir, source.Path)] = true
+		rules, ok, err := ReadRuleFile(appDir, source.Path)
+		switch {
+		case err != nil:
+			return status, err
+		case !ok:
+			status.Missing = append(status.Missing, source.Path)
+			continue
+		case rules.SHA256 != SourceHash(source.Content):
+			status.Stale = append(status.Stale, source.Path)
+			continue
+		}
+		for _, rule := range rules.Rules {
+			if len(rule.Asks) == 0 {
+				status.NoPhrases = append(status.NoPhrases, source.Path)
+				break
+			}
+		}
+	}
+	err = filepath.WalkDir(RulesDir(appDir), func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() && strings.HasSuffix(name, ".md") && !want[name] {
+			status.Gone = append(status.Gone, filepath.ToSlash(name))
+		}
+		return nil
+	})
+	if errors.Is(err, fs.ErrNotExist) {
+		err = nil
+	}
+	return status, err
 }

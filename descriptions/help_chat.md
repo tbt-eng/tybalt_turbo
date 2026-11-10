@@ -129,6 +129,12 @@ A rule file fixes this. It says in plain words what one source file does: who ma
 
 After a change to a source file that has rules, run the command and commit the rule file with the change. Read the new rules: a model wrote them, and a wrong rule gives wrong answers.
 
+A rule file is tied to its source file in two ways: it has the path of the source, with `.md`, under `app/helpcorpus/rules/`, and it records the hash of the source. Nothing writes a rule file in a build or in a test, because that needs a model and its key. So three checks make sure that a person wrote them before the change reaches production. Each one fails when a source file changed and its rule file did not, when a rule file is missing, when a rule has no search phrases, or when a rule file has no source:
+
+- A test: `go test ./helpcorpus/` (`TestTheRuleFilesMatchTheSource`).
+- The pre-push hook, `.githooks/pre-push`. It refuses a push to main, and checks the files of the commit that is pushed. It checks no other branch, so work in progress can be pushed. Turn the hooks on one time in each clone: `git config core.hooksPath .githooks`.
+- The Docker build: `go run ./cmd/helpcorpus --require-rules` stops the build, so a push that skipped the hook can't deploy.
+
 The instructions and the glossary are the same in every request, so the model caches them. The first run writes about 216 files and costs a few dollars with `claude-sonnet-5-5`. After that, a run costs a few cents for each file that changed.
 
 ## Measure the answers

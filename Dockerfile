@@ -70,10 +70,12 @@ RUN cd /app && ./scripts/version.sh go > constants/version.go || \
 
 # Build the Help chat corpus from this commit's user docs, design notes and
 # code. The helpcorpus package embeds it from helpcorpus/data, which is outside
-# pb_public. A failure stops the build.
+# pb_public. A failure stops the build. --require-rules fails when a source file
+# changed and its rule file in helpcorpus/rules did not: write the rules with
+# `go run ./cmd/helprules` and commit them before you push.
 COPY ui/src /corpus-src/ui/src
 COPY descriptions /corpus-src/descriptions
-RUN go run ./cmd/helpcorpus --repo /corpus-src --app-dir . --quiet
+RUN go run ./cmd/helpcorpus --repo /corpus-src --app-dir . --require-rules
 
 # Copy built UI from previous stage
 COPY --from=ui-builder /app/ui/build ./pb_public

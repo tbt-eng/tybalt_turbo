@@ -188,3 +188,57 @@ func TestTheSearchMatchesAPhraseThatTheModelDoesNotSee(t *testing.T) {
 		t.Errorf("text = %q, asks = %q", hits[0].Text, hits[0].Asks)
 	}
 }
+
+// The rules of a source file are written by a model, with a key, so nothing
+// writes them in a build or in a test. This test is what keeps them current: it
+// fails when a source file changed and its rule file did not.
+func TestTheRuleFilesMatchTheSource(t *testing.T) {
+	status, err := CheckRules(Options{RepoDir: "../.."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := status.Error(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCheckRulesNamesEachProblem(t *testing.T) {
+	files := maps.Clone(fixture)
+	files["app/hooks/expenses.go"] = expensesSource
+	// Rules for an older source, a rule with no phrases, and a rule file with no source.
+	files["app/helpcorpus/rules/app/hooks/expenses.go.md"] = ruleFixture("an older hash")
+	sql := fixture["app/routes/expenses.sql"]
+	files["app/helpcorpus/rules/app/routes/expenses.sql.md"] = RuleFile{
+		Source: "app/routes/expenses.sql", SHA256: SourceHash(sql),
+		Rules: []Rule{{Title: "One", Text: "Text.", Start: 1, End: 1}},
+	}.Format()
+	files["app/helpcorpus/rules/app/routes/deleted.go.md"] = RuleFile{Source: "app/routes/deleted.go", SHA256: "abc"}.Format()
+	repo := writeRepo(t, files, false)
+
+	status, err := CheckRules(Options{RepoDir: repo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(status.Stale, []string{"app/hooks/expenses.go"}) ||
+		!reflect.DeepEqual(status.NoPhrases, []string{"app/routes/expenses.sql"}) ||
+		!reflect.DeepEqual(status.Missing, []string{"ui/src/lib/utilities.ts"}) ||
+		len(status.Gone) != 1 || !strings.HasSuffix(status.Gone[0], "app/helpcorpus/rules/app/routes/deleted.go.md") {
+		t.Errorf("status = %+v", status)
+	}
+	message := status.Error().Error()
+	for _, part := range []string{"app/hooks/expenses.go changed after its rules were written", "go run ./cmd/helprules", "commit the rule files"} {
+		if !strings.Contains(message, part) {
+			t.Errorf("the error lacks %q:\n%s", part, message)
+		}
+	}
+
+	// With every rule file as it must be, there is no error.
+	files["app/helpcorpus/rules/app/hooks/expenses.go.md"] = RuleFile{Source: "app/hooks/expenses.go", SHA256: SourceHash(expensesSource)}.Format()
+	files["app/helpcorpus/rules/app/routes/expenses.sql.md"] = RuleFile{Source: "app/routes/expenses.sql", SHA256: SourceHash(sql)}.Format()
+	files["app/helpcorpus/rules/ui/src/lib/utilities.ts.md"] = RuleFile{Source: "ui/src/lib/utilities.ts", SHA256: SourceHash(fixture["ui/src/lib/utilities.ts"])}.Format()
+	delete(files, "app/helpcorpus/rules/app/routes/deleted.go.md")
+	status, err = CheckRules(Options{RepoDir: writeRepo(t, files, false)})
+	if err != nil || !status.OK() || status.Error() != nil {
+		t.Errorf("status = %+v, %v", status, err)
+	}
+}

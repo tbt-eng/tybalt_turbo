@@ -1,0 +1,42 @@
+#!/bin/sh
+# Refuses a push to main when a source file changed and its rule file did not.
+#
+# Help chat answers from the rule files in app/helpcorpus/rules. A model writes
+# a rule file from its source file, and the app's build leaves out a rule file
+# that is older than its source. See descriptions/help_chat.md.
+#
+# Turn the hooks of this repo on, one time in each clone:
+#
+#   git config core.hooksPath .githooks
+#
+# The check reads the files of the commit that is pushed, not the files in the
+# working folder. A push to another branch is not checked.
+
+root=$(git rev-parse --show-toplevel) || exit 1
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	[ "$remote_ref" = "refs/heads/main" ] || continue
+	# A delete of the branch has nothing to check.
+	[ "$local_sha" = "$zero" ] && continue
+
+	tmp=$(mktemp -d) || exit 1
+	trap 'rm -rf "$tmp"' EXIT
+	if ! git -C "$root" archive "$local_sha" app ui/src | tar -x -C "$tmp"; then
+		echo "pre-push: can't read the files of $local_sha" >&2
+		exit 1
+	fi
+	if ! (cd "$root/app" && go run ./cmd/helprules --check --repo "$tmp") >"$tmp/check.txt" 2>&1; then
+		echo "" >&2
+		echo "pre-push: the push to main is refused. The rule files do not match the source." >&2
+		echo "" >&2
+		grep -v '^exit status' "$tmp/check.txt" | tail -n 40 >&2
+		echo "" >&2
+		echo "In app/, with the key of the model provider in the shell, run:" >&2
+		echo "  go run ./cmd/helprules" >&2
+		echo "Commit the rule files, then push again. A file marked 'gone' is removed by the same command." >&2
+		exit 1
+	fi
+	rm -rf "$tmp"
+done
+exit 0
