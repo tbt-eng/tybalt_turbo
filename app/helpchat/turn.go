@@ -24,7 +24,7 @@ const (
 )
 
 const (
-	// One search returns rules, code and design notes as three groups. In one
+	// One search returns rules, code and design notes as separate groups. In one
 	// list, the notes push the code out, because their headings are in plain
 	// words. The code is what says how Turbo behaves today, and a rule says in
 	// plain words what some lines of the code do (see helpcorpus/rules.go).
@@ -34,6 +34,14 @@ const (
 	searchRuleHits = 10
 	searchCodeHits = 6
 	searchNoteHits = 2
+	// The rules of the collection files (see helpcorpus.CollectionsRoot) are a
+	// group of their own. There are about 480 of them, and most give the limit
+	// of a field or the query of a view. In one group with the rules of the
+	// code, they took 4 of the 10 places in a search on PO approver limits, and
+	// the rule that answers that question lost its place. The text of a
+	// collection file is not a search hit: its rules cover it, and read_source
+	// shows it.
+	searchCollectionHits = 3
 	// A search hit shows this much of a chunk. read_source shows all of it.
 	searchHitChars = 1600
 	maxQueryChars  = 300
@@ -297,20 +305,20 @@ func (t *turn) callTool(call ToolCall) ToolResult {
 	return fail("There is no tool with that name.")
 }
 
-// searchCorpus is one search for the model: the best rules, then the best code
-// chunks, then the best chunks of the design notes. The handbook already holds
-// the user docs, so a search leaves them out.
+// searchCorpus is one search for the model: the best rules of the code, then
+// the best rules of the collections, then the best code chunks, then the best
+// chunks of the design notes. The handbook already holds the user docs, so a
+// search leaves them out.
 func searchCorpus(index *helpcorpus.Index, claims helpcorpus.Claims, query string) ([]helpcorpus.Hit, error) {
 	var all []helpcorpus.Hit
-	for _, group := range []struct {
-		kind  string
-		limit int
-	}{
-		{helpcorpus.KindRules, searchRuleHits},
-		{helpcorpus.KindCode, searchCodeHits},
-		{helpcorpus.KindNotes, searchNoteHits},
+	collections := helpcorpus.CollectionsRoot
+	for _, group := range []helpcorpus.SearchOptions{
+		{Limit: searchRuleHits, Kinds: []string{helpcorpus.KindRules}, NotUnder: collections},
+		{Limit: searchCollectionHits, Kinds: []string{helpcorpus.KindRules}, Under: collections},
+		{Limit: searchCodeHits, Kinds: []string{helpcorpus.KindCode}, NotUnder: collections},
+		{Limit: searchNoteHits, Kinds: []string{helpcorpus.KindNotes}},
 	} {
-		hits, err := index.Search(claims, query, helpcorpus.SearchOptions{Limit: group.limit, Kinds: []string{group.kind}})
+		hits, err := index.Search(claims, query, group)
 		if err != nil {
 			return nil, err
 		}

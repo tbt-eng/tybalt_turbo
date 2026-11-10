@@ -244,3 +244,65 @@ func TestCheckRulesNamesEachProblem(t *testing.T) {
 		t.Errorf("status = %+v, %v", status, err)
 	}
 }
+
+func TestARuleOfACollectionNamesItsCollectionAndItsAction(t *testing.T) {
+	// A model wrote the title in plain words. The chat searches for
+	// "profiles update rule", so the heading starts with those words.
+	collection := file{path: CollectionsRoot + "/profiles.md", content: strings.Join([]string{
+		"# Collection: profiles", // line 1
+		"",
+		"## Who can list the records (list rule): profiles", // 3
+		"",
+		"uid = @request.auth.id",
+		"",
+		"## Who can view one record (view rule): profiles", // 7
+		"",
+		"@request.auth.id != \"\"",
+		"",
+		"## Who can update a record (update rule): profiles", // 11
+		"",
+		"uid = @request.auth.id",
+		"",
+		"## Fields: profiles", // 15
+		"",
+		"| `surname` | text | required |",
+	}, "\n")}
+	for _, test := range []struct {
+		start, end int
+		want       string
+	}{
+		{13, 13, "profiles collection, update rule: "},
+		{5, 9, "profiles collection, list rule, view rule: "},
+		{17, 17, "profiles collection, fields: "},
+		{1, 1, "profiles collection: "},
+	} {
+		if got := collectionPrefix(collection, Rule{Start: test.start, End: test.end}); got != test.want {
+			t.Errorf("lines %d-%d: got %q, want %q", test.start, test.end, got, test.want)
+		}
+	}
+	// A rule about a field says that the code can ask for more.
+	collection.path = CollectionsRoot + "/client_notes.md"
+	rules := RuleFile{Source: collection.path, SHA256: SourceHash(collection.content), Rules: []Rule{
+		{Title: "The job is optional", Text: "The job is optional.", Start: 17, End: 17, Asks: []string{"note with no job"}},
+		{Title: "Who can update a note", Text: "Only the owner.", Start: 13, End: 13, Asks: []string{"edit a note"}},
+	}}
+	repo := writeRepo(t, map[string]string{
+		collection.path: collection.content,
+		"app/helpcorpus/rules/" + collection.path + ".md": rules.Format(),
+	}, false)
+	chunks, stale, err := ruleChunks(Options{RepoDir: repo}, collection)
+	if err != nil || stale || len(chunks) != 2 {
+		t.Fatalf("chunks = %+v, stale = %v, err = %v", chunks, stale, err)
+	}
+	if !strings.HasSuffix(chunks[0].Text, fieldCaveat) || chunks[0].Heading != "client_notes collection, fields: The job is optional" {
+		t.Errorf("the rule of a field: %q, %q", chunks[0].Heading, chunks[0].Text)
+	}
+	if chunks[1].Text != "Only the owner." {
+		t.Errorf("an access rule must keep its text: %q", chunks[1].Text)
+	}
+
+	// A rule of the code keeps its title as it is.
+	if got := collectionPrefix(file{path: "app/hooks/profiles.go", content: "package hooks"}, Rule{Start: 1, End: 1}); got != "" {
+		t.Errorf("a rule of the code got the prefix %q", got)
+	}
+}

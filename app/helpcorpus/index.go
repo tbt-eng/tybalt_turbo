@@ -49,6 +49,10 @@ type SearchOptions struct {
 	Limit int
 	// Kinds keeps only chunks of these kinds. Empty means all kinds.
 	Kinds []string
+	// Under keeps only the chunks of the files in this folder, and NotUnder
+	// leaves those chunks out. A rule has the path of its source file.
+	Under    string
+	NotUnder string
 }
 
 // NewIndex builds the search index for a corpus. It takes about 200 ms for the
@@ -161,9 +165,20 @@ func (ix *Index) Search(claims Claims, query string, options SearchOptions) ([]H
 		if len(options.Kinds) > 0 && !slices.Contains(options.Kinds, chunk.Kind) {
 			continue
 		}
+		if options.Under != "" && !under(chunk.Path, options.Under) {
+			continue
+		}
+		if options.NotUnder != "" && under(chunk.Path, options.NotUnder) {
+			continue
+		}
 		hits = append(hits, Hit{Chunk: chunk, Score: -rank})
 	}
 	return hits, rows.Err()
+}
+
+// under reports whether a file is in a folder.
+func under(path, folder string) bool {
+	return strings.HasPrefix(path, strings.TrimSuffix(folder, "/")+"/")
 }
 
 // ChunkByID returns one chunk, if the claims open it.

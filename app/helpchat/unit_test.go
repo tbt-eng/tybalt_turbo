@@ -2,6 +2,7 @@ package helpchat
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -256,5 +257,54 @@ func TestSearchReturnsRulesThenCodeThenDesignNotes(t *testing.T) {
 	}
 	if chunk, ok := index.ChunkByID(helpcorpus.Claims{}, "app/hooks/expenses.go:10"); !ok || chunk.End != 20 {
 		t.Errorf("ChunkByID must find a code chunk: %+v %v", chunk, ok)
+	}
+}
+
+func TestSearchKeepsTheRulesOfTheCollectionsApart(t *testing.T) {
+	// The collection files have many rules with the words of a question about
+	// the code. They must not take the places of the rules of the code, and
+	// the text of a collection file is not a hit.
+	const collection = helpcorpus.CollectionsRoot + "/po_approver_props.md"
+	corpus := &helpcorpus.Corpus{Format: helpcorpus.FormatVersion}
+	for i := 0; i < searchRuleHits+searchCollectionHits; i++ {
+		corpus.Chunks = append(corpus.Chunks, helpcorpus.Chunk{
+			ID: fmt.Sprintf("rule:%s:%d:%d", collection, i+1, i+1), Path: collection, Kind: helpcorpus.KindRules,
+			Start: i + 1, End: i + 1, Heading: "po_approver_props collection, fields: Approver limit", Text: "The approver limit is a whole number.",
+		})
+	}
+	corpus.Chunks = append(corpus.Chunks,
+		helpcorpus.Chunk{
+			ID: collection + ":1", Path: collection, Kind: helpcorpus.KindCode,
+			Start: 1, End: 40, Heading: "Collection: po_approver_props > Fields", Text: "approver limit approver limit",
+		},
+		helpcorpus.Chunk{
+			ID: "rule:app/utilities/po_approvers.go:1:186", Path: "app/utilities/po_approvers.go", Kind: helpcorpus.KindRules,
+			Start: 186, End: 212, Heading: "Who is in the list", Text: "A person is in the list when the approver limit covers the amount.",
+		},
+	)
+	index, err := helpcorpus.NewIndex(corpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer index.Close()
+
+	hits, err := searchCorpus(index, helpcorpus.Claims{}, "approver limit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1+searchCollectionHits {
+		t.Fatalf("got %d hits, want the rule of the code and %d rules of the collection", len(hits), searchCollectionHits)
+	}
+	if hits[0].Path != "app/utilities/po_approvers.go" {
+		t.Errorf("the rule of the code must be first: %s", hits[0].ID)
+	}
+	for _, hit := range hits[1:] {
+		if hit.Path != collection || hit.Kind != helpcorpus.KindRules {
+			t.Errorf("the other hits must be rules of the collection: %s", hit.ID)
+		}
+	}
+	// read_source still shows the text of the collection file.
+	if read := index.Read(helpcorpus.Claims{}, collection, 1, 10); len(read) != 1 || read[0].Kind != helpcorpus.KindCode {
+		t.Errorf("a read must return the collection file: %+v", read)
 	}
 }

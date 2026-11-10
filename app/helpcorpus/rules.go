@@ -281,19 +281,72 @@ func ruleChunks(options Options, f file) (chunks []Chunk, stale bool, err error)
 		if handbookBans.MatchString(rule.Title + " " + rule.Text + " " + asks) {
 			continue
 		}
+		prefix := collectionPrefix(f, rule)
+		text := rule.Text
+		if strings.Contains(prefix, ", fields") {
+			text += fieldCaveat
+		}
 		chunks = append(chunks, Chunk{
 			ID:       fmt.Sprintf("rule:%s:%d:%d", f.path, i+1, rule.Start),
 			Path:     f.path,
 			Kind:     KindRules,
 			Start:    rule.Start,
 			End:      rule.End,
-			Heading:  rule.Title,
+			Heading:  prefix + rule.Title,
 			Requires: requiresFor(f.path, rule.Title+" "+rule.Text),
-			Text:     rule.Text,
+			Text:     text,
 			Asks:     asks,
 		})
 	}
 	return chunks, false, nil
+}
+
+// fieldCaveat ends a rule about the fields of a collection. Such a rule gives
+// what the database accepts, and the code often asks for more. The field job of
+// a client note is optional in the database, and a hook refuses a note with no
+// job unless the note is marked as not for a job. In two benchmark runs the
+// chat read the rule of the field, said that the job is optional, and did not
+// look for the hook.
+const fieldCaveat = " This is the limit of the database field only. Turbo's code can ask for more: a field that is optional here can be required by the code. Search the code before you say that a field is optional."
+
+// collectionSection finds the name of a section of a collection file in its
+// heading: "list rule" in "## Who can list the records (list rule): profiles".
+var collectionSection = regexp.MustCompile(`^## (?:.*\((\w+ rule)\)|(Fields|Indexes|The query of the view)): `)
+
+// collectionPrefix starts the heading of a rule of a collection file with the
+// collection and the parts of the file that the rule is about, such as
+// "profiles collection, update rule: ". It is empty for a rule of the code.
+//
+// A model wrote the title of the rule, in plain words: "Who can update a
+// profile". The chat searches for an access rule with the name of the
+// collection and of the action, and many collections have "profiles" in their
+// name. The prefix is the same for every build, so that search finds the rule.
+func collectionPrefix(f file, rule Rule) string {
+	if !under(f.path, CollectionsRoot) {
+		return ""
+	}
+	var parts []string
+	lines := strings.Split(f.content, "\n")
+	for i := 0; i < len(lines); i++ {
+		match := collectionSection.FindStringSubmatch(lines[i])
+		if match == nil {
+			continue
+		}
+		// The section goes on to the line before the next heading.
+		end := i + 1
+		for end < len(lines) && !strings.HasPrefix(lines[end], "## ") {
+			end++
+		}
+		if rule.Start <= end && rule.End >= i+1 {
+			parts = append(parts, strings.ToLower(match[1]+match[2]))
+		}
+		i = end - 1
+	}
+	name := strings.TrimSuffix(filepath.Base(f.path), ".md") + " collection"
+	if len(parts) > 0 {
+		name += ", " + strings.Join(parts, ", ")
+	}
+	return name + ": "
 }
 
 // RuleStatus lists the rule files that need work. A build of the corpus goes
