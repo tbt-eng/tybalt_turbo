@@ -111,6 +111,9 @@ func TestSystemRulesKeepTheDecisions(t *testing.T) {
 		"when the user holds the commit claim or the admin claim and asks how uncommitting works",
 		"do not guess",
 		"You cannot see the user's records.",
+		"When a note and the code differ, the code is right.",
+		"Search the code before you answer when the user asks why Turbo did something",
+		"If only a design note shows it, say that Turbo's notes describe it and that you could not confirm it.",
 	} {
 		if !strings.Contains(systemRules, part) {
 			t.Errorf("the system rules lack %q", part)
@@ -195,5 +198,37 @@ func TestTruncateKeepsWholeCharacters(t *testing.T) {
 	}
 	if got := truncate("hi", 10); got != "hi" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestSearchPutsCodeBeforeDesignNotes(t *testing.T) {
+	// Notes have headings in plain words, so they outscore the code. The code
+	// must come back all the same, and first.
+	corpus := &helpcorpus.Corpus{Format: helpcorpus.FormatVersion}
+	for i := 1; i <= 5; i++ {
+		corpus.Chunks = append(corpus.Chunks, helpcorpus.Chunk{
+			ID: "descriptions/expenses.md:" + string(rune('0'+i)), Path: "descriptions/expenses.md", Kind: helpcorpus.KindNotes,
+			Start: i, End: i, Heading: "Expense approval limit", Text: "The expense approval limit is a plan. Expense approval limit.",
+		})
+	}
+	corpus.Chunks = append(corpus.Chunks, helpcorpus.Chunk{
+		ID: "app/hooks/expenses.go:10", Path: "app/hooks/expenses.go", Kind: helpcorpus.KindCode,
+		Start: 10, End: 20, Heading: "validateExpense", Text: "if total >= limit { return errors.New(\"needs approval\") }",
+	})
+	index, err := helpcorpus.NewIndex(corpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer index.Close()
+
+	hits, err := searchCorpus(index, helpcorpus.Claims{}, "expense approval limit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1+searchNoteHits {
+		t.Fatalf("got %d hits, want the code chunk and %d notes", len(hits), searchNoteHits)
+	}
+	if hits[0].Kind != helpcorpus.KindCode || hits[1].Kind != helpcorpus.KindNotes {
+		t.Errorf("the code must be first: %s, %s", hits[0].ID, hits[1].ID)
 	}
 }

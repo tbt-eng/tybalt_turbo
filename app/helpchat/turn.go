@@ -24,7 +24,11 @@ const (
 )
 
 const (
-	searchHits = 6
+	// One search returns code and design notes as two groups. The notes have
+	// headings in plain words, so in one list they push the code out, and the
+	// code is what says how Turbo behaves today.
+	searchCodeHits = 6
+	searchNoteHits = 2
 	// A search hit shows this much of a chunk. read_source shows all of it.
 	searchHitChars = 1600
 	maxQueryChars  = 300
@@ -239,12 +243,7 @@ func (t *turn) callTool(call ToolCall) ToolResult {
 		}
 		query := truncate(input.Query, maxQueryChars)
 		t.events.Status("searching", query)
-		// The handbook already holds the user docs, so a search returns the
-		// design notes and the code.
-		hits, err := t.index.Search(t.input.claims, query, helpcorpus.SearchOptions{
-			Limit: searchHits,
-			Kinds: []string{helpcorpus.KindNotes, helpcorpus.KindCode},
-		})
+		hits, err := searchCorpus(t.index, t.input.claims, query)
 		if err != nil {
 			return fail("The search failed.")
 		}
@@ -293,6 +292,21 @@ func (t *turn) callTool(call ToolCall) ToolResult {
 	return fail("There is no tool with that name.")
 }
 
+// searchCorpus is one search for the model: the best code chunks, then the best
+// chunks of the design notes. The handbook already holds the user docs, so a
+// search leaves them out.
+func searchCorpus(index *helpcorpus.Index, claims helpcorpus.Claims, query string) ([]helpcorpus.Hit, error) {
+	code, err := index.Search(claims, query, helpcorpus.SearchOptions{Limit: searchCodeHits, Kinds: []string{helpcorpus.KindCode}})
+	if err != nil {
+		return nil, err
+	}
+	notes, err := index.Search(claims, query, helpcorpus.SearchOptions{Limit: searchNoteHits, Kinds: []string{helpcorpus.KindNotes}})
+	if err != nil {
+		return nil, err
+	}
+	return append(code, notes...), nil
+}
+
 // ref returns the short name of a chunk in this turn, such as S3.
 func (t *turn) ref(chunk helpcorpus.Chunk) string {
 	if ref, ok := t.refs[chunk.ID]; ok {
@@ -305,7 +319,7 @@ func (t *turn) ref(chunk helpcorpus.Chunk) string {
 }
 
 func writeChunk(out *strings.Builder, ref string, chunk helpcorpus.Chunk, maxChars int) {
-	fmt.Fprintf(out, "<chunk ref=%q path=%q lines=\"%d-%d\"", ref, chunk.Path, chunk.Start, chunk.End)
+	fmt.Fprintf(out, "<chunk ref=%q type=%q path=%q lines=\"%d-%d\"", ref, chunkType(chunk), chunk.Path, chunk.Start, chunk.End)
 	if chunk.Heading != "" {
 		fmt.Fprintf(out, " in=%q", chunk.Heading)
 	}
@@ -316,6 +330,15 @@ func writeChunk(out *strings.Builder, ref string, chunk helpcorpus.Chunk, maxCha
 	}
 	out.WriteString(text)
 	out.WriteString("\n</chunk>\n")
+}
+
+// chunkType tells the model what a chunk is, because it trusts the two kinds
+// differently.
+func chunkType(chunk helpcorpus.Chunk) string {
+	if chunk.Kind == helpcorpus.KindNotes {
+		return "design note"
+	}
+	return chunk.Kind
 }
 
 var (

@@ -495,10 +495,18 @@ func TestAskStreamsTheAnswerAndLogsTheTurn(t *testing.T) {
 	if result.ID != "tool_1" || result.IsError {
 		t.Fatalf("result = %+v", result)
 	}
-	for _, part := range []string{`<chunk ref="S1" path="app/hooks/time_entries.go" lines="24-53">`, "cleanTimeEntry removes", `in="Time entries"`, "[cut: use read_source for the rest]"} {
+	for _, part := range []string{
+		`<chunk ref="S1" type="code" path="app/hooks/time_entries.go" lines="24-53">`,
+		`type="design note" path="descriptions/time_entries.md"`,
+		"cleanTimeEntry removes", `in="Time entries"`, "[cut: use read_source for the rest]",
+	} {
 		if !strings.Contains(result.Content, part) {
 			t.Errorf("the tool result lacks %q", part)
 		}
+	}
+	// The code comes before the design notes, whatever their scores.
+	if strings.Index(result.Content, `type="code"`) > strings.Index(result.Content, `type="design note"`) {
+		t.Errorf("the code must come first:\n%s", result.Content)
 	}
 	for _, part := range []string{"only an admin may read", "Select **Submit**"} {
 		if strings.Contains(result.Content, part) {

@@ -136,7 +136,7 @@ When a user cannot do a task, the answer says who can, in the glossary's words a
 2. Write a `chat_turns` row with status `running`, in the same transaction as the limit checks.
 3. Build the prompt. The first part is the system rules and the handbook (all the user docs). It is the same bytes for every user, so the model caches it. The second part names the user's claims, the page they are on and all the claims in Turbo.
 4. Send the earlier turns of the chat and the question. The server reads the earlier turns from `chat_turns`.
-5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`.
+5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. One search returns up to 6 chunks of code and then up to 2 chunks of design notes, each marked with its type. They are two groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
 6. Stream the answer, then the sources that it cites.
 7. Write the result to the row.
 
