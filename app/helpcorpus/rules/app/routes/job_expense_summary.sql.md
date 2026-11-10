@@ -7,11 +7,15 @@
 
 Lines 4-4
 
+Asked as: settled total zero; total amount wrong; summary amount missing; settled total is 0
+
 The summary's total amount (total_amount) adds up each expense's settled total (settled_total). When the settled total is 0, Turbo uses the expense's total (total) instead.
 
 ## Summary shows earliest and latest expense dates
 
 Lines 5-6
+
+Asked as: earliest expense date; latest expense date; first and last expense; date range of expenses
 
 The summary gives the earliest (earliest_expense) and latest (latest_expense) expense date among the matching expenses.
 
@@ -19,11 +23,15 @@ The summary gives the earliest (earliest_expense) and latest (latest_expense) ex
 
 Lines 7-26
 
+Asked as: list of branches; which divisions show; staff missing from summary; branch missing in summary
+
 The summary lists each distinct branch (id and code), division (id and code), payment type and person (uid and full name, given name then surname) found in the matching expenses. A branch, division or person missing from its table (LEFT JOIN) still produces an entry with empty values.
 
 ## Expenses without a category show as No Category
 
 Lines 19-21
+
+Asked as: expense without category; uncategorised expense shows; blank category in list; category shows none
 
 In the categories list, an expense with no category appears with the id 'none' and the name 'No Category'.
 
@@ -31,16 +39,22 @@ In the categories list, an expense with no category appears with the id 'none' a
 
 Lines 27-28
 
+Asked as: uncommitted expenses missing; pending expenses not counted; summary ignores draft expenses; why expense not in totals
+
 The job expense summary includes only expenses of the given job that have been committed (committed is not empty). Expenses that are not yet committed are left out of the totals, dates and lists.
 
 ## Optional filters by branch, division, payment type and person
 
 Lines 29-32
 
+Asked as: filter summary by branch; narrow summary by person; filter by division; only show one staff member
+
 The summary can be narrowed by branch, division, payment type and person (uid). A filter that is missing or empty is ignored. Otherwise the expense must match the value exactly.
 
 ## Category filter supports 'none' for uncategorized expenses
 
 Lines 33-38
+
+Asked as: filter uncategorized expenses; show expenses with no category; category filter none; filter blank category
 
 A missing or empty category filter is ignored. The filter value 'none' keeps only expenses with no category (empty category). Any other value keeps only expenses in that category.

@@ -7,11 +7,15 @@
 
 Lines 8-11
 
+Asked as: can't see PO groups; no access to purchase orders; PO groups hidden from me; missing super_po permission
+
 A holder of the super_po claim can view purchase order groups. A holder of the admin claim can also view them. Staff with neither claim cannot (canViewPOGroups).
 
 ## Group preview rows carry per-field errors
 
 Lines 35-45
+
+Asked as: error count on preview; row shows red errors; which field is wrong; upload row has errors
 
 Each row in a purchase order group preview can carry errors by field (errors). The preview counts these in error_count.
 
@@ -19,11 +23,15 @@ Each row in a purchase order group preview can carry errors by field (errors). T
 
 Lines 49-55
 
+Asked as: staff left out of upload; active staff not in CSV; who is missing from upload; preview shows missing people
+
 The preview of a purchase order group returns a list of active staff (missing_active_staff) with their uid, email and name. It also gives the row count, the number of rows with errors (error_count), the total and the currency code.
 
 ## Second approver on a PO group needs a row over the threshold
 
 Lines 56-60
+
+Asked as: why no second approver; approver not listed on group; second signature not required; second sign-off not showing
 
 The PO group preview lists as approvers (approvers) only the people who could approve every row. The preview marks a second approver as required (second_approval_required) only when some row is over the second approval threshold. The code in this file does not state the threshold's value.
 
@@ -31,16 +39,22 @@ The PO group preview lists as approvers (approvers) only the people who could ap
 
 Lines 68-70
 
+Asked as: empty description on PO group; group description missing; why group has no description; description blank after upload
+
 A purchase order group's summary description holds the template's description. It is blank when each purchase order's description came from the CSV upload.
 
 ## Purchase order group title falls back to vendor name
 
 Lines 78-83
 
+Asked as: group named after vendor; PO group title is vendor; wrong title on group; title shows vendor name
+
 A purchase order group is titled by its template description when it has one. If the description is blank, the title is the vendor name followed by "purchase orders". If the vendor name is also blank, the title is "PO Group" (poGroupTitle).
 
 ## Purchase order group with no description or vendor is titled PO Group
 
 Lines 80-83
+
+Asked as: group just called PO Group; generic PO group name; no name on PO group; group has no title
 
 A purchase order group is titled "PO Group" when it has no template description and no vendor name. This is the last fallback after the description and the vendor name (poGroupTitle).

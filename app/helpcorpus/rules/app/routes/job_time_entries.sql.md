@@ -7,11 +7,15 @@
 
 Lines 13-18
 
+Asked as: blank name on time entry; empty branch or division; category shows No Category; missing profile name blank; time entry code empty
+
 When an entry has no branch, division or time type, its code shows as an empty string. When it has no matching profile, the surname and given name show as empty strings. When it has no category, the category name shows 'No Category'.
 
 ## Job time entries list only committed time sheets
 
 Lines 25-26
+
+Asked as: job time missing from list; draft time sheet not showing; unsubmitted hours not in report; entry gone from job list; uncommitted timesheet hidden
 
 The job time entries list includes only entries whose time sheet has been committed (time_sheets.committed is not empty). Entries on uncommitted time sheets do not appear. An entry with no matching time sheet is also left out.
 
@@ -19,11 +23,15 @@ The job time entries list includes only entries whose time sheet has been commit
 
 Lines 27-27
 
+Asked as: zero hour entries missing; why 0 hours not shown; empty time entry disappeared; hidden zero time lines; no hours entries not listed
+
 The job time entries list shows only entries with hours greater than 0. Entries with 0 hours are left out.
 
 ## Job time entries list is limited to one job
 
 Lines 28-28
+
+Asked as: time entries for one job; job list shows wrong job; entries from other jobs; filter entries by job; which job's time shown
 
 The list returns only time entries for the job whose id is given (te.job = id).
 
@@ -31,16 +39,22 @@ The list returns only time entries for the job whose id is given (te.job = id).
 
 Lines 29-32
 
+Asked as: filter job time by person; narrow time list by branch; show only one division; filter by time type; leave filter empty list
+
 The list can be filtered by branch, division, time type (time_type) and person (uid). A filter that is missing or empty is ignored and does not narrow the list. A filter with a value shows only entries that match it exactly.
 
 ## Category filter and the 'none' value
 
 Lines 33-39
 
+Asked as: entries with no category; filter category none; show all categories; category filter not working; only uncategorised time
+
 A missing or empty category filter shows entries of every category. The category value 'none' shows only entries with no category (te.category is empty). Any other category value shows only entries in that category.
 
 ## Job time entries are sorted newest first and paged
 
 Lines 40-41
+
+Asked as: job time order of entries; newest entries first; page through job time; time list next page; how many rows per page
 
 The list is sorted by entry date, newest first. It returns the number of rows given by the limit, starting at the given offset.

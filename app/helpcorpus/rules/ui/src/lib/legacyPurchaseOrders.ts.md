@@ -7,4 +7,6 @@
 
 Lines 6-24
 
+Asked as: legacy PO not saving fields; missing fields on purchase order; PO extra fields dropped; which fields does PO send; purchase order payload fields
+
 When Turbo creates or updates a legacy purchase order, it sends only these 13 fields: uid, approver, po_number, date, division, description, payment_type, total, vendor, type, kind, branch and job. Any other field on the record is not sent in the create or the update request (buildLegacyPurchaseOrderPayload).

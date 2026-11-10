@@ -7,4 +7,6 @@
 
 Lines 1-3
 
+Asked as: why does the error say that; wrong error text popup; action failed with no reason; error message is unhelpful; where does the error text come from
+
 When the server returns an error, Turbo shows the server's error text (response.error) first. If there is none, it shows the server's message text (response.message). If the response has neither, Turbo shows the fallback message that the screen supplies.

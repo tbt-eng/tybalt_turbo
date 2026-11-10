@@ -7,11 +7,15 @@
 
 Lines 30-78
 
+Asked as: fields disappeared from time entry; field cleared on time entry; time type hides field; time entry field removed
+
 Turbo clears every field on a time entry that its time type does not allow (allowed_fields). The fields id, uid, created, updated, role and branch are always kept.
 
 ## Required time entry fields come from the time type
 
 Lines 51-62
+
+Asked as: which fields are required on time entry; time entry required field; must fill in field on timesheet; required fields time type
 
 The time type's required_fields list sets which fields a time entry must have. When required_fields is null, [] or {}, every allowed field is required.
 
@@ -19,11 +23,15 @@ The time type's required_fields list sets which fields a time entry must have. W
 
 Lines 80-83
 
+Asked as: role disappeared from time entry; role cleared without job; why is role empty; time entry role reset
+
 Turbo clears the role on a time entry that has no job.
 
 ## Time entry branch follows the job's branch
 
 Lines 88-110
+
+Asked as: branch changed on time entry; branch overwritten by job; job branch missing; time entry wrong branch
 
 When a time entry has a job, Turbo always sets its branch to the job's branch, replacing any branch given. If the job is not found, Turbo refuses with 'referenced job not found'. If the job has no branch, Turbo refuses with 'referenced job is missing a branch'.
 
@@ -31,11 +39,15 @@ When a time entry has a job, Turbo always sets its branch to the job's branch, r
 
 Lines 111-124
 
+Asked as: no default branch; branch blank on timesheet; default branch missing admin profile; time entry branch empty
+
 When a time entry has no job, Turbo sets its branch to the creator's default branch (default_branch) only if the branch is blank. A branch already set is kept. If the creator's admin profile has no default branch, Turbo refuses with 'your admin_profiles record is missing a default_branch'.
 
 ## Total hours limit of 18 per time entry
 
 Lines 137-158
+
+Asked as: too many hours in a day; hours over 18; daily hours limit; total hours too high
 
 Hours plus meals hours on one time entry may not exceed 18. Exactly 18 is allowed. Otherwise Turbo shows 'Total hours must not exceed 18'.
 
@@ -43,11 +55,15 @@ Hours plus meals hours on one time entry may not exceed 18. Exactly 18 is allowe
 
 Lines 143-151
 
+Asked as: value required error; missing field on time entry; why other errors not shown; required field empty timesheet
+
 Turbo first checks that every required field has a value, and each missing field gets 'Value required'. Turbo runs the other checks only when no required field is missing.
 
 ## Time entry hours must be a positive multiple of 0.5
 
 Lines 156-156
+
+Asked as: hours decimal rule; half hour increments; hours not accepted; quarter hour entry
 
 Hours on a time entry must be a positive multiple of 0.5 (utilities.IsPositiveMultipleOfPointFive).
 
@@ -55,11 +71,15 @@ Hours on a time entry must be a positive multiple of 0.5 (utilities.IsPositiveMu
 
 Lines 157-157
 
+Asked as: invalid date timesheet; wrong date on time entry; date not accepted; bad date entry
+
 The date on a time entry must pass the date check (utilities.IsValidDate).
 
 ## Meals hours limit of 3 per time entry
 
 Lines 159-159
+
+Asked as: meal hours too high; meals over 3; too many meal hours; meal break limit
 
 Meals hours on a time entry may not exceed 3. Exactly 3 is allowed. Otherwise Turbo shows 'Meals Hours must not exceed 3'.
 
@@ -67,11 +87,15 @@ Meals hours on a time entry may not exceed 3. Exactly 3 is allowed. Otherwise Tu
 
 Lines 160-160
 
+Asked as: description too short; notes too short; short comment timesheet; description length error
+
 A time entry description must have at least 5 characters. Otherwise Turbo shows 'must be at least 5 characters'.
 
 ## Work record format depends on whether a job is set
 
 Lines 161-161
+
+Asked as: work record wrong format; work record error no job; work record code invalid; work record not allowed without job
 
 When a time entry has a job, its work record must match ^[FKQ][0-9]{2}-[0-9]{3,4}(-[0-9]+)?$. Otherwise Turbo shows 'must be in the correct format'. When there is no job, the work record must be empty, or Turbo shows 'Work Record must be empty when job is not provided'.
 
@@ -79,11 +103,15 @@ When a time entry has a job, its work record must match ^[FKQ][0-9]{2}-[0-9]{3,4
 
 Lines 162-162
 
+Asked as: payout amount rejected; payout cents wrong; zero payout error; reimbursement amount invalid
+
 A payout request amount (payout_request_amount) must be greater than 0, or Turbo shows 'Amount must be greater than 0'. It must also be a positive multiple of 0.01 (utilities.IsPositiveMultipleOfPointZeroOne).
 
 ## Job on a time entry must exist and allow time tracking
 
 Lines 166-174
+
+Asked as: job not recognised; cannot track time on job; invalid job selected; job closed for timesheets
 
 When a time entry has a job, Turbo checks that the job exists, or it shows 'invalid job reference'. Turbo also checks that the job allows time tracking (validateJobAllowsTimeTracking). The rules of that check are in another file.
 
@@ -91,11 +119,15 @@ When a time entry has a job, Turbo checks that the job exists, or it shows 'inva
 
 Lines 175-178
 
+Asked as: no role selected; role missing on job entry; why need role; job without role error
+
 A time entry with a job and no role is refused with 'Role is required when a job is assigned'.
 
 ## Division must be allocated to the job
 
 Lines 179-184
+
+Asked as: division not on job; division not linked to job; wrong division for job; job division mismatch
 
 When a time entry has a job, its division must be allocated to that job (validateDivisionAllocatedToJob). The error codes and messages come from that shared helper, which is in another file.
 
@@ -103,11 +135,15 @@ When a time entry has a job, its division must be allocated to that job (validat
 
 Lines 201-207
 
+Asked as: cannot save timesheet; time entry locked; editing turned off; can't edit hours
+
 Turbo refuses to create or update a time entry when time editing is disabled (utilities.ErrTimeEditingDisabled). The message is defined in another file.
 
 ## Time entry must belong to the signed-in user
 
 Lines 209-213
+
+Asked as: someone else's timesheet; edit another person's entry; wrong user on entry; not my time entry
 
 The uid on a time entry must equal the signed-in user's id. Otherwise Turbo refuses with 'uid property must be equal to the authenticated user's id'.
 
@@ -115,16 +151,22 @@ The uid on a time entry must equal the signed-in user's id. Otherwise Turbo refu
 
 Lines 226-231
 
+Asked as: inactive division error; division no longer active; closed division timesheet; validation error division
+
 Turbo checks that the division on a time entry is active (EnsureActiveDivision). A failure is reported as a 'Validation error'. The rules of that check are in another file.
 
 ## User must be allowed to use the time entry branch
 
 Lines 233-235
 
+Asked as: not allowed to use branch; branch access denied; no permission for branch; can't pick branch
+
 Turbo checks that the user may use the branch of the time entry (utilities.EnsureUserCanUseRecordBranch). The rules of that check are in another file.
 
 ## Week ending is calculated from the time entry date
 
 Lines 237-243
+
+Asked as: week ending wrong; week ending missing; week ending error; which week is entry in
 
 Turbo sets the week ending (week_ending) of a time entry from its date only. If it cannot be calculated, Turbo refuses with 'Error generating week_ending'.

@@ -7,11 +7,15 @@
 
 Lines 4-25
 
+Asked as: fields in contact form; which fields does client have; address fields list; invoicing profile fields
+
 A contact has the fields given name, surname, email, phone and the address fields. An invoicing profile has name, contact, billing name (billing_name), fax and invoicing instructions. A client has name, alias, business development lead, phone and the address fields. The address fields are street, city, province/state, postal code and country.
 
 ## Editor fields that are missing show as empty
 
 Lines 28-30
+
+Asked as: empty form fields on load; missing field shows blank; editor field not loading; blank value in edit form
 
 When an editor form loads a record, each listed field that is missing or empty is shown as an empty string. Only the listed fields are loaded.
 
@@ -19,11 +23,15 @@ When an editor form loads a record, each listed field that is missing or empty i
 
 Lines 33-35
 
+Asked as: contact save fails required; missing given name; contact surname required; can't save contact name
+
 When a contact is saved, Turbo requires a given name (given_name) and a surname (surname). A value that is empty or only spaces is refused with the message "This field is required.".
 
 ## Contact email must look like an address
 
 Lines 36-38
+
+Asked as: invalid contact email; email rejected on contact; is email optional for contact; email address format error
 
 Turbo checks a contact's email only when one is entered. An email that has no text before and after an @ and no dot in the domain is refused with the message "Enter a valid email address.". An empty email is accepted, so the email is optional.
 
@@ -31,16 +39,22 @@ Turbo checks a contact's email only when one is entered. An email that has no te
 
 Lines 41-45
 
+Asked as: can't delete contact; contact linked to jobs; contact still in use; why contact can't be removed
+
 Turbo treats a contact as in use when its job count (job_count), project request count (request_count) or invoicing profile count (profile_count) is greater than 0. A count of exactly 0 does not make it in use.
 
 ## Error display joins the message with field messages
 
 Lines 47-53
 
+Asked as: error message details; action failed what happened; error lists field names; failed save error text
+
 When an action fails, Turbo shows the error message followed by one line per field in the form "field name: message", with underscores in the field name replaced by spaces. If there is no message, Turbo shows "The action failed.".
 
 ## After saving a contact or profile, Turbo returns to the page
 
 Lines 54-62
+
+Asked as: where do I go after saving; page after saving contact; returns after save profile; saved contact jumps to section
 
 After a contact or invoicing profile is saved, Turbo returns to the earlier page. It removes the edit marker and any earlier saved marker, and records the saved record's id. It then jumps to the contacts section for a contact, or the invoicing section for an invoicing profile.

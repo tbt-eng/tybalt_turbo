@@ -7,11 +7,15 @@
 
 Lines 22-46
 
+Asked as: not authorized to view report; can't open active jobs report; missing report permission; report access denied
+
 Turbo checks that the user has the report claim before it builds the active jobs report. A user without it gets the message "you are not authorized to view this report".
 
 ## Active jobs report columns and blank values
 
 Lines 50-58
+
+Asked as: blank manager name; empty branch column; time and materials shows false; manager column empty
 
 Each row of the active jobs report has five columns: status, job_number, manager_name, branch_name and time_and_materials. The manager name is the manager's given name and surname joined by a space. When a job has no manager or no branch, the manager name or branch name is blank. A job with no time and materials value shows as false.
 
@@ -19,16 +23,22 @@ Each row of the active jobs report has five columns: status, job_number, manager
 
 Lines 59-60
 
+Asked as: proposals showing in active jobs; P jobs in report; why are proposals listed; only active jobs wanted
+
 The active jobs report includes only jobs with status 'Active'. It leaves out every job whose number starts with P, because those are proposals.
 
 ## Active jobs report sorts by job number, highest first
 
 Lines 61-61
 
+Asked as: report sort order; jobs listed newest number first; job numbers descending; reverse order job list
+
 The active jobs report sorts its rows by job number in descending order (ORDER BY j.number DESC).
 
 ## Active jobs report downloads as active_jobs.csv
 
 Lines 69-99
+
+Asked as: download active jobs csv; export jobs to spreadsheet; active_jobs file; csv of active jobs
 
 Turbo returns the active jobs report as a CSV file named active_jobs.csv, with a header row first. The time_and_materials column holds true or false.

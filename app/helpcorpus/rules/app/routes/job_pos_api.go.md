@@ -7,11 +7,15 @@
 
 Lines 42-47
 
+Asked as: purchase orders not showing; which POs appear in job list; PO missing from job; under revision POs
+
 The job purchase order list is documented as returning purchase orders that are active or under revision (the 'job_pos.sql' query applies the status filter). The list can be filtered by division, type and user.
 
 ## Job purchase order list requires a job id
 
 Lines 49-52
+
+Asked as: id is required error; job PO list blank request; no job id; error loading POs for job
 
 The list of purchase orders (POs) for a job refuses a request that has no job id. Turbo shows the message "id is required".
 
@@ -19,11 +23,15 @@ The list of purchase orders (POs) for a job refuses a request that has no job id
 
 Lines 54-58
 
+Asked as: filter POs by division; filter job POs by branch; empty filter POs; narrow down PO list
+
 The job PO list can be filtered by division, branch, PO type and user (uid). The filter values go to the job_pos query. The query file decides how an empty filter is treated, and this file does not show it. The code comment says the list holds active and under-revision POs, but the query file sets that.
 
 ## Job PO list default page and page size
 
 Lines 60-75
+
+Asked as: how many POs per page; PO list paging; wrong page of POs; page size for job POs
 
 The job PO list returns page 1 with 50 POs per page unless the request asks for something else. A page or limit that is not a whole number above 0 is ignored, and Turbo uses the default.
 
@@ -31,10 +39,14 @@ The job PO list returns page 1 with 50 POs per page unless the request asks for 
 
 Lines 66-74
 
+Asked as: max POs per page; limit too high PO list; more than 200 POs; PO list page limit
+
 The job PO list returns at most 200 POs per page. A requested limit above 200 becomes 200.
 
 ## Job PO list reports total and page count
 
 Lines 87-105
+
+Asked as: total number of POs; how many pages of POs; PO list count; PO list columns shown
 
 The job PO list response gives the page, the limit, the total count of matching POs and the number of pages. The number of pages is the total divided by the limit, rounded up. Each row shows the PO number, status, date, total, type, branch, division and the surname and given name of the person.

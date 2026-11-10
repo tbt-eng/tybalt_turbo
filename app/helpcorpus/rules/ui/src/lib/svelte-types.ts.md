@@ -7,11 +7,15 @@
 
 Lines 32-36
 
+Asked as: parent PO; child purchase order; parent purchase order number; PO load error
+
 The purchase order page data can carry the parent PO number and the parent currency. It can also carry a load error message.
 
 ## Second approver status values
 
 Lines 37-53
+
+Asked as: second approver status; why no second approver; second approval threshold; second stage timeout
 
 The second approver check on a purchase order gives one of four statuses: not_required, requester_qualifies, candidates_available or required_no_candidates. The result includes the evaluated amount, the number of occurrences, the second approval threshold, the limit column and the second stage timeout in hours (second_stage_timeout_hours).
 
@@ -19,11 +23,15 @@ The second approver check on a purchase order gives one of four statuses: not_re
 
 Lines 54-59
 
+Asked as: can I approve this PO; approve or reject button missing; who can approve purchase order; second approver diagnostics
+
 The purchase order details page data includes a flag (canApproveOrReject) that says whether the viewer can approve or reject the PO. It also includes the second approver diagnostics, which can be null.
 
 ## Linked purchase order summary for expenses
 
 Lines 60-75
+
+Asked as: linked PO on expense; PO summary on expense; remaining PO balance; expense linked to purchase order
 
 An expense can show a linked PO summary with the PO number, currency, type, payment type and status. For recurring POs it can also show the expected and remaining occurrences. It can also show the remaining amount.
 
@@ -31,11 +39,15 @@ An expense can show a linked PO summary with the PO number, currency, type, paym
 
 Lines 76-80
 
+Asked as: proposal already has project; duplicate project from proposal; project already exists for proposal; projects using this proposal
+
 When a person creates a project from a proposal, the job page data lists any existing projects that already reference that proposal (existingReferencingProjects).
 
 ## Client details paging
 
 Lines 84-100
+
+Asked as: client page paging; client projects page number; client proposals pages; owner jobs count on client
 
 The client details page has separate page numbers for projects, proposals and owner jobs. It also shows counts for each of the three.
 
@@ -43,11 +55,15 @@ The client details page has separate page numbers for projects, proposals and ow
 
 Lines 105-111
 
+Asked as: expense list pages; expenses list paging; new expense not showing in list; total pages of expenses
+
 Expense list pages receive augmented expense rows (items) with optional paging data: total pages (totalPages) and a page size (limit). A callback (createdItemIsVisible) decides whether a newly created expense appears in the list.
 
 ## Currency list shows usage by POs and expenses
 
 Lines 113-116
+
+Asked as: currency in use; can I delete currency; currency used by POs; currency used by expenses
 
 Each currency row shows whether purchase orders use the currency (used_by_purchase_orders) and whether expenses use it (used_by_expenses).
 
@@ -55,11 +71,15 @@ Each currency row shows whether purchase orders use the currency (used_by_purcha
 
 Lines 118-124
 
+Asked as: currency setup check; blank currency records; home currency not ready; missing currency on expenses
+
 The currency initialization status reports whether the home currency exists and is ready. It also counts the purchase orders and expenses that have a blank currency (blank_purchase_orders, blank_expenses).
 
 ## Purchase order list can come from three realtime sources
 
 Lines 126-130
+
+Asked as: PO list live updates; new PO not appearing; realtime purchase orders list; pending POs refresh
 
 The purchase order list can take its live updates from the visible POs, the pending POs, or none (realtime_source: visible, pending, none). A callback (createdItemIsVisible) decides whether a newly created PO appears in the list.
 
@@ -67,11 +87,15 @@ The purchase order list can take its live updates from the visible POs, the pend
 
 Lines 132-160
 
+Asked as: expense commit queue columns; who committed expense; expense queue settled total; commit queue currency rate
+
 Each row in the expense commit queue (ExpenseCommitQueueRow) carries the staff member's name, the approver, committer, rejector and settler names, and the status stamps submitted, approved, rejected and committed. It also carries the expense's total and its settled total (settled_total), the currency code, symbol, rate and rate date, and the job and PO numbers. The committed stamp is optional, so it is absent on a row that is not yet committed.
 
 ## Expense settlement row shows indicative CAD total and age
 
 Lines 162-185
+
+Asked as: expense settlement CAD total; how old is expense; settlement list age; card last 4 digits
 
 Each row in the expense settlement list (ExpenseSettlementRow) shows the total and the settled total (settled_total), with the settler and the settled stamp. It also shows an indicative CAD total (indicative_cad_total) and the age of the expense in days (age_days). Other fields are the payment type, the last 4 digits of the credit card, the vendor, the PO number and the currency details with rate and rate date.
 
@@ -79,11 +103,15 @@ Each row in the expense settlement list (ExpenseSettlementRow) shows the total a
 
 Lines 188-226
 
+Asked as: claim holder count; who holds claim; claim assignees; claim list users
+
 A claim has a name, a description and a list of holders. Each holder is a user with an admin profile. The claim list shows a holder count for each claim.
 
 ## Work record prefixes
 
 Lines 228-233
+
+Asked as: work record search prefix; K Q F prefix; work record entry count; work record type code
 
 A work record search result has a prefix of K, Q or F and an entry count.
 
@@ -91,11 +119,15 @@ A work record search result has a prefix of K, Q or F and an entry count.
 
 Lines 235-247
 
+Asked as: timesheet entry details; which timesheet is entry in; hours on work record; work record week ending
+
 Each work record entry row shows the work record, the week ending date, the staff member (name and uid), the hours, the job number and id, the description and the time sheet id it belongs to.
 
 ## Expense uncommit has two possible outcomes
 
 Lines 249-257
+
+Asked as: uncommit and reject; uncommit only option; what happens when uncommitting; uncommit outcome
 
 An expense uncommit ends in one of two outcomes: uncommit and reject (uncommit_and_reject), or uncommit only (uncommit_only). Each uncommit reason has a default outcome (default_outcome).
 
@@ -103,11 +135,15 @@ An expense uncommit ends in one of two outcomes: uncommit and reject (uncommit_a
 
 Lines 251-257
 
+Asked as: uncommit note required; note needed for uncommit; uncommit reason prompt; mandatory comment uncommit
+
 Each expense uncommit reason has a note prompt (note_prompt) and a flag (note_required) that says whether a note is required.
 
 ## Expense uncommit can be blocked for two reasons
 
 Lines 259-265
+
+Asked as: cannot uncommit expense; uncommit blocked; payroll closed uncommit; expense too old to uncommit
 
 Uncommitting a committed expense can be blocked with a code of either payroll_closed or too_old. The block carries a message. It can also carry the pay period ending (pay_period_ending), the pay date (pay_date) and a limit in days (limit_days). The file does not give the limit value.
 
@@ -115,11 +151,15 @@ Uncommitting a committed expense can be blocked with a code of either payroll_cl
 
 Lines 267-292
 
+Asked as: uncommit request status; request pending uncommit; uncommit declined; who approved uncommit request
+
 An expense uncommit request has one of four statuses: pending, approved, declined or cancelled. It records who requested it, who decided it, when it was decided, and the decision comment.
 
 ## Uncommit request loses its expense link when the expense is deleted
 
 Lines 269-270
+
+Asked as: uncommit request missing expense; deleted expense uncommit request; expense link blank request
 
 The expense field of an uncommit request is blank once the expense has been deleted.
 
@@ -127,10 +167,14 @@ The expense field of an uncommit request is blank once the expense has been dele
 
 Lines 287-288
 
+Asked as: blank uncommit reason; direct uncommit no reason; uncommit reason empty
+
 An uncommit request row written by a direct uncommit (one without a request) has a blank reason name (reason_name).
 
 ## Uncommit request state for an expense
 
 Lines 294-298
+
+Asked as: can I request uncommit; request uncommit button; pending uncommit request on expense; why uncommit unavailable
 
 The uncommit request state of an expense says whether a request can be made (can_request). It can also show a block and the pending request, if there is one.

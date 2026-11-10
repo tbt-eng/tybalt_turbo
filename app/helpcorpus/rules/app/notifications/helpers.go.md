@@ -7,11 +7,15 @@
 
 Lines 16-30
 
+Asked as: notification link wrong domain; app url in action link; link base url notification; empty link notification; trailing slash link
+
 Turbo builds a notification action link (BuildActionURL) from the app URL setting (Meta.AppURL). It trims spaces and trailing slashes from that URL. When the app URL is empty, the link is an empty string.
 
 ## Empty action path gives the bare app URL
 
 Lines 31-34
+
+Asked as: notification link only home page; blank path notification link; link goes to homepage; notification link no page
 
 When the path for a notification action link is empty or only spaces, Turbo returns the base app URL alone (BuildActionURL).
 
@@ -19,11 +23,15 @@ When the path for a notification action link is empty or only spaces, Turbo retu
 
 Lines 35-38
 
+Asked as: notification link missing slash; link path broken notification; relative link notification; link not working path
+
 When the path for a notification action link has no leading slash, Turbo adds one before it joins the path to the app URL (BuildActionURL).
 
 ## Old placeholders are detected in notification text
 
 Lines 41-49
+
+Asked as: notification shows {APP_URL}; raw placeholder in notification; leftover placeholder message; {:RECORD_ID} showing in text
 
 Turbo detects two unresolved legacy placeholders in notification text: {APP_URL} and {:RECORD_ID}. It checks {APP_URL} first and reports only one placeholder. It reports an empty value when neither is present (unresolvedLegacyPlaceholder).
 
@@ -31,11 +39,15 @@ Turbo detects two unresolved legacy placeholders in notification text: {APP_URL}
 
 Lines 57-62
 
+Asked as: notification status time wrong; status updated not changing; notification timestamp stale; when notification status changed
+
 Turbo sets the notification's status_updated field to the current time when the notification is new or when its status differs from the saved status. A save that leaves the status unchanged keeps the old status_updated (WriteStatusUpdated).
 
 ## Queue-only callers do not send notifications
 
 Lines 64-78
+
+Asked as: notifications queued not sent; notification not delivered; send flag notifications; queued notifications stuck; error sending notifications
 
 When the send flag is false, Turbo only queues the notifications and sends nothing (sendQueuedIfRequested). When the flag is true, it sends the queued notifications. If sending fails, it returns the error "error sending notifications: ...".
 
@@ -43,16 +55,22 @@ When the send flag is false, Turbo only queues the notifications and sends nothi
 
 Lines 80-89
 
+Asked as: user name shows wrong; display name missing surname; profile name extra space; name blank for user; no profile for user
+
 Turbo finds a profile by its user (uid) and builds the display name as given name, a space, and surname, with outer spaces trimmed. When a profile has no surname or no given name, the name has no extra space. When no profile exists for the user, the lookup returns the error.
 
 ## Immediate notifications go to each recipient separately
 
 Lines 91-128
 
+Asked as: one recipient missing notification; notification skipped for person; immediate notification not sent to all; error creating immediate notification; count of notifications created
+
 Turbo sends an immediate notification to each recipient in the list, one at a time (createAndSendToRecipients). When one recipient fails, Turbo logs "error creating immediate notification" and goes on to the next. A recipient whose dispatch returns an empty notification ID is skipped and not counted. The function returns the number of notifications created.
 
 ## Missing or null row values read as empty text
 
 Lines 130-136
+
+Asked as: empty field shows blank; null value notification; missing column value empty; row value blank text
 
 When a row has no value for a key, or the value is null, Turbo reads it as an empty string (rowStringValue).

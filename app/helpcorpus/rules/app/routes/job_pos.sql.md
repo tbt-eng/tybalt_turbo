@@ -7,11 +7,15 @@
 
 Lines 2-17
 
+Asked as: PO with blank branch name; blank names on purchase order; PO missing branch or division; empty profile name on PO
+
 A PO without a branch, division or profile still appears in the job's list. Its branch code, division code, surname and given name show as blank text instead of empty values.
 
 ## Job purchase order list shows only active and under-revision POs
 
 Lines 18-19
+
+Asked as: cancelled PO missing from job; closed purchase orders not showing; why is my PO not listed; POs hidden on job list
 
 The job's purchase order list includes only POs with status Active (status 'Active') or POs that count as under revision (the __PO_IS_REVISION__ condition). POs in other statuses do not appear. The list covers one job only (po.job).
 
@@ -19,10 +23,14 @@ The job's purchase order list includes only POs with status Active (status 'Acti
 
 Lines 20-23
 
+Asked as: filter POs by person; narrow job purchase orders; search POs by branch or type; only show POs from one user
+
 The list can be narrowed by branch, division, PO type and the person who created the PO (uid). A filter that is missing or blank is ignored. Each filter that is set must match exactly, and all set filters apply together.
 
 ## Job PO list shows newest POs first and is paged
 
 Lines 24-25
+
+Asked as: latest PO at top of list; purchase orders sort order; next page of POs; paginate job purchase orders
 
 The list is sorted by PO date, newest first (po.date DESC). It returns one page at a time, using the limit and offset that the request gives.

@@ -7,11 +7,15 @@
 
 Lines 20-47
 
+Asked as: view ignored time sheets list; who can see time tracking; not authorized to view time tracking; access ignored timesheets report; time tracking list permission
+
 A person with the report claim or the commit claim (a committer) may view the time tracking list of ignored time sheets. Anyone else gets the message "you are not authorized to view time tracking".
 
 ## Only committers may change missing time sheet exceptions
 
 Lines 49-67
+
+Asked as: not authorized update exceptions; who can ignore missing timesheet; only committers change exceptions; cannot unignore missing timesheet; report claim can't mark timesheet
 
 Only a committer (the commit claim) may mark a missing time sheet as ignored or remove that mark. Anyone else, including a person with only the report claim, gets "you are not authorized to update missing time sheet exceptions".
 
@@ -19,11 +23,15 @@ Only a committer (the commit claim) may mark a missing time sheet as ignored or 
 
 Lines 69-95
 
+Asked as: invalid week ending error; week ending date format; weekEnding required message; week ending wrong format; missing week ending date
+
 A missing time sheet exception request needs a week ending. If it is empty, Turbo refuses with "invalid week ending" and the detail "weekEnding is required". If the value fails the format check (isValidWeekEnding), Turbo refuses with "invalid week ending" and the detail "weekEnding must be in YYYY-MM-DD format".
 
 ## User must be given and must exist
 
 Lines 97-125
+
+Asked as: invalid uid error; user id required; uid is required; user not found when ignoring; no user with that id
 
 Marking or unmarking an exception needs a user id. Turbo trims spaces from the id first. If it is empty, Turbo refuses with "invalid uid" and the detail "uid is required". If no user has that id, Turbo refuses with "user not found".
 
@@ -31,11 +39,15 @@ Marking or unmarking an exception needs a user id. Turbo trims spaces from the i
 
 Lines 127-175
 
+Asked as: ignore missing timesheet; skip timesheet for week; mark timesheet as ignored; stop chasing missing time sheet; exclude user for week ending
+
 A committer can mark a user's missing time sheet for a week ending as ignored. Turbo records who marked it (created_by) and returns ignored as true. The checks run in this order: commit claim, week ending, user.
 
 ## Marking twice is harmless
 
 Lines 149-175
+
+Asked as: ignore same timesheet twice; already ignored timesheet; marked again no change; duplicate ignore timesheet; ignoring an ignored timesheet error
 
 If a user and week ending are already marked as ignored, marking them again changes nothing and raises no error. Turbo still returns ignored as true.
 
@@ -43,16 +55,22 @@ If a user and week ending are already marked as ignored, marking them again chan
 
 Lines 179-215
 
+Asked as: unignore missing timesheet; remove ignored mark; stop ignoring timesheet; undo ignore timesheet; put back missing timesheet alert
+
 A committer can remove the ignored mark for a user and week ending. Turbo returns ignored as false. Removing a mark that does not exist raises no error. The checks run in this order: commit claim, week ending, user.
 
 ## List of users whose missing time sheet is ignored
 
 Lines 217-254
 
+Asked as: who has ignored timesheets; list of users ignored missing timesheet; users skipped for timesheet week; ignored timesheet names list; missing timesheet exceptions list
+
 For a week ending, Turbo lists users who have an ignored mark, have no time sheet for that week, and have time_sheet_expected set to 1 on their admin profile. A user with no admin profile counts as 0 and is left out. Turbo sorts the list by surname, then given name. A missing name or email shows as an empty string.
 
 ## Ignored list needs a valid week ending
 
 Lines 223-226
+
+Asked as: ignored list week ending error; invalid date ignored timesheets list; list ignored timesheets bad date; week ending needed for list; ignored report date format
 
 The list of ignored missing time sheets needs a valid week ending in YYYY-MM-DD format. It refuses an empty or badly formatted value with "invalid week ending".

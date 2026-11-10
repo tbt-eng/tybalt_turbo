@@ -7,11 +7,15 @@
 
 Lines 8-12
 
+Asked as: time type R only; RT time type filter; missing hours by time type; wrong time type totals
+
 The employee branch hours report adds up only time entries whose time type code (tt.code) is 'R' or 'RT'. Entries with any other time type code are left out of the totals.
 
 ## Branch hours report skips entries without a valid branch
 
 Lines 10-11
+
+Asked as: entries without branch; hours missing from branch report; unknown branch hours; branch not found in totals
 
 The report keeps a time entry only if its branch matches a real branch (branches.id). An entry with no branch, or with a branch that is not found, is left out of the totals.
 
@@ -19,11 +23,15 @@ The report keeps a time entry only if its branch matches a real branch (branches
 
 Lines 13-14
 
+Asked as: start and end date inclusive; hours on end date missing; date range boundary; last day not counted
+
 The report includes time entries dated on or after the start date ({:start_date}) and on or before the end date ({:end_date}). Entries on the start date and on the end date both count.
 
 ## Branch hours report gives one row per employee with total hours
 
 Lines 16-35
+
+Asked as: one row per employee; employee total hours; why employee appears once; sum of hours per person
 
 The report gives one row per employee. The row shows payroll ID, surname, given name, default branch name and the total (sum of hours). The total is 0 when there are no hours to add.
 
@@ -31,16 +39,22 @@ The report gives one row per employee. The row shows payroll ID, surname, given 
 
 Lines 17-29
 
+Asked as: blank default branch; null names in report; employee with no branch shown; empty payroll ID column
+
 When an employee has no payroll ID, surname, given name or default branch, the report shows an empty text in that column instead of a null value. A default branch that is not set does not remove the employee from the report.
 
 ## Branch hours report skips staff without admin profile or profile
 
 Lines 24-27
 
+Asked as: staff missing from report; employee not listed; no admin profile excluded; hours from missing profile
+
 The report lists only staff who have both an admin profile (admin_profiles) and a profile (profiles). Time entries from staff who lack either record are left out.
 
 ## Branch hours report sorts by name, then payroll ID length
 
 Lines 36-40
+
+Asked as: report row order; sort by surname; same name ordering; payroll ID sort order
 
 The report sorts rows by surname, then given name. Employees with the same name are sorted by the length of the payroll ID (shorter first), then by the payroll ID. Numeric payroll IDs therefore come out in number order.

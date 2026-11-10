@@ -7,11 +7,15 @@
 
 Lines 34-37
 
+Asked as: client notes no client id; notes without client; client id missing error; can't open client notes
+
 When a person asks for a client's notes without a client id, Turbo refuses the request. The message is "client id is required".
 
 ## Client notes list newest first, with the linked job
 
 Lines 39-55
+
+Asked as: client notes order; latest client notes first; see all notes for client; notes list for client
 
 Turbo lists all notes of a client, newest first (by created date). Each note shows its author and the job it is linked to, if there is one.
 
@@ -19,11 +23,15 @@ Turbo lists all notes of a client, newest first (by created date). Each note sho
 
 Lines 46-53
 
+Asked as: note author name blank; author shows no name; empty name on client note; note author missing name
+
 Each note shows its author's id and email. If the author has no profile name, the given name and surname show as empty text and the note is still listed.
 
 ## Client notes load failure message
 
 Lines 70-72
+
+Asked as: client notes won't load; failed to load client notes; client notes error message; can't see client notes
 
 When Turbo cannot load a client's notes, it shows the message "failed to load client notes".
 
@@ -31,11 +39,15 @@ When Turbo cannot load a client's notes, it shows the message "failed to load cl
 
 Lines 76-83
 
+Asked as: client note job empty; note not linked to job; job missing on client note; client note no job
+
 A client note that is not linked to a job shows an empty job (null). Turbo gives the job's id, number and description only when the note has a job.
 
 ## Each client note shows its text, time and author
 
 Lines 84-96
+
+Asked as: what fields on client note; client note details; client note contents; who wrote client note
 
 Each note in a client's note list carries its id, its created time, the note text, its linked job (if any) and its author. The author entry holds the author's id, email, given name and surname.
 
@@ -43,11 +55,15 @@ Each note in a client's note list carries its id, its created time, the note tex
 
 Lines 104-107
 
+Asked as: job notes no job id; notes without job; job id missing error; can't open job notes
+
 When a person asks for a job's notes without a job id, Turbo refuses the request. The message is "job id is required".
 
 ## Job notes list newest first
 
 Lines 109-151
+
+Asked as: job notes order; latest job notes first; see all notes for job; job notes list
 
 Turbo lists the notes linked to a job, newest first (by created date). Each note shows its author. The job field of each note is always empty (null).
 
@@ -55,10 +71,14 @@ Turbo lists the notes linked to a job, newest first (by created date). Each note
 
 Lines 113-116
 
+Asked as: job note author blank name; author name missing on job note; empty name on job note; job note writer no name
+
 Each job note shows its author's id and email. If the author has no profile name, the given name and surname show as empty text.
 
 ## Job notes load failure message
 
 Lines 133-135
+
+Asked as: job notes won't load; failed to load job notes; job notes error message; can't see job notes
 
 When Turbo cannot load a job's notes, it shows the message "failed to load job notes".

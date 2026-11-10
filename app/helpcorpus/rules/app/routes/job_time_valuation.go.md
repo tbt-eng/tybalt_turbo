@@ -7,4 +7,6 @@
 
 Lines 11-25
 
+Asked as: job valuation percent blank; why is valuation percent empty; unpriced hours on job; estimated hours missing from export; job time valuation CSV blank
+
 The job time valuation in the API and CSV exports identifies employee-rate estimates (estimated_hours) and unpriced hours (unpriced_hours). The percent (percent) is null when the total is incomplete or zero. The file only declares these fields. The calculation is in the query job_priced_time_entries.sql, and this file does not show its result.

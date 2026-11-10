@@ -7,4 +7,6 @@
 
 Lines 11-20
 
+Asked as: can't log time; no access to timesheets; time claim missing; permission denied timesheet; why can't I submit hours
+
 Turbo refuses a user who does not hold the time claim ("time"). The message is "time claim required". Turbo decides whether the user holds the claim with utilities.HasClaim, which is in another file. If that lookup fails, Turbo returns that error and does not show the "time claim required" message.

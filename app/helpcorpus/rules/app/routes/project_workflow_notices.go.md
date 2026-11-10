@@ -7,11 +7,15 @@
 
 Lines 22-41
 
+Asked as: I don't get my own email; no email for my action; notified about my own change; duplicate workflow emails
+
 Turbo queues each project request and value-change email for every distinct recipient except the person who performed the action. It skips blank recipients and sends a recipient only one copy of each notice.
 
 ## Workflow emails are sent after the action is committed
 
 Lines 43-52
+
+Asked as: email sent before save; notice sent but action failed; email went out but nothing saved; failed email undoes change
 
 Turbo sends project workflow notices only after the workflow action has committed. A notice that fails to send is logged and does not undo the action.
 
@@ -19,11 +23,15 @@ Turbo sends project workflow notices only after the workflow action has committe
 
 Lines 54-62
 
+Asked as: amount formatting in email; cents missing in email; dollar amount rounding; money format in notification
+
 Turbo rounds amounts in project workflow emails to the nearest whole dollar. It shows them with a $ sign and comma separators, such as $12,345.
 
 ## Email client name is blank if the client is missing
 
 Lines 64-70
+
+Asked as: blank client name in email; client missing from notice; no client name in email; empty client on email
 
 When Turbo cannot find the client record, the client name in the workflow email is left empty.
 
@@ -31,11 +39,15 @@ When Turbo cannot find the client record, the client name in the workflow email 
 
 Lines 72-85
 
+Asked as: email subject cut off; request email title wrong; long subject line truncated; subject from description
+
 Turbo builds the email subject title from the first non-blank line of the request's scope of work (description). It collapses extra whitespace. A title longer than 60 characters is cut to 59 characters plus an ellipsis (…).
 
 ## Earlier request notices that failed do not count as sent
 
 Lines 87-97
+
+Asked as: request email not resent; failed notice blocks resend; reminder not sent again; notice counted as sent
 
 Turbo treats a request notice as already sent to a recipient only if an earlier notice of the same template about the same request exists and its status is not error.
 
@@ -43,11 +55,15 @@ Turbo treats a request notice as already sent to a recipient only if an earlier 
 
 Lines 99-123
 
+Asked as: who gets value change email; value change approver email; who receives change notification; uploader email on approval
+
 A submitted value change emails the selected approver (assigned_approver). An approved or rejected value change emails the person who uploaded the change's PDF (uploader). The emails use the templates job_value_submitted, job_value_approved and job_value_rejected.
 
 ## Value-change email contents
 
 Lines 103-118
+
+Asked as: what is in value change email; revised flag on change email; previous value in email; value change email details
 
 The value-change email gives the job number, description and client. It shows the job's current value, the proposed value and the previous value, plus the rejection reason and a link to the job details. It carries a Revised flag when the submission replaces an earlier version with the same approver.
 
@@ -55,11 +71,15 @@ The value-change email gives the job number, description and client. It shows th
 
 Lines 126-144
 
+Asked as: who gets project request email; request approval email recipient; requester not notified; approver never got request
+
 A submitted project request emails the selected approver. An approved or rejected request emails the requester (creator). The emails use the templates job_request_submitted, job_request_approved and job_request_rejected.
 
 ## Request email contents and requester flag
 
 Lines 130-161
+
+Asked as: withdrawn label on email; request email contents; for requester flag; what the request email shows
 
 The request email gives the client, title, description, project value, rejection reason and a link to the request. It marks a rejection of an approved request as Withdrawn. Each recipient's copy sets ForRequester to true only when the recipient is the request's creator.
 
@@ -67,10 +87,14 @@ The request email gives the client, title, description, project value, rejection
 
 Lines 143-146
 
+Asked as: resubmitted request email; request sent again to approver; revised request notice; approver got it twice
+
 For a submitted request, Turbo marks the email Revised when the approver already received a job_request_submitted notice about this request that did not fail. Recall and rejection keep the request, so it can go to an approver again.
 
 ## Created-project email goes to requester and project manager
 
 Lines 147-156
+
+Asked as: project created email; email when project made; new project notification; project manager gets email
 
 When a project is created from a request (job_request_created), Turbo emails the requester and the new project's manager. The email gives the job number, whether the project is Active, the requester's name, and a link to the job details. The link goes to the job instead of the request.

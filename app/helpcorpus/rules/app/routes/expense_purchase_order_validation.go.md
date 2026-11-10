@@ -7,11 +7,15 @@
 
 Lines 15-22
 
+Asked as: expense without purchase order; no PO on expense; PO check skipped; expense has no PO attached
+
 Turbo skips the active-PO check when the record is not an expense or when the expense has no purchase order.
 
 ## Expense with a purchase order needs the PO to exist
 
 Lines 19-31
+
+Asked as: purchase order not found; PO missing on expense; expense PO does not exist; wrong PO number on expense
 
 When an expense is submitted or approved and names a purchase order (purchase_order), Turbo checks that the PO exists. If it does not exist, Turbo refuses with "purchase order referenced by expense not found".
 
@@ -19,11 +23,15 @@ When an expense is submitted or approved and names a purchase order (purchase_or
 
 Lines 32-35
 
+Asked as: error fetching purchase order; PO lookup failed; cannot load purchase order; PO fetch error
+
 If Turbo fails to fetch the purchase order for a reason other than not found, it refuses with "error fetching purchase order:" followed by the error (code purchase_order_lookup_error).
 
 ## Expense with a purchase order needs an Active PO
 
 Lines 38-43
+
+Asked as: PO not active; purchase order inactive; expense rejected PO status; PO closed so expense refused
 
 When an expense is submitted or approved and names a purchase order, the PO's status must be "Active". Any other status makes Turbo refuse with "purchase order is not active".
 
@@ -31,11 +39,15 @@ When an expense is submitted or approved and names a purchase order, the PO's st
 
 Lines 50-52
 
+Asked as: PO owner different from expense owner; wrong owner on purchase order; owner mismatch PO; PO belongs to someone else
+
 Turbo flags a mismatch only when both the expense owner and the PO owner are present and they differ. If either owner is empty, there is no mismatch.
 
 ## No-PO cap does not apply in some cases
 
 Lines 58-76
+
+Asked as: no PO cap exemption; why no purchase order limit; mileage no PO needed; home currency no PO limit
 
 The no-PO cap does not apply to home-currency expenses, to expenses that have a purchase order, or to payment types Mileage, FuelCard, PersonalReimbursement and Allowance. It also does not apply when the configured limit is 0 or less.
 
@@ -43,10 +55,14 @@ The no-PO cap does not apply to home-currency expenses, to expenses that have a 
 
 Lines 73-84
 
+Asked as: foreign currency expense needs PO; PO required over limit; purchase order required for expenses; expense too big without PO
+
 A foreign-currency expense with no purchase order is refused when its settled total is at or above the configured no-PO limit (GetNoPOExpenseLimit). The message is "a purchase order is required for expenses of $X or more", with X shown to 2 decimals. A total equal to the limit is refused.
 
 ## Foreign currency needs a positive exchange rate
 
 Lines 87-93
+
+Asked as: currency exchange rate missing; no exchange rate for currency; foreign currency rate error; exchange rate zero currency
 
 If a selected foreign currency lacks a positive exchange rate, Turbo refuses with "selected foreign currency is missing an exchange rate".

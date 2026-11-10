@@ -7,16 +7,22 @@
 
 Lines 20-37
 
+Asked as: my default division; default role not showing; which branch am I set to; my own defaults only; defaults from my profile
+
 Turbo returns the default division, default role, default branch, default expense payment type and the personal reimbursement setting for the signed-in user only. The user's profile supplies the division, role and payment type. The admin profile supplies the branch and the reimbursement setting.
 
 ## Missing profile gives empty defaults and no personal reimbursement
 
 Lines 25-32
 
+Asked as: defaults are blank; empty default branch; no personal reimbursement allowed; missing profile defaults; reimbursement option greyed out
+
 When a user has no profile or no admin profile, or a value is empty, Turbo returns an empty text for the default division, role, expense payment type (default_expense_payment_type) and branch (default_branch). It returns false for allow_personal_reimbursement, so personal reimbursement is not allowed by default.
 
 ## Loading user defaults can fail
 
 Lines 38-40
+
+Asked as: failed to load user defaults; defaults won't load; user defaults error; can't load my defaults; defaults error message
 
 When Turbo cannot load the defaults, it returns the error "failed to load user defaults".

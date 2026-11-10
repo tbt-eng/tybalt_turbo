@@ -7,11 +7,15 @@
 
 Lines 5-5
 
+Asked as: total amount wrong; PO total missing; revision PO adds zero; total excludes pending POs
+
 The summary total (total_amount) adds the total of each PO with status 'Active'. A PO under revision adds 0 to the total, because it has no approved amount yet.
 
 ## Revision count counts POs that are not active
 
 Lines 6-6
+
+Asked as: how many under revision; revision count; POs being revised; count of pending POs
 
 The summary revision_count counts each PO in the summary whose status is not 'Active'. These are the POs under revision, and the total leaves them out.
 
@@ -19,11 +23,15 @@ The summary revision_count counts each PO in the summary whose status is not 'Ac
 
 Lines 7-8
 
+Asked as: earliest PO date; latest PO date; first and last PO dates; PO date range
+
 The summary gives the earliest date (earliest_po) and the latest date (latest_po) of the POs it includes. Both active and under-revision POs count here.
 
 ## Summary lists the distinct branches, divisions, types and people of the POs
 
 Lines 9-24
+
+Asked as: which branches on job; list of divisions; PO owners on summary; branch missing from summary
 
 The summary lists each distinct branch (id and code), division (id and code), PO type (name) and PO owner (uid and given name plus surname) among the included POs. A PO with no branch or division still counts, because those lookups are left joins.
 
@@ -31,10 +39,14 @@ The summary lists each distinct branch (id and code), division (id and code), PO
 
 Lines 25-26
 
+Asked as: why PO not in job summary; closed PO missing; job PO summary wrong; cancelled POs hidden
+
 The job purchase order summary counts only purchase orders (POs) of the job whose status is 'Active' or that are under revision (the __PO_IS_REVISION__ condition, defined outside this file). POs in any other status are left out of every figure.
 
 ## Optional filters narrow the job PO summary
 
 Lines 27-30
+
+Asked as: filter job PO summary; narrow PO summary by owner; summary only one branch; filters not working
 
 The summary can be filtered by branch, division, type and owner (uid). A filter that is empty or not given is ignored. A filter that is given keeps only POs that match it exactly. Filters combine, so a PO must pass all of them.

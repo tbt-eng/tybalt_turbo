@@ -7,10 +7,14 @@
 
 Lines 7-13
 
+Asked as: pay period start date; wrong start day pay period; pay period begins on Sunday; two week pay cycle dates
+
 Turbo treats a pay period as two weeks that end on a Saturday. It calculates the start date as the pay period ending date minus 13 days, which is a Sunday (payPeriodStart). The ending date is not checked to be a Saturday, so another date gives a start 13 days earlier.
 
 ## Pay date counts as upcoming only if after today
 
 Lines 15-17
+
+Asked as: pay date due today; is payday upcoming; pay date not showing as upcoming; upcoming payday label
 
 Turbo marks a pay date as upcoming only when it is later than today's local date (isUpcomingPayDate). A pay date equal to today is not upcoming.

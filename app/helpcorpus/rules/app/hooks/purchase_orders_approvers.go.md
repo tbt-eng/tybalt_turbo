@@ -7,11 +7,15 @@
 
 Lines 22-63
 
+Asked as: divisions must be an array; division validation error; po approver divisions format; approver divisions not a list; divisions must be a JSON array
+
 When a purchase order approver's settings (po_approver_props) are saved, the divisions list must be an array of strings. Otherwise Turbo refuses with "division validation error" and says "divisions must be an array of strings". A value that is not an array at all is refused with "divisions must be a JSON array".
 
 ## Empty or missing divisions accepted for approver settings
 
 Lines 25-35
+
+Asked as: save approver without divisions; empty divisions approver; approver no divisions; leave divisions blank; missing divisions approver
 
 A purchase order approver's settings (po_approver_props) can be saved with no divisions. Turbo treats a missing divisions value as an empty list. An empty JSON value is also treated as an empty list.
 
@@ -19,16 +23,22 @@ A purchase order approver's settings (po_approver_props) can be saved with no di
 
 Lines 65-69
 
+Asked as: approver division inactive; division not active approver; approver settings division error; cannot save approver division; closed division approver
+
 Turbo checks every division in a purchase order approver's settings (po_approver_props) with EnsureActiveDivision. If a check fails, Turbo returns that error and does not save the settings. The rules for an active division are in another file.
 
 ## Approver settings require a user
 
 Lines 71-80
 
+Asked as: approver user required; po approver no user; user_claim is required; approver settings blank user; save approver without user
+
 A purchase order approver's settings (po_approver_props) must name a user (user_claim). A blank value or one with only spaces is refused with "po_approver_props validation error" and "user_claim is required".
 
 ## One approver settings record per user
 
 Lines 82-110
+
+Asked as: duplicate approver settings; second approver record; already has approver settings; po approver already exists; two approver records same user
 
 Each user (user_claim) can have only one purchase order approver settings record (po_approver_props). Saving a second record for the same user is refused with "po_approver_props validation error" and "po_approver_props already exists for this user_claim". Editing the user's own existing record is allowed.

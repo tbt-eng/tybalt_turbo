@@ -7,11 +7,15 @@
 
 Lines 42-68
 
+Asked as: unauthorized currency action; admin claim required; currency admin permission; not allowed to reload rates; need admin for currency
+
 Currency initialization status, rates reload, CAD backfill and currency delete require an admin (the admin claim). A request with no login is refused with "unauthorized". A logged-in user without the claim is refused with "admin claim required".
 
 ## Currency initialization status is admin-only and counts blank currencies
 
 Lines 70-111
+
+Asked as: currency setup status; blank currency count; home currency missing; check currency initialization; expenses without currency
 
 Only an admin (the admin claim) can view the currency initialization status. Turbo reports whether the home currency exists (home_currency_exists, home_currency_ready) and gives its ID. It also counts purchase orders and expenses whose currency is blank (blank_purchase_orders, blank_expenses).
 
@@ -19,11 +23,15 @@ Only an admin (the admin claim) can view the currency initialization status. Tur
 
 Lines 113-130
 
+Asked as: refresh exchange rates; update currency rates; rate sync result; rates updated skipped; failed to reload currency rates
+
 Only an admin (the admin claim) can reload currency rates. Turbo runs the rate sync (SyncCurrencyRatesWithResult) and returns how many rates it updated (updated) and how many it skipped because the stored rate is newer (skipped_newer). If the sync fails, Turbo shows 'failed to reload currency rates'.
 
 ## CAD backfill requires a currency ID
 
 Lines 138-141
+
+Asked as: currency id is required; missing currency id backfill; backfill without currency; blank currency id error; empty currency id
 
 When an admin starts the CAD initialization backfill without a currency ID, Turbo refuses with 'currency id is required'. Turbo trims spaces from the ID first.
 
@@ -31,11 +39,15 @@ When an admin starts the CAD initialization backfill without a currency ID, Turb
 
 Lines 143-146
 
+Asked as: currency not found; unknown currency id; backfill wrong currency id; currency id does not exist; cannot find currency
+
 When the currency ID does not match a currency, Turbo refuses the backfill with 'currency not found'.
 
 ## CAD backfill only works on the CAD currency row
 
 Lines 147-149
+
+Asked as: initialization requires cad row; backfill not cad currency; set up cad currency; only cad can be backfilled; wrong currency for cad setup
 
 The backfill runs only if the chosen currency's code equals the home currency code (CAD). The comparison ignores case and surrounding spaces. Any other currency gets 'initialization requires the CAD currency row'.
 
@@ -43,11 +55,15 @@ The backfill runs only if the chosen currency's code equals the home currency co
 
 Lines 151-200
 
+Asked as: failed to initialize cad backfill; backfill failed rolled back; cad setup transaction error; cad initialization error; backfill all or nothing
+
 The backfill runs in one transaction. If any step fails, Turbo shows 'failed to initialize CAD backfill'. Otherwise it returns the refreshed initialization status.
 
 ## CAD backfill fills blank currencies on purchase orders and expenses
 
 Lines 153-176
+
+Asked as: fill blank currency on expenses; set currency on purchase orders; empty currency on po; missing currency on expenses; assign cad to blank records
 
 The backfill sets the chosen CAD currency on every purchase order and every expense whose currency is blank.
 
@@ -55,11 +71,15 @@ The backfill sets the chosen CAD currency on every purchase order and every expe
 
 Lines 161-188
 
+Asked as: home total empty expenses; copy approval total to home; settled total zero; home approval total missing; fix home totals cad
+
 The backfill sets a purchase order's home approval total (approval_total_home) to its approval total (approval_total) when the home total is empty or zero, or when the order's currency is the chosen CAD currency. It sets an expense's settled total (settled_total) to its total when the settled total is empty or zero and the currency is blank or CAD. Non-CAD expenses keep their settled total.
 
 ## Currency list needs sign-in and is ordered by sort value
 
 Lines 212-240
+
+Asked as: list currencies; currency sort order; show currency rates; currencies not signed in; currency display order
 
 Any signed-in user can list currencies; without sign-in Turbo answers 'unauthorized'. Each currency shows its rate, rate date and whether purchase orders or expenses use it. The list is ordered by display order (ui_sort), then by code. A currency without a sort value goes last. A missing rate shows as 0.
 
@@ -67,16 +87,22 @@ Any signed-in user can list currencies; without sign-in Turbo answers 'unauthori
 
 Lines 244-251
 
+Asked as: remove currency; delete currency admin; cannot remove currency; drop currency id; erase currency
+
 Only an admin (the admin claim) can delete a currency. Without a currency ID, Turbo refuses with 'currency id is required'.
 
 ## A currency in use cannot be deleted
 
 Lines 253-272
 
+Asked as: currency already in use; delete used currency; currency still referenced; why can't I delete currency; currency has expenses
+
 Turbo refuses to delete a currency that any purchase order or expense uses, and shows 'cannot delete a currency that is already in use'. Turbo runs this check before it looks for the currency. An unknown ID that nothing uses gets 'currency not found'.
 
 ## Currency code is uppercased and symbol is trimmed on save requests
 
 Lines 282-290
+
+Asked as: currency code lowercase; trim currency symbol; currency code format; uppercase currency code; currency save spaces
 
 When Turbo reads a currency request, it trims and uppercases the code and trims the symbol.

@@ -7,11 +7,15 @@
 
 Lines 26-35
 
+Asked as: payroll expense type; reimbursement paid through payroll; which expenses go through payroll; mileage meals allowance payroll
+
 Turbo treats an expense as a payroll expense when its payment type (payment_type) is Expense, PersonalReimbursement, Allowance, Mileage or Meals. Every other payment type is a non-payroll expense. The two kinds follow different uncommit deadlines.
 
 ## Payroll uncommit lock days setting and default
 
 Lines 37-46
+
+Asked as: payroll lock days setting; uncommit payroll days config; how many days payroll lock; payroll lock default days
 
 The payroll lock is the number of days after pay period ending set by 'uncommit_payroll_lock_days' in the expenses config. Turbo uses the default UNCOMMIT_PAYROLL_LOCK_DAYS when the config is missing, unreadable, not a number or negative. A value of 0 is accepted.
 
@@ -19,11 +23,15 @@ The payroll lock is the number of days after pay period ending set by 'uncommit_
 
 Lines 37-46
 
+Asked as: non payroll lock days; uncommit non payroll config; days after commit limit setting; commit age limit config
+
 The non-payroll lock is the number of days after commit set by 'uncommit_non_payroll_lock_days' in the expenses config. Turbo uses the default UNCOMMIT_NON_PAYROLL_LOCK_DAYS when the config is missing, unreadable, not a number or negative. A value of 0 is accepted.
 
 ## Uncommit allowed when no block applies
 
 Lines 56-87
+
+Asked as: can still uncommit expense; uncommit request allowed; no block on uncommit; still inside lock window
 
 Turbo returns no block, so an uncommit request is still possible, when the expense is inside its payroll lock or inside its non-payroll commit age limit.
 
@@ -31,11 +39,15 @@ Turbo returns no block, so an uncommit request is still possible, when the expen
 
 Lines 59-76
 
+Asked as: cannot uncommit payroll expense; payroll already closed uncommit; uncommit blocked after payroll run; payroll closed can't undo commit
+
 A committed payroll expense can no longer be requested for uncommit once today is later than its pay period ending plus the lock days. Turbo then gives the reason 'payroll for this expense has closed' (payroll_closed). Today equal to the last allowed day is still allowed.
 
 ## Payroll block shows pay date
 
 Lines 60-70
+
+Asked as: when will I be paid; payroll pay date uncommit; pay date shown in block; expense payday after period end
 
 For a payroll expense with a valid pay period ending, the block includes the pay date. Turbo sets the pay date to the pay period ending plus PAY_DATE_DAYS_AFTER_PERIOD_ENDING days. The block also shows the pay period ending.
 
@@ -43,10 +55,14 @@ For a payroll expense with a valid pay period ending, the block includes the pay
 
 Lines 65-69
 
+Asked as: no pay period uncommit blocked; expense missing pay period; can't uncommit no period end; payroll expense no period date
+
 When a payroll expense has no valid pay period ending date, Turbo blocks the uncommit request with 'payroll for this expense has closed'. Without a pay period Turbo cannot tell whether the expense was paid. In this case the block has no pay date.
 
 ## Non-payroll expense uncommit blocked after commit age limit
 
 Lines 78-86
+
+Asked as: committed too long ago; expense too old to uncommit; uncommit commit date too late; how long after commit can uncommit
 
 A committed non-payroll expense can no longer be requested for uncommit once today is later than its commit date plus the lock days. Turbo then gives the reason 'this expense was committed too long ago' (too_old) and the limit in days (limit_days). The commit date is read in the current time zone, and the last allowed day itself is still allowed.

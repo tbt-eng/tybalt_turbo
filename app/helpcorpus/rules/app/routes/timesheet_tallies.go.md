@@ -7,4 +7,6 @@
 
 Lines 56-69
 
+Asked as: my timesheet list; which timesheets do I see; timesheets not showing; filter pending timesheets; approved timesheets list
+
 The time sheet tally handler runs the tallies query (tallies.sql) for the signed-in user (uid) and returns the matching time sheets as a list. It passes the role, the pending-only flag (pendingOnly) and the approved-only flag (approvedOnly) to the query. This file does not show which time sheets those filters select; the query decides that.

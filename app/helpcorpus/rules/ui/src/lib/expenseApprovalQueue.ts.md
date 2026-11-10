@@ -7,11 +7,15 @@
 
 Lines 9-18
 
+Asked as: rejected expense still in queue; can't approve rejected expense; rejected expenses showing to review; recall rejected expense
+
 The list of expenses left to review leaves out rejected expenses (rejected is not an empty string). A rejected expense stays in the pending list until its owner recalls it, but it cannot be approved.
 
 ## Approval queue reads at most 200 pending expenses
 
 Lines 9-17
+
+Asked as: only 200 expenses; missing pending expenses; approval list cut off; too many pending expenses
 
 Turbo fetches the viewer's pending expenses with a limit of 200, the endpoint's page cap. Only those 200 are checked for the next expense to review.
 
@@ -19,16 +23,22 @@ Turbo fetches the viewer's pending expenses with a limit of 200, the endpoint's 
 
 Lines 20-27
 
+Asked as: next expense after approving; which expense opens next; back button after approve; skipped to another expense
+
 After an expense is approved or rejected, Turbo opens the details of the first expense left to review that is not the one just decided. Turbo adds a history entry, so Back goes through the expenses just decided.
 
 ## When no expenses are left, go to Approved By Me
 
 Lines 27-36
 
+Asked as: nothing left to review; queue empty after approving; where do approved expenses go; no more expenses to approve
+
 When no other expense is left to review, Turbo opens the approved expenses list (/expenses/approved) and adds " · nothing left to review" to the flash message.
 
 ## Flash message after approving or rejecting an expense
 
 Lines 29-34
+
+Asked as: message after approve; confirmation after rejecting; view link after decision; green flash when approving
 
 The flash reads "Approved" or "Rejected" followed by the expense title. An approval gets the success tone, and a rejection gets the info tone. The flash has a "View" link to the details of the expense just decided.

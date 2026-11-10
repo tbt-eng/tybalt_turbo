@@ -7,11 +7,15 @@
 
 Lines 49-55
 
+Asked as: how many jobs per client; job count on client list; jobs using a client; client usage count
+
 Each client in the client list carries a count of the jobs that reference it (referencing_jobs_count). The same count appears in the client details (lines 268-269), next to the referenced flag.
 
 ## Referenced client cannot be deleted
 
 Lines 56-58
+
+Asked as: cannot delete client; delete client fails; client won't delete; remove client blocked
 
 A client is referenced (referenced) when any job, job request, invoicing profile or note uses it. Turbo refuses to delete a referenced client.
 
@@ -19,11 +23,15 @@ A client is referenced (referenced) when any job, job request, invoicing profile
 
 Lines 81-96
 
+Asked as: contact job count double; contact counted twice; contact usage invoicing profile; profile count for contact
+
 A client contact's job and request counts include use as the project contact and use through an invoicing profile. A job or request that uses the contact in both roles counts once. Turbo also reports the number of invoicing profiles (profile_count) that use the contact.
 
 ## Client contacts on details include address and email preference
 
 Lines 83-96
+
+Asked as: contact address on client; contact no email flag; client contact email preference; contact phone details
 
 Each contact on client details shows the contact's address, phone and a no-email flag (no_email). It also shows counts of jobs, project requests and invoicing profiles that use the contact.
 
@@ -31,11 +39,15 @@ Each contact on client details shows the contact's address, phone and a no-email
 
 Lines 98-111
 
+Asked as: billing profile creator; who made invoicing profile; invoicing profile usage; billing instructions on client
+
 Each invoicing profile listed on a client's details shows its name, contact, billing name, fax and invoicing instructions. It also shows how many jobs and project requests use it, and who created it and when.
 
 ## Client details show lead, balance date and address
 
 Lines 113-135
+
+Asked as: client account manager; client balance date; client outstanding amount; client business lead
 
 The client details response includes the client's business development lead (id, given name, surname, email). It also includes the outstanding balance with its date (outstanding_balance_date), and the address, city, province or state, postal code, country and phone. The referencing jobs count and the referenced flag come with it.
 
@@ -43,11 +55,15 @@ The client details response includes the client's business development lead (id,
 
 Lines 137-143
 
+Asked as: divisions with hours on client; client hours by division; time split missing on client; client time breakdown tab
+
 The time divisions list for a client shows the divisions that have committed time on the client's jobs. Each division has its hours. Turbo loads it apart from the client details because summing the hours reads every entry. Only the details tab shows it.
 
 ## Business development leads list
 
 Lines 145-160
+
+Asked as: list of bd leads; sales lead list; business development people; account lead names
 
 Turbo lists business development leads with their id, given name, surname and email.
 
@@ -55,11 +71,15 @@ Turbo lists business development leads with their id, given name, surname and em
 
 Lines 165-174
 
+Asked as: cannot open client details; client details access denied; inactive user client view; client page blocked
+
 Turbo refuses to show one client's details unless the user's account is active. The message is "an active account is required to view client details". The details include invoicing profiles, and Turbo applies the same active-account rule that invoicing profiles have.
 
 ## Client details for an unknown client
 
 Lines 175-178
+
+Asked as: client details not found; missing client error; client id doesn't exist; no such client
 
 When the client does not exist, the client details request fails with the message "client not found".
 
@@ -67,11 +87,15 @@ When the client does not exist, the client details request fails with the messag
 
 Lines 175-182
 
+Asked as: one call client info; client full profile; client everything in one response; client summary data
+
 A client's details come back in one response. The response holds the client's address, phone, business development lead, outstanding balance and its date, contacts, invoicing profiles, the number of referencing jobs and the referenced flag.
 
 ## Client list returns all clients with contacts and balance
 
 Lines 185-208
+
+Asked as: all clients list; client directory; list every client; clients with balances
 
 Without a client id, Turbo returns the list of clients. Each client has its contacts, referencing jobs count, outstanding balance and referenced flag. The list needs no active-account check in this file.
 
@@ -79,10 +103,14 @@ Without a client id, Turbo returns the list of clients. Each client has its cont
 
 Lines 215-225
 
+Asked as: no divisions for client; client time divisions empty; division list error; client divisions failing
+
 Turbo returns an empty list when the client has no divisions with committed time. A query failure gives "failed to load client time divisions".
 
 ## Empty contacts show as an empty list
 
 Lines 238-254
+
+Asked as: client has no contacts; null contacts on client; empty billing profiles; client without contacts
 
 A client with no contacts or no invoicing profiles returns empty lists in its details, not null.

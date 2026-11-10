@@ -7,11 +7,15 @@
 
 Lines 34-36
 
+Asked as: can't commit expense; expense editing disabled; editing turned off; commit button not working; expenses locked for editing
+
 Before anything else, the commit action calls requireExpensesEditing for the collection. If that check returns an error, Turbo refuses the commit and returns that error. The check itself is in another file.
 
 ## Record not found when committing
 
 Lines 44-51
+
+Asked as: record not found commit; can't find timesheet to commit; commit missing record; error fetching record; record doesn't exist
 
 If no record has the given ID in the collection, Turbo refuses the commit. The error code is record_not_found and the message starts with 'error fetching record:'.
 
@@ -19,11 +23,15 @@ If no record has the given ID in the collection, Turbo refuses the commit. The e
 
 Lines 53-60
 
+Asked as: already committed; commit twice; committed again; record locked after commit; commit same record again
+
 If the record already has a committed timestamp, Turbo refuses the commit with 'this record is already committed'. This check runs before the permission check.
 
 ## Only committers can commit
 
 Lines 62-82
+
+Asked as: who can commit; no permission to commit; not allowed to commit; committer permission needed; can't commit my own
 
 Only a person with the commit claim (a committer) can commit a record. Anyone else gets 'you are not authorized to commit this record'. If Turbo cannot look up the claims, it shows 'error fetching user claims: ...'.
 
@@ -31,11 +39,15 @@ Only a person with the commit claim (a committer) can commit a record. Anyone el
 
 Lines 84-94
 
+Asked as: not submitted yet; commit unsubmitted record; submit before committing; record still unsubmitted; why won't it commit
+
 A record that is not submitted cannot be committed. Turbo says 'this record is not submitted'. Time amendments skip this check because they have no submitted, approved or rejected fields.
 
 ## Record must be approved before commit
 
 Lines 96-103
+
+Asked as: not approved yet; approval needed to commit; commit without approval; waiting for approval commit; approved before commit
 
 A record with no approved timestamp cannot be committed. Turbo says 'this record is not approved'. Time amendments skip this check.
 
@@ -43,11 +55,15 @@ A record with no approved timestamp cannot be committed. Turbo says 'this record
 
 Lines 105-112
 
+Asked as: rejected can't commit; commit rejected timesheet; rejected record commit; rejected expense commit fails; commit after rejection
+
 A record with a rejected timestamp cannot be committed. Turbo says 'rejected records cannot be committed'. Time amendments skip this check.
 
 ## Expense currency must exist
 
 Lines 115-123
+
+Asked as: currency not found; expense currency missing; bad currency on expense; unknown currency commit; currency doesn't exist
 
 When committing an expense, Turbo looks up the expense's currency. If it is not found, Turbo refuses with 'referenced currency not found'.
 
@@ -55,11 +71,15 @@ When committing an expense, Turbo looks up the expense's currency. If it is not 
 
 Lines 125-133
 
+Asked as: settled total zero; foreign currency commit fails; settled amount needed; zero settled total; settled total must be
+
 A foreign-currency expense with payment type Expense cannot be committed unless its settled total (settled_total) is greater than 0. Otherwise Turbo says 'settled total must be greater than 0 before commit'. A settled total of exactly 0 is refused.
 
 ## Foreign-currency on-account and card expenses must be settled
 
 Lines 135-143
+
+Asked as: card expense not settled; on account expense commit; corporate card unsettled; settle card expense first; foreign card expense won't commit
 
 A foreign-currency expense with payment type OnAccount or CorporateCreditCard cannot be committed until it has a settled date. Otherwise Turbo says 'foreign-currency on-account and corporate card expenses must be settled before commit'.
 
@@ -67,11 +87,15 @@ A foreign-currency expense with payment type OnAccount or CorporateCreditCard ca
 
 Lines 145-153
 
+Asked as: expense over limit; no PO expense too big; limit exceeded commit; expense amount too high; expense above limit
+
 When committing an expense, Turbo runs validateExpenseNoPurchaseOrderLimit with the currency and the settled total. If that check fails, the commit is refused with its error. The limit itself is defined in another file.
 
 ## Commit sets committer and committed time
 
 Lines 156-159
+
+Asked as: who committed; committed by field; commit timestamp set; commit sets committer; when was it committed
 
 A successful commit sets the committer (committer) to the person who commits and the committed timestamp (committed) to the current time.
 
@@ -79,11 +103,15 @@ A successful commit sets the committer (committer) to the person who commits and
 
 Lines 161-171
 
+Asked as: week ending on commit; committed week ending wrong; week ending date; committed week changed; week ending error
+
 If the collection has a committed_week_ending field, Turbo sets it to the week ending date of the day of the commit. If it cannot work out the week ending, the commit fails with 'error generating week ending: ...'.
 
 ## Expense pay period ending is set on commit
 
 Lines 178-186
+
+Asked as: pay period ending expense; pay period wrong after commit; pay period error; expense pay period date; pay period generation failed
 
 Committing an expense sets its pay period ending (pay_period_ending) from the expense date and the commit week ending. If this fails, Turbo says 'error generating pay period ending: ...'.
 
@@ -91,11 +119,15 @@ Committing an expense sets its pay period ending (pay_period_ending) from the ex
 
 Lines 188-199
 
+Asked as: mileage total changed; mileage amount wrong after commit; mileage rate recalculated; mileage total updated; mileage figure changed on commit
+
 When a Mileage expense is committed, Turbo replaces its total with a figure calculated from the expense rate record and the mileage already committed in the fiscal year of the expense date. Errors from the rate lookup or the calculation stop the commit.
 
 ## Expense's purchase order must be Active
 
 Lines 204-219
+
+Asked as: PO not active; purchase order closed commit; purchase order not found expense; expense PO inactive; PO status blocks commit
 
 Committing an expense that has a purchase order is refused with 'purchase order is not active' unless the purchase order status is Active. If the purchase order cannot be found, the commit fails with 'purchase order referenced by expense not found'.
 
@@ -103,11 +135,15 @@ Committing an expense that has a purchase order is refused with 'purchase order 
 
 Lines 237-240
 
+Asked as: one time PO closed; PO closes after expense; single use purchase order; one off PO closed; expense used up PO
+
 Committing an expense against a One-Time purchase order closes the purchase order automatically.
 
 ## Recurring purchase order closes when exhausted
 
 Lines 241-251
+
+Asked as: recurring PO closed; recurring purchase order exhausted; PO stays open recurring; recurring PO used up; recurring order closing
 
 Committing an expense against a Recurring purchase order counts this expense as 1 more committed. Turbo closes the purchase order only if RecurringPurchaseOrderExhausted says it is exhausted. Other uncommitted expenses are not counted. Otherwise the purchase order stays open.
 
@@ -115,11 +151,15 @@ Committing an expense against a Recurring purchase order counts this expense as 
 
 Lines 252-269
 
+Asked as: PO total exceeded; over purchase order amount; cumulative PO surplus; PO limit reached commit; too much against PO
+
 For a Cumulative purchase order, Turbo adds this expense's total to the committed expenses total, in whole cents. If the sum is above the purchase order total plus the allowed surplus, Turbo refuses with 'the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus'. The surplus comes from the PO expense excess settings.
 
 ## Cumulative purchase order closes at or above its total
 
 Lines 270-276
+
+Asked as: PO reached total closed; cumulative PO fully used; PO auto closes at limit; PO closed when full; purchase order fully spent
 
 If the committed total including this expense is within the limit and equals or exceeds the purchase order total, Turbo closes the purchase order. If it is below the total, the purchase order stays open.
 
@@ -127,16 +167,22 @@ If the committed total including this expense is within the limit and equals or 
 
 Lines 278-287
 
+Asked as: closed by system; PO closed with no closer; who closed purchase order; system closed my PO; closed by system flag
+
 When a commit closes a purchase order, Turbo sets its status to Closed and its closed time to the commit time. It leaves the closer blank and sets closed_by_system to true. The purchase order is saved only if it was closed. A save failure gives 'error saving purchase orders record: ...'.
 
 ## Commit success and save failure
 
 Lines 292-314
 
+Asked as: record committed successfully; commit saved; save failed on commit; commit went through; commit didn't save
+
 After all checks pass, Turbo saves the record in one transaction and says 'Record committed successfully'. A save failure gives 'error saving record: ...'.
 
 ## Automatic purchase order closure helper
 
 Lines 318-326
+
+Asked as: close purchase order helper; system closes PO; PO closed by system field; automatic PO closure; clear closer on PO
 
 closePurchaseOrderBySystem sets status Closed, sets closed to the given time, clears closer and sets closed_by_system to true.

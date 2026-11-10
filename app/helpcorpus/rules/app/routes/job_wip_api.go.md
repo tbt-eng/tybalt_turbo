@@ -7,11 +7,15 @@
 
 Lines 17-34
 
+Asked as: job WIP figures; WIP report rows; unpriced hours warning; no rate sheet flag
+
 A successful WIP request returns one row for the job. The row has the project value, time value, hours, estimated hours, expense value and PO value. It also has the as-of date, the missing-role hours, the missing-role rate hours and a no-rate-sheet flag. It has counts or hours of unpriced and estimated items: unpriced hours, unpriced expenses, unpriced POs and estimated POs.
 
 ## WIP expense deduction from active POs ignores inclusion controls
 
 Lines 17-18
+
+Asked as: inclusion controls not working; PO deduction double counted; expense deduction from POs; toggle does not change PO total
 
 Inclusion controls never change the expense deduction from active POs. This prevents the same commitment from being counted twice.
 
@@ -19,11 +23,15 @@ Inclusion controls never change the expense deduction from active POs. This prev
 
 Lines 39-45
 
+Asked as: WIP as of today; WIP for past date; future POs in WIP; historical WIP snapshot
+
 The job WIP (work in progress) report is calculated as of today (UTC), not as of an earlier date. Time and expenses count only dates through today. Active POs can cover future work and still count.
 
 ## Job WIP report has no start date
 
 Lines 41-45
+
+Asked as: WIP start date empty; WIP from job beginning; no start date WIP; WIP counts all time
 
 The job WIP report sets its start date (start_date) to empty. It counts time and expenses from the beginning of the job through today.
 
@@ -31,10 +39,14 @@ The job WIP report sets its start date (start_date) to empty. It counts time and
 
 Lines 46-48
 
+Asked as: Job not found error; WIP unknown job id; WIP request refused; job id does not exist
+
 When the job id matches no job, Turbo refuses the WIP request with the message "Job not found".
 
 ## Job WIP report fails when the figures cannot load
 
 Lines 49-51
+
+Asked as: Failed to load WIP; WIP will not load; WIP error message; work in progress report broken
 
 When the WIP query fails for any reason other than a missing job, Turbo shows the message "Failed to load WIP".

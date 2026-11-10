@@ -7,16 +7,22 @@
 
 Lines 8-26
 
+Asked as: expense payment types list; which payment method for expense; payment options expense; valid expense payment type
+
 Turbo offers seven payment types for an expense: On Account, Expense, Corporate Credit Card, Allowance, Fuel Card, Mileage and Personal Reimbursement (ExpensesPaymentTypeOptions). Any other value is not a valid payment type (isExpensePaymentType).
 
 ## Personal Reimbursement hidden unless allowed or already chosen
 
 Lines 28-42
 
+Asked as: personal reimbursement missing; can't see personal reimbursement; payment type option gone; reimbursement option not showing
+
 When a person is not allowed personal reimbursement (allowPersonalReimbursement is false), the payment type list leaves out Personal Reimbursement. The list still includes it when the expense already has Personal Reimbursement as its payment type. When personal reimbursement is allowed, the list shows all seven types.
 
 ## Default payment type list follows the personal reimbursement permission
 
 Lines 44-48
+
+Asked as: default payment type missing option; default payment method personal reimbursement; can't set default reimbursement; saved default payment type disappeared
 
 The choices for a default payment type leave out Personal Reimbursement unless the person is allowed personal reimbursement (allowPersonalReimbursement). The list has no exception for a current value, so a saved default of Personal Reimbursement does not keep the option in the list for someone who is not allowed it.

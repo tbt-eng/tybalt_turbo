@@ -7,11 +7,15 @@
 
 Lines 3-12
 
+Asked as: user missing from assign list; blank names in assignee list; user with no profile; empty name in dropdown
+
 The assignable list keeps a user who has no profile (LEFT JOIN on profiles). Missing given name, surname, name, username, email and admin profile id show as empty text, not as null.
 
 ## Only users with an active admin profile can be given a claim
 
 Lines 9-11
+
+Asked as: why can't I assign this user; inactive admin not in list; who can be assigned a claim; user missing from assignee choices
 
 The list of users who can be assigned a claim includes only users who have an active admin profile (admin_profiles.active = 1). Users with no admin profile, or an inactive one, do not appear.
 
@@ -19,10 +23,14 @@ The list of users who can be assigned a claim includes only users who have an ac
 
 Lines 13-18
 
+Asked as: already assigned user still listed; user already has this claim; remove existing holders from list; duplicate assignment in claim list
+
 A user who already holds the chosen claim (a row in user_claims with the same claimId) does not appear in the list of assignable users. The list shows only users who do not hold that claim yet.
 
 ## Assignable users are sorted by surname, then given name
 
 Lines 19-22
+
+Asked as: assignee list order; sort users by surname; people list not alphabetical; how are assignees ordered
 
 Turbo sorts the assignable users first by surname. If the surname is blank or missing, it uses the user's name, then email, then username. It then sorts by given name, using the username when the given name is blank. The user id breaks any remaining tie.

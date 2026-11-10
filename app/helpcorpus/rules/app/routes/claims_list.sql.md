@@ -7,10 +7,14 @@
 
 Lines 1-8
 
+Asked as: how many users have a claim; claim holder count; number of people with permission; claims list zero holders
+
 The claims list shows each claim's id, name and description, with a count of its holders (holder_count). The count comes from the user_claims rows that match the claim. A claim that nobody holds still appears, with a count of 0.
 
 ## Claims list is sorted by claim name
 
 Lines 9-9
+
+Asked as: claims order alphabetical; sort claims by name; claims list sorting; why are claims in this order
 
 The claims list is ordered by claim name (c.name). The order does not depend on the holder count.

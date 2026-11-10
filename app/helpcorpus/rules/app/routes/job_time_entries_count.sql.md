@@ -7,11 +7,15 @@
 
 Lines 4-5
 
+Asked as: unsubmitted timesheet hours in count; draft timesheets not counted; time entries missing from job total; uncommitted time sheet entries
+
 The count of time entries for a job covers only entries whose time sheet has been committed (a non-empty committed value). Entries on time sheets that are not committed are not counted. An entry with no matching time sheet is not counted either.
 
 ## Job time entry count skips entries with zero hours
 
 Lines 6-6
+
+Asked as: zero hour entries counted; entries with 0 hours; why does job count include empty time; blank hours time entries
 
 The count includes only time entries with more than 0 hours (hours > 0). Entries with exactly 0 hours are not counted.
 
@@ -19,16 +23,22 @@ The count includes only time entries with more than 0 hours (hours > 0). Entries
 
 Lines 7-7
 
+Asked as: time entries for one job; job entry count wrong job; count per job id; hours logged against a job
+
 The count covers only the time entries that belong to the job whose id is given (te.job = id).
 
 ## Optional filters on job time entry count
 
 Lines 8-11
 
+Asked as: filter job count by branch; narrow time count by division; count by staff member; filter time entries by person
+
 The count can be narrowed by branch, division, time type and staff member (uid). A filter that is missing or empty is ignored. A filter with a value counts only entries that match it exactly.
 
 ## Category filter on job time entry count, including 'none'
 
 Lines 12-18
+
+Asked as: entries with no category; uncategorised time entries; count without category; category none filter
 
 When the category filter is missing or empty, entries of every category are counted. When the filter is 'none', only entries with no category (an empty category) are counted. Any other category value counts only entries with exactly that category.

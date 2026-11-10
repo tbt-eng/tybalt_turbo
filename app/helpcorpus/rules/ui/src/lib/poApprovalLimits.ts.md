@@ -7,4 +7,6 @@
 
 Lines 1-3
 
+Asked as: can't see PO approvers; who can view approval limits; missing report claim; PO approver list hidden; access to approver limits
+
 Turbo lets a person view purchase order approvers only if they hold the report claim or the po_approver claim (canViewPOApprovers). Staff with neither claim cannot view them.

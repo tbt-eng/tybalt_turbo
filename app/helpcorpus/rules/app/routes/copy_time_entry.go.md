@@ -7,11 +7,15 @@
 
 Lines 22-34
 
+Asked as: copy time entry fails; invalid date format error; error saving copied record; server error when copying
+
 If the original's date is not in YYYY-MM-DD format, the week ending cannot be generated, or the save fails, the copy fails as a server error. Turbo shows the message of the error, such as "invalid date format on original record", "error generating week ending" or "error saving copied record".
 
 ## Copy moves the entry forward one day
 
 Lines 45-70
+
+Asked as: copy entry to next day; duplicate entry for tomorrow; copied entry wrong week; week ending after copy
 
 The copy action creates a new time entry dated one day after the original. Turbo calculates the week ending (week_ending) of the new date. It does not use the original's week ending.
 
@@ -19,11 +23,15 @@ The copy action creates a new time entry dated one day after the original. Turbo
 
 Lines 50-61
 
+Asked as: copied entry missing fields; copy keeps hours and project; copied entry not in timesheet; copy assigned to me
+
 The new time entry takes every field value from the original except id, created, updated, date, week_ending and tsid. The new entry is not bundled into a time sheet because tsid is not copied. The owner (uid) is set to the signed-in user.
 
 ## Copied entry goes through normal time entry processing
 
 Lines 72-84
+
+Asked as: copy rejected by hook; copy blocked by validation; nothing saved after copy fails
 
 Before saving, Turbo runs the time entry processing hook (ProcessTimeEntry) on the copy. If the hook rejects it, the copy fails with the hook's error and nothing is saved.
 
@@ -31,11 +39,15 @@ Before saving, Turbo runs the time entry processing hook (ProcessTimeEntry) on t
 
 Lines 105-110
 
+Asked as: cannot copy timesheet entry; copy button disabled; no permission to copy time; time editing locked
+
 Before Turbo copies a time entry, it calls requireTimeEditing and requireTimeClaim. The copy stops with their error if time editing is not allowed or the user lacks the time claim. This file does not show those checks' messages or conditions.
 
 ## Copy is all-or-nothing
 
 Lines 118-157
+
+Asked as: partial copy saved; copy half done; copy left behind record; copy rolled back
 
 The copy runs in a single transaction. If any step fails, no new time entry is kept.
 
@@ -43,11 +55,15 @@ The copy runs in a single transaction. If any step fails, no new time entry is k
 
 Lines 121-129
 
+Asked as: time entry not found; copy missing entry; wrong entry id copy
+
 If the time entry id does not exist, Turbo refuses the copy. It shows the message "time entry <id> not found".
 
 ## Only the owner can copy a time entry
 
 Lines 131-138
+
+Asked as: copy someone else's entry; not my time entry; copy colleague's hours
 
 Turbo refuses to copy a time entry whose owner (uid) is not the signed-in user. It shows the message "you are not the owner of this time entry".
 
@@ -55,11 +71,15 @@ Turbo refuses to copy a time entry whose owner (uid) is not the signed-in user. 
 
 Lines 140-147
 
+Asked as: copy entry already in sheet; copy submitted timesheet line; copy locked entry; entry already part of timesheet
+
 Turbo refuses to copy a time entry that already belongs to a time sheet (its tsid is not empty). It shows the message "cannot copy a time entry that is already bundled into a time sheet".
 
 ## Copy refusal shows an error message and code
 
 Lines 159-169
+
+Asked as: copy error code; entry_already_bundled error; unauthorized copy message; invalid_week_ending code
 
 When Turbo refuses to copy a time entry, it shows the error message and a code. The codes are record_not_found, unauthorized, entry_already_bundled, invalid_date, invalid_week_ending and error_saving_record.
 
@@ -67,10 +87,14 @@ When Turbo refuses to copy a time entry, it shows the error message and a code. 
 
 Lines 170-173
 
+Asked as: copy validation message; hook error on copy; copy shows validation problem; why copy was refused
+
 The copy goes through the normal time entry processing (ProcessTimeEntry). If that processing refuses the copied entry with a hook error (HookError), Turbo shows that error as it is. It does not replace it with a copy-specific message.
 
 ## Successful copy confirmation
 
 Lines 177-180
+
+Asked as: copied to tomorrow message; copy worked confirmation; new entry id after copy; copy succeeded message
 
 After a successful copy, Turbo shows the message "Time entry copied to tomorrow" and returns the id of the new record.

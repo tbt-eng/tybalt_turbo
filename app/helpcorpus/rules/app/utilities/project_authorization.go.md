@@ -7,11 +7,15 @@
 
 Lines 16-16
 
+Asked as: job request abandonment period; how long before job request expires; job request auto close days; when do unfinished job requests get dropped
+
 Turbo defines the job request abandonment period as 60 days (JOB_REQUEST_ABANDONMENT_DAYS). This file only sets the number. It does not show what happens after the period ends.
 
 ## Project value must be a positive whole dollar amount
 
 Lines 19-30
+
+Asked as: project value rejected; project value must be whole dollars; negative project value error; decimal project amount not accepted
 
 When Turbo checks an approver's authority, it refuses a project value that is zero or negative, above 9007199254740991, not a number, infinite, or not a whole number. The message is "project value must be a positive whole dollar amount". This check runs before any check of the approver.
 
@@ -19,11 +23,15 @@ When Turbo checks an approver's authority, it refuses a project value that is ze
 
 Lines 23-27
 
+Asked as: project approval error message; approver check shows bad request; why approval gives 400 error; approval refusal message shown
+
 Every refusal from the approver authority check reaches the user as a bad request error with the message of that refusal.
 
 ## Project approver must be active
 
 Lines 31-37
+
+Asked as: approver is inactive; cannot pick disabled approver; approver account not active; approver must be active error
 
 Turbo refuses a project value approval when the chosen approver is not an active user. The message is "approver must be active".
 
@@ -31,11 +39,15 @@ Turbo refuses a project value approval when the chosen approver is not an active
 
 Lines 38-44
 
+Asked as: approver lacks project authority; approver cannot approve projects; no project_authorization permission; approver missing project claim
+
 Turbo refuses a project value approval when the chosen approver has no project_authorization claim. The message is "approver must have project_authorization authority".
 
 ## Approver needs a project value limit set
 
 Lines 45-51
+
+Asked as: approver has no value limit; approver spending limit not set; project authority limit missing; no limit for project approver
 
 Turbo refuses a project value approval when the approver's project_authorization claim has no limit record (project_authorization_props). The message is "approver has no value limit".
 
@@ -43,11 +55,15 @@ Turbo refuses a project value approval when the approver's project_authorization
 
 Lines 52-56
 
+Asked as: approver limit too low; project exceeds approver max value; approver cannot cover project amount; approval limit below project value
+
 Turbo compares the approver's max_value with the full proposed value. A limit equal to the value is accepted. A limit below the value is refused with "approver limit does not cover the full project value". Turbo also refuses this when the stored limit is zero or negative, above 9007199254740991, not a number, infinite, or not a whole number. When the check passes, Turbo returns the approver's limit.
 
 ## Request contacts need an email or a no-email mark
 
 Lines 62-79
+
+Asked as: project contact has no email; add email for contact; billing contact missing email; contact email blank error
 
 Turbo checks the project contact of a project request, and the billing contact of its invoicing profile when that profile is found. Each contact must have a non-blank email address or be marked no_email. Otherwise Turbo refuses with "Add an email address for the project contact, or mark the contact as having no email address." The message says "billing contact" for the billing contact. A blank email made of spaces counts as missing.
 
@@ -55,10 +71,14 @@ Turbo checks the project contact of a project request, and the billing contact o
 
 Lines 65-67
 
+Asked as: no invoicing profile billing check; billing contact skipped; request without invoicing profile; invoicing profile not found
+
 When the invoicing profile of the request cannot be found, Turbo does not check a billing contact. It checks only the project contact.
 
 ## Missing request contact is refused
 
 Lines 68-72
+
+Asked as: project contact not found; billing contact missing from request; contact record gone; request contact cannot be found
 
 Turbo refuses a project request when a contact record cannot be found. The message is "The project contact was not found." or "The billing contact was not found."

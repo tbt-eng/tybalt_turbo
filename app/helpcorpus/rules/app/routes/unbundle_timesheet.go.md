@@ -7,11 +7,15 @@
 
 Lines 20-22
 
+Asked as: no permission to recall timesheet; can't unbundle my timesheet; missing time claim; recall button not allowed
+
 Turbo runs a claim check (requireTimeClaim) before it recalls (unbundles) a time sheet. If the person lacks the time claim, the check returns its error and the time sheet stays unchanged. This file does not show the claim check's message.
 
 ## Recall refuses a time sheet that is not found
 
 Lines 32-39
+
+Asked as: timesheet not found; error fetching time sheet; wrong timesheet id; timesheet id doesn't exist
 
 When the time sheet id in the request does not match a time sheet, Turbo refuses the recall. The message is "error fetching time sheet: ..." followed by the underlying error.
 
@@ -19,11 +23,15 @@ When the time sheet id in the request does not match a time sheet, Turbo refuses
 
 Lines 41-44
 
+Asked as: someone else's timesheet; recall another person's sheet; timesheet belongs to someone else; not my timesheet
+
 Turbo refuses the recall when the time sheet's owner (uid) is not the person asking. The message is "time sheet does not belong to user". This applies to every status, and no one else can recall another person's time sheet.
 
 ## An approved time sheet must be rejected before recall
 
 Lines 46-51
+
+Asked as: approved timesheet won't unbundle; reject timesheet first; recall approved sheet; can't recall approved timesheet
 
 A time sheet that has an approved date and no rejected date cannot be recalled. Turbo refuses with "approved time sheets must be rejected before being unbundled". An approved time sheet that has also been rejected passes this check. A submitted time sheet that is not yet approved passes this check as well.
 
@@ -31,16 +39,22 @@ A time sheet that has an approved date and no rejected date cannot be recalled. 
 
 Lines 53-56
 
+Asked as: committed timesheet locked; can't unbundle committed sheet; timesheet already committed; rejection doesn't unlock timesheet
+
 When a time sheet has a committed date, Turbo refuses the recall with "committed time sheets cannot be unbundled". Rejection does not lift this block.
 
 ## Recall frees the time entries and deletes the time sheet
 
 Lines 58-81
 
+Asked as: get entries back after recall; edit time entries again; timesheet deleted entries kept; undo submit timesheet
+
 A successful recall clears the time sheet link (tsid) on the owner's time entries that point to this time sheet. Turbo then deletes the time sheet record. The entries stay and can be edited again. If saving an entry or deleting the sheet fails, Turbo shows "error updating time entry: ..." or "error deleting time sheet: ...". All the steps run in one transaction, so a failure rolls back every change.
 
 ## Recall reports success or the error message
 
 Lines 82-86
+
+Asked as: unbundled successfully message; what happens after recall; recall error message shown; timesheet recall result
 
 When the recall succeeds, Turbo shows the message "Time sheet unbundled successfully". When any step above fails, Turbo shows the error text of that step.

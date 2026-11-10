@@ -7,11 +7,15 @@
 
 Lines 11-40
 
+Asked as: expenditure kinds list; which kinds exist; approver limit columns; po_approver_props columns; six expenditure kinds
+
 Turbo has six expenditure kinds: capital, project, sponsorship, staff_and_social, media_and_event and computer. Each kind maps to one limit column on the approver's PO limits (po_approver_props). The columns are max_amount (capital), project_max, sponsorship_max, staff_and_social_max, media_and_event_max and computer_max.
 
 ## Default expenditure kind depends on whether a job is present
 
 Lines 76-83
+
+Asked as: default kind for PO; PO kind not set; kind defaults with job; what kind does PO get; default expenditure type
 
 When a purchase order has a job, the default expenditure kind is project. When it has no job, the default is capital.
 
@@ -19,11 +23,15 @@ When a purchase order has a job, the default expenditure kind is project. When i
 
 Lines 85-92
 
+Asked as: blank expenditure kind; old PO no kind; legacy record kind missing; empty kind on record; fill in missing kind
+
 When a record has no expenditure kind (blank or only spaces), Turbo uses project if the record has a job and capital if it has none.
 
 ## Capital kind with a job becomes project
 
 Lines 93-98
+
+Asked as: capital with job; capital kind changed to project; job changes capital; why did kind switch; capital not allowed with job
 
 When a record has the capital kind and also a job, Turbo changes the kind to project. Capital with a job is not allowed. Other kinds with a job stay as they are.
 
@@ -31,11 +39,15 @@ When a record has the capital kind and also a job, Turbo changes the kind to pro
 
 Lines 101-123
 
+Asked as: second approval limit; which limit applies approval; approver limit for kind; second approver threshold; approval limit by kind
+
 For second-approval qualification, Turbo picks the approver limit column that matches the PO's expenditure kind. For example, sponsorship uses sponsorship_max and computer uses computer_max.
 
 ## Second-approval limit falls back when kind is blank or unknown
 
 Lines 104-118
+
+Asked as: unknown kind approval limit; approval limit no kind; blank kind which limit; second approval fallback limit; wrong limit used for PO
 
 When the PO has no expenditure kind, or the kind is not recognised, Turbo picks the limit by job. With a job it uses project_max. Without a job it uses max_amount (the capital limit).
 
@@ -43,10 +55,14 @@ When the PO has no expenditure kind, or the kind is not recognised, Turbo picks 
 
 Lines 119-122
 
+Asked as: unsupported expenditure kind error; standard kind error; kind has no limit; expenditure kind not supported; unsupported kind id
+
 When a PO's kind is recognised but has no limit column, such as the legacy standard kind, Turbo returns the error: unsupported expenditure kind id with the id and name. It does not fall back to a default.
 
 ## Startup check for expenditure kinds and limit columns
 
 Lines 128-170
+
+Asked as: startup check failed; missing expenditure kind; missing limit column; app fails to start kinds; po_approver_props column missing
 
 Turbo loads the expenditure kinds from the database and checks that all six exist. It then checks that po_approver_props has all six limit columns. If a kind or column is missing, the check fails with a message such as: missing expenditure_kind with name "x" or missing po_approver_props column "x".

@@ -7,11 +7,15 @@
 
 Lines 27-77
 
+Asked as: field not saved on amendment; time type clears fields; allowed fields for time type; time type missing error
+
 Before saving, Turbo looks up the time type (time_type) of the time amendment and clears every field that the type's allowed fields (allowed_fields) do not list. Turbo always keeps id, uid, created, creator, updated, skip_tsid_check and branch. If the time type does not exist, the save fails.
 
 ## Empty required fields list means all allowed fields required
 
 Lines 52-59
+
+Asked as: which fields are required; required fields empty list; all fields mandatory amendment; time type required fields
 
 If the time type's required fields (required_fields) are null, [] or {}, Turbo requires every allowed field. Otherwise Turbo requires only the fields listed in required_fields.
 
@@ -19,11 +23,15 @@ If the time type's required fields (required_fields) are null, [] or {}, Turbo r
 
 Lines 86-86
 
+Asked as: work record format wrong; work record without job; job code pattern error; work record must be empty
+
 When a time amendment has a job, its work record (work_record) must match ^[FKQ][0-9]{2}-[0-9]{3,4}(-[0-9]+)?$. Otherwise Turbo says "must be in the correct format". When there is no job, the work record must be empty. Otherwise Turbo says "Work Record must be empty when job is not provided".
 
 ## Total hours capped at 18
 
 Lines 87-87
+
+Asked as: too many hours in a day; 18 hour limit; hours over daily max; total hours too high
 
 Hours plus meals hours on one time amendment must not exceed 18. Exactly 18 is allowed. Otherwise Turbo says "Total hours must not exceed 18".
 
@@ -31,11 +39,15 @@ Hours plus meals hours on one time amendment must not exceed 18. Exactly 18 is a
 
 Lines 93-101
 
+Asked as: required field blank; value required error; missing field on amendment; fill in required fields
+
 Turbo checks the required fields first. Each required field that is empty gets the error "Value required". Turbo reports these errors and does not run the other checks until they are fixed.
 
 ## Hours must be a multiple of 0.5
 
 Lines 106-106
+
+Asked as: half hour increments; hours not in halves; quarter hour rejected; hours decimal invalid
 
 The hours on a time amendment must be a multiple of 0.5. Turbo checks this with IsMultipleOfPointFive.
 
@@ -43,11 +55,15 @@ The hours on a time amendment must be a multiple of 0.5. Turbo checks this with 
 
 Lines 107-107
 
+Asked as: amendment date rejected; wrong date on amendment; bad date format; date not accepted
+
 The date of a time amendment must pass the IsValidDate check.
 
 ## Meals hours capped at 3
 
 Lines 109-109
+
+Asked as: meal hours too many; meals over three; meal allowance limit; meals hours too high
 
 Meals hours on a time amendment must not exceed 3. Exactly 3 is allowed. Otherwise Turbo says "Meals Hours must not exceed 3".
 
@@ -55,11 +71,15 @@ Meals hours on a time amendment must not exceed 3. Exactly 3 is allowed. Otherwi
 
 Lines 110-110
 
+Asked as: description too short; comment needs more text; note too short; description error amendment
+
 The description of a time amendment must have at least 5 characters. Otherwise Turbo says "must be at least 5 characters".
 
 ## Work record format depends on whether a job is set (rule check)
 
 Lines 111-111
+
+Asked as: work record check no job; job blank work record; work code without job; work record rejected
 
 The work record pattern is checked only when the job is present. Without a job the work record must be empty.
 
@@ -67,11 +87,15 @@ The work record pattern is checked only when the job is present. Without a job t
 
 Lines 112-112
 
+Asked as: payout amount zero; payout cents wrong; payout request price invalid; negative payout amount
+
 The payout request amount (payout_request_amount) must be greater than 0. Zero fails with "Amount must be greater than 0". The amount must also be a positive multiple of 0.01 (IsPositiveMultipleOfPointZeroOne).
 
 ## Division must be allocated to the job on create or change
 
 Lines 115-131
+
+Asked as: division not on job; wrong division for job; division mismatch job; job division not allowed
 
 For a time amendment with a job, Turbo checks that the division is allocated to the job (validateDivisionAllocatedToJob). It does this only when shouldValidateJobDivisionAllocationOnRecord says so. According to the code comment, that means on create and when the job or division changes. Unrelated edits to older records with historical mismatches are allowed.
 
@@ -79,11 +103,15 @@ For a time amendment with a job, Turbo checks that the division is allocated to 
 
 Lines 119-125
 
+Asked as: job not found amendment; invalid job selected; job has no status; job missing status
+
 If a time amendment has a job, the job must exist. Otherwise Turbo says "invalid job reference". The job must also have a status. Otherwise Turbo says "job status must be set".
 
 ## Authentication required for time amendments
 
 Lines 144-151
+
+Asked as: not logged in saving; no user signed in; login needed amendment; session missing save
 
 Saving a time amendment without a signed-in user fails with "authentication is required".
 
@@ -91,11 +119,15 @@ Saving a time amendment without a signed-in user fails with "authentication is r
 
 Lines 153-159
 
+Asked as: cannot edit time now; time entry locked; editing turned off; time editing closed
+
 When time editing is disabled in Turbo (IsTimeEditingEnabled is false), creating or editing a time amendment is refused with ErrTimeEditingDisabled. The message text is defined in another file.
 
 ## Time amendment owner cannot be changed
 
 Lines 161-188
+
+Asked as: change staff member amendment; move amendment to other person; reassign amendment owner; cannot change user on amendment
 
 On an update, changing the uid (the staff member the amendment belongs to) is refused with "uid cannot be changed". An update with no original record to compare is refused with "cannot validate time amendment update".
 
@@ -103,11 +135,15 @@ On an update, changing the uid (the staff member the amendment belongs to) is re
 
 Lines 172-179
 
+Asked as: amendment locked after commit; committed amendment cannot change; edit committed time; already committed amendment
+
 A time amendment that has a committed date cannot be edited. Turbo says "cannot edit committed time amendment".
 
 ## Creator is set to the latest editor
 
 Lines 191-193
+
+Asked as: who last edited amendment; creator field wrong; editor recorded on amendment; who changed amendment
 
 On every create or update, Turbo sets the creator of the time amendment to the signed-in user. The creator is the latest person to edit it before commit.
 
@@ -115,11 +151,15 @@ On every create or update, Turbo sets the creator of the time amendment to the s
 
 Lines 202-208
 
+Asked as: week ending wrong; week ending missing; week end date error; week ending not generated
+
 Turbo sets the week ending (week_ending) of a time amendment from its date alone. If it cannot be generated, the save fails with "Error generating week_ending".
 
 ## Amendment must match a committed time sheet
 
 Lines 214-246
+
+Asked as: no timesheet for week; duplicate timesheet found; amendment without timesheet; timesheet not matched
 
 Unless skip_tsid_check is set, Turbo looks for the time sheet of the same user and week ending. If none exists, Turbo says "No time_sheets record found, create one instead". If more than one exists, Turbo says "More than one time_sheets record found".
 
@@ -127,10 +167,14 @@ Unless skip_tsid_check is set, Turbo looks for the time sheet of the same user a
 
 Lines 227-261
 
+Asked as: timesheet not linked; tsid missing amendment; link amendment to timesheet; skip timesheet check
+
 When the time sheet check passes, Turbo sets the tsid of the time amendment to the matching time sheet's id. With skip_tsid_check set, Turbo skips the whole time sheet check and does not set tsid.
 
 ## Time sheet must be committed to amend it
 
 Lines 248-257
+
+Asked as: timesheet not committed; cannot amend uncommitted timesheet; timesheet still open; use time entry instead
 
 If the matching time sheet is not committed, Turbo refuses the amendment. It says "Found time_sheets record has not been committed. Create a time_entries record instead."
