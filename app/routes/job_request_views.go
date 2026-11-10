@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -153,6 +154,10 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 		allocs, err := requestAllocations(tx, id)
 		if err != nil {
 			return err
+		}
+		// Expand each division so the page shows its code and name, not its id.
+		if errs := tx.ExpandRecords(allocs, []string{"division"}, nil); len(errs) > 0 {
+			return fmt.Errorf("expand allocation divisions: %v", errs)
 		}
 		related, err := requestRelated(tx, r)
 		if err != nil {

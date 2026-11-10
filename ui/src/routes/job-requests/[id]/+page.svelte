@@ -240,8 +240,9 @@
         </p>{/if}
       <h3 class="font-semibold">Division allocations</h3>
       {#each detail.allocations as allocation}<p>
-          {allocation.division_name || allocation.expand?.division?.name || allocation.division}: {allocation.hours}
-          h
+          {[allocation.expand?.division?.code, allocation.expand?.division?.name]
+            .filter(Boolean)
+            .join(" — ") || "Unknown division"}: {allocation.hours} h
         </p>{/each}
     </section>
   {/if}

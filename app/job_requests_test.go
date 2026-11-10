@@ -272,6 +272,28 @@ func TestJobRequestDraftValidationAndVersion(t *testing.T) {
 	clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, "u_no_claims@example.com", nil, http.StatusForbidden)
 }
 
+// The request page shows each allocation's division by code and name, so the
+// detail response must carry the division record, not only its id.
+func TestJobRequestDetailExpandsAllocationDivisions(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	id := createWorkflowRequest(t, app)
+	completeWorkflowRequest(t, app, id)
+	division, err := app.FindRecordById("divisions", "fy4i9poneukvq9u")
+	if err != nil {
+		t.Fatal(err)
+	}
+	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowAuthor, nil, http.StatusOK)
+	allocations := detail["allocations"].([]any)
+	if len(allocations) != 1 {
+		t.Fatalf("expected one allocation, got %#v", allocations)
+	}
+	expand, _ := allocations[0].(map[string]any)["expand"].(map[string]any)
+	got, _ := expand["division"].(map[string]any)
+	if got["code"] != division.GetString("code") || got["name"] != division.GetString("name") {
+		t.Fatalf("allocation division not expanded: %#v", allocations[0])
+	}
+}
+
 func TestJobRequestApprovalCreationLifecycle(t *testing.T) {
 	app := newWorkflowTestApp(t, true)
 	id := createWorkflowRequest(t, app)
