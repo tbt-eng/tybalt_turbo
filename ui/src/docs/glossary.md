@@ -4,16 +4,18 @@ Use these words in Turbo and in these docs. One word has one meaning.
 
 | Word                  | Meaning                                                                                                                                             | Don't use       |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Admin profile         | The record that Turbo keeps about you: your payroll ID, default branch and time off balances. Only an admin or HR can change it.                    | staff profile   |
 | Approver              | A person who approves a time sheet, expense, purchase order, project request or project value change. See **Who approves what**.                    |                 |
 | Authorization PDF     | The signed PDF that authorizes a project or a value change. It must legally bind the company and the client.                                        |                 |
 | Category              | A group of costs within one job.                                                                                                                    |                 |
 | Committer             | Staff who commit time sheets and expenses. Commit is the final step.                                                                                |                 |
-| Default branch        | The branch that an admin sets on your profile. Turbo uses it when a record has no job or PO.                                                        |                 |
+| Default branch        | The branch that an admin sets on your admin profile. Turbo uses it when a record has no job or PO.                                                  |                 |
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
 | Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
 | Payables staff        | Staff who can cancel, close or convert a purchase order.                                                                                            |                 |
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
+| Profile               | Your own details: your name, your manager and your default division. You change it under **Account**.                                               |                 |
 | Project Authorization | The agreement that Turbo prints for signatures. You can use it as the authorization PDF, or use another document.                                   | PA              |
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |

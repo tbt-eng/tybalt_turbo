@@ -65,7 +65,7 @@ You don't select the branch of an expense. Turbo sets it when you save:
 
 - **With a PO:** the PO's branch.
 - **Without a PO, with a job:** the job's branch.
-- **Without a PO or a job:** your default branch. An admin sets this on your profile.
+- **Without a PO or a job:** your default branch. An admin sets this on your admin profile.
 
 ## Approve an expense
 
