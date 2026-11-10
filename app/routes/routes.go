@@ -3,6 +3,7 @@ package routes
 import (
 	"net/http"
 	"tybalt/constants"
+	"tybalt/helpchat"
 	"tybalt/reports"
 	"tybalt/utilities"
 
@@ -80,6 +81,8 @@ func (e *CodeError) Error() string {
 
 // Add custom routes to the app
 func AddRoutes(app core.App) {
+	// Help chat: /api/help. It loads its model and corpus on first use.
+	helpchat.AddRoutes(app, helpchat.NewService())
 
 	// Add the bundle timesheet route
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
