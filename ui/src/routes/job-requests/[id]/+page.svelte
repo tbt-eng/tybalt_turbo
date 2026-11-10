@@ -253,7 +253,10 @@
     </div>
     {#if detail.attachment}<button class="text-blue-700 underline" disabled={busy} onclick={openPDF}
         >Open authorization PDF</button
-      >{:else}<p>No authorization PDF uploaded.</p>{/if}
+      >
+      <p class="text-xs text-neutral-500" title={detail.attachment.document_hash}>
+        SHA-256 (first 7): {detail.attachment.document_hash.slice(0, 7)}
+      </p>{:else}<p>No authorization PDF uploaded.</p>{/if}
     {#if permission.can_edit && $jobRequestsEnabled}<label class="block text-sm font-semibold"
         >{detail.attachment ? "Replace PDF" : "Upload PDF"}<input
           class="mt-2 block"
