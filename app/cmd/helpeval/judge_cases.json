@@ -12,9 +12,10 @@
     "name": "po-approval-04 (ask-v5-phrases)",
     "case": "po-approval-04",
     "expect": [
-      "correct"
+      "correct",
+      "partial"
     ],
-    "why": "States every key point. Its extra statement, that the approver list is built with the current rate, is true in the code (the list route converts the amount when it is called).",
+    "why": "Must not be wrong. Its statement that the approver list is built with the current rate is true in the code: the list route converts the amount when it is called. It gives the third key point with a doubt (\"I could not confirm whether a rate change before approval updates it\"), so correct and partial are both fair grades.",
     "answer": "Turbo compares approver limits in Canadian dollars, not in the PO's own currency. For a US-dollar PO, it converts the total to CAD and checks that amount against the approver's limit. The conversion uses the currency's exchange rate at the time of the check [S3][S4]. The approver list is built from the amount converted with the current rate [S3]. If the PO is saved in a foreign currency with no positive rate, Turbo refuses it with \"selected foreign currency is missing an exchange rate\" [S12].\n\nOn the rate change question, the code I found doesn't fully settle it. Turbo stores a CAD version of the PO total, called `approval_total_home`, when the PO is saved, using the rate at that time [S12]. I didn't find code that recalculates it when the rate changes later. Turbo refreshes exchange rates on weekday evenings at 10pm UTC [S10]. So the amount that counts is the one stored when the PO was last saved. I could not confirm whether a rate change before approval updates it. An approver can see the CAD amount and the rate and rate date on the PO's approval list [S20].\n\nTurbo's design notes say that spending against an approved PO is checked in the PO's own currency, so a rate change after approval doesn't require a new PO [S34]. I could not confirm this in the code, so treat it as the intended design only.\n\nFor the exact figure, check the PO's approval total in home currency, the rate and the rate date. The approver's limit is in the [PO approvers](/docs/purchase-orders) list shown on the PO screen."
   },
   {
