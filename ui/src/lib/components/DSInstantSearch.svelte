@@ -22,6 +22,8 @@
     label,
     search,
     emptyMessage = "Nothing matches. Try other words.",
+    actionLabel,
+    onaction,
     scroller = $bindable(),
     children,
   }: {
@@ -29,6 +31,11 @@
     label: string;
     search: (query: string) => InstantSearchHit[];
     emptyMessage?: string;
+    // An action on the text itself, such as "Ask Help". With both of these
+    // set, the action is the first row and Enter runs it. The arrow keys reach
+    // the hits.
+    actionLabel?: string;
+    onaction?: (query: string) => void;
     // The element that scrolls the hits or the content.
     scroller?: HTMLDivElement;
     children: Snippet;
@@ -41,6 +48,23 @@
   let list: HTMLUListElement | undefined = $state();
 
   const hits = $derived(query.trim().length >= minQueryLength ? search(query) : null);
+  // The action row is row 0, and the hits follow it.
+  const hasAction = $derived(Boolean(actionLabel && onaction));
+  const firstHit = $derived(hasAction ? 1 : 0);
+
+  // The pointer picks a row only when it moves. A row that appears under a
+  // pointer at rest must not take Enter away from the first row. The browser
+  // sends a move event for that row too, at the place where the pointer was.
+  let pointer = { x: -1, y: -1 };
+  function hover(event: MouseEvent, row: number) {
+    if (event.clientX !== pointer.x || event.clientY !== pointer.y) active = row;
+  }
+
+  function runAction() {
+    const text = query.trim();
+    clear(false);
+    onaction?.(text);
+  }
 
   // The hits start at the top. The content returns to where it was.
   let searching = false;
@@ -74,23 +98,27 @@
   const activeLink = () => list?.querySelector<HTMLAnchorElement>("a[data-active]");
 
   function onkeydown(event: KeyboardEvent) {
+    const rows = (hits?.length ?? 0) + firstHit;
     if (event.key === "Escape") {
       clear(true);
-    } else if (!hits?.length) {
+    } else if (!hits || rows === 0) {
       return;
     } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       const step = event.key === "ArrowDown" ? 1 : -1;
-      active = Math.min(Math.max(active + step, 0), hits.length - 1);
+      active = Math.min(Math.max(active + step, 0), rows - 1);
       flushSync();
-      activeLink()?.scrollIntoView({ block: "nearest" });
+      list?.querySelector("[data-active]")?.scrollIntoView({ block: "nearest" });
     } else if (event.key === "Enter") {
-      activeLink()?.click();
+      if (hasAction && active === 0) runAction();
+      else activeLink()?.click();
     } else {
       return;
     }
     event.preventDefault();
   }
 </script>
+
+<svelte:window onmousemove={(event) => (pointer = { x: event.clientX, y: event.clientY })} />
 
 <div class="flex min-h-0 min-w-0 flex-1 flex-col">
   <div role="search" data-print-hide class="border-b border-neutral-200 bg-white p-3">
@@ -120,21 +148,36 @@
       <div class="space-y-2 p-4">
         <p class="text-sm text-neutral-600" role="status">
           {#if hits.length === 0}
-            {emptyMessage}
+            {hasAction ? "No page matches." : emptyMessage}
           {:else}
             {hits.length} {hits.length === 1 ? "result" : "results"}
           {/if}
         </p>
         <ul bind:this={list} class="space-y-1">
+          {#if hasAction}
+            <li
+              data-active={active === 0 ? "" : undefined}
+              data-action
+              onmousemove={(event) => hover(event, 0)}
+              class={`flex flex-wrap items-baseline justify-between gap-x-3 rounded-sm px-3 py-2 ${active === 0 ? "bg-neutral-200" : ""}`}
+            >
+              <DSActionButton variant="plain" icon="mdi:message-question-outline" action={runAction}
+                ><span class="min-w-0 text-left font-semibold break-words"
+                  >{actionLabel}: {query.trim()}</span
+                ></DSActionButton
+              >
+              <span class="text-sm text-neutral-600">Enter</span>
+            </li>
+          {/if}
           {#each hits as hit, index (hit.id)}
             <li>
               <!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass any href -->
               <a
                 href={hit.href}
-                data-active={index === active ? "" : undefined}
+                data-active={index + firstHit === active ? "" : undefined}
                 onclick={() => clear(false)}
-                onmouseenter={() => (active = index)}
-                class={`block rounded-sm px-3 py-2 ${index === active ? "bg-neutral-200" : ""}`}
+                onmousemove={(event) => hover(event, index + firstHit)}
+                class={`block rounded-sm px-3 py-2 ${index + firstHit === active ? "bg-neutral-200" : ""}`}
               >
                 <span class="flex flex-wrap items-baseline gap-x-2">
                   <span class="font-semibold text-blue-700">{hit.title}</span>

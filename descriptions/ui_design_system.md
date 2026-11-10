@@ -185,7 +185,11 @@ A second navigation column for one area of the app, beside the main menu. It tak
 
 #### `DSInstantSearch`
 
-A prominent search bar above one area of the app. While it holds a query, the hits replace the content below it, and **Clear** or Escape brings the content back. It takes a `label`, a `search` function that returns hits with `href`, `title`, `context` and a marked `excerpt`, and the content as children. The search runs on each keystroke, so it must answer from memory. The arrow keys move through the hits and Enter opens one. The Help pages use it to search the user docs with `ui/src/lib/docsSearch.ts`.
+A prominent search bar above one area of the app. While it holds a query, the hits replace the content below it, and **Clear** or Escape brings the content back. It takes a `label`, a `search` function that returns hits with `href`, `title`, `context` and a marked `excerpt`, and the content as children. The search runs on each keystroke, so it must answer from memory. The arrow keys move through the hits and Enter opens one. The Help pages use it to search the user docs with `ui/src/lib/docsSearch.ts`. With `actionLabel` and `onaction`, the first row is an action on the text itself, such as "Ask Help". Enter runs it, and the arrow keys reach the hits. The pointer picks a row only when it moves, so a row that appears under a pointer at rest does not take Enter.
+
+#### `DSChat`
+
+A conversation with an assistant: each question, its answer as it arrives, the sources of the answer, and thumbs to rate it. It takes `turns` and a `notice`, and it reports what the person does through `onrate`, `onnote`, `onopen`, `oncopy`, `onstop` and `onclose`. The caller owns the data and the calls to the server, and it must make each answer's `html` safe: `ui/src/lib/helpChatFormat.ts` does that for Help. A thumbs down asks for an optional note.
 
 #### `DSNotifyDot`
 

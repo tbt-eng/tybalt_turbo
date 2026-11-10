@@ -7,6 +7,7 @@
   import DSDoc from "$lib/components/DSDoc.svelte";
   import DSSideNav from "$lib/components/DSSideNav.svelte";
   import DSInstantSearch from "$lib/components/DSInstantSearch.svelte";
+  import DSChat from "$lib/components/DSChat.svelte";
   import DSFlow from "$lib/components/DSFlow.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DSNotifyDot from "$lib/components/DSNotifyDot.svelte";
@@ -452,6 +453,8 @@
       <div class="flex h-64 flex-col">
         <DSInstantSearch
           label="Search the sample"
+          actionLabel="Ask Help"
+          onaction={() => {}}
           search={(query) =>
             query.toLowerCase().includes("time")
               ? [
@@ -472,6 +475,60 @@
           <p class="p-4">The content shows here. Type "time" for a hit, or other text for none.</p>
         </DSInstantSearch>
       </div>
+    </DSSection>
+
+    <DSSection title="DSChat">
+      <DSChat
+        notice="A line about the answers, such as what the app records."
+        onstop={() => {}}
+        onclose={() => {}}
+        oncopy={() => {}}
+        onrate={() => {}}
+        turns={[
+          {
+            key: 1,
+            question: "How do I submit my week?",
+            html: "<p>Open <strong>Entries</strong> and select <strong>Submit</strong> on the week <sup>1</sup>.</p>",
+            running: false,
+            sources: [
+              { number: 1, key: "/docs/time", label: "Time", href: "#sample-doc", external: false },
+              {
+                number: 2,
+                key: "S1",
+                label: "Code: app/hooks/time_entries.go",
+                href: "#sample-code",
+                external: true,
+              },
+            ],
+            rating: "down",
+            noteSent: false,
+            canRate: true,
+          },
+          {
+            key: 2,
+            question: "A question with no answer",
+            html: "",
+            running: false,
+            message: "Help can't answer now. Try again in a minute.",
+            tone: "danger",
+            sources: [],
+            rating: "",
+            noteSent: false,
+            canRate: false,
+          },
+          {
+            key: 3,
+            question: "A question that is running",
+            html: "",
+            running: true,
+            activity: "Searching Turbo…",
+            sources: [],
+            rating: "",
+            noteSent: false,
+            canRate: false,
+          },
+        ]}
+      />
     </DSSection>
 
     <DSSection title="DSCollapsible">

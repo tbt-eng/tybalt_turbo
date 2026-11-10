@@ -186,3 +186,10 @@ export const appConfig = {
 export const jobRequestsEnabled = derived(store, ($store) =>
   getConfigBool($store.items, "jobs", "require_job_request_approval", false),
 );
+
+// Help chat answers questions in Help. Reads from app_config where
+// key="help_chat", checks value.enabled. Defaults to false (fail-closed): with
+// no row, Help has its search and no Ask.
+export const helpChatEnabled = derived(store, ($store) =>
+  getConfigBool($store.items, "help_chat", "enabled", false),
+);

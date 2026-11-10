@@ -1,11 +1,16 @@
 <script lang="ts">
+  import { flushSync, onDestroy } from "svelte";
   import { afterNavigate } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
+  import DSChat, { type ChatTurnView } from "$lib/components/DSChat.svelte";
   import DSInstantSearch from "$lib/components/DSInstantSearch.svelte";
   import DSSideNav from "$lib/components/DSSideNav.svelte";
   import { searchDocs } from "$lib/docs";
+  import { answerText, sourceLinks } from "$lib/helpChatFormat";
+  import { helpChatEnabled } from "$lib/stores/appConfig";
   import { helpBubble } from "$lib/stores/helpBubble";
+  import { helpChat, helpChatBusy } from "$lib/stores/helpChat";
   let { data, children } = $props();
 
   const currentSlug = $derived(page.params.slug ?? "start-here");
@@ -29,16 +34,85 @@
       excerpt: hit.excerpt,
     }));
 
+  // Ask: a question goes to the server, and the conversation shows in place of
+  // the docs page until the user closes it or opens a page.
+  const docTitles = $derived(
+    Object.fromEntries(data.pages.map(({ slug, label }) => [slug, label])),
+  );
+  const tones = { error: "danger", cancelled: "info" } as const;
+  const turns: ChatTurnView[] = $derived(
+    $helpChat.turns.map((turn) => ({
+      key: turn.key,
+      question: turn.question,
+      html: turn.html,
+      running: turn.status === "running",
+      activity: turn.activity,
+      message: turn.message,
+      tone: tones[turn.status as keyof typeof tones] ?? "warning",
+      sources: sourceLinks(turn.sources, docTitles),
+      rating: turn.rating,
+      noteSent: turn.noteSent,
+      canRate: turn.id !== "" && (turn.status === "answered" || turn.status === "gap"),
+    })),
+  );
+
+  function opened(key: number, source: string) {
+    helpChat.opened(key, source);
+    // A docs link leaves the conversation. The page must be back before the
+    // browser looks for the link's section.
+    if (source.startsWith("/docs/")) {
+      helpChat.close();
+      flushSync();
+    }
+  }
+
+  function copy(key: number) {
+    navigator.clipboard?.writeText(answerText(helpChat.copied(key))).catch(() => {});
+  }
+
+  // The model is ready sooner when it has seen the shared prompt.
+  $effect(() => {
+    if ($helpChatEnabled) helpChat.warm();
+  });
+  onDestroy(() => helpChat.close());
+
   // This column scrolls by itself, so a new page needs to start at the top.
   let content: HTMLDivElement | undefined = $state();
   afterNavigate(({ to }) => {
+    helpChat.close();
     if (content && !to?.url.hash) content.scrollTop = 0;
+  });
+
+  // The newest words of an answer stay in view while it arrives.
+  $effect(() => {
+    const last = $helpChat.turns.at(-1);
+    if (!content || !$helpChat.open || last?.status !== "running") return;
+    content.scrollTop = content.scrollHeight;
   });
 </script>
 
 <div class="flex h-full flex-col md:flex-row">
   <DSSideNav title="Help" {items} />
-  <DSInstantSearch label="Search Help" {search} bind:scroller={content}>
-    {@render children()}
+  <DSInstantSearch
+    label={$helpChatEnabled ? "Search Help, or ask a question" : "Search Help"}
+    {search}
+    actionLabel={$helpChatEnabled && !$helpChatBusy ? "Ask Help" : undefined}
+    onaction={(question) => helpChat.ask(question, page.url.pathname)}
+    bind:scroller={content}
+  >
+    {#if $helpChat.open}
+      <DSChat
+        {turns}
+        notice="Help writes these answers with AI, and they can be wrong. Turbo records your questions and the answers."
+        onrate={helpChat.rate}
+        onnote={helpChat.sendNote}
+        onopen={opened}
+        oncopy={copy}
+        onstop={helpChat.stop}
+        onclose={helpChat.close}
+      />
+    {:else}
+      {@render children()}
+    {/if}
   </DSInstantSearch>
 </div>
