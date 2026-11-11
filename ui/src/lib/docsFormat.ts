@@ -134,22 +134,50 @@ export function parseDoc(slug: string, source: string): DocPage {
   };
 }
 
-// Pages that Help lists under another page, with a shorter label.
+// The order of the pages in Help. src/docs/README.md has the rule:
+//   1. Start here.
+//   2. The pages of tasks, in the order of Turbo's main menu: Time, Purchase
+//      Orders, Expenses, Business. In Business, a proposal comes before the
+//      project request that it can lead to.
+//   3. The pages about you: your profile.
+//   4. Reference: the glossary, then What's new.
+// A test fails when a page is in neither this list nor childDocPages.
+export const docPageOrder = [
+  "start-here",
+  "time",
+  "purchase-orders",
+  "expenses",
+  "proposals",
+  "project-requests",
+  "profile",
+  "glossary",
+  "whats-new",
+];
+
+// Pages that Help lists under another page, with a shorter label. The children
+// of one page show in the order of this list.
 const childDocPages: Record<string, { parent: string; label: string }> = {
   "revise-a-purchase-order": { parent: "purchase-orders", label: "Revisions" },
+  "admin-profiles": { parent: "profile", label: "Admin profiles" },
 };
 
-// Help lists pages by title, with Start here first and What's new last. A child
-// page follows its parent.
+// Help lists pages in the order of docPageOrder. A child page follows its
+// parent. A page that the list lacks goes before What's new, by title.
 export function orderDocPages(pages: DocPage[]): DocPage[] {
-  const rank = ({ slug }: DocPage) => (slug === "start-here" ? 0 : slug === "whats-new" ? 2 : 1);
-  const byRank = (a: DocPage, b: DocPage) => rank(a) - rank(b) || a.title.localeCompare(b.title);
+  const unlisted = docPageOrder.indexOf("whats-new") - 0.5;
+  const place = ({ slug }: DocPage) => {
+    const at = docPageOrder.indexOf(slug);
+    return at < 0 ? unlisted : at;
+  };
+  const children = Object.keys(childDocPages);
   return pages
     .filter(({ slug }) => !childDocPages[slug])
-    .sort(byRank)
+    .sort((a, b) => place(a) - place(b) || a.title.localeCompare(b.title))
     .flatMap((page) => [
       page,
-      ...pages.filter(({ slug }) => childDocPages[slug]?.parent === page.slug).sort(byRank),
+      ...pages
+        .filter(({ slug }) => childDocPages[slug]?.parent === page.slug)
+        .sort((a, b) => children.indexOf(a.slug) - children.indexOf(b.slug)),
     ]);
 }
 

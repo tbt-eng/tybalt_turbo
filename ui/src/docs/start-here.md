@@ -4,7 +4,7 @@ Turbo shows only the features that you have access to, so your menu can differ f
 
 ## Choose your manager
 
-Select your email address under **Account**. Select your **Manager** and save. This person approves your time sheets and expenses.
+Select your email address under **Account**. Select your **Manager** and save. This person approves your time sheets and expenses. See [Profile](/docs/profile).
 
 ## Enter your time
 

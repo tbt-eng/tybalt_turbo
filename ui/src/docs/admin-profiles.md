@@ -1,6 +1,6 @@
 # Admin profiles
 
-An admin profile holds a person's payroll ID, default branch and time off balances. Admins, HR and staff who manage time off can open a person's admin profile. Other staff can't open one.
+An admin profile holds a person's payroll ID, default branch and time off balances. It is not the [profile](/docs/profile) that each person changes for themselves. Admins, HR and staff who manage time off can open a person's admin profile. Other staff can't open one.
 
 ## Find an admin profile
 

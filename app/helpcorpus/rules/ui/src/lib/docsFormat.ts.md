@@ -1,116 +1,116 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/docsFormat.ts","sha256":"19aca3c2d47a540eda5cbacc393eeb613295a8578889e8362d5f06bc46c5863f","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/docsFormat.ts","sha256":"b2c98b9457c8aa9d120fa60ee8d58bc8b66485011df60ae6a9a6402fe1b3331d","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/docsFormat.ts
 
-## Links in help render as styled links
+## Help links use the link style
 
-Lines 33-43
+Lines 33-39
 
-Asked as: link not clickable; markdown link in help; links look like plain text; styled link class
+Asked as: link looks wrong in help; help link style; anchor styling in docs; markdown link appearance
 
-Markdown links in help render as <a> tags with the "link" class. Detail text in flow steps and note text also support inline Markdown.
+Markdown links in Help docs render as anchors with the class "link" and the given address.
 
-## Commit links point to the GitHub repository
+## Commit links point to the tbt-eng tybalt_turbo repository
 
 Lines 45-49
 
-Asked as: commit link goes wrong; link to github commit; commit hash url; open commit on github
+Asked as: commit link in help; link to commit on github; help commit url; github commit address
 
-A commit link goes to https://github.com/tbt-eng/tybalt_turbo/commit/ followed by the commit hash (commitUrl).
+A commit link in Help is the address https://github.com/tbt-eng/tybalt_turbo/commit followed by a slash and the commit hash (commitUrl).
 
-## Section links use the slug of the title
+## Section ids come from the title text
 
 Lines 51-57
 
-Asked as: section anchor id; heading link anchor; section url slug; why does the anchor look wrong
+Asked as: section anchor id; heading id in help; why section link broken; help section id format
 
-Turbo makes a section id (id) from its title in lowercase. It removes apostrophes (' and ’) and turns each run of other characters into one hyphen. It then trims a hyphen at the start or end.
+A section id is its title lowercased, with apostrophes removed, other runs of non-alphanumeric characters turned into a single hyphen, and leading or trailing hyphens trimmed.
 
-## Word counts use words that start with a letter
+## Help word counts
 
 Lines 59-61
 
-Asked as: word count wrong; how words are counted; numbers not counted; page word count
+Asked as: help word count; how words are counted; numbers not counted as words; word count rule
 
-Turbo counts a word as a run that starts with a letter (A-Z or a-z) and continues with letters, digits, underscores, apostrophes or hyphens. Numbers alone are not counted. A section's count uses the raw text of its tokens; a page's count uses the whole source, including headings.
+Turbo counts a word as a run that starts with a letter and continues with letters, digits, underscores, apostrophes or hyphens. Numbers alone are not counted.
 
-## Each flow line needs Actor | Step | Detail
+## Flow lines need exactly three parts or a Note
 
-Lines 64-78
+Lines 63-80
 
-Asked as: flow line error; page refuses to load flow; flow line missing part; pipe separated line error
+Asked as: flow line error; flow parsing failed; actor step detail format; flow line needs three parts
 
-Each line in a flow block must have exactly three non-empty parts split by "|": actor, step and detail. Otherwise Turbo refuses the page with: A flow line needs "Actor | Step | Detail": <line>. Blank lines are skipped.
+In a flow block, each non-empty line must be a "Note:" line or have exactly three non-empty parts: "Actor | Step | Detail". Otherwise parsing fails with: A flow line needs "Actor | Step | Detail": <line>. Note lines become notes. Blank lines are skipped.
 
-## Flow lines starting with Note: become notes
-
-Lines 69-72
-
-Asked as: note line in flow; note: in flow block; flow note not a step; notes missing from flow
-
-A flow line that starts with "Note:" is not a step. Turbo adds the text after it to the flow's notes instead, and does not check it for three parts.
-
-## Flow code blocks become step lists
+## Flow code blocks become step lists in Help pages
 
 Lines 82-100
 
-Asked as: flow code block; steps not showing as list; code block turned into steps; empty lines in flow
+Asked as: flow code block not showing; flow block shows as code; empty space in help page; flow steps not rendering
 
-A code block marked "flow" in a help page becomes a flow of steps and notes. Other Markdown around it is rendered as normal HTML blocks. Blank space tokens are dropped.
+A code block marked "flow" in a doc becomes a flow block of steps and notes (parseFlow). Other content between flow blocks is rendered as Markdown HTML. Blank space tokens are dropped.
 
-## Help docs need a level-1 title heading
+## Only the first level-1 heading is the page title
 
-Lines 106-121
+Lines 102-120
 
-Asked as: help page won't load; doc missing title; no title heading error; page needs h1 title
+Asked as: two titles on help page; second h1 heading; which heading is page title; level one heading in body
 
-Turbo refuses to load a help page whose Markdown has no level-1 heading ("# Title"). The error says: Doc <slug> needs a "# Title" line. Only the first level-1 heading becomes the page title.
+The first level-1 heading in a doc is the page title. A later level-1 heading goes into the page body (the intro or the current section). Each level-2 heading starts a new section, and content before the first level-2 heading is the intro.
 
-## Level-2 headings split a help page into sections
+## Help page needs a level-1 title
 
-Lines 106-125
+Lines 107-121
 
-Asked as: help page sections split; section starts where; intro text before heading; second heading sections
+Asked as: help page missing title; doc parse error no title; help page won't load; missing h1 in doc
 
-Each level-2 heading ("##") starts a new section on a help page. Content before the first level-2 heading becomes the page intro. Later level-1 headings are not titles and go into the current section or the intro.
+A help page must have a level-1 heading ("# Title"). Without one, parsing fails with the error: Doc <slug> needs a "# Title" line. Only the first level-1 heading is the title.
 
-## What's new heading ends with its last commit
+## Help section headings can carry a commit reference
 
 Lines 109-116
 
-Asked as: what's new commit suffix; commit at end of heading; heading shows commit hash; to hash in title
+Asked as: commit hash in heading; what's new commit reference; heading with commit hash; section linked to commit
 
-A section heading that ends with "(to <hex>)" gives the section a commit (commit). The hex value must have 8 to 40 characters from 0-9 and a-f. Turbo removes this suffix from the section title. A heading that does not match keeps its full text and has no commit.
+A heading ending with "(to " plus 8 to 40 lowercase hex characters and ")" becomes a section whose title leaves out that suffix. The hex value is stored as the last commit that the What's new week covers. A heading without it keeps its full text and has no commit.
 
-## Revisions page is listed under Purchase orders
+## Section word count excludes the heading
 
-Lines 137-160
+Lines 131-133
 
-Asked as: revisions page under purchase orders; revise a purchase order missing; indented revisions link; revision page nav label
+Asked as: section word count wrong; word count excludes heading; page word count includes title; why word count differs
 
-The page "revise-a-purchase-order" is a child of "purchase-orders". Help shows it under that parent with the label "Revisions" and an indent in the side navigation. Other pages use their own title with no indent.
+A section's word count (words) counts the words in its body tokens only. The page word count counts the words of the whole source, headings included.
 
-## Help page order in the list
+## Help pages follow a fixed order
 
-Lines 142-154
+Lines 137-175
 
-Asked as: help page order wrong; pages sorted in help; start here not first; what's new at bottom
+Asked as: help page order; sidebar page order; where new help page appears; help pages sorted how
 
-Help lists Start here (slug start-here) first and What's new (whats-new) last. All other pages sit between them, sorted by title. A child page is not listed on its own but follows its parent.
+Help lists pages in this order: start-here, time, purchase-orders, expenses, proposals, project-requests, profile, glossary, whats-new. A page that is not in the list goes just before What's new. Unlisted pages are sorted by title.
+
+## Child pages show under their parent page
+
+Lines 157-188
+
+Asked as: revisions page under purchase orders; child page in side navigation; admin profiles under profile; sub page indent sidebar
+
+The page revise-a-purchase-order shows under Purchase Orders with the label "Revisions". The page admin-profiles shows under Profile with the label "Admin profiles". A child page follows its parent and is indented in the side navigation. Children appear in the order of the child list.
 
 ## Help popover links open in a new tab
 
-Lines 162-175
+Lines 190-203
 
-Asked as: help link opens new tab; popover link closes form; links in help popover; unsaved work lost clicking link
+Asked as: help link opens new tab; popover link closes form; help link losing form data; links in help popover
 
-In a help popover over a form, links open in a new tab (target="_blank", rel="noopener"), so staff do not lose unsaved work. This applies to HTML blocks and to flow step details and notes.
+In a help popover, every link opens in a new tab (target="_blank" rel="noopener") so unsaved form work is not lost. This applies to text blocks, flow step details and flow notes.
 
-## Help references need a page and a section
+## Help references find a section by page and id
 
-Lines 177-186
+Lines 205-214
 
-Asked as: help link to section broken; section reference not found; hash link shows nothing; page#section link empty
+Asked as: help reference not found; link to help section broken; hash anchor in help doc; page section reference missing
 
-A help reference such as "project-requests#approve-a-request" finds a page by slug and a section by id. If the page or the section does not exist, Turbo finds nothing (null). A reference with no "#" part finds no section.
+A help reference such as "project-requests#approve-a-request" finds the page by slug and the section by id. If the page or the section is missing, nothing is found. A reference with no "#" part also finds nothing.

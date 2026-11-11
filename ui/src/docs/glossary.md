@@ -15,7 +15,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
 | Payables staff        | Staff who can cancel, close or convert a purchase order.                                                                                            |                 |
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
-| Profile               | Your own details: your name, your manager and your default division. You change it under **Account**.                                               |                 |
+| Profile               | Your own details: your name, your manager and your default division. See [Profile](/docs/profile).                                                  |                 |
 | Project Authorization | The agreement that Turbo prints for signatures. You can use it as the authorization PDF, or use another document.                                   | PA              |
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |

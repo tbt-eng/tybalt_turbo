@@ -9,6 +9,7 @@ import {
   countWords,
   docNavEntry,
   findSection,
+  docPageOrder,
   orderDocPages,
   parseDoc,
   parseFlow,
@@ -175,17 +176,24 @@ test("the commit check warns only about user-facing changes without docs", () =>
   assert.equal(needsDocsWarning(["README.md"], "Words"), false);
 });
 
-test("Help lists Start here first and What's new last", () => {
-  const titles = orderDocPages(pages).map((page) => page.slug);
-  assert.equal(titles[0], "start-here");
-  assert.equal(titles.at(-1), "whats-new");
-  const middle = orderDocPages(pages)
-    .slice(1, -1)
-    .filter((page) => !docNavEntry(page).indent);
+// The rule for the order is in src/docs/README.md.
+test("Help lists the pages in the order of docPageOrder, and every page has a place", () => {
+  const top = orderDocPages(pages).filter((page) => !docNavEntry(page).indent);
   assert.deepEqual(
-    middle.map((page) => page.title),
-    middle.map((page) => page.title).sort((a, b) => a.localeCompare(b)),
+    top.map((page) => page.slug),
+    docPageOrder,
+    "add a new page to docPageOrder or to childDocPages in src/lib/docsFormat.ts",
   );
+  assert.equal(docPageOrder[0], "start-here");
+  assert.equal(docPageOrder.at(-1), "whats-new");
+  // The pages of tasks follow the order of the main menu.
+  const order = (slug: string) => docPageOrder.indexOf(slug);
+  assert.ok(order("time") < order("purchase-orders"));
+  assert.ok(order("purchase-orders") < order("expenses"));
+  assert.ok(order("expenses") < order("proposals"));
+  assert.ok(order("proposals") < order("project-requests"));
+  assert.ok(order("project-requests") < order("profile"));
+  assert.ok(order("profile") < order("glossary"));
 });
 
 test("Help lists every page, with a child page after its parent", () => {
@@ -193,6 +201,8 @@ test("Help lists every page, with a child page after its parent", () => {
   assert.equal(ordered.length, pages.length);
   const slugs = ordered.map((page) => page.slug);
   assert.equal(slugs.indexOf("revise-a-purchase-order"), slugs.indexOf("purchase-orders") + 1);
+  assert.equal(slugs.indexOf("admin-profiles"), slugs.indexOf("profile") + 1);
+  assert.equal(docNavEntry({ slug: "admin-profiles", title: "Admin profiles" }).indent, true);
   assert.deepEqual(docNavEntry({ slug: "revise-a-purchase-order", title: "Revise" }), {
     slug: "revise-a-purchase-order",
     label: "Revisions",

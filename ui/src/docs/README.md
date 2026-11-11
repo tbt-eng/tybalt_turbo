@@ -20,9 +20,20 @@ Write only what a person does and what happens next. Add a rule only if staff ne
 
 Don't mention uncommitting a record, or requests to uncommit. The docs treat a commit as final.
 
+## The order of the pages
+
+Help lists the pages in the order of `docPageOrder` in `src/lib/docsFormat.ts`. Add each new page to that list, by this rule:
+
+1. **Start here** is first.
+2. The pages of tasks follow, in the order of Turbo's main menu: Time, Purchase Orders, Expenses, Business. A person finds a page where they find its screen. In Business, a proposal comes before the project request that it can lead to.
+3. The pages about you follow: your profile.
+4. Reference is last: the glossary, then What's new.
+
+`tests/docs.test.ts` fails when a page is not in the list.
+
 ## Pages under other pages
 
-Help lists pages by title. To list a page under another page, add it to `childDocPages` in `src/lib/docsFormat.ts`, with a short label. Its URL and title don't change.
+To list a page under another page, add it to `childDocPages` in `src/lib/docsFormat.ts`, with a short label, and leave it out of `docPageOrder`. Its URL and title don't change. Use this for a page that few people need, such as **Admin profiles** under **Profile**.
 
 ## Style
 
