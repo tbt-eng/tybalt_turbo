@@ -1,204 +1,188 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/validate_expenses.go","sha256":"274d50c86a59c72035a591a63a7a0c51ff889df7ec8299fedb4ae124e2fa5dee","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/validate_expenses.go","sha256":"3b949dce54ca30270d01ea681a12fa2b14ba676a21fb3807d85f75f71f03c183","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/validate_expenses.go
 
-## Purchase order date cannot be read
+## Unparseable PO dates stop expense validation
 
-Lines 36-63
+Lines 37-64
 
-Asked as: cannot read PO date; error parsing purchase order date; PO end date invalid; purchase order date broken; recurring PO end date error
+Asked as: purchase order date unreadable; error parsing PO date; recurring PO end date broken; expense won't validate bad PO date
 
-If the date of the linked purchase order cannot be parsed, Turbo refuses with "error parsing purchase order date". For a Recurring PO whose end date cannot be parsed, it refuses with "error parsing purchase order end date".
+Turbo fails the expense with 'error parsing purchase order date' if the PO date cannot be read. For a Recurring PO it fails with 'error parsing purchase order end date' if the end date cannot be read.
 
-## Excess limit for One-Time and Recurring POs is computed from PO total and currency
+## Expense currency must match its purchase order currency
 
-Lines 65-69
+Lines 66-84
 
-Asked as: how is PO limit calculated; expense allowed amount on PO; PO currency limit; excess allowance on purchase order; what can I claim against PO
+Asked as: expense currency differs from PO; wrong currency on purchase order; PO currency mismatch; currency doesn't match the PO
 
-For a purchase order, Turbo works out the allowed expense total from the PO total, the PO currency and the excess configuration (GetPOExpenseExcessConfig, CalculatePOExpenseTotalLimit). That limit is used in the One-Time and Recurring total check.
+When an expense is linked to a purchase order, Turbo compares the effective currency of the expense with that of the PO. If they differ, it refuses the expense with 'currency must match purchase order currency'. This check runs before the PO total checks.
 
-## Cumulative PO refuses expense that overflows the PO total
+## Cumulative PO overflow refuses the expense
 
-Lines 71-107
+Lines 92-129
 
-Asked as: cumulative PO over total; expenses exceed PO total; PO already used up; too much spent on cumulative PO; overflow on purchase order
+Asked as: PO is full; cumulative PO over limit; expenses exceed PO total; PO already used up
 
-When an expense is against a Cumulative purchase order, Turbo adds the expense total to the existing expenses on that PO, compared in whole cents. If the sum is more than the PO total, Turbo refuses with "cumulative expenses exceed purchase order total" (cumulative_po_overflow). The error gives the PO, its number, its total and the overflow amount. An expense that exactly fills the PO is accepted.
+For a Cumulative purchase order, Turbo adds the existing expenses total and this expense's total, compared in whole cents. If the sum is above the PO total, it refuses the expense with 'cumulative expenses exceed purchase order total'. The error carries the PO, its number, its total and the overflow amount. An expense that exactly fills the PO is accepted.
 
-## Cumulative PO overflow compares whole cents
+## PO required at or above the no-PO limit
 
-Lines 78-84
+Lines 141-166
 
-Asked as: expense exactly fills PO; rounding error PO total; cents rounding purchase order; PO total exact match refused; float rounding expense
+Asked as: need a PO for this amount; no PO over limit; expense too big without purchase order; PO required above threshold
 
-Turbo checks the Cumulative PO overflow in whole cents, so an expense that exactly fills the PO total is accepted. A float rounding error does not cause a refusal.
+If LIMIT_NON_PO_AMOUNTS is on, an expense with no PO is refused when its comparable total is at or above the no-PO limit. The message is 'a purchase order is required for expenses of $X or more'. The equal value is refused. The comparable total is the settled total if above 0, else the total, or an indicative home-currency amount for a foreign currency. Mileage, FuelCard, PersonalReimbursement and Allowance are exempt. OnAccount is exempt when the total limit is bypassed.
 
-## Currency must exist
+## Unknown currency is refused
 
-Lines 121-133
+Lines 142-154
 
-Asked as: currency not found; unknown currency on expense; wrong currency code; currency missing from list; invalid currency expense
+Asked as: currency not found; unknown currency on expense; can't find expense currency; invalid currency code
 
-If the expense currency cannot be found, Turbo refuses with "referenced currency not found" (not_found on currency).
+If the expense currency cannot be found, Turbo refuses with 'referenced currency not found'.
 
-## PO required for expenses at or above the no-PO limit
+## Attachment required for most payment types
 
-Lines 135-145
+Lines 168-190
 
-Asked as: need PO for big expense; no PO expense too large; purchase order required amount; expense over no-PO limit; why must I have a PO
+Asked as: receipt missing; no attachment on expense; upload receipt required; can't submit without receipt
 
-When LIMIT_NON_PO_AMOUNTS is on, an expense with no PO is refused if its comparable total is at or above the no-PO limit. The refusal reads "a purchase order is required for expenses of $X or more". Mileage, FuelCard, PersonalReimbursement and Allowance are exempt. An OnAccount expense is also exempt when byPassTotalLimit is set. The comparable total is the settled total if it is above 0, else the total for home currency, else an indicative home-currency amount. This message replaces the other total errors.
+Every payment type except Allowance, Mileage and PersonalReimbursement needs an attachment, or Turbo refuses with 'attachment is required'. Any one of these satisfies it: an attachment document, a source expense, a newly uploaded file, or a missing-attachment reason. The missing-attachment reason counts only on an existing expense, not a new one.
 
-## Attachment required except for some payment types
+## Expense with a PO needs the PO record
 
-Lines 147-169
+Lines 192-204
 
-Asked as: receipt missing from expense; upload receipt required; no attachment on expense; cannot submit without receipt; missing receipt reason
+Asked as: PO record missing; expense linked to PO but no PO; purchase order not loaded; can't validate against PO
 
-Every expense needs an attachment, except Allowance, Mileage and PersonalReimbursement. Turbo accepts an attachment document, a newly uploaded file, a source expense (source_expense), or a missing-attachment reason (attachment_missing_reason). A missing-attachment reason counts only on an existing expense, not a new one. Otherwise Turbo refuses with "attachment is required".
+If an expense has a purchase order but the PO record is not supplied, Turbo cannot validate it. It refuses with 'an expense against a purchase_orders record cannot be validated without a corresponding purchase order record'.
 
-## Expense with a PO must have its PO record
+## Expense job must match its PO job
 
-Lines 171-183
+Lines 206-222
 
-Asked as: PO record missing; expense linked to deleted PO; cannot validate PO expense; purchase order not loaded; PO link broken
+Asked as: job differs from PO job; expense job wrong for PO; PO job mismatch; different job than purchase order
 
-An expense that names a purchase order cannot be validated without the PO record. Turbo refuses with "an expense against a purchase_orders record cannot be validated without a corresponding purchase order record".
+An expense linked to a purchase order must have the same job as the PO. Both may be empty. Otherwise Turbo refuses with 'job must match purchase order job'.
 
-## Expense job and currency must match its PO
+## Expense kind is required and must exist
 
-Lines 185-216
+Lines 224-260
 
-Asked as: expense job differs from PO; wrong job on expense; expense currency different from PO; PO job mismatch; expense does not match PO
+Asked as: no expense kind; missing expenditure type; invalid kind on expense; expense type not recognised
 
-An expense linked to a purchase order must have the same job as the PO; both may be empty. Otherwise Turbo refuses with "job must match purchase order job". The expense currency must also equal the PO currency, otherwise Turbo refuses with "currency must match purchase order currency".
-
-## Expenditure kind required, with legacy fallback
-
-Lines 218-254
-
-Asked as: no expense type chosen; missing expenditure type; which kind of expense; kind field empty; unknown expense type
-
-An expense needs an expenditure kind (kind). An existing expense whose original record also has no kind gets a default kind, chosen by whether it has a job. A new expense with no kind is refused with "kind is required". An unknown kind is refused with "invalid expenditure kind".
+A new expense must have a kind (expenditure kind), or Turbo refuses with 'kind is required'. An existing legacy expense with no kind gets a default kind based on whether it has a job. A kind that does not exist is refused with 'invalid expenditure kind'.
 
 ## Expense date rules
 
-Lines 257-269
+Lines 263-275
 
-Asked as: expense date before PO; wrong date on expense; date after PO ends; bad expense date format; expense date outside PO dates
+Asked as: expense date before PO date; date outside PO window; wrong expense date; date after PO end
 
-The date is required ("date is required") and must be a valid YYYY-MM-DD date ("must be a valid date"). With a PO, the date must not be before the PO date. For a Recurring PO, the date must also not be after the PO end date. Exact error text comes from DateStringLimit, which is in another file.
+The date is required and must be a valid date (YYYY-MM-DD). With a PO, it must be on or after the PO date. With a Recurring PO, it must also be on or before the PO end date.
 
-## Description required except for allowances
+## Description rules
 
-Lines 270-276
+Lines 276-282
 
-Asked as: description too short; empty description on expense; what to write as description; description missing error; expense description required
+Asked as: missing description; description too short; no description entered; expense note blank
 
-For every payment type except Allowance, the description is required ("required for non-allowance expenses") and must be at least 4 characters ("must be at least 4 characters").
+Except for Allowance expenses, the description is required and must be at least 4 characters. The messages are 'required for non-allowance expenses' and 'must be at least 4 characters'.
 
-## Vendor required except allowance, personal reimbursement, mileage
+## Vendor required except some payment types
 
-Lines 277-283
+Lines 283-289
 
-Asked as: no supplier on expense; merchant field empty; vendor blank error; who was paid missing; expense needs a supplier
+Asked as: no vendor on expense; supplier missing; vendor blank; who was paid field empty
 
-The vendor is required ("required for this expense type") unless the payment type is Allowance, PersonalReimbursement or Mileage.
+The vendor is required ('required for this expense type') unless the payment type is Allowance, PersonalReimbursement or Mileage.
 
-## Credit card last 4 digits
+## Credit card last 4 digits rules
 
-Lines 284-292
+Lines 290-298
 
-Asked as: card last digits; last four card numbers; credit card number on expense; card digits wrong; cc digits not allowed
+Asked as: card digits wrong; last four card numbers; credit card 4 digits; card number field error
 
-A CorporateCreditCard expense requires cc_last_4_digits ("required for corporate credit card expenses") of exactly 4 characters ("must be 4 digits"). For any other payment type the field must be empty, otherwise Turbo refuses with "cc_last_4_digits is not applicable for non-corporate credit card expenses".
+For CorporateCreditCard expenses, cc_last_4_digits is required and must be exactly 4 digits ('must be 4 digits'). For all other payment types it must be empty ('cc_last_4_digits is not applicable for non-corporate credit card expenses').
 
-## Expense total must be positive
+## Total must be positive and within PO limit
 
-Lines 293-296
+Lines 299-316
 
-Asked as: zero amount expense; negative expense amount; amount too small; expense cannot be free; total must be above zero
+Asked as: amount over PO limit; expense more than PO; zero amount expense; total too high for PO
 
-The expense total must be at least 0.01. Otherwise Turbo refuses with "must be greater than 0".
-
-## One-Time and Recurring PO excess limit on expense total
-
-Lines 297-304
-
-Asked as: expense over PO amount; too big for purchase order; PO excess limit exceeded; expense more than PO allows; over PO by too much
-
-For an expense on a One-Time or Recurring PO, Turbo compares the total in cents with a limit from the PO total, the PO currency and the excess configuration (GetPOExpenseExcessConfig). An expense above that limit is refused with "expense exceeds purchase order total of ... by more than ...". An amount equal to the limit passes. Cumulative POs use the overflow check instead.
+The expense total must be at least 0.01 ('must be greater than 0'). For a One-Time or Recurring PO, a total above the PO's limit is refused with 'expense exceeds purchase order total of X by more than Y'. The limit comes from the PO total plus the configured excess allowance. Amounts are compared in cents.
 
 ## Mileage requires distance
 
-Lines 311-316
+Lines 317-322
 
-Asked as: mileage miles missing; no distance entered; how many miles; distance needed for claim; mileage field empty
+Asked as: mileage distance missing; no miles entered; mileage claim needs miles; distance blank on mileage
 
-A Mileage expense requires a distance ("required for mileage expenses").
+A Mileage expense must have a distance ('required for mileage expenses').
 
 ## PO required for expenses with a job
 
-Lines 317-322
-
-Asked as: job expense without PO; need PO for job; job expense no order; PO missing on job expense; why does job need PO
-
-An expense with a job must have a purchase order ("required for all expenses with a job"), except for Mileage, FuelCard, PersonalReimbursement and Allowance.
-
-## Allowance requires allowance types
-
 Lines 323-328
 
-Asked as: allowance type missing; which allowance to pick; allowance kind blank; no allowance selected; pick allowance category
+Asked as: job needs PO; expense with job no purchase order; job expense missing PO; PO needed for job
 
-An Allowance expense requires allowance_types ("required for allowance expenses").
+An expense with a job must have a purchase order ('required for all expenses with a job'). Mileage, FuelCard, PersonalReimbursement and Allowance are exempt.
 
-## Expense without a PO is refused at or above the no-PO limit
+## Allowance expenses need allowance types
 
-Lines 331-343
+Lines 329-334
 
-Asked as: expense with no PO too high; no order expense over limit; cannot claim without order; non-PO spending limit; large expense without purchase order
+Asked as: allowance types missing; no allowance selected; allowance needs type; pick allowance category
 
-Turbo refuses an expense with no purchase order when its comparable total is at or above the no-PO limit (GetNoPOExpenseLimit). The message is "a purchase order is required for expenses of $X or more". The comparison includes the equal value. The check runs only when LIMIT_NON_PO_AMOUNTS is on. Mileage, fuel card, personal reimbursement and allowance expenses are exempt.
+An Allowance expense must list its allowance types ('required for allowance expenses').
 
-## On Account expenses can bypass the no-PO limit
+## Expense without PO is refused at or above the no-PO limit
 
-Lines 331-338
+Lines 337-349
 
-Asked as: on account skip limit; bypass no-PO limit; on account expense too large; skip purchase order requirement; OnAccount limit override
+Asked as: no PO over limit; expense over no-PO threshold; purchase order needed above limit; large expense without PO
 
-The no-PO limit check is skipped when the caller sets the bypass (byPassTotalLimit) and the payment type is OnAccount. Other payment types still face the limit.
+An expense with no purchase order is refused when its comparable total is equal to or greater than the no-PO expense limit. The message is "a purchase order is required for expenses of $X or more", where X is the limit. Mileage, fuel card, personal reimbursement and allowance expenses are exempt. An on-account expense is exempt when the total-limit bypass is on (byPassTotalLimit). The check runs only when LIMIT_NON_PO_AMOUNTS is on.
 
-## Foreign-currency out-of-pocket expense needs a settled total
+## No-PO limit message replaces other total errors
 
-Lines 345-359
+Lines 345-348
 
-Asked as: foreign currency settled amount; settled total zero; card charged in other currency; exchange amount doesn't match; out of pocket foreign expense
+Asked as: total error hidden; only PO message shown; wrong total error shown; amount message replaced
 
-For an Expense payment type in a non-home currency, the settled total must be greater than 0 ("settled total must be greater than 0"). It must also be within a tolerance of the total, otherwise Turbo refuses with a tolerance message.
+When the no-PO limit check refuses an expense, its message replaces any other error on the total. The person sees only the "a purchase order is required" message for the total, even if the total also failed another rule.
 
-## Vendor must exist and be Active
+## Foreign-currency out-of-pocket expenses need settled total
 
-Lines 361-369
+Lines 351-365
 
-Asked as: supplier inactive; vendor not active; unknown supplier id; vendor disabled; pick different vendor
+Asked as: settled total missing; foreign currency expense settled amount; out of pocket settled total; settled amount tolerance
 
-A vendor on an expense must exist ("invalid vendor reference") and have status Active ("vendor must be active").
+For a payment type of Expense in a non-home currency, the settled total must be greater than 0 ('settled total must be greater than 0'). It must also be within tolerance of the total, or Turbo refuses with a tolerance message.
 
-## Category needs a job and must belong to it
+## Vendor must exist and be active
 
-Lines 371-383
+Lines 367-375
 
-Asked as: category not allowed on job; expense category needs job; wrong category for job; category blank without job; category not in job
+Asked as: vendor not found; supplier inactive; vendor not active; bad vendor selected
 
-A category on an expense requires a job ("category requires a job"). The category must exist ("invalid category reference") and belong to the expense's job ("category must belong to the selected job").
+A vendor that does not exist is refused with 'invalid vendor reference'. A vendor whose status is not Active is refused with 'vendor must be active'.
 
-## Job must exist and be Active; division must be allocated
+## Category must belong to the expense's job
 
-Lines 385-405
+Lines 377-389
 
-Asked as: job is inactive; division not on job; job not found on expense; division not allocated; cannot pick this job
+Asked as: category wrong for job; category not on job; no category for job; category doesn't match job
 
-The job on an expense must exist ("invalid job reference") and have status Active ("Job status must be Active"). Turbo also checks that the division is allocated to the job, when the expense is new or its job or division changes (shouldValidateJobDivisionAllocationOnRecord). Other updates to legacy expenses skip this check.
+A category needs a job ('category requires a job'). It must exist ('invalid category reference') and belong to the selected job ('category must belong to the selected job').
+
+## Job must exist, be Active and allocate the division
+
+Lines 391-411
+
+Asked as: job inactive; job not found; division not allocated to job; job closed on expense
+
+The job must exist ('invalid job reference') and have status Active ('Job status must be Active'). On create, or when the job or division changes, the division must also be allocated to the job. Other updates to older expenses skip the allocation check.

@@ -29,6 +29,7 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 		poTotalText      string
 		parseErr         error
 	)
+	hasPurchaseOrder := expenseRecord.GetString("purchase_order") != ""
 	if poRecord != nil {
 		poRecordProvided = true
 		poTotal = poRecord.GetFloat("total")
@@ -62,13 +63,34 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 			}
 		}
 
+		// The expense must be in the currency of its purchase order. This check
+		// must come first: the checks after it add and compare amounts of the
+		// expense and the PO, and they assume one currency.
+		if hasPurchaseOrder {
+			poCurrencyCode := utilities.EffectiveCurrencyCode(app, poRecord.GetString("currency"))
+			expenseCurrencyCode := utilities.EffectiveCurrencyCode(app, expenseRecord.GetString("currency"))
+			if expenseCurrencyCode != poCurrencyCode {
+				return &errs.HookError{
+					Status:  http.StatusBadRequest,
+					Message: "hook error when validating expense",
+					Data: map[string]errs.CodeError{
+						"currency": {
+							Code:    "must_match_purchase_order",
+							Message: "currency must match purchase order currency",
+						},
+					},
+				}
+			}
+		}
+
 		excessCfg := utilities.GetPOExpenseExcessConfig(app)
 		limitResult := utilities.CalculatePOExpenseTotalLimit(poTotal, utilities.GetPOExpenseCurrency(app, poRecord), excessCfg)
 		totalLimitCents = limitResult.TotalLimitCents
 		excessErrorText = limitResult.ExcessText
 		poTotalText = limitResult.POTotalText
 
-		// For Cumulative POs, we check for overflow before other validations.
+		// For Cumulative POs, we check for overflow before other validations
+		// (but after the currency check above).
 		// This is done here (rather than in the "total" validation) because:
 		// 1. It allows early detection and a specific, actionable error for the child PO workflow
 		// 2. We can provide rich error data (overflow amount, parent PO) that the validation framework doesn't support
@@ -108,7 +130,6 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 	}
 
 	hasJob := expenseRecord.GetString("job") != ""
-	hasPurchaseOrder := expenseRecord.GetString("purchase_order") != ""
 	paymentType := expenseRecord.GetString("payment_type")
 	isAllowance := paymentType == "Allowance"
 	isPersonalReimbursement := paymentType == "PersonalReimbursement"
@@ -194,21 +215,6 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 					"job": {
 						Code:    "must_match_purchase_order",
 						Message: "job must match purchase order job",
-					},
-				},
-			}
-		}
-
-		poCurrencyCode := utilities.EffectiveCurrencyCode(app, poRecord.GetString("currency"))
-		expenseCurrencyCode := utilities.EffectiveCurrencyCode(app, expenseRecord.GetString("currency"))
-		if expenseCurrencyCode != poCurrencyCode {
-			return &errs.HookError{
-				Status:  http.StatusBadRequest,
-				Message: "hook error when validating expense",
-				Data: map[string]errs.CodeError{
-					"currency": {
-						Code:    "must_match_purchase_order",
-						Message: "currency must match purchase order currency",
 					},
 				},
 			}

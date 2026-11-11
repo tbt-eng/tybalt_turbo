@@ -646,6 +646,108 @@ func TestValidateExpense_CurrencyMustMatchPurchaseOrder(t *testing.T) {
 	}
 }
 
+// The amount checks add and compare the expense total with PO amounts, so an
+// expense in another currency must get the currency error, never an amount
+// error built from a sum of two currencies (issue 185).
+func TestValidateExpense_CurrencyCheckComesBeforeAmountChecks(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	if err := utilities.ValidateExpenditureKindsConfig(app); err != nil {
+		t.Fatalf("failed to load expenditure kinds config: %v", err)
+	}
+
+	usdCurrency, err := app.FindFirstRecordByFilter("currencies", "code = {:code}", map[string]any{"code": "USD"})
+	if err != nil {
+		t.Fatalf("failed to load USD currency: %v", err)
+	}
+	cadCurrency, err := app.FindFirstRecordByFilter("currencies", "code = {:code}", map[string]any{"code": "CAD"})
+	if err != nil {
+		t.Fatalf("failed to load CAD currency: %v", err)
+	}
+
+	tests := map[string]struct {
+		poType          string
+		poTotal         float64
+		existingTotal   float64
+		expenseTotal    float64
+		expenseCurrency string
+		wantField       string
+		wantCode        string
+		wantOverflow    float64
+	}{
+		// 800 + 300 is over the 1000 total, but the amounts are not in one currency.
+		"cumulative_other_currency_over_total": {
+			poType: "Cumulative", poTotal: 1000, existingTotal: 800, expenseTotal: 300,
+			expenseCurrency: cadCurrency.Id, wantField: "currency", wantCode: "must_match_purchase_order",
+		},
+		"cumulative_other_currency_within_total": {
+			poType: "Cumulative", poTotal: 1000, existingTotal: 100, expenseTotal: 100,
+			expenseCurrency: cadCurrency.Id, wantField: "currency", wantCode: "must_match_purchase_order",
+		},
+		// 2000 is over the One-Time limit of 1050.
+		"one_time_other_currency_over_limit": {
+			poType: "One-Time", poTotal: 1000, expenseTotal: 2000,
+			expenseCurrency: cadCurrency.Id, wantField: "currency", wantCode: "must_match_purchase_order",
+		},
+		// In the PO's own foreign currency the overflow check still answers.
+		"cumulative_same_currency_over_total": {
+			poType: "Cumulative", poTotal: 1000, existingTotal: 800, expenseTotal: 300,
+			expenseCurrency: usdCurrency.Id, wantField: "total", wantCode: "cumulative_po_overflow", wantOverflow: 100,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			po := buildRecordFromMap(poCollection, map[string]any{
+				"id":       "recordId",
+				"date":     "2024-01-22",
+				"total":    tt.poTotal,
+				"type":     tt.poType,
+				"currency": usdCurrency.Id,
+				"job":      "mg0sp9iyjzo4zw9",
+			})
+			record := buildRecordFromMap(expensesCollection, map[string]any{
+				"allowance_types": []string{},
+				"date":            "2024-01-22",
+				"description":     "Currency order test",
+				"job":             "mg0sp9iyjzo4zw9",
+				"payment_type":    "OnAccount",
+				"purchase_order":  "recordId",
+				"total":           tt.expenseTotal,
+				"currency":        tt.expenseCurrency,
+				"vendor":          "2zqxtsmymf670ha",
+				"attachment":      "dummy.pdf",
+			})
+
+			err := validateExpense(app, record, po, tt.existingTotal, false)
+			if err == nil {
+				t.Fatal("expected validation to fail")
+			}
+			hookErr, ok := err.(*errs.HookError)
+			if !ok {
+				t.Fatalf("expected HookError, got %T: %v", err, err)
+			}
+			fieldErr, ok := hookErr.Data[tt.wantField]
+			if !ok || fieldErr.Code != tt.wantCode {
+				t.Fatalf("expected %s on %s, got %+v", tt.wantCode, tt.wantField, hookErr.Data)
+			}
+			if tt.wantField == "currency" {
+				if _, ok := hookErr.Data["total"]; ok {
+					t.Fatalf("expected no total error with the currency error, got %+v", hookErr.Data)
+				}
+				return
+			}
+			data, ok := fieldErr.Data.(map[string]any)
+			if !ok {
+				t.Fatalf("expected overflow data map, got %T", fieldErr.Data)
+			}
+			if overflow := data["overflow_amount"]; overflow != tt.wantOverflow {
+				t.Fatalf("expected overflow_amount %v, got %v", tt.wantOverflow, overflow)
+			}
+		})
+	}
+}
+
 func TestValidateExpense_ForeignExpenseSettlementTolerance(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()

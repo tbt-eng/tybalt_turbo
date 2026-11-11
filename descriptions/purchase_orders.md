@@ -507,6 +507,7 @@ When saving an expense linked to a PO, validation behavior depends on PO type.
 Baseline gate:
 
 - The referenced PO must be `Active` or save fails.
+- The expense must be in the PO's currency, or save fails with code `must_match_purchase_order` on `currency`. This is checked before the amount checks below, because they add and compare amounts in one currency.
 
 ### One-Time and Recurring
 
