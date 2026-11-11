@@ -5,6 +5,7 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import ShareModal from "$lib/components/ShareModal.svelte";
   import TimesheetSharedBadge from "$lib/components/TimesheetSharedBadge.svelte";
+  import TimesheetRejection from "$lib/components/TimesheetRejection.svelte";
   import { pb } from "$lib/pocketbase";
   import { canShareTimesheet } from "$lib/timesheets/actions";
   import type { PageData } from "./$types";
@@ -48,7 +49,14 @@
     </span>
   {/snippet}
   {#snippet line2(tally: TimeSheetTallyQueryRow)}
-    {#if tally.approved !== ""}
+    {#if tally.rejected !== ""}
+      <!-- Rejected after approval: show the rejection, not the approval. -->
+      <TimesheetRejection
+        rejected={tally.rejected}
+        rejectorName={tally.rejector_name}
+        reason={tally.rejection_reason}
+      />
+    {:else if tally.approved !== ""}
       <div class="flex items-center gap-1">
         <DsLabel color="green">Approved</DsLabel>
         <span>on {shortDate(tally.approved, true)}</span>

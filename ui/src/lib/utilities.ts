@@ -195,6 +195,7 @@ export interface TimeSheetTallyQueryRow {
   committed: string;
   approver_name: string;
   committer_name: string;
+  rejector_name: string;
 }
 
 export interface TimeEntriesSummary {

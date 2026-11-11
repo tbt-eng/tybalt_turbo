@@ -4,6 +4,7 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import ShareModal from "$lib/components/ShareModal.svelte";
   import TimesheetSharedBadge from "$lib/components/TimesheetSharedBadge.svelte";
+  import TimesheetRejection from "$lib/components/TimesheetRejection.svelte";
   import { canShareTimesheet } from "$lib/timesheets/actions";
   import { pb } from "$lib/pocketbase";
   import type { PageData } from "./$types";
@@ -63,6 +64,11 @@
     </span>
   {/snippet}
   {#snippet line2(tally: TimeSheetTallyQueryRow)}
+    <TimesheetRejection
+      rejected={tally.rejected}
+      rejectorName={tally.rejector_name}
+      reason={tally.rejection_reason}
+    />
     {#if tally.committed !== ""}
       <span>Committed on {shortDate(tally.committed, true)} by {tally.committer_name}</span>
     {/if}

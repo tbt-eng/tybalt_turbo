@@ -4,7 +4,7 @@ These lists are under **Time Management**. Your menu shows a list only if you ca
 
 ## See the time sheets you approved
 
-Managers see **Approved By Me**. It lists every time sheet that you approved, with its hours. A committed time sheet shows **Committed**.
+Managers see **Approved By Me**. It lists the time sheets that you approved. A committed time sheet shows **Committed**. A **Rejected** time sheet went back to its owner, who recalls, edits and submits it again.
 
 Select the week-ending date to open a time sheet. To take back an approval, select **Reject** there. You can't reject a committed time sheet.
 

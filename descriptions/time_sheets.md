@@ -36,3 +36,7 @@ Unlike the current purchase-order and expense list policy, timesheets are not fu
 Work on a person's time sheet may have been done under another manager. The person's own manager approves the time sheet and shares it so that the other manager can see the hours worked for them. The other manager finds it under Shared with Me and can read it, but can't approve or reject it.
 
 Only the approver of the time sheet can share it. The create and delete rules of `time_sheet_reviewers` allow only the approver to add or remove a viewer, and they have no state condition, so a committed or rejected time sheet can still be shared. The UI shows the share control when `canShareTimesheet` (`ui/src/lib/timesheets/actions.ts`) is true: the signed-in person is the approver and the time sheet is submitted, because a viewer can open only a submitted time sheet. Adding a viewer queues a `timesheet_shared` notification to that viewer (`app/hooks/hooks.go`). `ShareModal.svelte` adds and removes viewers.
+
+## Rejected time sheets in lists
+
+Pending My Approval, Approved By Me and Shared with Me show a rejected time sheet with `TimesheetRejection.svelte`: a red Rejected label, the rejector's name (`rejector_name` from `app/routes/tallies.sql`), the date and the reason. A time sheet rejected after approval keeps its `approved` value, so it stays on Approved By Me, with the rejection in place of the green Approved label, until its owner recalls it. Recall deletes the time sheet (`app/routes/unbundle_timesheet.go`).

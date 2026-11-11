@@ -49,6 +49,7 @@ type TimeSheetTally struct {
 	Committed           string                    `json:"committed"`
 	ApproverName        string                    `json:"approver_name"`
 	CommitterName       string                    `json:"committer_name"`
+	RejectorName        string                    `json:"rejector_name"`
 }
 
 // createTimesheetTalliesHandler returns a handler that creates a tally of the

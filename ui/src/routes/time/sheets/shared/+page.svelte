@@ -2,6 +2,7 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
+  import TimesheetRejection from "$lib/components/TimesheetRejection.svelte";
   import { shortDate } from "$lib/utilities";
   import type { TimeSheetTallyQueryRow } from "$lib/utilities";
   import type { PageData } from "./$types";
@@ -33,6 +34,13 @@
   {/snippet}
   {#snippet line1(tally: TimeSheetTallyQueryRow)}
     <span>{tally.non_work_total_hours} hours off</span>
+  {/snippet}
+  {#snippet line2(tally: TimeSheetTallyQueryRow)}
+    <TimesheetRejection
+      rejected={tally.rejected}
+      rejectorName={tally.rejector_name}
+      reason={tally.rejection_reason}
+    />
   {/snippet}
   {#snippet actions({ id }: TimeSheetTallyQueryRow)}
     <DsActionButton
