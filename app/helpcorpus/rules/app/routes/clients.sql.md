@@ -1,68 +1,52 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/clients.sql","sha256":"f9291c04005e072647410a23f1ee5cab0e5068c47445cb90e9523c016353b756","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/clients.sql","sha256":"de00d32dee2429cbc98cfc476331ce59cff2c4ff8b88bf0c91bfbcdf6498dc16","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/clients.sql
 
-## Referenced flag marks clients that cannot be deleted
+## Referenced flag shows when a client cannot be deleted
 
-Lines 2-4
+Lines 2-54
 
-Asked as: cannot delete client; delete client refused; client in use; why can't I delete a client; client still referenced
+Asked as: cannot delete client; client delete refused; why can't I delete client; client is in use; greyed out delete client
 
-A client is referenced (referenced) when any job, job request, invoicing profile or note uses it. A job or job request uses a client as its client or as its job owner. The comment says the client delete rule and delete hook refuse to delete referenced clients. This file does not show that refusal itself.
+A client is referenced (referenced) when any job, project request (job request), invoicing profile, client note or client invoice uses it. A job or project request uses it as its client or as its job owner. The clients delete rule and delete hook refuse to delete a referenced client, so the UI uses this flag to show that a delete will be refused.
 
-## Client list shows alias as empty text when none
+## Client list shows contacts for each client
+
+Lines 9-31
+
+Asked as: client contacts list; see client contacts; contacts missing for client; client's people list; show contacts per client
+
+The client list returns each client with its id, name and alias. It adds a list of the client's contacts (contacts_json) with id, given name, surname and email. A client with no contacts gets an empty list.
+
+## Client alias is blank when not set
 
 Lines 12-12
 
-Asked as: client alias blank; empty alias on client; no alias showing; client alias missing
+Asked as: client has no alias; blank client alias; alias empty; client short name missing; no alias showing
 
-The client list returns an empty string for a client's alias (alias) when the client has no alias.
-
-## Client list shows contacts, or an empty list
-
-Lines 13-31
-
-Asked as: client contacts missing; no contacts shown for client; client list contacts empty; client has no contact details
-
-Each client in the list carries its contacts (id, given name, surname, email) as JSON. A client with no contacts gets an empty list ('[]').
+The client list shows an empty text for a client that has no alias (alias).
 
 ## Referencing jobs count includes jobs the client owns
 
-Lines 14-14
+Lines 32-43
 
-Asked as: how many jobs for client; client job count wrong; jobs owned by client count; referencing jobs number zero
+Asked as: jobs count wrong for client; how many jobs client owns; client job total zero; count of client's jobs; job owner not counted
 
-The count of referencing jobs (referencing_jobs_count) counts each job once for a client when the client is the job's client or its job owner (job_owner). A client with no such jobs gets 0. Jobs with an empty client or owner value do not count for that value.
+The count of referencing jobs (referencing_jobs_count) counts each job once when the client is the job's client or the job's owner (job_owner). A client with no such jobs shows 0. Jobs with an empty client or owner value are ignored for that side.
 
 ## Outstanding balance counts only jobs billed to the client
 
-Lines 15-15
+Lines 33-43
 
-Asked as: client balance is zero; owed by client wrong; client outstanding amount missing; owner jobs not in client balance
+Asked as: client balance wrong; client owes money total; owned jobs in balance; outstanding amount for client; client balance zero
 
-The outstanding balance (outstanding_balance) of a client adds up the outstanding balance of jobs where the client is the job's client. Jobs the client only owns (job owner) add nothing to the balance. A client with no such jobs shows 0.
+The outstanding balance of a client adds up the outstanding balance of the jobs where the client is the job's client. Jobs that the client only owns add nothing to the balance. A client with no such jobs shows 0.
 
-## Referenced flag covers job requests, invoicing profiles and notes
+## Client list can be limited to one client
 
-Lines 16-52
+Lines 55-56
 
-Asked as: client linked to invoicing profile; client note stops delete; job request uses client; why client marked in use
+Asked as: find one client; filter client list by id; show a single client; client list sorted by name; list all clients
 
-Referenced is true if the client is the client or job owner of any job request, or appears in any invoicing profile (client_invoicing_information) or client note. It is also true if any job uses the client.
-
-## Job counts and balances use jobs only, not job requests
-
-Lines 32-43
-
-Asked as: job requests in client totals; client totals include requests; requests affecting client balance; pending requests in client figures
-
-Job counts and outstanding balances come only from the jobs table. Job requests do not add to either figure.
-
-## Client list can be filtered by one client id
-
-Lines 53-54
-
-Asked as: show one client only; filter client list by id; find client by id; client list all clients; search single client
-
-When an id is given, the list returns only that client. With no id or an empty id, it returns all clients. Clients are sorted by name.
+The client list returns one client when it gets a client id. It returns all clients when the id is missing or empty. Turbo sorts the list by client name.

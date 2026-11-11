@@ -1,204 +1,252 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/routes.go","sha256":"fdb7535177465c3cb950c58959b5bb926a5ee3b46536493e786e84544e5ff6a3","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/routes.go","sha256":"67ba29eb6f1d1f380717133cfac508295002bf812b9442fe26d6f3a1d9f00c3b","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/routes.go
 
-## Expenses, purchase orders and vendors blocked when expenses editing is off
+## Expenses, purchase orders and vendors need the expenses editing flag
 
 Lines 14-31
 
-Asked as: can't edit expenses; expense changes locked; expenses read only; can't save vendor; purchase orders locked
+Asked as: expenses editing off; cannot edit expenses; purchase orders read only; vendor changes refused
 
-When the expenses editing feature flag is off, Turbo refuses actions on expenses, purchase orders and vendors with the message held in ErrExpensesEditingDisabled. Other collections are not checked by this rule.
+When the expenses editing feature flag is off, Turbo refuses writes to the expenses, purchase_orders and vendors collections. The refusal message is the one in ErrExpensesEditingDisabled. Other collections skip this check.
 
-## Time editing blocked when the time feature flag is off
+## Time sheet editing needs the time editing flag
 
 Lines 33-43
 
-Asked as: can't edit timesheet; time entries locked; time editing turned off; can't change my hours; timesheet read only
+Asked as: time editing disabled; cannot change time sheet; time sheet locked; time editing flag off
 
-When the time editing feature flag is off, Turbo refuses the action with the message held in ErrTimeEditingDisabled (requireTimeEditing).
+When the time editing feature flag is off, a time sheet action that uses this check is refused with the message in ErrTimeEditingDisabled (requireTimeEditing). Nothing in this file applies the check to a route.
 
 ## Reports need the report claim
 
 Lines 45-54
 
-Asked as: can't open report; report access denied; not authorized to view report; why can't I see reports; report permission missing
+Asked as: cannot open report; report access denied; not authorized to view report; no permission for reports
 
-A person without the report claim cannot view a report. Turbo answers "you are not authorized to view this report".
+A person without the report claim cannot open any report under /api/reports. Turbo refuses with 'you are not authorized to view this report'. This covers payroll, weekly, receipts, payables spreadsheet, branch mismatch and active jobs reports.
 
 ## KPI reports need the KPI claim
 
 Lines 56-65
 
-Asked as: KPI report access denied; can't see KPI reports; KPI dashboard blocked; KPI not allowed
+Asked as: KPI report access denied; cannot see KPI reports; no KPI permission; KPI reports blocked
 
-A person without the kpi claim cannot view KPI reports. Turbo answers "you are not authorized to view KPI reports".
+A person without the kpi claim cannot open KPI reports under /api/kpi/reports, such as employee branch hours. Turbo refuses with 'you are not authorized to view KPI reports'.
+
+## Help chat is served at /api/help
+
+Lines 84-85
+
+Asked as: help chat not loading; help chat slow first time; where is the help chat; help chat endpoint
+
+Turbo registers the Help chat route at /api/help. The chat loads its model and corpus the first time it is used.
 
 ## Startup fails if expenditure kinds config is invalid
 
 Lines 88-91
 
-Asked as: server won't start; expenditure kinds error; startup config error; app crashes on boot; invalid expenditure config
+Asked as: server won't start; startup error expenditure kinds; invalid expenditure config; routes not registered
 
-When the server starts, Turbo validates the expenditure kinds configuration (ValidateExpenditureKindsConfig). If it is invalid, the routes are not registered and startup returns the error.
+When Turbo starts serving, it validates the expenditure kinds configuration (ValidateExpenditureKindsConfig). An invalid configuration stops the routes from being registered.
 
-## Version endpoint is public
+## Staff must sign in to use Turbo API routes
 
-Lines 93-105
+Lines 93-136
 
-Asked as: app version number; which build is running; git commit hash; version check without login; what version is deployed
+Asked as: api asks me to log in; unauthorized api call; need to sign in; version endpoint public
 
-GET /api/version needs no sign-in. It returns the app name, version, build, full version, git commit (full and short), git branch and build time.
+Nearly all Turbo API routes require a signed-in user (users collection). The version endpoint, /api/version, is public. The legacy export routes under /api/export_legacy skip sign-in and use machine secrets instead.
 
-## Time sheet routes require sign-in
+## Time sheet routes need sign-in and have no flag check here
 
 Lines 107-131
 
-Asked as: timesheet api unauthorized; can't bundle timesheets; recall timesheet; approve timesheet not working; timesheet login required
+Asked as: time sheet route no flag; time sheet not gated; time sheet api login
 
-All /api/time_sheets routes require a signed-in user. They include bundle, unbundle (recall), copy to next week, approve, reject, commit, uncommit, and tracking lists. The commit route is open to committers (the commit claim) through the shared commit handler, which checks the claim.
+All /api/time_sheets routes require a signed-in user. They cover bundle, unbundle (recall), copy to next week, approve, reject, commit, uncommit, tallies and tracking. The time editing flag is not checked at route level in this file.
 
 ## Legacy export routes use machine secrets, not user sign-in
 
 Lines 133-136
 
-Asked as: legacy export api key; export without login; machine secret export; export legacy login error; export needs password
+Asked as: legacy export no login; export machine secret; legacy export authentication; export without sign in
 
-The /api/export_legacy routes for time sheets, jobs and expenses are not behind user sign-in. Their handlers do their own authentication with machine_secrets.
+The legacy export routes for time sheets, jobs and expenses are outside the sign-in groups. They use their own authentication through machine secrets, checked in the handlers.
 
-## Expense routes require sign-in
+## Expense routes need sign-in; recall and uncommit requests included
 
-Lines 138-168
+Lines 138-169
 
-Asked as: expense api unauthorized; submit expense not working; recall expense; copy expense to tomorrow; expense login required
+Asked as: expense recall not working; uncommit expense request; expense api sign in; copy expense to tomorrow
 
-All /api/expenses routes require a signed-in user. They cover create, update, submit, recall, copy to tomorrow, approve, reject, commit, uncommit, uncommit requests, attachment audit, settle, tracking and reimbursements. The file does not gate them by the expenses editing flag.
+All /api/expenses routes require a signed-in user. They cover create, update, submit, recall, copy to tomorrow, approve, reject, commit, uncommit and uncommit requests. Unlike purchase order changes, this file adds no expenses-editing flag check to them.
+
+## Expense attachment audit, hash replace and missing marking
+
+Lines 153-156
+
+Asked as: expense attachment hash; replace attachment hash; mark attachment missing; audit expense attachment
+
+Signed-in users reach routes to audit an expense attachment hash, replace the hash, and mark the attachment as missing. This file adds no claim check; the handlers decide who may do it.
+
+## Expense settlement routes
+
+Lines 162-165
+
+Asked as: settle expense; clear settlement; unsettled expenses list; who can settle expenses
+
+Turbo has routes to list unsettled and settled expenses, to settle an expense (/settle) and to clear a settlement (/clear_settlement). This file only requires sign-in; who may settle is decided in the handlers (settlement is for payables staff).
+
+## Expense reimbursements are the caller's own, by pay period
+
+Lines 167-169
+
+Asked as: my reimbursements; expenses repaid on payroll; reimbursements by pay period; my expenses paid
+
+The /api/expenses/reimbursements routes list the caller's own expenses repaid on payroll, grouped by pay period. A pay period ending date picks one period.
 
 ## Expense uncommit request routes
 
-Lines 170-176
+Lines 171-177
 
-Asked as: uncommit request; decline uncommit; uncommit reasons; cancel uncommit request; approve uncommit
+Asked as: uncommit request reasons; approve uncommit request; decline uncommit request; cancel uncommit request
 
-The /api/expense_uncommit_requests routes need sign-in. They list requests and reasons, approve, decline and cancel.
+Signed-in users can list uncommit requests and their reasons, approve requests, and decline or cancel a request by id. This file adds no claim check; the handlers decide who may act.
 
-## Time amendment commit route
+## Time amendments commit route
 
-Lines 178-180
+Lines 179-181
 
-Asked as: commit time amendment; amendment commit permission; who can commit amendment; commit amendment failing
+Asked as: commit time amendment; amendment commit button; time amendment not committing
 
-A signed-in user can call commit on a time amendment. The shared commit handler decides who may commit.
+A signed-in user can call POST /api/time_amendments/{id}/commit. It uses the same commit handler as time sheets and expenses; the handler decides who may commit.
 
-## Other signed-in user routes
+## Admin profile, user defaults and nav badge routes
 
-Lines 182-193
+Lines 188-206
 
-Asked as: copy time entry tomorrow; user defaults; nav badge counts; navigation notification counts
+Asked as: save user profile; user defaults settings; nav badge count; clear authorized provider
 
-Copying a time entry to tomorrow, reading user defaults and reading nav badges each need sign-in.
+Signed-in users reach routes for admin profile identity, save with claims, limited save, active toggle and clearing an authorized provider. They also reach user defaults and nav badges. The handlers decide who may save or change each.
 
-## Admin profile routes require sign-in
+## Purchase order read routes are open to signed-in users
 
-Lines 195-205
+Lines 208-221
 
-Asked as: admin profile save; set active identity; authorized providers; clear providers; identity list admin
+Asked as: purchase orders blocked read; view purchase orders off; pending purchase orders list; PO search not working
 
-The /api/admin_profiles routes need sign-in. They list identities, save with claims, save limited, set active and clear authorized providers. Their handlers decide who may use each.
+Pending, visible, search, approvers, approval limits, second approvers and group read routes need only sign-in. They are not blocked when expenses editing is off.
 
-## Purchase order read routes
+## Purchase order changes are blocked when expenses editing is off
 
-Lines 207-219
+Lines 223-239
 
-Asked as: pending purchase orders; PO search; approval limits; second approvers list; PO groups list
+Asked as: cannot approve purchase order; PO approval refused; cannot close purchase order; cannot create PO group
 
-Reading purchase orders (pending, visible, search, approvers, approval limits, second approvers, groups) needs sign-in only. The expenses editing flag is not checked here.
+Approving, rejecting, cancelling, closing, converting to cumulative and revising a purchase order, and previewing or creating PO groups, all check the expenses editing flag first. When the flag is off, Turbo refuses them. Viewing and searching purchase orders is not gated this way.
 
-## Purchase order changes blocked when expenses editing is off
+## Legacy purchase order routes skip the expenses editing flag
 
-Lines 221-237
+Lines 241-245
 
-Asked as: can't approve PO; close purchase order; PO locked editing off; revise purchase order failing; cancel PO blocked
+Asked as: edit purchase order legacy; create purchase order old; update PO not blocked
 
-Approve, reject, cancel, close, make cumulative, revise and group create or preview on purchase orders need sign-in. They also fail with the ErrExpensesEditingDisabled message when expenses editing is off.
+The legacy purchase order routes (edit, create, update) need only sign-in. They are in a separate group from the PO mutation routes, so this file does not apply the expenses-editing flag to them.
 
-## Legacy purchase order routes are not gated by the flag
+## Client invoice issue route
 
-Lines 239-243
+Lines 247-252
 
-Asked as: legacy purchase order edit; old PO form not saving; legacy PO create; legacy PO update failing
+Asked as: issue client invoice; invoice lines billable items; create invoice for client
 
-Legacy purchase order edit, create and update routes need sign-in. This file does not check the expenses editing flag for them.
+A signed-in user can issue an invoice, and fetch its lines and billable items. Drafts and lines are written through their own collections.
 
-## Client, contact and vendor routes
+## Client, contact and vendor absorb routes
 
-Lines 245-266
+Lines 254-275
 
-Asked as: merge clients; absorb client; undo merge; vendor contacts; client contact changes
+Asked as: merge clients; absorb vendor; undo absorb client; combine contacts
 
-Client, client contact and vendor routes need sign-in. They include absorbing one record into another and undoing an absorb. Vendor routes are not gated by the expenses editing flag here.
+Signed-in users can reach routes to absorb one client, client contact or vendor into another and to undo an absorb. This file adds no claim check; the handlers decide who may do it.
 
-## Job routes require sign-in
+## Job routes need sign-in
 
-Lines 270-301
+Lines 279-310
 
-Asked as: job details not loading; close job; adopt subjobs; change job client; stale jobs list
+Asked as: job api sign in; job summary not loading; close job route; adopt subjobs
 
-All /api/jobs routes need sign-in. They cover create, upsert, details, time, expense and PO summaries, WIP, stale and unused jobs, set status, set number, change client, adopt subjobs, close and validate proposal. Handlers decide who may do each.
+All /api/jobs routes require a signed-in user. They cover create, upsert, details, time, expense and PO summaries, WIP, set status, set number, change client, adopt subjobs, close and validate proposal. Claims for each action are checked in the handlers.
 
 ## WIP report modes
 
-Lines 303-307
+Lines 312-316
 
-Asked as: WIP report; work in progress my branch; WIP division view; WIP report modes
+Asked as: my WIP report; branch WIP; division WIP report; work in progress report
 
-The WIP report has three modes: my, branch and division. Each needs sign-in.
+Turbo offers WIP reports in three modes: my, branch and division. They are served at /api/wip/my, /api/wip/branch and /api/wip/division and need sign-in.
 
-## Reports routes need the report claim
+## All report routes need the report claim
 
-Lines 309-328
+Lines 318-337
 
-Asked as: payroll report; receipts report; payables spreadsheet; branch mismatch report; active jobs report
+Asked as: report needs claim; payroll report blocked; receipts report access; payables spreadsheet permission
 
-All /api/reports routes need sign-in and the report claim. They include payroll and weekly time, expense and receipts reports, payables spreadsheets, time entry branch mismatches and active jobs.
+Every route under /api/reports requires sign-in and the report claim. These include payroll and weekly time, expense and receipts reports, payables spreadsheets, time entry branch mismatches and active jobs.
 
-## KPI report route needs the KPI claim
+## Employee branch hours KPI report
 
-Lines 330-338
+Lines 339-347
 
-Asked as: branch hours KPI; employee hours KPI; KPI hours report; employee KPI access
+Asked as: branch hours KPI; employee hours by branch; branch hours report login
 
-The employee branch hours KPI report needs sign-in and the kpi claim.
+The employee branch hours report at /api/kpi/reports/employee_branch_hours requires sign-in and the KPI claim.
 
-## Branch hours report access depends on the requested branch
+## Branch hours report checks branch access
 
-Lines 340-348
+Lines 349-357
 
-Asked as: branch hours report denied; hours by branch access; can't view branch hours; branch report permission
+Asked as: branch hours not allowed; branch hours access denied; which branch hours I see
 
-The /api/branch_hours report needs sign-in. Before running, Turbo calls requireBranchHoursAccess with the branch from the query string. The rule for who may view is in that function, not in this file.
+Before the branch hours report runs, Turbo calls requireBranchHoursAccess with the branch query parameter. Who passes is decided in that function, which is not in this file.
 
-## Stats, machine secrets and attachment audit routes
+## Admin stats and machine secrets routes require sign-in only here
 
-Lines 350-368
+Lines 359-410
 
-Asked as: stats not showing; create machine secret; attachment audit; list secrets; admin only stats
+Asked as: machine secrets admin; stats route access; rate sheets permission
 
-Stats, machine secrets (list, create) and attachment audit routes need sign-in. Handlers enforce admin-only access where needed.
+The stats, machine secrets, claims, rate sheets and currencies routes require a signed-in user at the router. Comments say machine secrets are for admins and some claims and rate sheet routes need the admin or job claim. Those checks are in the handlers, not in this file.
 
-## Currency, rate sheet and claims routes
+## Attachment audit routes
 
-Lines 370-401
+Lines 370-377
 
-Asked as: reload exchange rates; currency backfill; activate rate sheet; rate sheet entry update; claims details access
+Asked as: attachment audit run; download orphaned files csv; delete orphan attachments; missing attachments report
 
-Currency routes (list, reload rates, initialize backfill, delete), rate sheet routes (create, activate, deactivate), rate sheet entry update and claims routes need sign-in. Per the comments, rate sheets need the job claim, entry updates and claim details need the admin claim, and handlers enforce this.
+Signed-in users reach routes to list audit targets, view a run, refresh it, delete orphans and download the missing and orphaned CSV reports. This file adds no claim check; the handlers decide who may do it.
 
-## Work records routes
+## Currency routes
 
-Lines 393-396
+Lines 379-385
 
-Asked as: work record details; list work records; work records not loading; view work record
+Asked as: reload exchange rates; currency backfill; delete currency; currency init status
 
-Listing work records and reading a work record's details need sign-in.
+Signed-in users reach routes to list currencies, check init status, reload rates, start a backfill and delete a currency. Claim checks happen in the handlers.
+
+## Rate sheet routes
+
+Lines 387-392
+
+Asked as: activate rate sheet; deactivate rate sheet; create rate sheet; rate sheet job claim
+
+Signed-in users reach routes to create, activate and deactivate rate sheets. A comment says the job claim is required; the handlers enforce it, not this file.
+
+## Claims and work record routes
+
+Lines 394-405
+
+Asked as: bulk assign claim; assignable users list; claim details view; work records list
+
+Signed-in users reach routes to list claims, list assignable users, bulk assign a claim, and view claim details. A comment says claim details need the admin claim. Work record list and detail routes also need only sign-in here.

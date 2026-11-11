@@ -1,92 +1,84 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/client_details.sql","sha256":"56ef37fdcd64213d14ee1c748ac62bfbe75ac02b34e6ec692412e54e40b9d816","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/client_details.sql","sha256":"365d5071c433b02a62c066a24d3285a3d6bd9bfc3383d15e9abbea52c3e53cd0","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/client_details.sql
 
-## Contact job use counts jobs by contact or invoicing profile
+## Contact usage counts jobs once per contact
 
-Lines 4-21
+Lines 4-11
 
-Asked as: contact job count; jobs per contact; contact has no jobs; why job count wrong for contact; jobs linked to contact
+Asked as: contact job count doubled; same contact counted twice jobs; job count for contact; contact jobs counted twice
 
-For each contact of the client, Turbo counts a job (job_count) when the job names the contact (jobs.contact) or when the job uses an invoicing profile of this client that names the contact. A job that matches both ways counts once.
+On the client details page, a contact's job count (job_count) counts each job once, even when the job's contact and the job's invoicing profile contact are the same person. The count includes jobs that name the contact directly and jobs that use an invoicing profile of this client whose contact is that person.
 
-## Contact request use counts project requests by contact or profile
+## Contact usage counts project requests once per contact
 
-Lines 12-22
+Lines 12-18
 
-Asked as: project request count contact; requests for a contact; contact request total; requests not showing for contact; double counted request
+Asked as: contact request count wrong; project requests counted twice; requests per contact; contact requests duplicate
 
-For each contact of the client, Turbo counts a project request (request_count) when the request names the contact or when it uses an invoicing profile of this client that names the contact. A request that matches both ways counts once.
+On the client details page, a contact's request count (request_count) counts each project request once. A request counts when it names the contact directly, or when it uses an invoicing profile whose contact is that contact. A request that does both counts once. Only contacts of this client are listed.
 
-## Contact profile count counts invoicing profiles naming the contact
+## Contact list order and counts on client details
 
-Lines 23-23
+Lines 19-26
 
-Asked as: how many profiles per contact; contact profile number; profiles under contact; billing profiles for contact count
+Asked as: contact list order; sort contacts on client page; how contacts are sorted; contact profile count
 
-For each contact, Turbo counts the client's invoicing profiles that name the contact as their contact (profile_count).
+The client details page lists the client's contacts sorted by given name, then surname, ignoring case, then id. Each contact shows its job count, project request count and the number of invoicing profiles (profile_count) that use it.
 
-## Contacts are sorted by first name, last name, then id
+## Invoicing profile creator name fallback
 
-Lines 25-25
+Lines 27-36
 
-Asked as: contact list order; sort contacts alphabetically; contacts out of order; contact name ordering
+Asked as: profile creator shows email; who created invoicing profile; creator name missing; invoicing profile order
 
-Turbo lists the client's contacts by given name, then surname, ignoring case, and then by id.
-
-## Invoicing profiles show creator name with email fallback
-
-Lines 29-34
-
-Asked as: profile creator name blank; who created profile; creator shows email; profile author missing name; created by shows email
-
-Each invoicing profile shows its creator's full name (given name and surname). When the creator has no name, Turbo shows the creator's email. When there is no email either, Turbo shows an empty value.
+Each invoicing profile on the client details page shows the creator's name as given name plus surname. If both are blank, it shows the creator's login email. If that is missing too, it shows an empty string. Profiles are sorted by name, ignoring case, then id.
 
 ## Invoicing profile job and request counts
 
 Lines 30-31
 
-Asked as: jobs using invoicing profile; profile job count; requests on billing profile; how many jobs per profile
+Asked as: how many jobs use profile; profile job count; billing profile usage; profile request total
 
-For each invoicing profile, Turbo counts the jobs (job_count) and the project requests (request_count) that use it.
+Each invoicing profile on the client details page shows how many jobs and how many project requests use it (job_count, request_count).
 
-## Invoicing profiles are sorted by name then id
+## Client details show empty text instead of missing values
 
-Lines 35-35
+Lines 37-66
 
-Asked as: invoicing profile list order; billing profiles sorted; profiles out of order; profile alphabetical order
+Asked as: blank fields on client page; client page shows nothing; missing alias on client; zero balance no jobs
 
-Turbo lists the client's invoicing profiles by name, ignoring case, and then by id.
-
-## Missing client alias, lead and billing name show as empty
-
-Lines 40-52
-
-Asked as: client alias blank; no lead on client; empty client alias; lead name missing; profile no billing name; client has no bd lead
-
-When the client has no alias, no business development lead, or a profile has no billing name, Turbo shows an empty value. The lead's given name, surname and email also show empty when there is none.
+On the client details page, a missing alias, business development lead, lead name or lead email shows as an empty string. A profile's missing billing name also shows as empty. A client with no jobs shows an outstanding balance of 0 and an empty balance date.
 
 ## Outstanding balance sums the client's own jobs only
 
-Lines 48-95
+Lines 48-49
 
-Asked as: client outstanding amount; unpaid balance for client; outstanding total wrong; owed by client; balance includes owner jobs; outstanding date
+Asked as: client outstanding balance wrong; owed amount includes other client; job owner balance included; client balance total
 
-Turbo adds up the outstanding balance of jobs where the client is the job's client (outstanding_balance). The date shown is the latest outstanding balance date among these jobs. Both show 0 or empty when there are no such jobs. Jobs that the client only owns as job owner are not included.
+The client's outstanding balance (outstanding_balance) is the sum of the outstanding balances of jobs whose client is this client. The balance date is the latest outstanding balance date among those jobs. Jobs that this client only owns (job_owner) do not count.
+
+## Business development lead details come from profile and login
+
+Lines 50-52
+
+Asked as: lead email missing; business development lead name; sales lead details; lead shown on client
+
+The lead's given name and surname come from the lead's profile. The lead's email comes from the lead's login record (users).
 
 ## Referencing jobs count includes jobs owned by the client
 
-Lines 67-87
+Lines 67-88
 
-Asked as: jobs where client is owner; client job total; referencing job count; jobs tied to client; job owner count
+Asked as: referencing jobs count; jobs owned by client counted; client job count double; jobs linked to client total
 
-Turbo counts each job once when the client is the job's client or its job owner (referencing_jobs_count). The count is 0 when there are none.
+The referencing jobs count (referencing_jobs_count) counts each job once when its client is this client or its job owner (job_owner) is this client. A job that matches both counts once.
 
-## Client is referenced when jobs, requests, profiles or notes use it
+## When a client counts as referenced
 
-Lines 71-75
+Lines 68-76
 
-Asked as: client cannot be deleted; client in use; why client marked referenced; referenced flag on client; client still used; clients list referenced
+Asked as: client marked referenced; why client cannot be deleted; client referenced status; client has links
 
-Turbo marks the client as referenced (referenced) when a job uses it, a project request names it as client or job owner, or a note exists for it. The profile check does not test the client of the profile row, so any invoicing profile of this client counts. The same uses make up the clients list's referenced flag.
+A client counts as referenced (referenced) when any of these is true: a job uses it as client or job owner; a project request names it as client or job owner; it has any invoicing profile; it has a note; or it has an invoice. The invoicing profile check looks only at the profiles already filtered to this client.

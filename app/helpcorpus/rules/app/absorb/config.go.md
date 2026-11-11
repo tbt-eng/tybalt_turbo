@@ -1,68 +1,60 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/absorb/config.go","sha256":"98c7f7541000703725607254c0fe24f4e2a7a11e932981da32ae817f4df9758a","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/absorb/config.go","sha256":"cc734974accb24f7bf1db6c75d71e0d61e1b9874cc615cb8057be17fdc6b1511","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/absorb/config.go
 
-## Absorbing clients repoints these records to the target client
+## Absorbing clients repoints these related records
 
-Lines 43-54
+Lines 43-55
 
-Asked as: merge two clients; duplicate client record; jobs moved to other client; reassign client's jobs; combine duplicate clients
+Asked as: merge two clients; absorb client into another; client duplicate merge; jobs moved to other client; client merged what happens to invoices
 
-When clients are absorbed (merged), Turbo repoints the client on client contacts, client notes, jobs, project requests (job_requests) and client invoicing information to the target client. It also repoints the job owner (job_owner) on jobs and project requests. Clients have no parent constraint and no dependency.
+When a client is absorbed (merged) into another, Turbo repoints these references to the target client: client contacts (client), client notes (client), jobs (client and job_owner), project requests (job_requests: client and job_owner), client invoicing information (client) and client invoices (invoices: client).
 
-## Absorbing client contacts repoints jobs, requests and invoicing information
+## Absorbing client contacts repoints jobs, requests, invoicing
 
-Lines 55-60
+Lines 56-61
 
-Asked as: merge two contacts; duplicate contact person; move contact's jobs; contact requests moved over; combine duplicate contacts
+Asked as: merge two client contacts; contact duplicate merge; contact jobs moved to new contact; absorb contact into another; contact invoicing details moved
 
-When client contacts are absorbed, Turbo repoints the contact on jobs, project requests (job_requests) and client invoicing information to the target contact.
+When a client contact is absorbed into another, Turbo repoints the contact on jobs (contact), project requests (job_requests: contact) and client invoicing information (contact) to the target contact.
 
-## Absorbed client contacts must belong to the same client
+## Absorbed client contacts must share one client
 
-Lines 61-64
+Lines 62-65
 
-Asked as: merge contacts from different clients; contacts belong to different companies; can't combine contacts; contacts with different client
+Asked as: merge contacts from different clients; cannot combine contacts of two clients; contacts belong to different client; merge contacts wrong client error; same client contacts merge
 
-Client contacts absorbed together must all have the same client (parent constraint on the client field of the clients collection). Turbo does not merge contacts of different clients.
+Client contacts that are absorbed together must all belong to the same client (parent constraint: clients, field client). Contacts of different clients cannot be merged.
 
-## Client contact absorb waits on pending client absorb
+## Client contact absorb ordering depends on clients absorb
 
-Lines 65-69
+Lines 66-70
 
-Asked as: contact merge won't save; client merge still pending; can't commit contact merge; undo client merge blocked; contact merge stuck
+Asked as: cannot commit contact merge; cannot undo client merge; undo client absorb blocked; contact merge pending error; client undo stuck pending contacts
 
-Client contacts depend on clients (DependsOn). Turbo blocks the commit of a client contacts absorb while a clients absorb is pending. It also blocks the undo of a clients absorb while a client contacts absorb is pending.
+Turbo blocks committing a client contact absorb while a clients absorb is pending. Turbo also blocks undoing a clients absorb while a client contact absorb is pending (DependsOn: clients). This stops an undo from restoring references to contacts that a committed absorb deleted.
 
 ## Absorbing vendors repoints purchase orders and expenses
 
-Lines 70-76
+Lines 71-77
 
-Asked as: merge two vendors; duplicate supplier record; purchase orders moved to vendor; combine duplicate suppliers; expenses switched to other vendor
+Asked as: merge two vendors; vendor duplicate merge; purchase orders moved to other vendor; expenses switched to new vendor; combine vendor records
 
-When vendors are absorbed, Turbo repoints the vendor on purchase orders and expenses to the target vendor. Vendors have no parent constraint and no dependency, so other absorbs do not block them.
+When a vendor is absorbed into another, Turbo repoints the vendor on purchase orders and expenses to the target vendor. Vendors have no parent constraint and no ordering dependency, so any vendors can be absorbed together and in any order.
 
 ## Only clients, client contacts and vendors can be absorbed
 
-Lines 79-95
+Lines 80-96
 
-Asked as: unknown collection error; can't merge jobs; merge not available for; absorb error collection name
+Asked as: merge projects; absorb not available for this; unknown collection error; merge jobs option missing; can't merge invoices
 
-Absorb configuration exists only for clients, client contacts and vendors. For any other collection, Turbo returns the error "unknown collection: <name>".
+Absorb is configured only for clients, client_contacts and vendors. For any other collection Turbo returns the error "unknown collection: <name>".
 
-## Undo of an absorb is blocked by dependent collections
+## Commit and undo blockers follow the dependency
 
-Lines 97-107
+Lines 98-119
 
-Asked as: can't undo client merge; undo merge blocked; reverse client absorb; revert clients merge; undo blocked by contacts
+Asked as: why commit blocked; cannot undo absorb; undo merge not allowed; commit merge waiting on other; absorb blocked by dependency
 
-The collections whose DependsOn names this collection block undoing its absorb. Only client contacts depend on clients, so only the clients undo is blocked by them. Client contacts and vendors have no blockers.
-
-## Commit of an absorb is blocked by the parent collection
-
-Lines 109-118
-
-Asked as: contact commit blocked; save contact merge fails; client must be merged first; contact merge waiting on client
-
-The commit blockers of a collection are the one collection named in its DependsOn. Client contacts are blocked by clients. Clients, vendors and unknown collections have no commit blockers.
+Committing an absorb is blocked by the collection it depends on: client contacts depend on clients. Undoing an absorb is blocked by every collection that depends on it: clients are blocked by client contacts. Clients and vendors have no commit blockers.
