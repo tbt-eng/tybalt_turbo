@@ -1,108 +1,100 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/navConfig.ts","sha256":"d79213bbc3b1e117d44fdae2501c4a34bd7e58917fc1960dd48a6a5a598c66a5","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/navConfig.ts","sha256":"86c82e72ff42a293331a2d6b89cf208e84ebbf0d762fb62721612c56c2d40212","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/navConfig.ts
 
-## Menu links without a restriction in this file
+## Menu links with no claim requirement
 
-Lines 32-314
+Lines 32-316
 
-Asked as: menu link no restriction; which menu links need permission; why can I see this menu item; menu items without access check
+Asked as: link visible to everyone; no permission needed menu; menu link for all staff; why can everyone see this
 
-Other menu links, such as Entries, Sheets, My Purchase Orders, My Expenses, Commit Queue, Jobs, Clients, Vendors, Admin Profiles, Claims and the Settings items, have no claim check in this file. Pages may still apply their own checks.
+Other menu links have no claim or check in this file, so they show to all staff. Examples are time entries, sheets, My Purchase Orders, My Expenses, Jobs, Clients, Vendors, My WIP, Rate Sheets, Admin Profiles, Claims and the Settings links. Pages may still restrict access.
 
-## Quick-action buttons beside menu items
+## Menu shortcut buttons for creating records and lists
 
-Lines 36-243
+Lines 39-243
 
-Asked as: quick action buttons; buttons beside menu items; New Entry button missing; shortcut buttons under menu
+Asked as: quick create button; plus button on menu; shortcut button missing; new entry button
 
-Some menu items carry buttons: New Entry, New Amendment, New PO, New Expense, New Job, New Project Request, New Client and New Vendor. The Jobs item also has buttons for Unused Active Jobs, Stale Jobs, Latest Jobs and Jobs Map. The Amendments item has a "List All Amendments" button, and its link opens pending amendments.
+Some menu items have shortcut buttons. These include New Entry, New Amendment, New PO, New PO Group, New Expense, New Job, New Project Request, New Client and New Vendor. Jobs also has Unused Active Jobs, Stale Jobs, Latest Jobs and Jobs Map buttons. Amendments has a List All Amendments button.
 
-## PO Groups menu link depends on canViewPOGroups
+## Menu links with their own visibility checks
 
-Lines 90-102
+Lines 90-302
 
-Asked as: PO Groups missing; can't see PO Groups; New PO Group button; purchase order groups hidden
+Asked as: PO Groups menu hidden; can't see WIP Branch; invoices link missing; branch hours not showing
 
-The Purchase Orders menu shows "PO Groups" and its "New PO Group" button only when canViewPOGroups (in $lib/poGroups) allows it. The rule itself is not in this file.
+Some links use a check function instead of a single claim. They are PO Groups (canViewPOGroups), WIP Branch and Division (canViewWIPReports), Invoices (canViewInvoices), PO Approvers (canViewPOApprovers) and Branch Hours (canViewBranchHours). The results of those functions are defined in other files.
+
+## All Active PO list is removed from the menu
+
+Lines 105-107
+
+Asked as: all active PO link gone; missing all active purchase orders; where is all active PO; all active POs removed
+
+The All Active purchase order link is commented out. Search replaces it.
 
 ## Uncommit Requests menu link needs commit or admin claim
 
 Lines 133-138
 
-Asked as: Uncommit Requests missing; can't see uncommit link; uncommit menu not showing; who can uncommit
+Asked as: can't see uncommit requests; committer link missing; uncommit menu hidden; uncommit option not showing
 
-The Expenses menu shows "Uncommit Requests" only to a committer (the commit claim) or an admin (the admin claim). Other staff do not see this link.
+The Uncommit Requests link in the Expenses menu shows only to a committer (the commit claim) or an admin (the admin claim). Other staff do not see this link.
 
-## WIP Branch and Division links depend on canViewWIPReports
+## WIP menu groups three reports with no page of its own
 
 Lines 180-189
 
-Asked as: WIP Branch missing; WIP Division not showing; can't see WIP reports; work in progress report hidden
+Asked as: WIP menu has no page; clicking WIP does nothing; WIP item not a link; where is my WIP report
 
-Under the WIP menu, "My WIP" has no restriction. "Branch" and "Division" show only when canViewWIPReports (in $lib/reports/wipReports) allows it.
+The WIP item has no link of its own and groups My WIP, Branch and Division. Branch and Division use the canViewWIPReports check.
 
 ## Value Approvals menu link needs project authorization claim
 
 Lines 204-209
 
-Asked as: Value Approvals missing; can't see value approvals; project authorization access; value approval link hidden
+Asked as: value approvals not showing; approvals link missing in business; project authorization menu hidden; can't find value approvals
 
-The Business menu shows "Value Approvals" (/jobs/value-approvals) only to staff with the project_authorization claim (requiredClaim).
+The Value Approvals link in the Business menu requires the project_authorization claim. Staff without this claim do not see it.
 
-## Abandoned Requests menu link is admin only
+## Abandoned Requests menu link is for admins only
 
 Lines 210-215
 
-Asked as: Abandoned Requests missing; can't see abandoned project requests; abandoned queue hidden; admin only abandoned requests
+Asked as: abandoned requests hidden; can't find abandoned project requests; abandoned project requests missing; abandoned queue not visible
 
-The Business menu shows "Abandoned Requests" (project requests, queue=abandoned) only to an admin (the admin claim).
+The Abandoned Requests link (project requests, queue=abandoned) shows only to an admin (the admin claim).
 
-## Invoices menu link depends on canViewInvoices
+## App Config and UI Components menu links are for admins only
 
-Lines 245-245
+Lines 255-256
 
-Asked as: Invoices missing from menu; can't see invoices link; invoice menu hidden; no access to invoices
+Asked as: app config link missing; UI components link gone; business menu admin links; can't see app config
 
-The Business menu shows "Invoices" only when canViewInvoices (in $lib/invoices) allows it.
+The App Config and UI Components links in the Business menu require the admin claim. Other staff do not see them.
 
-## PO Approvers menu link depends on canViewPOApprovers
+## Report menu links need the report claim
 
-Lines 247-252
+Lines 262-296
 
-Asked as: PO Approvers missing; can't see PO approval limits; approval limits link hidden; who approves POs menu
+Asked as: payroll report not showing; weekly report missing; payables spreadsheet hidden; CSV report links missing
 
-The Business menu shows "PO Approvers" (/pos/approval-limits) only when canViewPOApprovers (in $lib/poApprovalLimits) allows it.
+Payroll, Weekly, Time Off (all staff), Payables Spreadsheet, Branch Mismatches CSV and Active Jobs CSV links in the Reports menu require the report claim. Staff without it do not see them.
 
-## UI Components menu link is admin only
+## Two Reports items download CSV files directly
 
-Lines 255-255
+Lines 271-296
 
-Asked as: UI Components missing; can't see dev components; components menu hidden; developer components page
+Asked as: download CSV button; branch mismatches download; active jobs csv download; CSV button does nothing
 
-The Business menu shows "UI Components" (/dev/components) only to an admin (the admin claim).
-
-## Report menu items need the report claim
-
-Lines 261-295
-
-Asked as: Payroll report missing; can't see reports menu items; CSV download not showing; branch mismatches download hidden
-
-In the Reports menu, the items Payroll, Weekly, Time Off, Payables Spreadsheet, Branch Mismatches CSV and Active Jobs require the report claim. The last two download CSV files (downloadTimeEntryBranchMismatchesCsv, downloadActiveJobsCsv).
-
-## Branch Hours report link depends on canViewBranchHours
-
-Lines 296-301
-
-Asked as: Branch Hours missing; can't see branch hours report; branch hours link hidden; hours by branch report
-
-The Reports menu shows "Branch Hours" only when canViewBranchHours (in $lib/reports/branchHours) allows it. The rule is not in this file.
+Branch Mismatches CSV and Active Jobs have no page. Their Download CSV buttons run downloadTimeEntryBranchMismatchesCsv and downloadActiveJobsCsv.
 
 ## KPI report link needs the kpi claim
 
-Lines 302-302
+Lines 303-303
 
-Asked as: KPI report missing; can't see KPI report; KPI link hidden; key performance report access
+Asked as: KPI report missing; where is the KPI link; KPI menu not visible; can't open KPI reports
 
-The Reports menu shows "KPI" only to staff with the kpi claim.
+The KPI link in the Reports menu requires the kpi claim.
