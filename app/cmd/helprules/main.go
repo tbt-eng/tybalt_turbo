@@ -599,6 +599,14 @@ func merge(rules, more []helpcorpus.Rule) []helpcorpus.Rule {
 // parseRules reads the model's reply. A rule with no text, or with lines that
 // the file does not have, makes the whole reply an error: a rule that points at
 // the wrong code is worse than no rule.
+//
+// A placeholder is an error too. A model once wrote a rule with the title "x"
+// and the text "x" among 29 real rules. The rule file was saved, and then the
+// search phrases of the file failed on every run, because no phrase fits "x".
+// minRuleChars is the fewest characters of a title or a text that can be a
+// rule. The shortest real title in the repo has two words.
+const minRuleChars = 3
+
 func parseRules(reply string, lines int) ([]helpcorpus.Rule, error) {
 	from := strings.Index(reply, "{")
 	if from < 0 {
@@ -614,6 +622,8 @@ func parseRules(reply string, lines int) ([]helpcorpus.Rule, error) {
 		switch {
 		case strings.TrimSpace(rule.Title) == "" || strings.TrimSpace(rule.Text) == "":
 			return nil, fmt.Errorf("rule %d has no title or no text", i+1)
+		case len([]rune(strings.TrimSpace(rule.Title))) < minRuleChars || len([]rune(strings.TrimSpace(rule.Text))) < minRuleChars:
+			return nil, fmt.Errorf("rule %d is a placeholder: its title is %q and its text is %q", i+1, rule.Title, rule.Text)
 		case rule.Start < 1 || rule.End < rule.Start || rule.End > lines:
 			return nil, fmt.Errorf("rule %d names the lines %d-%d of a file with %d lines", i+1, rule.Start, rule.End, lines)
 		}

@@ -201,6 +201,8 @@ func TestABadReplyWritesNoRuleFile(t *testing.T) {
 		// The file has 3 lines.
 		`{"rules":[{"title":"Wrong lines","text":"Text.","start":2,"end":9}]}`,
 		`{"rules":[{"title":"Wrong lines","text":"Text.","start":3,"end":2}]}`,
+		// A placeholder among real rules: no search phrase fits it.
+		`{"rules":[{"title":"x","text":"x","start":1,"end":1},{"title":"A real rule","text":"Turbo does a thing.","start":1,"end":2}]}`,
 	}
 	for _, reply := range bad {
 		model := &stubModel{reply: func(string) string { return reply }}
