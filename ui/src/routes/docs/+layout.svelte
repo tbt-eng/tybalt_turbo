@@ -107,37 +107,49 @@
   });
 </script>
 
+<!--
+  A wide screen has the list of pages in a column at the left, and the tabs above
+  the page or the conversation. A phone has no room for a column, so the list of
+  pages is under the tabs, and only the Docs tab shows it: the pages are not part
+  of a conversation. The tabs stay in one place when the user changes tab.
+-->
 <div class="flex h-full flex-col md:flex-row">
-  <DSSideNav title="Help" {items} />
-  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+  <div class={["max-md:order-2 max-md:shrink-0 md:contents", $helpChat.open && "max-md:hidden"]}>
+    <DSSideNav title="Help" {items} />
+  </div>
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col max-md:contents">
     {#if tabs.length > 0}
-      <DSTabBar {tabs} />
+      <div class="max-md:order-1 max-md:shrink-0">
+        <DSTabBar {tabs} />
+      </div>
     {/if}
-    {#if $helpChat.open}
-      <!-- The conversation has its own box, at the bottom, for the next question. -->
-      <DSChat
-        {turns}
-        notice="Don't share private info like passwords. Turbo records chats. AI can make mistakes."
-        closeLabel="End chat"
-        onask={ask}
-        onrate={helpChat.rate}
-        onnote={helpChat.sendNote}
-        onopen={helpChat.opened}
-        onnavigate={openDoc}
-        oncopy={copy}
-        onstop={helpChat.stop}
-        onclose={helpChat.close}
-      />
-    {:else}
-      <DSInstantSearch
-        label={$helpChatEnabled ? "Search Help, or ask a question" : "Search Help"}
-        {search}
-        actionLabel={$helpChatEnabled && !$helpChatBusy ? "Ask Help" : undefined}
-        onaction={ask}
-        bind:scroller={content}
-      >
-        {@render children()}
-      </DSInstantSearch>
-    {/if}
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col max-md:order-3">
+      {#if $helpChat.open}
+        <!-- The conversation has its own box, at the bottom, for the next question. -->
+        <DSChat
+          {turns}
+          notice="Don't share private info like passwords. Turbo records chats. AI can make mistakes."
+          closeLabel="End chat"
+          onask={ask}
+          onrate={helpChat.rate}
+          onnote={helpChat.sendNote}
+          onopen={helpChat.opened}
+          onnavigate={openDoc}
+          oncopy={copy}
+          onstop={helpChat.stop}
+          onclose={helpChat.close}
+        />
+      {:else}
+        <DSInstantSearch
+          label={$helpChatEnabled ? "Search Help, or ask a question" : "Search Help"}
+          {search}
+          actionLabel={$helpChatEnabled && !$helpChatBusy ? "Ask Help" : undefined}
+          onaction={ask}
+          bind:scroller={content}
+        >
+          {@render children()}
+        </DSInstantSearch>
+      {/if}
+    </div>
   </div>
 </div>

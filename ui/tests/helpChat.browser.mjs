@@ -332,7 +332,22 @@ await runBrowserHarness(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       true,
     );
+    // On a phone the list of pages is part of the Docs tab. The conversation
+    // does not show it, and the tabs stay at the top in both tabs.
+    const pageList = page.getByRole("navigation", { name: "Help" });
+    const tabTop = async () => (await askTab.boundingBox()).y;
+    assert.equal(await pageList.isVisible(), false, "the Ask tab has no list of pages on a phone");
+    const askTabTop = await tabTop();
+    await docsTab.click();
+    await pageList.waitFor();
+    assert.equal(await tabTop(), askTabTop, "the tabs do not move when the tab changes");
+    assert.ok((await pageList.boundingBox()).y > askTabTop, "the list of pages is under the tabs");
+    await askTab.click();
+    await turns.first().waitFor();
+    assert.equal(await pageList.isVisible(), false);
     await page.setViewportSize({ width: 1100, height: 720 });
+    // A wide screen keeps the list of pages beside the conversation.
+    assert.equal(await pageList.isVisible(), true);
 
     // A docs link in the answer opens the page at its section, in the Docs tab.
     const feedbackBefore = feedback.length;
