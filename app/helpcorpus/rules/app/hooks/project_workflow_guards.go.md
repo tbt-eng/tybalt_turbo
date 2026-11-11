@@ -1,276 +1,300 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/project_workflow_guards.go","sha256":"66f3e628dd525d9b5cf6ef428f063ab5ba6a3bda03e018fec2fd75485c632ae4","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/project_workflow_guards.go","sha256":"ebf43f2af92a96d9361de5e750a44366790e64745f8fd875d5b360cc43657da5","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/project_workflow_guards.go
 
-## Job workflow actions run normal validation in a controlled transition
+## Workflow transitions still get normal job validation
 
-Lines 78-83
+Lines 82-86
 
-Asked as: job action validation; workflow action strict check; job status change fails; job workflow validation error
+Asked as: workflow skips validation; strict checks on workflow; job validation during approval; workflow fails validation
 
-A job workflow action (ProcessJobWorkflow) marks the job with the named mutation, then runs the strict job validation (ProcessJobCoreStrict). The mark is cleared when the action ends. Later guards use the mark to allow the controlled changes.
+A controlled project workflow transition (ProcessJobWorkflow) marks the job with its operation and then runs the strict job validation (ProcessJobCoreStrict). The operation mark is cleared afterwards.
 
-## Workflow actions need an active user with the right claim
+## Project workflow actions require a signed-in user
 
-Lines 87-107
+Lines 90-93
 
-Asked as: no active user; missing claim error; not allowed to run action; user lacks permission claim
+Asked as: not signed in error; authentication is required; must log in first; no user signed in
 
-When Turbo checks an actor's claims, it refuses a missing actor with 'authentication is required'. It also refuses an inactive user, or one without any of the listed claims. The message is 'an active user with the <claims joined by " or "> claim is required'. (activeClaim)
+When a project workflow check needs a user and no user is signed in, Turbo refuses with the message "authentication is required".
+
+## Workflow actions need an active user with a required claim
+
+Lines 94-108
+
+Asked as: inactive user blocked; missing claim for workflow; cannot act on project; user not active
+
+Turbo refuses a project workflow action unless the user is active and holds at least one of the listed claims. The message is "an active user with the <claims> claim is required", and the claims are joined with " or ". An inactive user is refused even when they hold the claim.
 
 ## Project writes need an active user with the job claim
 
-Lines 108-117
+Lines 111-120
 
-Asked as: cannot save project; project save permission error; no access to edit project; project job claim missing
+Asked as: cannot save project; missing job claim; procurement permission needed; can't write project
 
-When a project job is written, Turbo requires an active user who has the job claim (job). Otherwise it refuses with 'an active user with the job claim is required', or 'authentication is required' when no user is signed in. Approving or restoring a project value skips this check. Proposals skip it too.
+Writing a project (not a proposal) requires an active user who holds the job claim (procurement). Otherwise Turbo refuses with "an active user with the job claim is required". Approving or restoring a project value skips this claim check. Proposals skip all these project checks.
+
+## Value approval and restoration skip the job claim check
+
+Lines 115-120
+
+Asked as: approve value without claim; restore value no claim; approver needs no procurement; approving doesn't need job claim
+
+When the operation is approve_value or restore_value, the job claim check is skipped. The user who approves or restores a project value does not need the job claim (ProjectWorkflowMutationApproveValue, ProjectWorkflowMutationRestoreValue).
 
 ## Project value must be whole dollars
 
-Lines 118-120
+Lines 121-123
 
-Asked as: project value cents; project amount has decimals; cents on project value; project total not whole
+Asked as: project value has cents; value with decimals; dollars and cents not allowed; project amount whole dollars
 
-Turbo refuses a project whose value (project_value) has cents. The message is 'project value must use whole dollars'. Proposals are not checked.
+Turbo refuses a project value (project_value) that has cents. The message is "project value must use whole dollars". Proposals are exempt in the validation step.
 
-## New projects need an approved project request when required
+## New projects need an approved project request when approval is required
 
-Lines 121-129
+Lines 124-132
 
-Asked as: cannot create project directly; new project blocked; project needs request first; create project button refused
+Asked as: create project without request; new project blocked; project request approval needed; why can't I create project
 
-When the setting that requires job request approval is on, Turbo refuses to create a project directly. The message is 'create projects through an approved project request'. Only the create-job workflow step may create it.
+When the job request approval setting is on, a new project can be created only through the create-project step of an approved project request. Any other attempt is refused with "create projects through an approved project request".
 
 ## Project client changes only through merge or change-client
 
-Lines 130-133
+Lines 133-136
 
-Asked as: change project client; switch client on project; project client change blocked; client merge needed
+Asked as: change project client; edit client on project; move project to another client; client is locked
 
-On an existing project, a changed client is refused unless the action is a client merge. The validateProjectJobWrite check says 'project client can change only through a client merge'. The jobs guard also allows the change-client action and says 'project client is immutable' otherwise.
+An existing project's client cannot be edited directly. The validation step says "project client can change only through a client merge". The write guard says "project client is immutable" and also lets the change-client action through, which moves a project and its subjobs to another client with a recorded reason.
 
-## Project value changes need approval
+## Project value changes require approval
 
-Lines 134-136
+Lines 137-139
 
-Asked as: change project value; edit project amount refused; project value needs approval; project total edit blocked
+Asked as: change project amount; edit project value directly; value change blocked; update project total
 
-On an existing project, changing the project value is refused unless the action is approve-value or restore-value. The message is 'project value changes require approval'.
+Changing the value of an existing project is refused unless the change comes from approving or restoring a value. The message is "project value changes require approval".
 
-## Cannot delete a user kept in project authorization records
+## Cannot delete a user tied to project authorization records
 
-Lines 143-157
+Lines 146-160
 
-Asked as: delete user account; cannot remove user; user still on request; delete user authorization error
+Asked as: delete user error; remove user with requests; user has project history; can't delete staff member
 
-Turbo refuses to delete a user who is the creator, approver or rejector on a project request, the uploader, approver or rejector on an attachment, or the request creator or creator of a job. The message is 'user identity is retained in project authorization records'.
+Turbo refuses to delete a user who appears as creator, approver or rejector on project requests, as uploader, approver or rejector on job attachments, or as request creator or creator of a job. The message is "user identity is retained in project authorization records".
 
 ## Cannot delete a user who manages a job
 
-Lines 188-195
+Lines 191-198
 
-Asked as: delete user managing job; remove user who manages job; user is job manager error; delete manager account blocked
+Asked as: user is a manager; delete job manager; remove staff managing job; reassign job manager first
 
-Turbo refuses to delete a user who is the manager of any job, project or proposal. The message is 'user is the manager of one or more jobs'. A delete through the records API shows PocketBase's generic delete error instead.
+Turbo refuses to delete a user who is the manager of any job, project or proposal. The message is "user is the manager of one or more jobs". Deleting through the records API gives a generic delete error instead.
 
-## New request checklist must be the next version
+## Request checklist versions must be sequential
 
-Lines 199-215
+Lines 202-213
 
-Asked as: checklist version number; next checklist version; request checklist version wrong; checklist numbering error
+Asked as: checklist version number; next checklist version; request checklist numbering; checklist version wrong
 
-A new request checklist must have a version number one higher than the latest version for its scope. Otherwise Turbo refuses with 'the next <scope> request checklist version is N'. The check is skipped when the scope field does not exist yet. Turbo also refuses a checklist whose questions are invalid, giving that error's message.
+A new request checklist must have a version number one higher than the latest version for its scope. Otherwise Turbo says "the next <scope> request checklist version is N". The scope check runs only when the scope field exists.
+
+## Request checklist questions must be valid
+
+Lines 214-217
+
+Asked as: checklist question error; bad checklist questions; questions won't save checklist; checklist validation message
+
+A new request checklist is refused if its questions fail validation, and Turbo shows the validation error message.
 
 ## Saved request checklists cannot be edited or deleted
 
-Lines 216-220
+Lines 219-223
 
-Asked as: edit saved checklist; change checklist after save; delete request checklist; saved checklist locked
+Asked as: edit saved checklist; delete checklist; change published checklist; make new checklist version
 
-Turbo refuses to update or delete a saved request checklist. The message is 'a saved request checklist cannot change; add the next version'.
+Updating or deleting a saved request checklist is refused with "a saved request checklist cannot change; add the next version".
 
-## Project requests, allocations and attachments need workflow actions
+## Project requests, allocations and attachments only change through workflow actions
 
-Lines 222-250
+Lines 225-230
 
-Asked as: cannot save project request; edit allocation outside workflow; delete request outside workflow; use workflow button instead
+Asked as: cannot edit project request; edit allocation directly; attachment update blocked; use workflow to delete
 
-Creating or updating a project request, request allocation or job attachment outside a project workflow action is refused. The message is 'use the project workflow actions'. Deleting one outside the workflow is refused with 'use the project workflow delete action'.
+Creating or updating a project request, request allocation or job attachment outside the project workflow is refused with "use the project workflow actions". Deleting outside the workflow is refused with "use the project workflow delete action".
 
 ## Attachment must belong to exactly one request or job
 
-Lines 228-232
+Lines 231-235
 
-Asked as: attachment linked to both; attachment with no job; attachment must link somewhere; attachment request and job error
+Asked as: attachment linked to both; attachment no request or job; attach to project and job; attachment link error
 
-A job attachment must link to either a request or a job, not both and not neither. Otherwise Turbo refuses with 'an attachment must belong to one request or job'.
+A job attachment must link to either a project request or a job, not both and not neither. Otherwise Turbo says "an attachment must belong to one request or job".
 
 ## Approved project evidence cannot be edited
 
-Lines 233-235
+Lines 236-238
 
-Asked as: edit approved attachment; approved document locked; change approved evidence; approved file cannot change
+Asked as: edit approved attachment; approved document locked; change approved evidence; modify approved file
 
-Turbo refuses to edit an attachment that is linked to a job and already has status Approved. The message is 'approved project evidence cannot be edited'.
+An approved attachment already linked to a job cannot be edited. Turbo says "approved project evidence cannot be edited".
 
-## Attachment values must be whole dollars
+## Attachment dollar amounts must be whole
 
-Lines 236-241
+Lines 239-244
 
-Asked as: attachment amount has cents; attachment value decimals; previous value cents; approval max cents error
+Asked as: attachment amount has cents; approval max decimals; previous value cents; attachment dollars must be whole
 
-An attachment's project_value, previous_project_value and approval_max_value must be whole dollars. Otherwise Turbo refuses with '<field> must use whole dollars'.
+The project value, previous project value and approval max value on an attachment must be whole dollars. Turbo says "<field> must use whole dollars".
 
 ## Initial project approval cannot be deleted
 
-Lines 251-254
+Lines 250-257
 
-Asked as: delete initial approval; remove first approval; cannot delete original approval; original approval delete error
+Asked as: delete first approval; remove initial approval; delete original approval attachment; initial approval locked
 
-Turbo refuses to delete an approved job attachment that is the initial approval (initial_approval). The message is 'initial project approval cannot be deleted'.
+Deleting the initial approved attachment of a job is refused with "initial project approval cannot be deleted".
 
-## Delete later or pending project changes first
+## Approved value history must be deleted newest first
 
-Lines 255-263
+Lines 258-267
 
-Asked as: delete approved attachment; remove approval with later changes; pending changes block delete; delete approval later changes
+Asked as: delete old approval; pending changes block deletion; remove value change order; delete attachment with later changes
 
-Turbo refuses to delete an approved attachment while the job has pending (non-approved) attachments or approved ones with a larger approval sequence. The message is 'delete pending or later project changes first'.
+An approved attachment on a job cannot be deleted while the job has pending attachments or approved ones with a later approval sequence. Turbo says "delete pending or later project changes first".
 
 ## Job number cannot switch between project and proposal
 
-Lines 271-275
+Lines 274-278
 
-Asked as: change job number type; proposal to project number; switch job number; job number type change
+Asked as: change job to proposal; convert project to proposal; job number type change; switch project and proposal number
 
-Turbo refuses to change a job's number so that its type changes between project and proposal. The message is 'a job number cannot switch between project and proposal'.
+Editing a job so its number changes from project type to proposal type, or the reverse, is refused with "a job number cannot switch between project and proposal".
 
-## Proposals skip the project guards
+## Project writes must go through validated job action
 
-Lines 276-278
+Lines 279-287
 
-Asked as: proposal project rules; proposal write blocked; proposals bypass checks; proposal job save error
+Asked as: project save blocked; write project directly; validated job action needed; project not saved
 
-For a proposal, the jobs guard passes the write on after the number-type check. The project rules below do not apply to proposals.
+A project write is refused unless it comes from a workflow action or a validated job save. Turbo says "project writes require the validated job action". Proposals skip these project guards.
 
-## Project writes require the validated job action
+## Saving a project requires the validated job action
 
-Lines 279-284
+Lines 282-287
 
-Asked as: project write validated action; direct project update refused; project save without workflow; project edit needs workflow
+Asked as: save project after validation; validation voided by edit; changed field after validate; validation already used
 
-A project write is refused unless it comes through a workflow action or carries a validation mark matching the record's current contents. The message is 'project writes require the validated job action'. The mark is cleared after each write.
+A project is saved only inside a workflow action or right after Turbo has validated that exact record. A project write that is neither is refused with "project writes require the validated job action". Changing any field after validation voids the validation. Each validation counts once.
 
-## Guard enforces whole-dollar project value
+## Project value must be whole dollars at save
 
-Lines 286-288
+Lines 289-291
 
-Asked as: job value has cents; project amount decimals jobs; jobs project value dollars; whole dollars job value
+Asked as: save project with cents; project value save fails; decimal project value save; round value before saving
 
-The jobs guard refuses a project value with cents, with 'project value must use whole dollars'.
+At save, a project whose value has cents is refused with "project value must use whole dollars".
 
-## Value restore must use latest approval's previous value
+## Restoring a project value needs historical validation
 
-Lines 289-293
+Lines 292-296
 
-Asked as: restore previous value error; undo value change refused; restore value refused; restore wrong previous amount
+Asked as: restore value check; restore fails historical; restore project value validation; historical restore error
 
-A restore-value action is refused unless the latest approved change (highest approval sequence) is not the initial approval. Its stored previous value must equal the restored value, and its value must equal the job's current value. Otherwise the message is 'restore only the latest approved change's stored previous value'. Pending changes are also refused with 'delete pending project value changes before restoration'.
+A value restore runs the historical restoration check before saving.
 
-## Jobs guard blocks direct project creation when approval required
+## Project creation requires approved request when approval is on
 
-Lines 295-303
+Lines 298-306
 
-Asked as: new job create blocked; approval required new project; direct job creation refused; create job approval error
+Asked as: project save no approved request; create job not allowed; new project save error; approval required for new project
 
-With job request approval required, the jobs guard refuses creating a project unless the action is create-job. The message is 'create projects through an approved project request'.
+When approval of project requests is required, a new project is refused with "create projects through an approved project request" unless the operation is create_job. This check runs when the project is saved.
 
-## Jobs guard blocks client and value changes
+## Project client is immutable except merge or change-client
 
-Lines 304-313
+Lines 307-311
 
-Asked as: client or value change blocked; project amount change refused; change client refused; jobs client change error
+Asked as: client cannot change on save; project client locked; save changed client error; client change rejected on save
 
-On an existing project, a client change is refused unless the action is merge or change-client ('project client is immutable'). A value change is refused unless the action is approve-value or restore-value ('project value changes require approval').
+Changing the client of an existing project at save is refused with "project client is immutable". Only a client merge or the change-client action may do it.
+
+## Project value changes need approval at save
+
+Lines 313-315
+
+Asked as: save changed project value; value change save blocked; amount changed on save; approve value first
+
+Changing the value of an existing project at save is refused with "project value changes require approval". Only approve_value and restore_value operations may change it.
+
+## Rate sheet changes go through rate sheet history
+
+Lines 316-320
+
+Asked as: change rate sheet; rate sheet locked; edit project rate sheet; rate sheet history required
+
+Once a project has a rate sheet, changing it directly is refused with "change a project's rate sheet from its rate sheet history". Setting the first rate sheet is a normal edit.
 
 ## Project creation history is protected
 
-Lines 314-318
+Lines 322-326
 
-Asked as: project creation history locked; change project created by; edit project creation date; project creator field locked
+Asked as: creation date changed; change created by; change request creator; history fields locked
 
-Turbo refuses to change a project's request creator, request created, request submitted, created by or creation completed fields except in the create-job action. The message is 'project creation history is protected'.
+The request creator, request created, request submitted, created by and creation completed fields of a project change only during the create-project step. Otherwise Turbo says "project creation history is protected".
 
-## Cannot delete job with project attachments
+## Job with attachments cannot be deleted
 
-Lines 323-335
+Lines 331-343
 
-Asked as: delete job with attachments; job still has attachments; remove job attachments error; cannot delete job files
+Asked as: delete job with attachments; cannot delete job files; job has attachments; remove job attachments first
 
-Turbo refuses to delete a job that still has attachments. The message is 'delete permitted project attachments before deleting this job'.
+Deleting a job that still has project attachments is refused with "delete permitted project attachments before deleting this job".
 
 ## Approval limit must be positive whole dollars
 
-Lines 336-341
+Lines 345-349
 
-Asked as: approval limit zero; max value invalid; authorization limit amount error; approval limit not whole
+Asked as: approval limit error; max value invalid; authorization limit number; limit must be positive
 
-A project authorization limit (max_value) must be above 0, a whole number and at most 9007199254740991. Otherwise Turbo refuses with 'approval limit must be positive whole dollars no greater than 9007199254740991'.
+A project authorization limit (max_value) must be a positive whole number no greater than 9007199254740991. Otherwise Turbo says "approval limit must be positive whole dollars no greater than 9007199254740991".
 
-## Approval limit needs a project_authorization assignment
+## Approval limits attach only to project_authorization claim
 
-Lines 342-356
+Lines 350-361
 
-Asked as: project authorization limit error; limit on wrong claim; assign limit to claim; authorization properties claim error
+Asked as: claim properties error; approval limit on claim; properties need assignment; limit on wrong claim
 
-Project authorization properties can attach only to a user claim whose claim is project_authorization. Otherwise Turbo refuses with 'properties require a project_authorization assignment'.
+Properties on a user claim assignment are refused unless the claim is project_authorization. Turbo says "properties require a project_authorization assignment".
 
-## Project request is checked as a future job
+## Project request data is checked as a future job
 
-Lines 359-387
+Lines 368-384
 
-Asked as: project request job check; request accepted validation; project status PA; request checked as job
+Asked as: submit project request error; First Nations agreement required; inactive rate sheet submit; request submission validation
 
-Before a project request is accepted, Turbo copies its fields into a new job. The job has the request's project status and the authorizing document set to "PA". It then runs the normal job validation with the rate sheet and branch checks. The job number is not assigned.
-
-## Project request validates as a future job
-
-Lines 360-387
-
-Asked as: validate project request; project request trial job; request validation fails; project request check error
-
-Turbo builds a trial job from the request's fields. It sets the status from project_status and the authorizing document to 'PA', without assigning a number. It checks that the rate sheet is active, then runs the full job validation.
-
-## Project request needs a First Nations agreement answer
-
-Lines 371-374
-
-Asked as: First Nations answer missing; fn agreement required; agreement answer error; First Nations question blank
-
-Validating a project request requires fn_agreement_answer to be 'Yes' or 'No'. Otherwise Turbo refuses with 'First Nations agreement answer is required'.
+Submitting a project request validates it as a future project with the PA authorizing document, without assigning a number. The First Nations agreement answer must be Yes or No, else Turbo says "First Nations agreement answer is required". The rate sheet must be active.
 
 ## Project request branch must exist and be active
 
-Lines 378-384
+Lines 386-394
 
-Asked as: project request branch missing; inactive branch error; branch required request; project request branch error
+Asked as: branch missing on request; inactive branch request; pick branch for request; branch error on request
 
-A project request must have a branch that exists, or Turbo refuses with 'branch is required'. If branches have an active flag and the branch is inactive, it refuses with 'branch must be active'.
+A project request needs an existing branch, else "branch is required". An inactive branch is refused with "branch must be active". Then the full job validation runs.
 
-## Only the latest approved value change can be restored
+## Only the latest approved change can be restored
 
-Lines 389-399
+Lines 399-407
 
-Asked as: restore not latest approval; restore previous value wrong; restore latest change only; restore value newest approval
+Asked as: restore older value; cannot restore initial approval; restore previous value error; stored previous value mismatch
 
-Restoring a project's value (restore_value) is refused unless the job's newest approved attachment (highest approval_sequence) is not the initial approval, and its stored previous project value equals the job's new project value. Its project value must also equal the job's current value. Otherwise Turbo says "restore only the latest approved change's stored previous value".
+Restoring a project value works only for the latest approved change, never the initial approval. The job's value must match what that change replaced. Otherwise Turbo says "restore only the latest approved change's stored previous value".
 
-## Pending value changes block restoring a project value
+## Pending value changes block restoration
 
-Lines 400-406
+Lines 408-414
 
-Asked as: pending changes block restore; restore blocked unapproved attachments; pending attachment restore error; restore previous value pending
+Asked as: pending value changes restore; restore blocked by pending; unapproved changes stop restore; delete pending before restore
 
-Restoring a project's previous value is refused while the job has any attachment that is not Approved. Turbo says "delete pending project value changes before restoration".
+A value restore is refused while the job has any non-approved attachment. Turbo says "delete pending project value changes before restoration".
