@@ -2,19 +2,21 @@
 
 Help chat answers questions about Turbo. A signed-in user asks a question in Help, and a language model answers from the user docs, the design notes and the code. The model reads only. It has no tool that writes.
 
-This file says how the server side works. The steps to build it, with diagrams, are in the design doc that this work follows.
+This file is the technical record: how to set the chat up, how each part works, and how we measure it. The design doc "Turbo Help Chat" has the diagrams, the safety rules, the threats and the plans for later phases.
 
 ## Status
 
 | Part | State |
 | --- | --- |
-| Corpus generator (`app/helpcorpus`, `app/cmd/helpcorpus`) | Built |
+| Search of the user docs in Help (`ui/src/lib/docsSearch.ts`) | Live for every user |
+| Corpus generator, rule files and collection files (`app/helpcorpus`, `app/cmd/helpcorpus`, `app/cmd/helprules`, `app/cmd/helpcollections`) | Built. The Docker build runs them. |
 | Search index with the claims filter (`app/helpcorpus/index.go`) | Built |
-| Chat endpoint and log (`app/helpchat`, `chat_turns`) | Built, tested with a stub model |
-| Ask in the UI | Not built |
+| Chat endpoint and log (`app/helpchat`, `chat_turns`) | Built. Used with Claude Haiku on a copy of the production data. |
+| Ask in the UI (`ui/src/routes/docs/+layout.svelte`, `DSChat`, `ui/src/lib/stores/helpChat.ts`) | Built |
+| Benchmark (`app/cmd/helpeval`) | Built. Not run since the prompt changes of 2026-11-10. |
 | Records in answers, and drafts | Later phases |
 
-The chat is off until a superuser adds the `help_chat` setting. See "Set up the model" below.
+The code has been in production since 2026-11-10 (version 0.3.176). The chat is off until a superuser adds the `help_chat` setting. See "Set up the model" below.
 
 ## Set up the model
 
@@ -89,7 +91,9 @@ Each row of `chat_turns` records the provider and the model that answered, so yo
 
 ### 5. Check that it works
 
-Until Help has the Ask button, send a question from a terminal. Copy your token from the browser: it is the `token` in the `pocketbase_auth` item of the site's local storage.
+Open Help and type a question in the search bar. **Ask Help** is the first row, and Enter sends the question. Then look at the turn's row in `chat_turns`: after the first call of a few minutes, `tokens_cache_read` must not be zero.
+
+To test the route with no UI, send a question from a terminal. Copy your token from the browser: it is the `token` in the `pocketbase_auth` item of the site's local storage.
 
 ```bash
 curl -N -X POST http://localhost:8090/api/help/ask -H "Authorization: YOUR_TOKEN" -H "Content-Type: application/json" -d '{"question":"How do I submit my week?"}'
@@ -110,7 +114,7 @@ A provider that speaks the OpenAI format needs one entry in `app/helpchat/provid
 
 ### What is tested
 
-Tests send real requests from both clients to local servers that speak each API's format. No test, and nobody yet, has sent a question to Anthropic, OpenAI or OpenRouter from this code. Do step 5 with each provider before you rely on it.
+Tests send real requests from both clients to local servers that speak each API's format, and a browser test runs the UI against a stand-in server. The benchmark and real chats have used Anthropic with `claude-haiku-5-5` and `claude-sonnet-5-5`. Nobody has sent a question to OpenAI or OpenRouter from this code. Do step 5 with one of them before you rely on it.
 
 ## Rules: what the code does, in plain words
 
@@ -135,7 +139,9 @@ A rule file is tied to its source file in two ways: it has the path of the sourc
 - The pre-push hook, `.githooks/pre-push`. It refuses a push to main, and checks the files of the commit that is pushed. It checks no other branch, so work in progress can be pushed. Turn the hooks on one time in each clone: `git config core.hooksPath .githooks`.
 - The Docker build: `go run ./cmd/helpcorpus --require-rules` stops the build, so a push that skipped the hook can't deploy.
 
-The instructions and the glossary are the same in every request, so the model caches them. The first run writes about 216 files and costs a few dollars with `claude-sonnet-5-5`. After that, a run costs a few cents for each file that changed.
+The instructions and the glossary are the same in every request, so the model caches them. A first run for all 280 source files costs a few dollars with `claude-sonnet-5-5`. After that, a run costs a few cents for each file that changed.
+
+The command refuses a rule that is a placeholder: a title or a text of fewer than three characters. A model once wrote a rule with the title "x" among 29 real ones, and the search phrases of that file then failed on every run.
 
 ### The access rules of the collections
 
