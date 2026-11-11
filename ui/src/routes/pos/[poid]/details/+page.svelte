@@ -581,14 +581,15 @@
       {/if}
     </div>
   </div>
-  {#if data.po.status === "Unapproved" && $expensesEditingEnabled}
+  <!-- A rejected PO's Edit and Resubmit is in the rejection notice above. -->
+  {#if data.po.status === "Unapproved" && $expensesEditingEnabled && !isRejected}
     <div class="flex flex-wrap gap-2">
       {#if isOwner && !data.po.legacy_manual_entry}
         <DsActionButton action={`/pos/${data.po.id}/edit`} color="blue">
-          {isRejected ? "Edit and Resubmit" : "Edit Purchase Order"}
+          Edit Purchase Order
         </DsActionButton>
       {/if}
-      {#if canApproveOrReject && !isRejected}
+      {#if canApproveOrReject}
         <DsActionButton action={() => approvePo()} color="green">Approve</DsActionButton>
         <DsActionButton action={() => openRejectModal()} color="orange">Reject</DsActionButton>
         <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
