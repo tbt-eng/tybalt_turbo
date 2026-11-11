@@ -5006,6 +5006,19 @@ func TestCumulativePOExpenseUpdateCountsTheExpenseOnce(t *testing.T) {
 		).Execute(); err != nil {
 			tb.Fatalf("failed to reopen cumeditpo000001: %v", err)
 		}
+		// Every OnAccount expense needs vendor invoice details on its document,
+		// and the fixture documents have none.
+		if _, err := app.DB().NewQuery(`
+			UPDATE expense_documents
+			SET vendor = (SELECT e.vendor FROM expenses e WHERE e.attachment_document = expense_documents.id),
+				vendor_invoice_number = 'CUMEDIT-' || substr(id, -1),
+				vendor_invoice_number_key = 'cumedit' || substr(id, -1),
+				vendor_invoice_date = '2026-01-15',
+				vendor_invoice_total = 100000
+			WHERE id IN ('cumeditdoc00001', 'cumeditdoc00002')
+		`).Execute(); err != nil {
+			tb.Fatalf("failed to add vendor invoice details: %v", err)
+		}
 		return app
 	}
 
@@ -5039,6 +5052,7 @@ func TestCumulativePOExpenseUpdateCountsTheExpenseOnce(t *testing.T) {
 			"vendor":         "yxhycv2ycpvsbt4",
 			"purchase_order": "cumeditpo000001",
 		}
+		fields = withTestVendorInvoice(fields)
 		for k, v := range fields {
 			if err := w.WriteField(k, v); err != nil {
 				t.Fatal(err)
