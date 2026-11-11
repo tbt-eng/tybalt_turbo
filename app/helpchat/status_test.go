@@ -240,7 +240,7 @@ func TestTheKeyTestSaysWhatIsWrong(t *testing.T) {
 	// No key: no request goes out.
 	t.Setenv("ANTHROPIC_API_KEY", "")
 	result, _ := f.testKey(t)
-	if result.OK || !strings.Contains(result.Message, "ANTHROPIC_API_KEY") || len(fake.paths) != 0 {
+	if result.OK || !strings.Contains(result.Message, "ANTHROPIC_API_KEY") || !strings.Contains(result.Message, "fly secrets set") || len(fake.paths) != 0 {
 		t.Errorf("with no key: %+v, requests %v", result, fake.paths)
 	}
 

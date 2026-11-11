@@ -1,92 +1,100 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/helpChatStatus.ts","sha256":"28aade9e8e91f7fb51f079095bf77a616866c9febd06b4c9c5f6da685564c18a","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/helpChatStatus.ts","sha256":"2983c72c16f95c95a69b74fb1f0f318df787da76ba0634b1495b813d002fdf34","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/helpChatStatus.ts
 
-## Success notice says who has Help chat
+## Member count wording on App Config: 1 member vs N members
 
-Lines 72-146
+Lines 72-74
 
-Asked as: help chat is on; success notice help chat; who has help chat; help chat enabled for everyone; test the key
+Asked as: member count wording; 1 member or members; deploy group member count; members says 0 members
 
-When Help chat is enabled and has no problems, the page shows a success notice "Help chat is on". With a deploy group it names the group and its member count ("1 member" or "N members"). With no deploy group it says "every user". The notice suggests Test the key to check that the provider accepts the key.
+When the App Config page names the members of the deploy group, it writes "1 member" for exactly one member. For any other count, including 0, it writes "N members" (for example "0 members" or "5 members").
 
-## Invalid help_chat setting turns Help chat off
+## Help chat is off when the help_chat setting is not valid
 
 Lines 79-87
 
-Asked as: help_chat setting not valid; invalid help chat setting; help chat setting error; help chat off for everyone; app config danger notice
+Asked as: help_chat setting not valid; help chat off for everyone error; help_chat settings error; danger notice help chat setting
 
-When the help_chat setting is not valid (settings_error), the App Config page shows a danger notice titled "The help_chat setting is not valid". The notice says "Help chat is off for everyone" and gives the error. Turbo shows only this notice and skips the other checks.
+On the App Config page, if the help_chat setting has an error (settings_error), Turbo shows a danger notice titled "The help_chat setting is not valid". The notice says "Help chat is off for everyone." and gives the error. Turbo shows no other notice in this case.
 
-## Help chat is off without a help_chat row
+## Help chat is off when app_config has no help_chat row
 
 Lines 88-96
 
-Asked as: no help_chat row; help chat missing from app config; help chat off no row; app_config row missing; help chat not in config
+Asked as: no help_chat row; help chat is off info; app_config missing help_chat row; help chat off missing row
 
-When app_config has no help_chat row (has_row false), the App Config page shows an info notice "Help chat is off" with the text "app_config has no help_chat row." Turbo shows no other notice.
+If app_config has no help_chat row (has_row is false), the App Config page shows an info notice "Help chat is off" with the text "app_config has no help_chat row." It shows no other notice.
 
 ## Help chat is off when enabled is false
 
 Lines 97-105
 
-Asked as: help chat enabled false; help chat turned off; help chat disabled setting; enabled set to false; help chat switched off
+Asked as: help chat enabled false; help chat switched off; help chat disabled row; help_chat enabled set to false
 
-When the help_chat row has enabled set to false, the App Config page shows an info notice "Help chat is off" with the text "The help_chat row has enabled set to false." Turbo shows no other notice.
+If the help_chat row has enabled set to false, the App Config page shows an info notice "Help chat is off" with the text "The help_chat row has enabled set to false." Turbo does not check the key, deploy group or search index in this case.
 
-## Several problems show as separate notices
+## Notice when the server has no key for the provider
 
-Lines 107-137
+Lines 108-117
 
-Asked as: several help chat warnings; multiple help chat notices; help chat problems listed; why no success notice; help chat several errors
+Asked as: no key for provider; help chat not set up; fly secrets set key; api key missing help chat
 
-When Help chat is enabled, the page lists one notice for each problem found: missing key, deploy group missing or empty, and failed search index. The success notice does not appear while any problem exists.
+When Help chat is enabled and the key for the provider in use is not set, the page shows a danger notice "The server has no key for the provider". It tells the admin to set the secret with "fly secrets set", which restarts the app, and not with the Fly dashboard, because a secret set there did not reach the app. Until then, a question gets "Help chat is not set up."
 
-## Missing server key for the provider in use
+## Notice when the deploy group does not exist
 
-Lines 108-115
+Lines 118-124
 
-Asked as: no key for the provider; help chat not set up; missing api key help chat; server key secret missing; help chat answers not set up
+Asked as: deploy group does not exist; deploy group id not found; help chat deploy group missing; wrong deploy group id warning
 
-When Help chat is enabled and the key in use has no secret set on the server, the page shows a danger notice "The server has no key for the provider". The notice says to set the named secret and restart the app. Until then, a question gets "Help chat is not set up."
+If a deploy group is set but no deploy group has that id (found is false), the page shows a warning "The deploy group does not exist". It says Help chat is off for everyone.
 
-## Deploy group that does not exist
+## Notice when the deploy group has no members
 
-Lines 116-122
+Lines 125-131
 
-Asked as: deploy group does not exist; deploy group not found; help chat wrong deploy group; deploy group id missing; help chat group not found
+Asked as: deploy group has no members; empty deploy group help chat; help chat group zero members; who gets help chat nobody
 
-When a deploy group is configured but no deploy group has that id, the page shows a warning "The deploy group does not exist". Help chat is off for everyone.
+If the deploy group exists but has 0 members, the page shows a warning "The deploy group has no members". It says Help chat is off for everyone until the group has a member.
 
-## Deploy group with no members
+## Notice when the search index failed to load
 
-Lines 123-129
+Lines 132-138
 
-Asked as: deploy group has no members; empty deploy group; help chat group no users; deploy group zero members; help chat nobody can use
+Asked as: search index did not load; help chat corpus failed; search index failed to load; help chat search index error
 
-When the deploy group exists but has 0 members, the page shows a warning "The deploy group has no members". Help chat is off for everyone until the group has a member.
+If the corpus state is "failed", the page shows a danger notice "The search index did not load" with the corpus error as its text. The state "not_loaded" gives no notice.
 
-## Search index failed to load
+## Problem notices all show together; success only when none
 
-Lines 130-136
+Lines 139-139
 
-Asked as: search index did not load; search index failed; help chat index error; corpus failed to load; search index broken
+Asked as: help chat problem notices; help chat warnings together; success notice only when no problems; help chat all problems shown
 
-When the corpus state is "failed", the page shows a danger notice "The search index did not load" with the corpus error as its text.
+When Help chat is enabled, the page shows every problem notice together (key, deploy group, search index). It shows the success notice only when there are no problems.
+
+## Success notice says who Help chat is on for
+
+Lines 141-148
+
+Asked as: help chat is on success; help chat on for everyone; test the key button help chat; help chat enabled for whom
+
+With no problems, the page shows a success notice "Help chat is on". If a deploy group is set, the notice names the group and its member count ("1 member" or "N members"). With no deploy group it says "every user". The notice also suggests Test the key to check that the provider accepts the key.
 
 ## Cache read share of input tokens
 
-Lines 151-155
+Lines 153-157
 
-Asked as: cache read percent; cache hit share; cache read share tokens; why no cache percent; cache read rate zero
+Asked as: cache read percent; cache hit share of input tokens; cache read share blank; token cache percentage null
 
-The cache read share is cache-read tokens divided by the sum of input, cache-read and cache-write tokens, rounded to a whole percent. When that sum is 0 or less, the share is null and no percent shows.
+Turbo computes the cache read share as cache-read tokens divided by the sum of input, cache-read and cache-write tokens, as a whole percent (rounded). It shows nothing (null) when that sum is 0 or less.
 
-## How app_config values display as text
+## How App Config shows a property value as text
 
-Lines 158-162
+Lines 160-164
 
-Asked as: empty string shows quotes; app config value display; undefined value empty text; app config value as json; how config value shows
+Asked as: app config property value display; empty string shows as quotes; app config blank property text; how app config shows values
 
-A string value shows as is, but an empty string shows as "" (two quote marks). An undefined value shows as empty text. Any other value shows as JSON.
+A string property shows as is, and an empty string shows as "" (two quote marks). An undefined value shows as empty text. Any other value shows as JSON.

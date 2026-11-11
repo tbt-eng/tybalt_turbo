@@ -110,7 +110,9 @@ export function helpChatNotices(status: HelpChatStatus): StatusNotice[] {
     problems.push({
       tone: "danger",
       title: "The server has no key for the provider",
-      text: `Set the secret ${key.secret} on the server and restart the app. Until then, a question gets "Help chat is not set up."`,
+      // A secret set in the Fly web dashboard did not reach the app, though
+      // Fly listed it as deployed. See descriptions/help_chat.md, step 2.
+      text: `Set the secret ${key.secret} with the command "fly secrets set", which restarts the app. Do not use the Fly dashboard: a secret set there did not reach the app. Until then, a question gets "Help chat is not set up."`,
     });
   }
   const group = status.deploy_group;

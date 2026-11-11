@@ -78,6 +78,8 @@ test("each problem of a chat that is on gets its own notice", () => {
   const notices = helpChatNotices(broken);
   assert.equal(notices.length, 3);
   assert.match(notices[0].text, /ANTHROPIC_API_KEY/);
+  assert.match(notices[0].text, /fly secrets set/);
+  assert.match(notices[0].text, /Do not use the Fly dashboard/);
   assert.match(notices[1].text, /nosuchgroup/);
   assert.equal(notices[2].text, "no corpus");
   assert.ok(notices.every((notice) => notice.tone !== "success"));

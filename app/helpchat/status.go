@@ -313,7 +313,9 @@ func testKey(ctx context.Context, settings Settings) KeyTest {
 	p := providers[settings.Provider]
 	key := strings.TrimSpace(os.Getenv(p.keyEnv))
 	if key == "" {
-		result.Message = fmt.Sprintf("The server has no %s. Set the secret and restart the app.", p.keyEnv)
+		// A secret set in the Fly web dashboard did not reach the app, though
+		// Fly listed it as deployed. See descriptions/help_chat.md, step 2.
+		result.Message = fmt.Sprintf("The server has no %s. Set the secret with the command \"fly secrets set\", which restarts the app. Do not use the Fly dashboard: a secret set there did not reach the app.", p.keyEnv)
 		return result
 	}
 

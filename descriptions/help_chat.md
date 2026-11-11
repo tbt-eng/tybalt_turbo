@@ -42,6 +42,8 @@ fly secrets set ANTHROPIC_API_KEY=your-key
 
 Fly restarts the app when a secret changes. You can set the keys of more than one provider, and then change between them with the setting alone.
 
+Set the secret with this command, and not in the Fly web dashboard. On 2026-11-11 a key that was set in the dashboard showed as "Deployed" in `fly secrets list`, but the app did not get it, also after a deploy and after `fly secrets sync`. The same key set with `fly secrets set` worked at once. The **App Config** page shows what the app has: see step 5.
+
 In development, set the key in the terminal that runs the server:
 
 ```bash
