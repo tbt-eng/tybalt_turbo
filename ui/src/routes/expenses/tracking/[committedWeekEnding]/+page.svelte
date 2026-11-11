@@ -3,7 +3,14 @@
   import { globalStore } from "$lib/stores/global";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
-  import { formatJobLabel, openExpenseAttachment, shortDate, trimmedOrEmpty } from "$lib/utilities";
+  import {
+    formatCurrencyAmount,
+    formatJobLabel,
+    normalizeCurrencyCode,
+    openExpenseAttachment,
+    shortDate,
+    trimmedOrEmpty,
+  } from "$lib/utilities";
   import Icon from "@iconify/svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
   import { page } from "$app/stores";
@@ -20,6 +27,11 @@
     surname: string;
     attachment: string;
     date: string;
+    payment_type: string;
+    distance: number;
+    total: number;
+    settled_total: number;
+    currency_code: string;
     [key: string]: any;
   };
   type GroupedRow = Row & { employee_group: string };
@@ -105,9 +117,12 @@
       {/if}
 
       {#if r.payment_type === "Mileage"}
-        {r.distance} km / ${r.total?.toFixed(2)}
+        {r.distance} km / {formatCurrencyAmount(r.total, r.currency_code)}
       {:else}
-        ${r.total?.toFixed(2)}
+        {formatCurrencyAmount(r.total, r.currency_code)}
+      {/if}
+      {#if normalizeCurrencyCode(r.currency_code) !== "CAD" && r.settled_total > 0}
+        <span>Settled CAD: {formatCurrencyAmount(r.settled_total, "CAD")}</span>
       {/if}
       {#if r.vendor}
         <span class="flex items-center gap-0">
