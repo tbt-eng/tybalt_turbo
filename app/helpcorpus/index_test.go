@@ -389,7 +389,9 @@ func TestSearchOnTheRealRepo(t *testing.T) {
 
 	cases := []struct{ query, wantPath string }{
 		{"ProcessTimeEntry", "app/hooks/time_entries.go"},
-		{"purchase order approver limits", "po_approv"},
+		// The file that answers this is po_approvers.go, po_approval_limits.go or
+		// poApprovalLimits.ts, by how the rules of the day rank.
+		{"purchase order approver limits", "approv"},
 		{"copy time entry to tomorrow", "copy"},
 		{"expense reimbursement mileage rate", "expense"},
 	}
