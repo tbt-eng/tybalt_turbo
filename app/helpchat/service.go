@@ -195,7 +195,9 @@ func (s *Service) handleAsk(app core.App) func(e *core.RequestEvent) error {
 		}
 
 		request := s.request(settings)
-		request.Context = contextPrompt(allClaims, held, body.Route)
+		kinds := loadKinds(app)
+		request.Common = commonPrompt(allClaims, loadTurboFacts(app, kinds))
+		request.Context = contextPrompt(allClaims, held, body.Route, loadUserFacts(app, uid, held, kinds))
 		request.History = history
 		request.Question = body.Question
 
@@ -248,7 +250,7 @@ func (s *Service) handleFeedback(app core.App) func(e *core.RequestEvent) error 
 	}
 }
 
-// handleWarm asks the model to cache the shared prompt, so the user's first
+// handleWarm asks the model to cache the shared and common prompt, so the user's first
 // question starts faster. The browser calls it when the user opens Help. It
 // does the work at most once in 4 minutes, for all users together.
 func (s *Service) handleWarm(app core.App) func(e *core.RequestEvent) error {
@@ -269,6 +271,11 @@ func (s *Service) handleWarm(app core.App) func(e *core.RequestEvent) error {
 		s.warmMu.Unlock()
 		if due {
 			request := s.request(settings)
+			// The common part is cached too. Without it, the warm call still
+			// caches the shared part.
+			if allClaims, _, err := loadClaims(app, e.Auth.Id); err == nil {
+				request.Common = commonPrompt(allClaims, loadTurboFacts(app, loadKinds(app)))
+			}
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()

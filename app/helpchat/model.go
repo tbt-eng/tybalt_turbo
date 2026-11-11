@@ -33,8 +33,12 @@ type Request struct {
 	// Shared is the system rules and the handbook. It is the same bytes for
 	// every user, so the model caches it. Only a deploy changes it.
 	Shared string
-	// Context describes this user and this request. It follows Shared, so it
-	// does not break the cache.
+	// Common is what the database holds for every user alike: all the claims
+	// in Turbo, and Turbo's settings. It follows Shared and has its own cache
+	// mark, so a change to a claim or a setting rewrites this part only.
+	Common string
+	// Context describes this user and this request. It follows Shared and
+	// Common, so it does not break the cache.
 	Context string
 	Tools   []Tool
 	// History is the earlier turns of this chat, oldest first.

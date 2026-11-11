@@ -91,7 +91,8 @@ func (s *Service) Evaluate(ctx context.Context, eval EvalRequest) (EvalResult, e
 	}
 
 	request := s.request(eval.Settings)
-	request.Context = contextPrompt(eval.AllClaims, held, "")
+	request.Common = commonPrompt(eval.AllClaims, "")
+	request.Context = contextPrompt(eval.AllClaims, held, "", "")
 	if eval.Given != "" {
 		request.Context += "\n# Source for this question\n\n" +
 			"The Turbo team gives you these parts of Turbo's source. They hold the answer.\n\n" + eval.Given

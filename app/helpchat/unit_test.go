@@ -116,6 +116,13 @@ func TestSystemRulesKeepTheDecisions(t *testing.T) {
 		"A rule says in plain words what the code at its lines does.",
 		"Search the code before you answer when the user asks why Turbo did something",
 		"If only a design note shows it, say that Turbo's notes describe it and that you could not confirm it.",
+		"Do not make up a menu, a button or a path.",
+		"Do not correct it or take it back, unless the user asks about it or a source in this turn shows that it was wrong.",
+		"The text beside a claim is a short note.",
+		"If the user is one of those people, say that they can do it.",
+		`answer with the values in "This user's settings" that the question is about`,
+		"Give no other value from that section",
+		"do not add a fact about another topic because you have it",
 	} {
 		if !strings.Contains(systemRules, part) {
 			t.Errorf("the system rules lack %q", part)
@@ -129,14 +136,25 @@ func TestContextPrompt(t *testing.T) {
 		{Name: "commit", Description: "Can commit\n  records"},
 		{Name: "time", Description: ""},
 	}
-	got := contextPrompt(all, helpcorpus.Claims{"commit": true, "time": true}, "/expenses/list")
-	want := "# The user\n\nThe user holds these claims:\n- commit: Can commit records\n- time\n\n" +
+	got := contextPrompt(all, helpcorpus.Claims{"commit": true, "time": true}, "/expenses/list", "# This user's settings\n- Manager: A\n")
+	want := "# The user\n\nThe user holds these claims: commit, time\n\n" +
 		"The user asked from this page of Turbo: /expenses/list\n\n" +
-		"# All the claims in Turbo\n\nUse this list to say who can do a task.\n- admin: Can delete jobs\n- commit: Can commit records\n- time\n"
+		"# This user's settings\n- Manager: A\n"
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
-	if none := contextPrompt(nil, nil, ""); none != "# The user\n\nThe user holds no claims.\n" {
+	if none := contextPrompt(nil, nil, "", ""); none != "# The user\n\nThe user holds no claims.\n" {
+		t.Errorf("got %q", none)
+	}
+
+	// The common part has nothing of one user, so the model can cache it.
+	got = commonPrompt(all, "# Turbo's settings today\n- One\n")
+	want = "# All the claims in Turbo\n\nUse this list to say who can do a task.\n- admin: Can delete jobs\n- commit: Can commit records\n- time\n\n" +
+		"# Turbo's settings today\n- One\n"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+	if none := commonPrompt(nil, ""); none != "" {
 		t.Errorf("got %q", none)
 	}
 }

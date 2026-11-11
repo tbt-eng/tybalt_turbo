@@ -481,12 +481,17 @@ func TestAskStreamsTheAnswerAndLogsTheTurn(t *testing.T) {
 	if request.Question != "Why did Turbo clear a field on my time entry?" || len(request.History) != 0 {
 		t.Errorf("question %q, history %d", request.Question, len(request.History))
 	}
-	for _, part := range []string{"The user holds these claims:\n- time:", "/time/entries/[eid]/edit", "- admin:", "- commit:"} {
+	for _, part := range []string{"The user holds these claims: time\n", "/time/entries/[eid]/edit"} {
 		if !strings.Contains(request.Context, part) {
 			t.Errorf("the context lacks %q:\n%s", part, request.Context)
 		}
 	}
-	if strings.Contains(request.Context, "abc123") || strings.Contains(request.Shared, "abc123") {
+	for _, part := range []string{"# All the claims in Turbo", "- admin:", "- commit:", "- time:"} {
+		if !strings.Contains(request.Common, part) {
+			t.Errorf("the common part lacks %q:\n%s", part, request.Common)
+		}
+	}
+	if strings.Contains(request.Context, "abc123") || strings.Contains(request.Shared, "abc123") || strings.Contains(request.Common, "abc123") {
 		t.Error("the record id must stay on the server")
 	}
 
@@ -933,5 +938,169 @@ func TestWarmRunsAtMostOnceInFourMinutes(t *testing.T) {
 	defer f.model.mu.Unlock()
 	if f.model.warmed != 1 {
 		t.Errorf("the model was warmed %d times, want 1", f.model.warmed)
+	}
+}
+
+// prompt returns the common part and the per-user part of the prompt that the
+// model got for a question from this user.
+func (f *fixture) prompt(t *testing.T, email string) (common, context string) {
+	t.Helper()
+	before := len(f.model.requests)
+	mustStatus(t, f.ask(t, email, map[string]any{"question": "What can I approve?"}), http.StatusOK)
+	if len(f.model.requests) != before+1 {
+		t.Fatalf("the model got %d requests", len(f.model.requests)-before)
+	}
+	request := f.model.requests[before]
+	return request.Common, request.Context
+}
+
+func TestThePromptHasTheUsersOwnLimitsAndSettings(t *testing.T) {
+	const (
+		poApprover      = "author@soup.com"      // PO limits for two kinds, in two divisions
+		projectApprover = "tier2@poapprover.com" // a project limit, and PO limits in all divisions
+	)
+	f := newFixture(t, on(), step{text: "One."})
+	lacks := func(who, text string, wants ...string) {
+		t.Helper()
+		for _, want := range wants {
+			if !strings.Contains(text, want) {
+				t.Errorf("the prompt of %s lacks %q:\n%s", who, want, text)
+			}
+		}
+	}
+	has := func(who, text string, nots ...string) {
+		t.Helper()
+		for _, not := range nots {
+			if strings.Contains(text, not) {
+				t.Errorf("the prompt of %s has %q:\n%s", who, not, text)
+			}
+		}
+	}
+
+	common, got := f.prompt(t, poApprover)
+	lacks("a PO approver", got,
+		"The user holds these claims: accounting, admin, job, po_approver, tame, tapr, time, tt, work_record\n",
+		"# This user's settings\n",
+		"- Manager: Horace Silver\n",
+		"- Default division: CI Information Technology\n",
+		"- Default branch: Thunder Bay\n",
+		"- Personal Reimbursement expenses: not allowed for this user\n",
+		"- PO approval limit for each kind of PO: Project $2,500; Capital $2,500; Staff and Social $0; Sponsorship $0; "+
+			"Media/Advertising $0; Computers/Software $0. A limit is the largest PO amount for which this user's approval is final. "+
+			"With a limit of $0, this user cannot approve a PO of that kind. "+
+			"For a larger PO that needs a second approval, this user can give the first approval and not the final one.\n",
+		"- Divisions of the POs that this user can approve (2): MD, MF\n",
+	)
+	has("a PO approver", got, "Limit for project requests", "# All the claims in Turbo", "# Turbo's settings today")
+	// Every user gets these values of their own admin profile. The payroll ID
+	// and the charge-out rate stay out.
+	lacks("a PO approver", got, "- The user's own admin profile: Salary ", "; Work Week Hours ", "; Time Sheet Expected ", "; Opening OP ")
+	has("a PO approver", got, "Payroll", "Charge Out")
+
+	// What is the same for every user is in the common part, which the model
+	// caches. It must hold nothing of one user.
+	lacks("every user", common,
+		"# All the claims in Turbo\n",
+		"# Turbo's settings today\n",
+		"- A new project needs an approved project request (jobs.require_job_request_approval): no\n",
+		"- An expense of this amount or more needs a PO (no_po_expense_limit): $100\n",
+		"- The expenses of a PO can go over its total by the lesser of 5% and $100 (po_expense_allowed_excess)\n",
+		"(second_stage_timeout_hours): 24\n",
+		"- A PO needs a second approval when its amount is above (second_approval_threshold): Project $500; Capital $500; "+
+			"Computers/Software $500. No second approval for: Staff and Social, Sponsorship, Media/Advertising\n",
+	)
+	// A switch that is on is the usual state and costs no tokens.
+	has("every user", common, "Turned off", "Horace Silver", "$2,500", "The user holds")
+
+	otherCommon, got := f.prompt(t, projectApprover)
+	lacks("a project approver", got,
+		"- Divisions of the POs that this user can approve: all divisions\n",
+		"- Limit for project requests and project value changes, as the largest project value that this user can approve: $1,000,000. This is not a limit for POs.\n",
+	)
+	if otherCommon != common {
+		t.Errorf("the common part must be the same bytes for every user:\n%s\n%s", common, otherCommon)
+	}
+
+	// A user with no approver claim gets no limit, and nothing of another user.
+	otherCommon, got = f.prompt(t, otherEmail)
+	has("a user with no claims", got, "PO approval limit", "Divisions of the POs", "Limit for project requests", "Horace Silver", "Payroll", "Charge Out")
+	lacks("a user with no claims", got, "The user holds no claims.\n", "- Manager: Francesco DaSilva\n", "- The user's own admin profile: Salary ")
+	if otherCommon != common {
+		t.Error("the common part must be the same bytes for every user")
+	}
+}
+
+func TestThePromptSaysWhichSwitchIsOff(t *testing.T) {
+	f := newFixture(t, on(), step{text: "One."})
+	// This test changes fixture data: no fixture has a switch that is off,
+	// because the other tests of the app need time editing to be on.
+	record, err := f.app.FindFirstRecordByData("app_config", "key", "time")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.Set("value", `{"create_edit":false}`)
+	if err := f.app.Save(record); err != nil {
+		t.Fatal(err)
+	}
+	common, _ := f.prompt(t, staffEmail)
+	if want := "- Turned off for everyone now: creating and editing time entries (time.create_edit)\n"; !strings.Contains(common, want) {
+		t.Errorf("the prompt lacks %q:\n%s", want, common)
+	}
+	if strings.Contains(common, "expenses.create_edit_absorb") {
+		t.Errorf("the prompt names a switch that is on:\n%s", common)
+	}
+}
+
+func TestDollars(t *testing.T) {
+	for amount, want := range map[float64]string{
+		0: "$0", 500: "$500", 2500: "$2,500", 1000000: "$1,000,000", 1234.5: "$1,234.50", 99.999: "$100", -1500: "-$1,500",
+	} {
+		if got := dollars(amount); got != want {
+			t.Errorf("dollars(%v) = %q, want %q", amount, got, want)
+		}
+	}
+}
+
+func TestAReplyThatTellsTheUserAndReportsAGapEndsTheTurn(t *testing.T) {
+	f := newFixture(t, on(),
+		step{text: "Help covers Turbo only.", calls: []ToolCall{call("a", toolGap, `{"kind":"off_topic","topic":"a tower"}`)}, stop: stopToolUse},
+		step{text: "Help covers Turbo only, again."},
+	)
+	list := events(t, f.ask(t, staffEmail, map[string]any{"question": "How high is the tower?"}))
+	record := f.onlyTurn(t)
+	if done := eventData[map[string]string](t, list, "done"); done["status"] != StatusGap {
+		t.Fatalf("done = %v", done)
+	}
+	if answer := record.GetString("answer"); answer != "Help covers Turbo only." {
+		t.Errorf("the answer says it twice: %q", answer)
+	}
+	if gap := record.GetString("gap"); gap != `{"kind":"off_topic","topic":"a tower"}` {
+		t.Errorf("gap = %s", gap)
+	}
+	if len(f.model.results) != 0 {
+		t.Errorf("the model got %d more requests", len(f.model.results))
+	}
+}
+
+func TestAnAnswerWithNoStepsInTheDocsIsStillAnAnswer(t *testing.T) {
+	f := newFixture(t, on(),
+		step{text: "An admin can change it. Help's pages do not have the steps.",
+			calls: []ToolCall{call("a", toolGap, `{"kind":"no_steps","topic":"edit an admin profile"}`)}, stop: stopToolUse},
+		step{text: "Next."},
+	)
+	recorder := f.ask(t, adminEmail, map[string]any{"question": "How do I change an admin profile?"})
+	list := events(t, recorder)
+	record := f.onlyTurn(t)
+	if done := eventData[map[string]string](t, list, "done"); done["status"] != StatusAnswered || record.GetString("status") != StatusAnswered {
+		t.Fatalf("done = %v", done)
+	}
+	if gap := record.GetString("gap"); gap != `{"kind":"no_steps","topic":"edit an admin profile"}` {
+		t.Errorf("gap = %s", gap)
+	}
+	// An answered turn stays in the history of the chat.
+	chat := eventData[map[string]string](t, list, "meta")["chat"]
+	mustStatus(t, f.ask(t, adminEmail, map[string]any{"question": "And then?", "chat": chat}), http.StatusOK)
+	if history := f.model.requests[1].History; len(history) != 1 || !strings.Contains(history[0].Answer, "An admin can change it.") {
+		t.Errorf("history = %+v", history)
 	}
 }

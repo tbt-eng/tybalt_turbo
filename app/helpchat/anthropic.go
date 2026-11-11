@@ -97,10 +97,16 @@ func textBlock(text string) map[string]any {
 	return map[string]any{"type": "text", "text": text}
 }
 
-// body builds the request. The cache mark is on the shared system block, so the
-// tools and that block are one cached prefix for all users.
+// body builds the request. The first cache mark is on the shared system block,
+// so the tools and that block are one cached prefix for all users. The second
+// is on the common block, which is also the same for all users, but changes
+// when an admin changes a claim or a setting. Then the API still reads the
+// first prefix from the cache and writes the common block again.
 func (m *anthropicModel) body(request Request) claudeRequest {
 	system := []claudeText{{Type: "text", Text: request.Shared, CacheControl: &claudeMarker{Type: "ephemeral"}}}
+	if request.Common != "" {
+		system = append(system, claudeText{Type: "text", Text: request.Common, CacheControl: &claudeMarker{Type: "ephemeral"}})
+	}
 	if request.Context != "" {
 		system = append(system, claudeText{Type: "text", Text: request.Context})
 	}

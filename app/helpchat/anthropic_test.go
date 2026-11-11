@@ -385,3 +385,28 @@ func TestARequestWithNoToolsLeavesThemOut(t *testing.T) {
 		t.Errorf("body = %v", body)
 	}
 }
+
+func TestTheCommonPartFollowsTheSharedPartWithItsOwnCacheMark(t *testing.T) {
+	api := newFakeAPI(t, textReply)
+	request := testRequest()
+	request.Common = "all the claims, and Turbo's settings"
+	if _, err := api.model().Start(request).Next(context.Background(), func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	body := api.bodies[0]
+	for path, want := range map[string]any{
+		"system.0.text":               "the rules and the handbook",
+		"system.0.cache_control.type": "ephemeral",
+		"system.1.text":               "all the claims, and Turbo's settings",
+		"system.1.cache_control.type": "ephemeral",
+		"system.2.text":               "the user holds the time claim",
+	} {
+		if got := at(t, body, path); got != want {
+			t.Errorf("%s = %v, want %v", path, got, want)
+		}
+	}
+	// A mark on the user's block would write a cache entry for each user.
+	if at(t, body, "system.2").(map[string]any)["cache_control"] != nil || len(at(t, body, "system").([]any)) != 3 {
+		t.Error("the user's block must be last and have no cache mark")
+	}
+}

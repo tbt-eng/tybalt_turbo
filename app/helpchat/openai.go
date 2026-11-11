@@ -61,6 +61,9 @@ func (m *openAIModel) Start(request Request) Session {
 	// user. OpenAI caches the start of a prompt by itself, so this order is all
 	// that the cache needs. The user's own context follows it.
 	messages := []openAIMessage{textMessage("system", request.Shared)}
+	if request.Common != "" {
+		messages = append(messages, textMessage("system", request.Common))
+	}
 	if request.Context != "" {
 		messages = append(messages, textMessage("system", request.Context))
 	}

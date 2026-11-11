@@ -333,3 +333,26 @@ func TestOpenAIFailures(t *testing.T) {
 		t.Errorf("warm does nothing for this format, got %v", err)
 	}
 }
+
+func TestTheOpenAICommonPartFollowsTheSharedPart(t *testing.T) {
+	fake := newFakeChat(t, chatTextReply)
+	request := openAIRequest()
+	request.Common = "all the claims, and Turbo's settings"
+	if _, err := fake.model("max_completion_tokens").Start(request).Next(context.Background(), func(string) {}); err != nil {
+		t.Fatal(err)
+	}
+	body := fake.bodies[0]
+	// These services cache the start of a prompt, so what is the same for
+	// every user comes before what is of one user.
+	for path, want := range map[string]any{
+		"messages.0.role":    "system",
+		"messages.1.role":    "system",
+		"messages.1.content": "all the claims, and Turbo's settings",
+		"messages.2.role":    "system",
+		"messages.2.content": openAIRequest().Context,
+	} {
+		if got := at(t, body, path); got != want {
+			t.Errorf("%s = %v, want %v", path, got, want)
+		}
+	}
+}

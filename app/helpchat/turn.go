@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -180,6 +181,14 @@ func (t *turn) run(ctx context.Context, session Session) {
 		if reply.StopReason != stopToolUse || len(reply.ToolCalls) == 0 {
 			break
 		}
+		// A reply that has told the user and only reports a gap ends the turn.
+		// Another request would make the model say the same a second time.
+		if strings.TrimSpace(reply.Text) != "" && onlyGapCalls(reply.ToolCalls) {
+			for _, call := range reply.ToolCalls {
+				t.callTool(call)
+			}
+			break
+		}
 		if calls > t.input.settings.MaxToolCalls {
 			t.result.Status = StatusError
 			t.result.Error = "the model kept calling tools after the limit"
@@ -202,7 +211,7 @@ func (t *turn) run(ctx context.Context, session Session) {
 	}
 
 	switch {
-	case t.result.Gap != nil:
+	case t.result.Gap != nil && t.result.Gap.Kind != gapNoSteps:
 		t.result.Status = StatusGap
 	case len(answer) == 0:
 		t.result.Status = StatusError
@@ -210,6 +219,15 @@ func (t *turn) run(ctx context.Context, session Session) {
 	default:
 		t.result.Status = StatusAnswered
 	}
+}
+
+func onlyGapCalls(calls []ToolCall) bool {
+	for _, call := range calls {
+		if call.Name != toolGap {
+			return false
+		}
+	}
+	return true
 }
 
 func (t *turn) fail(ctx context.Context, err error) {
@@ -295,11 +313,14 @@ func (t *turn) callTool(call ToolCall) ToolResult {
 
 	case toolGap:
 		var input Gap
-		if err := json.Unmarshal(call.Input, &input); err != nil || (input.Kind != gapNotCovered && input.Kind != gapOffTopic) {
-			return fail(`The input needs a kind: "not_covered" or "off_topic".`)
+		if err := json.Unmarshal(call.Input, &input); err != nil || !slices.Contains(gapKinds, input.Kind) {
+			return fail(`The input needs a kind: "not_covered", "off_topic" or "no_steps".`)
 		}
 		input.Topic = truncate(strings.TrimSpace(input.Topic), 200)
 		t.result.Gap = &input
+		if input.Kind == gapNoSteps {
+			return done("Recorded. If you have not answered yet, give the rule now, and say that Help's pages do not have the steps.")
+		}
 		return done("Recorded. Now tell the user in one or two sentences.")
 	}
 	return fail("There is no tool with that name.")

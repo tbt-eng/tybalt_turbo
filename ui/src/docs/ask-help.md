@@ -29,7 +29,9 @@ Help shows two tabs after your first question.
 
 ## Check the answer
 
-An AI model writes the answer from these docs and from the rules in Turbo. The answer can be wrong, so open the sources under it. Help can't see your time sheets, expenses or purchase orders.
+An AI model writes the answer from these docs and from the rules in Turbo. The answer can be wrong, so open the sources under it.
+
+Help knows what you can do in Turbo and your own settings, such as your manager and your approval limits. It can't see your time sheets, expenses or purchase orders.
 
 ## Rate an answer
 

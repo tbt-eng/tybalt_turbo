@@ -103,11 +103,11 @@ func writeCases(t *testing.T, dir string) string {
 	t.Helper()
 	cases := []Case{
 		{ID: "a-01", Category: "a", Question: "The first question?", Held: []string{"commit", "time"}, IdealAnswer: "Yes.", KeyPoints: []string{"Yes"},
-			Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 115, End: 130}}, InUserDocs: "no"},
+			Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 125, End: 140}}, InUserDocs: "no"},
 		{ID: "a-02", Category: "a", Question: "The second question?", IdealAnswer: "No.", KeyPoints: []string{"No"},
 			Sources: []SourceRange{{Path: "app/no/such/file.go", Start: 1, End: 2}}, InUserDocs: "no"},
 		{ID: "b-01", Category: "b", Question: "The third question?", IdealAnswer: "Maybe.", KeyPoints: []string{"Maybe"},
-			Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 115, End: 130}}, InUserDocs: "partly"},
+			Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 125, End: 140}}, InUserDocs: "partly"},
 	}
 	data, _ := json.Marshal(cases)
 	path := filepath.Join(dir, "questions.json")
@@ -152,7 +152,7 @@ func TestAskGradesEachAnswerAndResumes(t *testing.T) {
 		}
 	}
 	if !rows["a-01"].RangeFound || !rows["a-01"].FileFound {
-		t.Errorf("a-01: the search for runTurn must return turn.go lines 115-130: %+v", rows["a-01"])
+		t.Errorf("a-01: the search for runTurn must return turn.go lines 125-140: %+v", rows["a-01"])
 	}
 	if rows["a-02"].FileFound || rows["a-02"].RangeFound {
 		t.Errorf("a-02: no tool can return a file that is not there")
@@ -173,7 +173,7 @@ func TestAskGradesEachAnswerAndResumes(t *testing.T) {
 	}
 
 	// Each question is asked as the person that it names.
-	if got := model.contexts["The first question?"]; !strings.Contains(got, "The user holds these claims:\n- commit:") || !strings.Contains(got, "\n- time:") {
+	if got := model.contexts["The first question?"]; !strings.Contains(got, "The user holds these claims: commit, time\n") {
 		t.Errorf("the first question must be asked as a committer:\n%.300s", got)
 	}
 	if got := model.contexts["The second question?"]; !strings.Contains(got, "The user holds no claims.") {
@@ -375,7 +375,7 @@ func TestAClaimThatDoesNotExistStopsTheRun(t *testing.T) {
 func TestTheJudgeGetsTheSourceOfTheQuestion(t *testing.T) {
 	service := testService(t, &stubModel{})
 	c := Case{ID: "x", Question: "Q?", IdealAnswer: "A.", KeyPoints: []string{"One"}, WrongIf: []string{"Bad"},
-		Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 115, End: 130}, {Path: "app/no/such/file.go", Start: 1, End: 2}}}
+		Sources: []SourceRange{{Path: "app/helpchat/turn.go", Start: 125, End: 140}, {Path: "app/no/such/file.go", Start: 1, End: 2}}}
 	source := sourceOf(service, helpchat.DefaultSettings(), c)
 	if !strings.Contains(source, "func runTurn") || !strings.Contains(source, `path="app/helpchat/turn.go"`) {
 		t.Fatalf("source = %.200s", source)

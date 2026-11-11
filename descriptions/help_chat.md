@@ -239,6 +239,7 @@ What the runs show:
 3. The server decides who the user is. The user id and the claims come from the auth token and the database. The browser sends only the question, the chat id, the route and the record on the page.
 4. A user reads only their own chats. The `chat_turns` rules and every query filter on the user id.
 5. The model never writes to the database.
+6. The model gets no data of a user except that user's own settings that `facts.go` lists, and never a value of another user. Most are values that the user can see in Turbo. The values of the user's own admin profile are the exception, by the owner's decision. Ask the owner before you add another value that the user cannot see.
 
 ## What the model may read
 
@@ -254,17 +255,50 @@ When a user cannot do a task, the answer says who can, in the glossary's words a
 
 1. Check the setting, the question and the limits. Load the user's claims.
 2. Write a `chat_turns` row with status `running`, in the same transaction as the limit checks.
-3. Build the prompt. The first part is the system rules and the handbook (all the user docs). It is the same bytes for every user, so the model caches it. The second part names the user's claims, the page they are on and all the claims in Turbo.
+3. Build the prompt. The first part is the system rules and the handbook (all the user docs). It is the same bytes for every user, so the model caches it. The second part is what the database holds for every user alike: all the claims in Turbo with their descriptions, and Turbo's settings. The model caches it too, with its own cache mark. The third part names the user's claims, the page they are on and the user's own settings. See "What the model knows about the user" below.
 4. Send the earlier turns of the chat and the question. The server reads the earlier turns from `chat_turns`.
-5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. One search returns up to 10 rules of the code, then up to 3 rules of the collections, then up to 6 chunks of code, then up to 2 chunks of design notes, each marked with its type. They are separate groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
+5. Run the tools that the model calls: `search_turbo`, `read_source` and `report_gap`. A reply that has text for the user and only a gap report ends the turn there: a second request made the model say the same twice. One search returns up to 10 rules of the code, then up to 3 rules of the collections, then up to 6 chunks of code, then up to 2 chunks of design notes, each marked with its type. They are separate groups because the notes have headings in plain words: in one list they outscore the code, and the code is what says how Turbo behaves today. The prompt tells the model to search the code for a question about a rule or a case, to trust the code over a note, and to say when it could not confirm a rule.
 6. Stream the answer, then the sources that it cites.
 7. Write the result to the row.
 
 Events: `meta` (chat id and turn id), `status`, `text`, `sources`, `done`.
 
+`report_gap` has three kinds. `not_covered` and `off_topic` give the turn the status `gap`, and the next turn of the chat does not get it as history. `no_steps` is for an answer that gives the rule of a task when no page of the user docs has its steps: the turn stays `answered`, and the `gap` field of the row names the task. Read those rows to find the pages that the docs lack.
+
+### What the model knows about the user
+
+The corpus says how a limit applies. It cannot say what one user's limit is, or what an admin has set a switch to, because those values are in the database. `facts.go` reads them for each question and writes two sections.
+
+"This user's settings" is in the part of the prompt for one user. It has:
+
+- From the profile: the manager, the alternate manager and the default division.
+- From the admin profile: the default branch, and if Personal Reimbursement expenses are allowed.
+- From the admin profile, also for every user: **Salary**, **Work Week Hours**, **Time Sheet Expected**, **Off Rotation Permitted**, **Untracked Time Off**, **Skip Min Time Check**, the time off opening date and balances, and **Personal Vehicle Insurance Expiry**. Only an admin, HR and a time off manager can open admin profiles in Turbo. The owner decided that Help can tell each user these values of their own admin profile, because they explain what Turbo asks of that user. The payroll ID and the charge-out rate stay out.
+- For a holder of `po_approver`: the limit for each kind of PO, and the divisions.
+- For a holder of `project_authorization`: the largest project value.
+
+"Turbo's settings today" is the same for every user, so it is in the common part, after the list of all the claims:
+
+- An editing switch of `app_config`, only when it is off.
+- If a new project needs a project request.
+- The amount at which an expense needs a PO, the amount that the expenses of a PO can go over its total, and the hours of the second approval timeout.
+- The amount above which each kind of PO needs a second approval.
+
+Each line of Turbo's settings has the name of the setting in the code, so the model can search for what the setting does.
+
+The user can already see almost every one of these values: their profile, the defaults that `/api/user_defaults` returns, their own row of `user_po_approver_profile`, and the `app_config` and `expenditure_kinds` collections. The admin profile values above are the one exception. A project approver's limit is shown to everyone who picks an approver. The names of the user's two managers go to the model provider with the question.
+
+The common part is about 1,200 tokens. It has its own cache mark after the shared part, so a call reads it from the cache at a tenth of the price. When an admin changes a claim or a setting, the next call reads the shared part from the cache and writes the common part again. Its lines are in a fixed order, so it is the same bytes for every user.
+
+The part for one user is about 150 tokens for a user with no limits and about 270 for an approver. It is after the cache marks, so each model call of a turn pays for it as plain input. Before this layout, that part also held the list of all the claims, about 550 tokens, so a call now sends fewer tokens at the full price than it did. The benchmark sends the claims and neither section of settings, because its questions have no user.
+
+A part that cannot be read is left out and logged, and the chat answers without it.
+
+The system rules tell the model to answer with the values that the question is about and no others, to check the user's claims when the handbook says who can do a task, to treat the text of a claim as a short note and not as all that the claim allows, to give steps only from the handbook or the code of a screen, and to leave an earlier answer alone unless a source in the turn shows that it was wrong. A real chat showed each of these mistakes: the model took back a right answer because the claim `admin` had the text "Can delete jobs". In the first chat with the settings, the question was about POs and the answer also gave the limit for project requests, so each limit line now says what it covers. The line of PO limits also says that a limit is for the final approval: an approver can give the first approval of a larger PO.
+
 The answer cites a docs page as a link, such as `[Time](/docs/time)`, and a chunk from a tool as `[S3]`. The server keeps a source only if it knows it.
 
-Other routes: `POST /api/help/turns/{id}/feedback` saves a rating, a note, a source that the user opened, or a copy. `POST /api/help/warm` asks the model to cache the shared prompt.
+Other routes: `POST /api/help/turns/{id}/feedback` saves a rating, a note, a source that the user opened, or a copy. `POST /api/help/warm` asks the model to cache the shared prompt and the common part.
 
 ## The log
 
@@ -278,8 +312,8 @@ A user can list and view their own rows through the collection API. Nobody can c
 
 The chat talks to a model through the `Model` interface in `model.go`. The tests use a stub.
 
-- `anthropic.go` calls the Claude Messages API with plain HTTP. It marks the shared prompt for Claude's cache, and it sends the model's thinking blocks back unchanged between tool calls. It does not use Anthropic's Go SDK: the compiler needs about 2.4 GB of memory for that one package, which a small build machine does not have, and the chat uses one endpoint. The request and the stream are written for API version `2026-10-21`.
-- `openai.go` calls any API in the OpenAI chat completions format, with plain HTTP. It puts the shared prompt first, because these services cache the start of a prompt by themselves.
+- `anthropic.go` calls the Claude Messages API with plain HTTP. It marks the shared prompt and the common part for Claude's cache, and it sends the model's thinking blocks back unchanged between tool calls. It does not use Anthropic's Go SDK: the compiler needs about 2.4 GB of memory for that one package, which a small build machine does not have, and the chat uses one endpoint. The request and the stream are written for API version `2026-10-21`.
+- `openai.go` calls any API in the OpenAI chat completions format, with plain HTTP. It puts the shared prompt first and the common part after it, because these services cache the start of a prompt by themselves.
 - `providers.go` lists the providers: the secret for each key, the address, and the models and effort values that the setting may name.
 
 Both clients send the same system rules, handbook and tools. Neither sets sampling values or a forced tool choice.

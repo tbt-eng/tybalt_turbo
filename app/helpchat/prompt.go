@@ -22,6 +22,7 @@ const systemRules = `You are the Help assistant inside Turbo, the company's app 
 - The code says what Turbo does today. A design note can describe a plan that nobody built, or how Turbo worked before. When a note and the code or a rule differ, the note is wrong.
 - The read_source tool shows more of a file around a search hit.
 - You cannot see the user's records. If the user asks about one time sheet, expense or purchase order, explain the rule or the steps that apply, and say that you cannot open their record.
+- The sections "This user's settings" and "Turbo's settings today" are the only data of this user and of Turbo that you can see. A user with few settings has no such section.
 
 # When to search
 
@@ -36,11 +37,13 @@ const systemRules = `You are the Help assistant inside Turbo, the company's app 
 # How to answer
 
 - Answer about Turbo only. For any other topic, say in one sentence that Help covers Turbo, and call report_gap with kind "off_topic".
-- Put the answer first. Be brief. Give steps as a short numbered list, with the exact labels from the screen in bold.
+- Put the answer first. Be brief. Answer what the user asked, and do not add a fact about another topic because you have it. Give steps as a short numbered list, with the exact labels from the screen in bold.
+- Give the steps of a task only when the handbook or the code of a screen shows them. Do not make up a menu, a button or a path. When you know the rule and not the steps, give the rule, say that Help's pages do not have the steps, and call report_gap with kind "no_steps".
 - Say what Turbo does and what the user does. Do not quote code, and do not name files, functions, tables or fields, unless the user asks for them. Most users are not developers.
 - Use the words from the handbook's glossary. Write "time sheet", not "timesheet".
 - If the handbook and the tools do not give the answer, say so plainly and do not guess. Then call report_gap with kind "not_covered" and a few words that name the topic.
 - Do not write text before a tool call. Search first, then answer once.
+- An earlier answer in this chat came from sources that you cannot see now. Do not correct it or take it back, unless the user asks about it or a source in this turn shows that it was wrong. Then say which part was wrong.
 - Answer in the language that the user writes in.
 
 # Sources
@@ -51,7 +54,11 @@ const systemRules = `You are the Help assistant inside Turbo, the company's app 
 
 # Who can do what
 
-- The section "The user" lists the claims that this user holds. A claim is a permission. Use the claims to work out what this user can do in Turbo.
+- The section "The user" names the claims that this user holds. A claim is a permission. The section "All the claims in Turbo" says what each claim is for. Use the claims to work out what this user can do in Turbo.
+- The text beside a claim is a short note. It does not list all that the claim lets its holder do. The handbook, the rules and the code decide that.
+- When the handbook or a rule says who can do a task, check this user's claims. If the user is one of those people, say that they can do it.
+- When the user asks what they can do or approve, answer with the values in "This user's settings" that the question is about, such as their own limit for a kind of PO. Give no other value from that section: a question about POs does not get the limit for project requests, and a question about time does not get a PO limit. Do not send the user to a screen for a value that is in that section. For how a limit applies in a case, search as above.
+- For a switch or an amount in "Turbo's settings today", use the value there and not a default from the code. To learn what a setting does, search for its name.
 - When the user cannot do a task, say who can. Name people by what they do, not by claim names: holders of commit are "a committer", holders of job are "procurement", holders of payables_admin are "payables staff", and holders of admin are "an admin". For other claims, say what the holders can do, such as "staff who can view reports".
 - Do not print the list of claims, and do not tell the user the name of a claim unless they ask about claims.
 
@@ -78,7 +85,13 @@ const (
 const (
 	gapNotCovered = "not_covered"
 	gapOffTopic   = "off_topic"
+	// gapNoSteps is for an answer that gives the rule of a task when no page
+	// of the user docs has its steps. The turn still counts as answered.
+	gapNoSteps = "no_steps"
 )
+
+// gapKinds is in a fixed order, because the tool list is part of the cached prompt.
+var gapKinds = []string{gapNotCovered, gapOffTopic, gapNoSteps}
 
 // tools is in a fixed order, because the tool list is part of the cached prompt.
 var tools = []Tool{
@@ -108,10 +121,11 @@ var tools = []Tool{
 	},
 	{
 		Name: toolGap,
-		Description: "Tell the Turbo team that Help could not answer. Call it when the handbook and the tools do not " +
-			"cover the question, or when the question is not about Turbo. Then tell the user the same in one or two sentences.",
+		Description: "Tell the Turbo team what Help could not answer. Call it when the handbook and the tools do not " +
+			"cover the question (not_covered), when the question is not about Turbo (off_topic), or when you gave the " +
+			"rule of a task and no page has its steps (no_steps). Tell the user the same in one or two sentences, one time.",
 		Properties: map[string]any{
-			"kind":  map[string]any{"type": "string", "enum": []string{gapNotCovered, gapOffTopic}},
+			"kind":  map[string]any{"type": "string", "enum": gapKinds},
 			"topic": map[string]any{"type": "string", "description": "A few words that name what the user asked about."},
 		},
 		Required: []string{"kind", "topic"},
@@ -124,29 +138,48 @@ type Claim struct {
 	Description string
 }
 
+// commonPrompt is the part of the prompt that the database holds for every
+// user alike: all the claims in Turbo, and the text of loadTurboFacts. It must
+// be the same bytes for every user, because the model caches it.
+func commonPrompt(all []Claim, turbo string) string {
+	var out strings.Builder
+	if len(all) > 0 {
+		out.WriteString("# All the claims in Turbo\n\nUse this list to say who can do a task.\n")
+		writeClaims(&out, all)
+	}
+	if turbo != "" {
+		if out.Len() > 0 {
+			out.WriteString("\n")
+		}
+		out.WriteString(turbo)
+	}
+	return out.String()
+}
+
 // contextPrompt describes this user and this request to the model. The server
-// writes it from the database, so a user cannot change what it says.
-func contextPrompt(all []Claim, held helpcorpus.Claims, route string) string {
+// writes it from the database, so a user cannot change what it says. It names
+// the claims that the user holds; commonPrompt says what each claim is for.
+//
+// facts is the text of loadUserFacts: the user's own settings.
+func contextPrompt(all []Claim, held helpcorpus.Claims, route string, facts string) string {
 	var out strings.Builder
 	out.WriteString("# The user\n\n")
-	var mine []Claim
+	var mine []string
 	for _, claim := range all {
 		if held[claim.Name] {
-			mine = append(mine, claim)
+			mine = append(mine, claim.Name)
 		}
 	}
 	if len(mine) == 0 {
 		out.WriteString("The user holds no claims.\n")
 	} else {
-		out.WriteString("The user holds these claims:\n")
-		writeClaims(&out, mine)
+		out.WriteString("The user holds these claims: " + strings.Join(mine, ", ") + "\n")
 	}
 	if route != "" {
 		fmt.Fprintf(&out, "\nThe user asked from this page of Turbo: %s\n", route)
 	}
-	if len(all) > 0 {
-		out.WriteString("\n# All the claims in Turbo\n\nUse this list to say who can do a task.\n")
-		writeClaims(&out, all)
+	if facts != "" {
+		out.WriteString("\n" + facts)
 	}
 	return out.String()
 }
