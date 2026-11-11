@@ -150,6 +150,7 @@ export const docPageOrder = [
   "proposals",
   "project-requests",
   "rate-sheets",
+  "client-invoices",
   "clients",
   "absorb-proposals",
   "computers",
