@@ -13,8 +13,9 @@ To take back an approval, open the expense and select **Reject**. You can't reje
 Payables staff see **Settlement**. It lists each approved On Account or Corporate Credit Card expense in a foreign currency. A committer can't commit it before you settle it.
 
 1. Open **Settlement**.
-2. Enter the amount paid, in Canadian dollars, in **Settled CAD Total**.
-3. Select **Save**.
+2. Select **View** to check the receipt.
+3. Enter the amount paid in **Settled CAD Total**.
+4. Select **Save**.
 
 Turbo accepts an amount within 20% of the CAD equivalent on the screen.
 

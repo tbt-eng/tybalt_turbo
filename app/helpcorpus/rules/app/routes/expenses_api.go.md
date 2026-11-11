@@ -1,268 +1,268 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/expenses_api.go","sha256":"d6ce7f7ebf9c288d55c0c24cb97b72096555aef55503da0366b90e4ea802b291","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/expenses_api.go","sha256":"9402f400f1938b6d219863960fddcaec0b4ea876da4d09f6bccc828041e77809","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/expenses_api.go
 
-## My expenses list: what it includes
+## Expense visibility by role: owner, approver, commit, report
+
+Lines 33-37
+
+Asked as: who can see my expense; approver cannot see expense; who has access to expense; why manager cannot view claim
+
+A caller sees an expense if they own it or created it. Its approver sees it while it is submitted. A commit claim holder (committer) sees it once it is approved. A report claim holder sees it once it is committed.
+
+## PO participants do not automatically see linked expenses
+
+Lines 38-41
+
+Asked as: PO creator cannot see expenses; some expenses missing on PO page; purchase order hides linked expenses; PO approver no expense access
+
+Being a PO creator, approver or second approver gives no access to the expenses linked to that PO. A person can open a PO details page and still see only some of its linked expenses. They see the rest only if an expense rule also applies to them.
+
+## My expenses list covers own and created expenses
 
 Lines 43-44
 
-Asked as: my expenses not showing; expenses I created; see my own claims; filter expenses by purchase order
+Asked as: my expenses list; list of claims I created; filter expenses by purchase order; show expenses I submitted
 
-The expenses list shows expenses where the caller is the owner (uid) or the creator. Turbo can narrow it to one purchase order with the purchase_order filter.
+The expenses list returns expenses the caller owns (uid) or created (creator). An optional purchase_order filter narrows it to one PO.
 
-## Pending expenses list definition
+## Pending expenses list for approvers
 
 Lines 45-45
 
-Asked as: expenses waiting for my approval; approval queue; awaiting my sign off; to approve list
+Asked as: expenses waiting for my approval; pending approvals list; things I need to approve; list of claims to approve
 
 The pending list shows expenses where the caller is the approver, the expense is submitted and it is not yet approved.
 
-## Approved expenses list definition
+## Pending expenses list includes only submitted, unapproved expenses
+
+Lines 45-46
+
+Asked as: rejected expense in pending list; pending approvals wrong items; submitted but not in approvals; why pending list shows this
+
+A pending expense is one where the caller is the approver, it is submitted, and it has no approval date. The approved list shows expenses where the caller is the approver and an approval date is set. It does not check submitted, committed or rejected.
+
+## Approved expenses list for approvers
 
 Lines 46-46
 
-Asked as: expenses I approved; approval history; my past approvals; approved claims list
+Asked as: expenses I approved; approved expenses history; list of approved claims; claims I signed off
 
-The approved list shows expenses where the caller is the approver and the expense has an approved timestamp.
+The approved list shows expenses where the caller is the approver and the expense has an approved date.
 
-## Who can see an expense
+## Who can open an expense's details or receipt
 
 Lines 64-70
 
-Asked as: can't see expense; who has access to expense; why can't I view this claim; linked PO doesn't give access
+Asked as: who can open expense; cannot open expense details; who can view receipt; can approver open my claim
 
-A person can see an expense if they own it (uid) or created it (creator). Its approver can see it once it is submitted. A committer (the commit claim) can see it once it is approved. A reporter (the report claim) can see it once it is committed. Being involved in the linked purchase order does not grant access.
+A person can open an expense (and its receipt) if they own it (uid) or created it (creator). Its approver can open it once it is submitted. A committer (the commit claim) can open it once it is approved. A reporter (the report claim) can open it once it is committed.
 
-## Admin holders see committed or uncommit-requested expenses
+## Admin holders see committed or uncommit-request expenses
 
 Lines 77-82
 
-Asked as: admin can't see expense; admin view uncommitted; admin access committed expenses; admin sees uncommit request
+Asked as: admin cannot open expense; admin access to uncommitted expense; why admin cannot see claim; admin view committed expense
 
-Admin claim holders get extra access to expense details. They can see an expense that is committed, or one that has an uncommit request on record. They cannot see other uncommitted expenses through this admin access.
+An admin (the admin claim) can open an expense's details only if it is committed or has an uncommit request on record. Other uncommitted expenses stay hidden from them unless another rule gives access.
 
-## Pending expenses list sorted by date, newest first
+## Payables staff see expenses only in settlement queue
 
-Lines 89-91
+Lines 91-93
 
-Asked as: pending expenses order; sort approved by date; newest expenses first; expense list order wrong
+Asked as: payables cannot see expense; finance staff expense access; settlement queue access; payables lost access to claim
 
-The pending expenses list and the approved expenses list sort by expense date, newest first. Total pages is the total divided by the limit, rounded up.
+Payables staff (the payables_admin claim) can open an expense and its receipt only while it is in the settlement queue, settled or not. Once the expense is committed or rejected, they lose this access. The queue condition is expenseSettlementQueueCondition, defined elsewhere.
 
-## Visibility checks look up commit and report claims
+## Details and receipt combine all three visibility rules
 
-Lines 109-124
+Lines 98-100
 
-Asked as: error checking expense visibility; visibility check failed; claims lookup error; expense permission error
+Asked as: receipt access rules; why details open for payables; who gets receipt access; combined expense access rules
 
-Expense visibility depends on whether the caller holds the commit claim and the report claim. If these claims cannot be checked, Turbo returns "error checking expense visibility claims".
+The expense details and receipt routes allow anyone who passes the shared rule, the admin rule or the payables rule. The expense lists use only the shared rule.
 
-## Default page size is 20 rows
+## Commit and report claims decide expense visibility
 
-Lines 231-232
+Lines 127-142
 
-Asked as: how many rows per page; default page size expenses; list only shows 20; rows per page expenses
+Asked as: commit claim visibility; report permission on expense; has commit has report; claim holder expense access
 
-Expense lists that take a limit use a default page size of 20 rows (defaultPageLimit) when the caller gives no valid limit.
+Turbo checks whether the caller holds the commit claim (has_commit) and the report claim (has_report). The shared expense visibility rule uses these two checks. It does not look at purchase order participation.
 
-## My expenses list ignores the limit and pages committed expenses
+## Admin and payables claims widen expense details access
 
-Lines 232-313
+Lines 146-162
 
-Asked as: limit ignored expenses; why page has over 50; committed expenses paging; expense page shows too many
+Asked as: admin payables permission details; payables admin expense access; admin claim widens access; payables can open receipt
 
-The expenses list ignores any limit the caller sends. Page 1 shows all non-committed expenses and then up to 50 committed expenses. Each later page shows the next 50 committed expenses. Page 1 can therefore hold more than 50 rows.
+For expense details and receipts, Turbo also checks the admin claim (has_admin) and the payables_admin claim (has_payables_admin). These add the admin and payables visibility rules to the shared expense rule.
 
-## Expense endpoints require sign-in
+## Uncommit request state shown on expense details
 
-Lines 249-251
+Lines 257-258
 
-Asked as: unauthorized expenses; expenses logged out error; not signed in expenses; expense endpoint sign in
+Asked as: uncommit request status; uncommit request not showing; uncommit request on expense; why uncommit state missing
 
-The expense list, purchase order expenses, details, attachment, pending and approved endpoints refuse a caller who is not signed in with the message "unauthorized".
+Expense details can include the state of an uncommit request (uncommit_request). Turbo sets it for commit and admin holders who view a committed expense. It is omitted when there is none.
 
-## Invalid page value defaults to page 1
+## Default page size is 20
 
-Lines 255-260
+Lines 269-270
 
-Asked as: page 0 expenses; bad page number; wrong page parameter; page not a number
+Asked as: default page size; how many rows per page; list shows only 20 items; default number of results
 
-A page that is missing, not a number, or not above 0 is treated as page 1. This applies to the expense list endpoints.
+List endpoints that accept a limit use a default page size of 20 (defaultPageLimit) when the caller gives none.
 
-## My expenses list ordering
+## My expenses list loads committed expenses 50 at a time
 
-Lines 290-299
+Lines 272-274
 
-Asked as: order of my expenses page one; committed expenses order; expenses out of order; why expenses sorted this way
+Asked as: committed expenses paging; why only 50 committed expenses; more committed expenses next page; committed expenses in batches
 
-On page 1, non-committed expenses are sorted by date, newest first, and then by creation, newest first. Committed expenses are sorted by committed time, then date, then creation, newest first.
+The first page of the caller's expenses shows all non-committed expenses plus up to 50 committed ones. Later pages show committed expenses in batches of 50 (expensesListCommittedOverflowLimit). The caller's own limit is ignored.
 
-## My expenses list page count
+## My expenses list ignores the limit parameter
 
-Lines 315-329
+Lines 274-351
 
-Asked as: how many pages expenses; total pages expenses wrong; pagination count committed; expense page count
+Asked as: limit parameter ignored; page size not changing; set limit to 100; expenses list more than 50 rows
 
-The expenses list has one page when there are 50 or fewer committed expenses. Each further 50 committed expenses, rounded up, adds one page. Total counts all of the caller's expenses.
+The expenses list ignores a caller-supplied limit. Page 1 returns all uncommitted expenses, then up to 50 committed ones, so it can return more than 50 rows. Later pages return committed expenses in batches of 50. The response limit is 50.
 
-## Purchase order expenses need a visible purchase order
+## Expense list requires sign-in
 
-Lines 366-387
+Lines 286-289
 
-Asked as: purchase order expenses empty; PO not found expenses; purchase order id missing; can't see PO expenses
+Asked as: unauthorized expense list; not logged in expenses; expenses list 401 error; need sign in for list
 
-The purchase order expenses list needs a purchase order id, otherwise it says "purchase order id is required". If the caller cannot see the purchase order, or it does not exist, Turbo says "purchase order not found or not visible".
+The expenses list, PO expenses list, pending list and approved list refuse a caller who is not signed in with "unauthorized".
 
-## Expense id is required
+## My expenses list ordering and page count
 
-Lines 366-369
+Lines 293-298
 
-Asked as: missing expense id; expense id blank error; attachment without id; id needed expense request
+Asked as: order of my expenses; why committed shown after uncommitted; page count my expenses; invalid page number expenses
 
-Expense details and attachment requests without an id are refused with "id is required". A purchase order expenses request without an id is refused with "purchase order id is required".
+On page 1, uncommitted expenses come first, newest date first. Committed expenses follow, ordered by committed date, then expense date, newest first. Total pages is 1, plus one for each further batch of 50 committed expenses beyond the first 50. An invalid or non-positive page number becomes page 1.
+
+## My expenses list page count and committed overflow
+
+Lines 353-357
+
+Asked as: total pages my expenses; committed expenses on page two; how many pages expenses; newest committed first page
+
+On page 1 of the my-expenses list, Turbo shows all non-committed expenses plus up to 50 committed ones. Later pages show 50 committed expenses each, newest committed first. Total pages is 1 plus the committed expenses beyond the first 50, divided by 50 and rounded up.
+
+## PO expenses list shows only expenses the caller may see
+
+Lines 397-467
+
+Asked as: PO expenses fewer than committed count; missing expenses on PO list; PO list not showing all expenses; PO expenses only some visible
+
+The PO expenses list applies expense visibility, not PO visibility. A PO creator, approver or second approver sees only the linked expenses they own, created, approve (once submitted), or may see through the commit or report claim. The list can show fewer expenses than the PO's committed expense count.
+
+## Missing PO id on the PO expenses list is refused
+
+Lines 399-407
+
+Asked as: purchase order id is required; PO id missing error; PO expenses unauthorized; no PO id given
+
+The PO expenses list returns the error 'purchase order id is required' when no PO id is given. Without sign-in it returns 'unauthorized'.
+
+## PO expenses list requires a visible PO
+
+Lines 404-425
+
+Asked as: purchase order not found; PO not visible error; hidden purchase order expenses; cannot list PO expenses
+
+Listing the expenses of a PO first checks that the caller can see that PO. If the PO is missing or hidden, Turbo answers "purchase order not found or not visible". A missing PO id gives "purchase order id is required".
 
 ## Page size default and cap
 
-Lines 396-404
+Lines 434-443
 
-Asked as: limit 500 expenses; max rows pending list; limit ignored pending; pending page size cap
+Asked as: maximum 200 rows; limit above 200; invalid limit or page; default rows per list
 
-The purchase order expenses, pending and approved lists use 20 rows per page by default. A limit above 200 is cut to 200. A limit that is not a positive number is ignored.
+The PO expenses, pending and approved lists default to 20 rows per page. A limit above 200 becomes 200. An invalid or non-positive limit or page falls back to the default. These lists are ordered by newest expense date; the PO list puts committed date first.
 
-## Purchase order expenses are filtered by expense visibility
+## PO expenses list page size and page count
 
-Lines 415-429
+Lines 467-482
 
-Asked as: PO shows fewer expenses; missing expenses on purchase order; PO expense count differs; hidden expenses purchase order
+Asked as: PO expenses page count; sort order PO expenses; number of pages on PO list; PO list paging
 
-The purchase order expenses list shows only the linked expenses the caller may see under the expense rules. Owners, approvers and second approvers of the purchase order get no extra access. The list can therefore be shorter than the purchase order's expense counts. Rows are sorted by committed time, then date, then creation, newest first.
+The expenses list of a purchase order uses the page and limit from the request. The page count is the number of visible expenses divided by the page size, rounded up. The list is sorted by committed date, then expense date, then creation date, newest first.
 
-## Purchase order expenses list orders committed expenses first
+## Expense details and receipt require sign-in and an id
 
-Lines 429-429
+Lines 498-504
 
-Asked as: committed expenses at top; PO expenses sort order; purchase order expense sequence; committed first list
+Asked as: id is required expense; expense details unauthorized; missing expense id; expense details need login
 
-The list of expenses linked to a purchase order sorts by committed date (e.committed) newest first, then expense date newest first, then creation time newest first. The count and the list use the same visibility filter, so the total matches the rows a person may see.
+The expense details and receipt routes refuse a caller who is not signed in with "unauthorized". They refuse a missing id with "id is required".
 
-## Purchase order expenses list page count and total
+## Expense details hidden from unauthorized callers
 
-Lines 438-445
+Lines 512-517
 
-Asked as: purchase order expenses total pages; PO expense count wrong; PO expense total mismatch; expense total per PO
+Asked as: expense not found or not authorized; cannot find my expense; expense hidden from me; not authorized to view expense
 
-The purchase order expenses list returns the page, the limit, the total of visible expenses and total pages. Total pages is the total divided by the limit, rounded up.
+When the expense does not exist or the caller may not see it, Turbo answers "expense not found or not authorized". The message is the same in both cases.
 
-## Expense details access and refusal
+## Expense details add PO owner mismatch and uncommit state
 
-Lines 463-484
+Lines 518-522
 
-Asked as: can't open expense details; expense not found error; view expense denied; expense details blocked
+Asked as: PO owner mismatch; owner differs from PO owner; uncommit state on details; expense details flag mismatch
 
-Expense details are returned only if the caller passes the expense visibility rules or the admin rule. Otherwise Turbo says "expense not found or not authorized". A missing id gives "id is required".
+Expense details include a flag (po_owner_uid_mismatch) computed from the expense owner and the PO owner by expensePurchaseOrderOwnerUIDMismatch, defined elsewhere. They also include the uncommit request state, loaded by loadExpenseUncommitRequestState, defined elsewhere.
 
-## Expense details include purchase order owner mismatch and uncommit state
+## Receipt download uses the expense details visibility rule
 
-Lines 485-489
+Lines 540-554
 
-Asked as: owner differs from PO owner; uncommit status expense; expense owner mismatch flag; uncommit state details
+Asked as: cannot download receipt; receipt not authorized; who can download receipt; receipt access denied
 
-Expense details carry a flag when the expense owner differs from the purchase order owner (po_owner_uid_mismatch). They also carry the expense's uncommit request state for the caller (uncommit_request).
+Turbo opens a receipt only for a caller who may view the expense details. Otherwise it answers "expense not found or not authorized". If the expense has no stored attachment, it answers "expense attachment not found".
 
-## Expense attachment download
+## Receipt download refuses when no attachment exists
 
-Lines 507-542
+Lines 552-565
 
-Asked as: download receipt; can't open attachment; receipt file download; expense file won't download
+Asked as: no receipt attached; attachment not found; receipt missing on expense; expense has no attachment
 
-The attachment download uses the same access rules as expense details, and refuses with "expense not found or not authorized". If the expense has no attachment, or the file cannot be read, Turbo says "expense attachment not found". Otherwise it streams the file inline under its file name.
+If the expense has no attachment, or its attachment location is missing, Turbo answers "expense attachment not found". The same message appears when the file cannot be read from storage.
 
-## Expense attachment uses the same visibility as expense details
+## Missing receipt is reported with an error message
 
-Lines 507-523
+Lines 552-567
 
-Asked as: attachment access denied; can't download receipt; receipt not authorized; attachment permission expense
+Asked as: receipt file cannot be read; attachment missing from storage; receipt file missing; receipt error message
 
-The attachment download applies the expense visibility rules and the admin rule used for expense details. A caller who cannot see the expense gets "expense not found or not authorized".
+If the attachment file cannot be read from storage, Turbo returns 'expense attachment not found'. A missing attachment name, collection or record id gives the same message.
 
-## Expense attachment missing returns not found
+## Receipt is shown inline
 
-Lines 524-537
+Lines 569-570
 
-Asked as: no receipt attached; attachment not found expense; receipt file missing; empty attachment expense
+Asked as: receipt opens in browser; receipt download inline; receipt file name shown; view receipt in tab
 
-If the expense has no attachment file, or its attachment collection or record id is empty, Turbo refuses with "expense attachment not found". The same message appears when the stored file cannot be read.
+A permitted caller gets the receipt file streamed inline under its stored file name.
 
-## Attachment opens inline with the original file name
+## Pending expenses list needs sign-in and uses page size
 
-Lines 541-542
+Lines 584-636
 
-Asked as: attachment opens in browser; receipt file name download; view receipt inline; attachment file name wrong
+Asked as: approval list paging; approval list max 200; pending list needs login; waiting approvals page size
 
-A permitted attachment download is sent inline as a binary stream, with the stored file name as the file name.
+The list of expenses waiting for the caller's approval requires sign-in. It uses a default page size of 20 and a maximum of 200. Invalid page or limit values fall back to page 1 and 20 per page. Results are ordered by expense date, newest first.
 
-## Boolean claim flags become 0 or 1 for visibility
+## Approved expenses list needs sign-in and uses page size
 
-Lines 546-552
+Lines 639-691
 
-Asked as: claim flags visibility; commit report claim check; claim held check expense; visibility claim values
+Asked as: approved list paging; approved list needs login; approved expenses max rows; approved list page size
 
-Turbo turns the commit, report and admin claim checks into 1 (claim held) or 0 (not held) before it applies the visibility rules.
-
-## Pending list shows submitted, unapproved expenses assigned to caller
-
-Lines 554-608
-
-Asked as: pending expenses not showing; approval queue empty; submitted expenses to approve; unapproved expenses list
-
-The pending list shows expenses where the caller is the approver, the expense is submitted, and the approved date is empty or missing.
-
-## Pending expenses list requires sign-in
-
-Lines 558-561
-
-Asked as: pending list unauthorized; pending expenses logged out; pending needs login
-
-The pending expenses list refuses a caller who is not signed in and answers 'unauthorized'.
-
-## Pending and approved lists use the same page size rules
-
-Lines 563-579
-
-Asked as: invalid limit pending; limit fallback approved list; page size approval lists; pending limit default
-
-The pending and approved expense lists take the page and limit from the request. An invalid or non-positive value falls back to page 1 and a limit of 20. A limit above 200 becomes 200.
-
-## Pending and approved lists are paginated
-
-Lines 570-605
-
-Asked as: pending list pages; approval list pagination total; approved list page count; pending expenses paging
-
-The pending and approved expense lists are paginated, sorted by expense date, newest first. The page count is the total divided by the page size, rounded up.
-
-## Approved expenses list: only the approver's approved expenses
-
-Lines 606-662
-
-Asked as: see other approvers' approved expenses; approved list shows others; approved not showing my approvals; approved expenses wrong person
-
-The approved list (whereApproved) shows expenses where the caller is the approver (approver) and the approved date (approved) is not empty. It does not check the submitted flag. Staff see only the expenses they approved.
-
-## Approved expenses list is paginated, newest date first
-
-Lines 610-662
-
-Asked as: approved list page size; approved expenses sort date; approved list rows per page; approved list paging
-
-The approved list uses the page and limit rules of the pending list. It defaults to 20 rows per page and caps the page size at 200. It sorts by expense date, newest first, and returns the total and total pages.
-
-## Approved list requires sign-in
-
-Lines 613-616
-
-Asked as: approved list unauthorized; approved expenses not logged in; approved needs login; approved expenses sign in error
-
-The approved expenses list refuses a caller who is not signed in and answers 'unauthorized'.
+The list of expenses the caller approved requires sign-in. It uses a default page size of 20 and a maximum of 200. Invalid page or limit values fall back to page 1 and 20 per page. Results are ordered by expense date, newest first.

@@ -119,11 +119,7 @@ func createGetNavBadgesHandler(app core.App) func(e *core.RequestEvent) error {
 				SELECT COUNT(*)
 				FROM expenses e
 				LEFT JOIN currencies cur ON cur.id = e.currency
-				WHERE e.payment_type IN ('OnAccount', 'CorporateCreditCard')
-				  AND COALESCE(cur.code, 'CAD') != 'CAD'
-				  AND COALESCE(e.approved, '') != ''
-				  AND COALESCE(e.rejected, '') = ''
-				  AND COALESCE(e.committed, '') = ''
+				WHERE (`+expenseSettlementQueueCondition+`)
 				  AND COALESCE(e.settled, '') = ''
 			`, dbx.Params{})
 			if err != nil {

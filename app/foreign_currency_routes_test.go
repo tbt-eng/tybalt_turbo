@@ -657,3 +657,102 @@ func TestForeignExpenseCommitRoute_AllowsCommitWhenSettledTotalStaysBelowNoPOLim
 		t.Fatalf("expected committer to be fakemanager, got %q", got)
 	}
 }
+
+// Payables staff open an expense and its receipt from the settlement queue
+// with View. book@keeper.com holds payables_admin but not commit, report or
+// admin, and is not the owner, creator or approver of any expense used here,
+// so the payables rule is the only way in. All fixtures are read as seeded:
+// - payvisqueue0001: unsettled queue expense with a stored receipt
+// - fxnopocommit001: settled queue expense with no receipt
+// - eqhozipupteogp8: approved On Account expense in the home currency
+// - payvisfxexp0001: approved foreign expense with the Expense payment type
+// - payvisfxrej0001: approved, then rejected, foreign corporate card expense
+// - curbackfxexp0001: foreign On Account draft, never approved
+// - closeexp010base: foreign On Account expense, settled and committed
+func TestExpenseDetailsRoutes_PayablesSeeSettlementQueueOnly(t *testing.T) {
+	payablesToken, err := testutils.GenerateRecordToken("users", "book@keeper.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	noClaimToken, err := testutils.GenerateRecordToken("users", "noclaims@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	app := testutils.SetupTestApp(t)
+	defer app.Cleanup()
+
+	const notAuthorized = `"message":"Expense not found or not authorized."`
+	get := func(path, token string) (int, string) {
+		res := performTestAPIRequest(t, app, "GET", path, nil, map[string]string{
+			"Authorization": token,
+		})
+		return res.Code, res.Body.String()
+	}
+
+	// The queue and the details rule share one condition; check the queue
+	// really lists the two expenses this test opens.
+	_, unsettled := get("/api/expenses/unsettled", payablesToken)
+	if !strings.Contains(unsettled, `"id":"payvisqueue0001"`) {
+		t.Fatalf("expected unsettled queue to list payvisqueue0001, body=%s", unsettled)
+	}
+	_, settled := get("/api/expenses/settled", payablesToken)
+	if !strings.Contains(settled, `"id":"fxnopocommit001"`) {
+		t.Fatalf("expected settled queue to list fxnopocommit001, body=%s", settled)
+	}
+
+	t.Run("payables can open an unsettled queue expense and its receipt", func(t *testing.T) {
+		status, body := get("/api/expenses/details/payvisqueue0001", payablesToken)
+		if status != 200 || !strings.Contains(body, `"id":"payvisqueue0001"`) {
+			t.Fatalf("details: status=%d body=%s", status, body)
+		}
+		status, body = get("/api/expenses/attachment/payvisqueue0001", payablesToken)
+		if status != 200 || body != "payables visibility receipt fixture\n" {
+			t.Fatalf("attachment: status=%d body=%q", status, body)
+		}
+	})
+
+	t.Run("payables can open a settled queue expense", func(t *testing.T) {
+		status, body := get("/api/expenses/details/fxnopocommit001", payablesToken)
+		if status != 200 || !strings.Contains(body, `"id":"fxnopocommit001"`) {
+			t.Fatalf("details: status=%d body=%s", status, body)
+		}
+		// This expense has no receipt, so the route passes the visibility
+		// check and then reports the missing file.
+		status, body = get("/api/expenses/attachment/fxnopocommit001", payablesToken)
+		if status != 404 || !strings.Contains(body, `"message":"Expense attachment not found."`) {
+			t.Fatalf("attachment: status=%d body=%s", status, body)
+		}
+	})
+
+	for _, tc := range []struct {
+		name string
+		id   string
+	}{
+		{"home currency", "eqhozipupteogp8"},
+		{"foreign with another payment type", "payvisfxexp0001"},
+		{"foreign and rejected", "payvisfxrej0001"},
+		{"foreign and not approved", "curbackfxexp0001"},
+		{"foreign and committed", "closeexp010base"},
+	} {
+		t.Run("payables cannot open an expense outside the queue: "+tc.name, func(t *testing.T) {
+			for _, route := range []string{"details", "attachment"} {
+				status, body := get("/api/expenses/"+route+"/"+tc.id, payablesToken)
+				if status != 404 || !strings.Contains(body, notAuthorized) {
+					t.Fatalf("%s %s: status=%d body=%s", route, tc.id, status, body)
+				}
+			}
+		})
+	}
+
+	t.Run("a person without the claim cannot open a queue expense", func(t *testing.T) {
+		for _, id := range []string{"payvisqueue0001", "fxnopocommit001"} {
+			for _, route := range []string{"details", "attachment"} {
+				status, body := get("/api/expenses/"+route+"/"+id, noClaimToken)
+				if status != 404 || !strings.Contains(body, notAuthorized) {
+					t.Fatalf("%s %s: status=%d body=%s", route, id, status, body)
+				}
+			}
+		}
+	})
+}

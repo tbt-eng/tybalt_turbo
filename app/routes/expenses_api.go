@@ -80,6 +80,24 @@ const (
     OR EXISTS (SELECT 1 FROM expense_uncommit_requests r WHERE r.expense = e.id)
   ))
 `
+
+	// expensePayablesVisibilityPredicate is the extra access payables staff
+	// (payables_admin holders) get on expense details and the receipt. They
+	// settle foreign-currency expenses, and they need the expense and its
+	// receipt to check the amount they enter. So they see an expense only
+	// while it is in the settlement queue, settled or not. Once it is
+	// committed or rejected, they lose this access. It uses
+	// the same condition as the queue, so the two cannot drift apart.
+	expensePayablesVisibilityPredicate = `
+  ({:has_payables_admin} = 1 AND (` + expenseSettlementQueueCondition + `))
+`
+
+	// expenseDetailsVisibilityPredicate is who may open one expense and its
+	// receipt: the shared rule plus the admin and payables extras. It is for
+	// the details and attachment routes only. Lists keep the shared rule.
+	expenseDetailsVisibilityPredicate = expenseVisibilityPredicate +
+		"\nOR " + expenseAdminVisibilityPredicate +
+		"\nOR " + expensePayablesVisibilityPredicate
 )
 
 func buildCountQuery(whereClause string) string {
@@ -121,6 +139,26 @@ func expenseVisibilityParams(app core.App, auth *core.Record) (dbx.Params, error
 		"has_commit": boolToInt(hasCommit),
 		"has_report": boolToInt(hasReport),
 	}, nil
+}
+
+// expenseDetailsVisibilityParams binds the claims that
+// expenseDetailsVisibilityPredicate checks.
+func expenseDetailsVisibilityParams(app core.App, auth *core.Record) (dbx.Params, error) {
+	params, err := expenseVisibilityParams(app, auth)
+	if err != nil {
+		return nil, err
+	}
+	hasAdmin, err := utilities.HasClaim(app, auth, "admin")
+	if err != nil {
+		return nil, err
+	}
+	hasPayablesAdmin, err := utilities.HasClaim(app, auth, "payables_admin")
+	if err != nil {
+		return nil, err
+	}
+	params["has_admin"] = boolToInt(hasAdmin)
+	params["has_payables_admin"] = boolToInt(hasPayablesAdmin)
+	return params, nil
 }
 
 // ExpensesAugmentedRow models the augmented expense row returned by SQL.
@@ -465,18 +503,13 @@ func createGetExpenseDetailsHandler(app core.App) func(e *core.RequestEvent) err
 			return e.Error(http.StatusBadRequest, "id is required", nil)
 		}
 
-		params, err := expenseVisibilityParams(app, auth)
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
-		}
-		hasAdmin, err := utilities.HasClaim(app, auth, "admin")
+		params, err := expenseDetailsVisibilityParams(app, auth)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
 		}
 		params["id"] = id
-		params["has_admin"] = boolToInt(hasAdmin)
 
-		query := expenseDetailsQuery + "\nAND (\n" + expenseVisibilityPredicate + "\nOR " + expenseAdminVisibilityPredicate + "\n)"
+		query := expenseDetailsQuery + "\nAND (\n" + expenseDetailsVisibilityPredicate + "\n)"
 
 		var row ExpenseDetailsRow
 		if err := app.DB().NewQuery(query).Bind(params).One(&row); err != nil {
@@ -504,18 +537,13 @@ func createGetExpenseAttachmentHandler(app core.App) func(e *core.RequestEvent) 
 			return e.Error(http.StatusBadRequest, "id is required", nil)
 		}
 
-		params, err := expenseVisibilityParams(app, auth)
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
-		}
-		hasAdmin, err := utilities.HasClaim(app, auth, "admin")
+		params, err := expenseDetailsVisibilityParams(app, auth)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
 		}
 		params["id"] = id
-		params["has_admin"] = boolToInt(hasAdmin)
 
-		query := expenseDetailsQuery + "\nAND (\n" + expenseVisibilityPredicate + "\nOR " + expenseAdminVisibilityPredicate + "\n)"
+		query := expenseDetailsQuery + "\nAND (\n" + expenseDetailsVisibilityPredicate + "\n)"
 
 		var row ExpenseDetailsRow
 		if err := app.DB().NewQuery(query).Bind(params).One(&row); err != nil {

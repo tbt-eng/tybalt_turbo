@@ -156,6 +156,15 @@ Current action placement:
 
 Primary details UI is `/expenses/{id}/details` (`ui/src/routes/expenses/[eid]/details/+page.svelte`).
 
+Who can open it, and its receipt (`expenseDetailsVisibilityPredicate` in `app/routes/expenses_api.go`):
+
+- the owner and the creator, always
+- the approver, once submitted
+- `commit` holders, once approved
+- `report` holders, once committed
+- `admin` holders, once committed, or when the expense has an uncommit request or uncommit on record
+- `payables_admin` holders, while the expense is in the settlement queue (see `foreign_currencies.md`)
+
 Current action placement:
 
 - Owner actions:

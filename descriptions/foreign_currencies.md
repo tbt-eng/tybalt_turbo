@@ -259,6 +259,21 @@ An expense appears in the settlement queue when ALL of the following are true:
 - Approved (`approved` is non-blank, `rejected` is blank)
 - Uncommitted (`committed` is blank)
 
+These criteria are one SQL condition, `expenseSettlementQueueCondition` in
+`app/routes/expense_settlement.go`. The queue lists, the nav badge count and the
+payables rule on expense details all use it.
+
+### Who can open a queue expense
+
+Each row has a **View** button that opens the expense details page. A `payables_admin`
+holder can load the details (`GET /api/expenses/details/{id}`) and the receipt
+(`GET /api/expenses/attachment/{id}`) of an expense only while it meets the entry
+criteria, settled or not. Once it is committed, or if it is rejected, they lose this
+access, unless another rule lets them see it (owner, creator, approver, `commit`,
+`report` or `admin`). The rule is `expensePayablesVisibilityPredicate` in
+`app/routes/expenses_api.go`. It applies to those two routes only, not to the list of a
+PO's expenses.
+
 ### Main Tab: Unsettled
 
 Lists expenses matching entry criteria where `settled` is blank.
@@ -276,7 +291,7 @@ Lists expenses matching entry criteria where `settled` is blank.
 - Indicative CAD equivalent (from cached rate on `currencies` row)
 - Age (days since approval) is returned by the API as `age_days`, but the page does not show it
 
-**Per-row action:** CAD amount input + **Save** button.
+**Per-row action:** CAD amount input + **Save** button, and **View**.
 
 **Save action** (API route, runs in a database transaction):
 
@@ -302,7 +317,7 @@ This tab is **read-only** — no in-place editing of settled amounts.
 - Settler name
 - Settled timestamp
 
-**Per-row action:** **Clear Settlement** button only.
+**Per-row action:** **Clear** (Clear Settlement) and **View**.
 
 **Clear Settlement** (API route, runs in a database transaction):
 

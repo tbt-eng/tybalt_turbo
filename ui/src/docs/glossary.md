@@ -13,7 +13,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
 | Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
-| Payables staff        | Staff who can cancel, close or convert a purchase order.                                                                                            |                 |
+| Payables staff        | Staff who can cancel, close or convert a purchase order, and settle foreign-currency expenses.                                                      |                 |
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
 | Profile               | Your own details: your name, your manager and your default division. See [Profile](/docs/profile).                                                  |                 |
 | Project Authorization | The agreement that Turbo prints for signatures. You can use it as the authorization PDF, or use another document.                                   | PA              |

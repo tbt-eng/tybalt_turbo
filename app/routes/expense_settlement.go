@@ -38,6 +38,20 @@ type expenseSettlementRow struct {
 	CCLast4Digits      string  `db:"cc_last_4_digits" json:"cc_last_4_digits"`
 }
 
+// expenseSettlementQueueCondition is the one SQL rule for an expense in the
+// settlement queue, settled or not: On Account or corporate card, in a foreign
+// currency, approved, not rejected and not committed. The queue lists, the nav
+// badge and the payables visibility rule on expense details all use it, so
+// they cannot drift apart. It needs the expense as e and its currency joined
+// as cur. A missing currency counts as the home currency.
+const expenseSettlementQueueCondition = `
+  e.payment_type IN ('OnAccount', 'CorporateCreditCard')
+  AND COALESCE(cur.code, '` + utilities.HomeCurrencyCode + `') != '` + utilities.HomeCurrencyCode + `'
+  AND COALESCE(e.approved, '') != ''
+  AND COALESCE(e.rejected, '') = ''
+  AND COALESCE(e.committed, '') = ''
+`
+
 type settleExpenseRequest struct {
 	SettledTotal float64 `json:"settled_total"`
 }
@@ -114,11 +128,7 @@ func createExpenseSettlementListHandler(app core.App, settled bool) func(e *core
 			LEFT JOIN vendors v ON v.id = e.vendor
 			LEFT JOIN purchase_orders po ON po.id = e.purchase_order
 			LEFT JOIN currencies cur ON cur.id = e.currency
-			WHERE e.payment_type IN ('OnAccount', 'CorporateCreditCard')
-			  AND COALESCE(cur.code, 'CAD') != 'CAD'
-			  AND COALESCE(e.approved, '') != ''
-			  AND COALESCE(e.rejected, '') = ''
-			  AND COALESCE(e.committed, '') = ''
+			WHERE (` + expenseSettlementQueueCondition + `)
 			  AND (
 			    ({:settled} = 1 AND COALESCE(e.settled, '') != '')
 			    OR ({:settled} = 0 AND COALESCE(e.settled, '') = '')
