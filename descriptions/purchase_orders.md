@@ -530,7 +530,8 @@ Recurring-specific date rules still apply (expense date must be within PO date a
 For `Cumulative` POs, overage is checked against the running sum of associated expenses:
 
 - `new_total = existing_expenses_total + new_expense_total`
-- If `new_total > po.total`, save fails immediately with code `cumulative_po_overflow`.
+- `existing_expenses_total` is the sum of the other expenses of the PO. On an update, the stored total of the expense being saved is left out, so the expense counts once.
+- If `new_total > po.total` (in whole cents), save fails immediately with code `cumulative_po_overflow`, and `overflow_amount = new_total - po.total`.
 - The error payload includes:
   - `purchase_order`
   - `po_number`

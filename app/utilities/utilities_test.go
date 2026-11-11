@@ -239,3 +239,73 @@ func TestRecurringOccurrences(t *testing.T) {
 		t.Fatal("expected unknown frequency to be rejected")
 	}
 }
+
+// Fixtures: cumeditpo000001 has the draft expenses cumeditexp00001 (600) and
+// cumeditexp00002 (300). closepending006 has four expenses of 100; only
+// closeexp006base is committed.
+func TestCumulativeTotalExpensesForPurchaseOrder(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	cases := []struct {
+		name          string
+		po            string
+		committedOnly bool
+		want          float64
+	}{
+		{"every expense", "cumeditpo000001", false, 900},
+		{"committed only, none committed", "cumeditpo000001", true, 0},
+		{"every expense of a PO with mixed states", "closepending006", false, 400},
+		{"committed only", "closepending006", true, 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			po, err := app.FindRecordById("purchase_orders", tc.po)
+			if err != nil {
+				t.Fatalf("failed to load purchase order %s: %v", tc.po, err)
+			}
+			got, err := CumulativeTotalExpensesForPurchaseOrder(app, po, tc.committedOnly)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+// The sum for an update leaves out the stored row of the expense being saved,
+// whatever its state, and nothing else.
+func TestCumulativeTotalOtherExpensesForPurchaseOrder(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	cases := []struct {
+		name      string
+		po        string
+		expenseId string
+		want      float64
+	}{
+		{"every expense but the one being updated", "cumeditpo000001", "cumeditexp00001", 300},
+		{"every expense but the other one", "cumeditpo000001", "cumeditexp00002", 600},
+		{"an id that is not on the PO leaves the sum unchanged", "cumeditpo000001", "closeexp006drft", 900},
+		{"a draft left out of a PO with mixed states", "closepending006", "closeexp006drft", 300},
+		{"a committed expense left out", "closepending006", "closeexp006base", 300},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			po, err := app.FindRecordById("purchase_orders", tc.po)
+			if err != nil {
+				t.Fatalf("failed to load purchase order %s: %v", tc.po, err)
+			}
+			got, err := CumulativeTotalOtherExpensesForPurchaseOrder(app, po, tc.expenseId)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("expected %v, got %v", tc.want, got)
+			}
+		})
+	}
+}

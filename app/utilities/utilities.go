@@ -732,26 +732,43 @@ func RecurringPurchaseOrderExhausted(app core.App, purchaseOrderRecord *core.Rec
 	return committedExpensesCount+pendingCommits >= maxExpenses, nil
 }
 
-// return the total of all expenses associated with the purchase order. If
-// committedOnly is true, return the total of all committed expenses only. This
-// function DOES NOT check if the purchaseOrderRecord is of type Cumulative.
-// TODO: test this thoroughly.
+// CumulativeTotalExpensesForPurchaseOrder returns the total of all expenses
+// associated with the purchase order. If committedOnly is true, it returns the
+// total of the committed expenses only. This function DOES NOT check if the
+// purchaseOrderRecord is of type Cumulative.
 func CumulativeTotalExpensesForPurchaseOrder(app core.App, purchaseOrderRecord *core.Record, committedOnly bool) (float64, error) {
-	existingExpensesTotal := 0.0
-	query := app.DB().NewQuery("SELECT COALESCE(SUM(total), 0) AS total FROM expenses WHERE purchase_order = {:purchaseOrder}")
+	return cumulativeTotalExpenses(app, purchaseOrderRecord, committedOnly, "")
+}
+
+// CumulativeTotalOtherExpensesForPurchaseOrder returns the total of all
+// expenses associated with the purchase order except the expense with the id
+// expenseId. An update of that expense uses it: the caller adds the new total
+// of the expense, so its stored total must not be counted too. This function
+// DOES NOT check if the purchaseOrderRecord is of type Cumulative.
+func CumulativeTotalOtherExpensesForPurchaseOrder(app core.App, purchaseOrderRecord *core.Record, expenseId string) (float64, error) {
+	return cumulativeTotalExpenses(app, purchaseOrderRecord, false, expenseId)
+}
+
+func cumulativeTotalExpenses(app core.App, purchaseOrderRecord *core.Record, committedOnly bool, excludeExpenseId string) (float64, error) {
+	sql := "SELECT COALESCE(SUM(total), 0) AS total FROM expenses WHERE purchase_order = {:purchaseOrder}"
+	params := dbx.Params{"purchaseOrder": purchaseOrderRecord.Id}
 	if committedOnly {
-		query = app.DB().NewQuery("SELECT COALESCE(SUM(total), 0) AS total FROM expenses WHERE purchase_order = {:purchaseOrder} AND committed != ''")
+		sql += " AND committed != ''"
 	}
-	query.Bind(dbx.Params{"purchaseOrder": purchaseOrderRecord.Id})
+	if excludeExpenseId != "" {
+		// Leave out the stored row of the expense being updated, so its old
+		// total is not counted with its new one.
+		sql += " AND id != {:excludeExpenseId}"
+		params["excludeExpenseId"] = excludeExpenseId
+	}
 	type TotalResult struct {
 		Total float64 `db:"total"`
 	}
 	result := TotalResult{}
-	if err := query.One(&result); err != nil {
+	if err := app.DB().NewQuery(sql).Bind(params).One(&result); err != nil {
 		return 0, err
 	}
-	existingExpensesTotal = result.Total
-	return existingExpensesTotal, nil
+	return result.Total, nil
 }
 
 // FindRequiredApproverClaimIdForPOAmount takes a purchase order amount and

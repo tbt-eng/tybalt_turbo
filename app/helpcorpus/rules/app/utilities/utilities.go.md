@@ -1,260 +1,244 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/utilities/utilities.go","sha256":"0bc24d5717167ed7b2fa2962a39719eae55a8609467155a050ee60a9dced7673","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/utilities/utilities.go","sha256":"d1eabf4eef718cab27f32473cd9b98ba139699cced852195786f8deed41e12fa","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/utilities/utilities.go
 
-## Inactive or profile-less users count as inactive
+## Inactive users cannot be assigned as manager or approver
 
 Lines 26-44
 
-Asked as: user not active; can't assign approver; deactivated user approver; manager not showing; inactive user as manager
+Asked as: inactive user as manager; user not active approver; deactivated user assigned approver; admin profile inactive
 
-Turbo treats a user as active only when an admin profile (admin_profiles) exists with active=true. A user with no admin profile, an empty user ID or active=false is inactive. This check stops inactive users from being assigned as manager or approver (IsUserActive).
+Turbo counts a user as active only when their admin profile (admin_profiles) has active=true. A user with no admin profile counts as inactive. An empty user ID counts as inactive. Turbo uses this check to stop inactive users being assigned to manager or approver fields.
 
-## Date fields must be valid YYYY-MM-DD dates
+## Dates must be valid YYYY-MM-DD
 
 Lines 46-52
 
-Asked as: invalid date error; date not accepted; wrong date format; is not a valid date; date field rejected
+Asked as: invalid date format; date rejected wrong format; not a valid date; date must be YYYY-MM-DD
 
-Turbo rejects a date value that is not a valid YYYY-MM-DD date. The message is "<value> is not a valid date".
+Turbo rejects a date that is not a real date in YYYY-MM-DD form. The message is "<value> is not a valid date".
 
-## Week ending is the next Saturday, or the same day
+## Week ending is the next Saturday
 
 Lines 54-72
 
-Asked as: week ending wrong day; week ending moved; timesheet end date Saturday; why week ending changed; week end date shifted
+Asked as: week ending date wrong; week end Saturday; date rolls to Saturday; which Saturday is week ending
 
-Turbo sets the week ending to the first Saturday on or after the given date. A date that is already a Saturday stays unchanged (GenerateWeekEnding).
+Turbo sets a week ending date to the first Saturday on or after the date. A date that is already a Saturday stays the same.
 
 ## Pay period ending is every second Saturday from payroll epoch
 
 Lines 74-104
 
-Asked as: pay period end date wrong; fortnight ending date; which Saturday is pay period; biweekly pay period end; pay period date off
+Asked as: pay period end wrong; fortnight ending date; payroll Saturday every two weeks; pay period ending calculation
 
-Turbo takes the week ending of the date. If that Saturday is a whole multiple of 14 days from the payroll epoch (PAYROLL_EPOCH), it is the pay period ending. Otherwise the pay period ending is the Saturday 7 days later. A non-multiple of 24 hours in the interval gives an error.
+Turbo sets the pay period ending to the week ending date when that date is a whole multiple of 14 days from the payroll epoch (constants.PAYROLL_EPOCH). Otherwise it uses the week ending plus 7 days.
 
 ## Time off opening date must follow a pay period end
 
 Lines 106-132
 
-Asked as: opening date not Sunday; time off start date error; opening_date must be a Sunday; time off opening rejected; time off start date
+Asked as: time off opening date rejected; opening date not Sunday; time off start after pay period; opening date error
 
-A time off opening date (opening_date) may be empty. If set, it must be a Sunday, with the error "opening_date must be a Sunday". The Saturday before it must be a pay period ending date, or the error is "opening_date must follow a pay period ending date".
+A time off opening date (opening_date) may be empty. Otherwise it must be a Sunday, and the day before it must be a pay period ending date. The errors are "opening_date must be a Sunday" and "opening_date must follow a pay period ending date".
 
-## Committed expense pay period bucketing
+## Committed expense pay period depends on commit week
 
 Lines 134-191
 
-Asked as: expense in wrong pay period; expense landed previous period; committed expense wrong period; expense period bucket; expense assigned to wrong period
+Asked as: committed expense wrong pay period; expense landed in wrong payroll; commit week pay period mismatch; expense goes to previous payroll
 
-Turbo sets the pay period ending of a committed expense from its date and the commit's week ending. If the commit week ending is itself a pay period ending (payroll week 2), that date is used. If the commit is in payroll week 1 and the expense date is on or before the previous Saturday (7 days earlier), the previous Saturday is used. Otherwise the Saturday 7 days after the commit week ending is used.
+When a committed expense's commit week ending is a payroll week-2 ending, Turbo uses that date as the pay period ending. When the commit falls in payroll week 1, Turbo compares the expense date with the previous payroll ending (one week before the commit week ending). An expense dated on or before that day goes to the previous payroll ending. A later expense goes to the week ending one week after the commit week ending.
 
 ## Date limit validation includes the limit date
 
 Lines 193-214
 
-Asked as: date too early error; date too late error; limit date allowed; date limit check; is too late message
+Asked as: date too early; date too late; date limit error; date before cutoff
 
-A date limit check accepts the limit date itself. With a minimum, an earlier date fails with "<date> is too early". With a maximum, a later date fails with "<date> is too late". An unparseable date also fails.
+A date limit check accepts a date equal to the limit. As a minimum, an earlier date fails with "<date> is too early". As a maximum, a later date fails with "<date> is too late".
 
-## PO approver division permission check
+## PO approver must hold claim and cover the division
 
 Lines 216-254
 
-Asked as: can't approve PO for division; approve purchase orders division; division approver permission; no approval rights division; PO approver not allowed
+Asked as: cannot pick PO approver; approver missing claim; PO approver not allowed division; approver not in division
 
-A user may approve purchase orders for a division only if they hold the given claim and their approver properties (po_approver_props) list no divisions or list that division. An empty divisions list means all divisions. Otherwise the error is "user does not have the required claim". An empty value gives "value is required".
+Turbo accepts a PO approver only when the user holds the required claim and has a po_approver_props record. That record must have an empty divisions list or include the PO's division. A missing or empty user fails with "value is required". A user who fails the claim or division check gets "user does not have the required claim".
 
-## Hours must be multiples of 0.5, negatives allowed
+## Time amendment hours must be multiples of 0.5
 
 Lines 256-271
 
-Asked as: hours must be half hour; half hour increments; negative hours allowed; time amendment negative hours; hours not multiple half
+Asked as: time amendment hours rejected; half hour amendment; hours not half hour; negative amendment hours
 
-A value must be a multiple of 0.5 or Turbo says "must be a multiple of 0.5". Zero passes. Negative values pass, because time amendments can correct committed hours either way.
+Hours must be a multiple of 0.5. Negative values are allowed, because amendments can correct committed hours down. Zero passes. Otherwise the message is "must be a multiple of 0.5".
 
-## Positive multiple of 0.5 validation
+## Positive hours must be non-negative multiples of 0.5
 
 Lines 273-288
 
-Asked as: negative hours not allowed; must be positive number; half hour rounding error; hours value rejected; positive hours only
+Asked as: hours must be half hours; negative hours error; positive hours check; hours increments of half
 
-A value must be zero or a positive multiple of 0.5. A negative value fails with "must be a positive number". A non-multiple fails with "must be a multiple of 0.5".
+This check accepts zero. A negative value fails with "must be a positive number". A value that is not a multiple of 0.5 fails with "must be a multiple of 0.5".
 
-## Positive multiple of 0.01 validation
+## Amounts must be non-negative multiples of 0.01
 
 Lines 290-305
 
-Asked as: amount must be cents; two decimal places error; money value rounding; negative amount not allowed; amount multiple 0.01
+Asked as: amount cents rejected; money value decimal error; amount not whole cents; negative amount not allowed
 
-A value must be zero or a positive multiple of 0.01. A negative value fails with "must be a positive number". A non-multiple fails with "must be a multiple of 0.01".
+This check accepts zero. A negative value fails with "must be a positive number". A value that is not a multiple of 0.01 fails with "must be a multiple of 0.01".
 
 ## Mileage distance must be a whole number
 
 Lines 310-315
 
-Asked as: mileage decimal distance error; km must be whole number; distance fraction not allowed; mileage distance integer; decimal kilometres mileage
+Asked as: mileage distance decimal; mileage km fraction error; distance must be whole; fractional kilometres mileage
 
-A mileage expense with a distance that is not an integer fails with "distance must be an integer for mileage expenses".
+When Turbo calculates a mileage expense total, a fractional distance fails with "distance must be an integer for mileage expenses".
 
-## Mileage total uses cumulative distance since last reset
+## Mileage counts earlier committed mileage since last reset date
 
 Lines 317-367
 
-Asked as: mileage rate reset; mileage total wrong; why mileage price lower; kilometres since reset; mileage count since reset
+Asked as: mileage rate reset; mileage counter since reset; previous mileage claims rate; mileage year to date count
 
-Turbo prices a mileage expense by the committed mileage the same user already has since the latest mileage reset date on or before the expense date. With no reset date, all earlier mileage counts. Only committed Mileage expenses count. Same-day expenses count when their id is smaller.
+The mileage rate depends on the user's committed mileage expenses since the latest reset date (mileage_reset_dates) on or before the expense date. If no reset date exists, Turbo counts from the beginning. It counts earlier-dated expenses and same-day expenses with a smaller id. It ignores uncommitted expenses.
 
-## Mileage rate bands are tiered by cumulative distance
+## Mileage total uses tiered rates and rounds to cents
 
 Lines 369-512
 
-Asked as: mileage rate tiers; mileage rate went down; no mileage rates found; mileage rate calculation wrong; mileage bands pricing
+Asked as: mileage total wrong; tiered mileage rate; no mileage rates; mileage rounding cents
 
-Each band's lower bound is in km and has its own rate. Distance that falls in a band is paid at that band's rate, and an expense that crosses bands is split across them. The result is rounded to 2 decimals. Errors occur if the rates are not JSON, a band key is not a number, or no rates exist ("no mileage rates found").
+Turbo reads the rate bands from the expense rate record (mileage). Each key is a starting kilometre and the value is the rate. Distance that crosses bands is split and each part is paid at its own band's rate. The total is rounded to 2 decimals. An error occurs when the rate data is missing or unreadable, or no bands exist ("no mileage rates found").
 
-## Annual payroll period starts the day after year end
+## Annual payroll period starts after previous year end date
 
 Lines 514-540
 
-Asked as: annual payroll period start; year end payroll date; no payroll year end record; payroll year start date; annual payroll start day
+Asked as: annual payroll start date; payroll year start wrong; no year end date found; year end payroll period
 
-Turbo starts the annual payroll period the day after the latest payroll year end date before the given date. A date equal to a year end date uses the earlier year end. If none exists the error is "no payroll year end date record found for the given date".
+The annual payroll period starts the day after the latest payroll year end date that is before the given date. A date equal to a year end date uses the previous year end. When no earlier year end date exists, Turbo returns the error "no payroll year end date record found for the given date".
 
-## Claim check is false without a user
+## Claim check by user
 
 Lines 542-573
 
-Asked as: user doesn't have claim; permission not showing; claim check false; missing user claim; user lacks permission
+Asked as: user does not have claim; claim missing from user; check user permission; user has no claim
 
-A user has a claim only if a user claim record links them to a claim with that name. A missing user or empty user ID has no claims.
+A user holds a claim when they have a user_claims record for a claim with that name. No user gives no claim.
 
-## Expense rate is the latest effective on or before the expense date
+## Expense rates use latest effective date on or before expense
 
 Lines 575-599
 
-Asked as: no expense rate found; rate for expense date; expense rate missing; which expense rate applies; expense rate record error
+Asked as: expense rate not found; no rate for expense date; which expense rate applies; missing expense rate record
 
-Turbo picks the expense rate record with the latest effective date on or before the expense date. If none exists the error is "no expense rate record found for the given date".
+Turbo uses the expense rate record with the latest effective_date on or before the expense date. When none exists, it fails with "no expense rate record found for the given date".
 
 ## Recurring PO requires end date and frequency
 
 Lines 601-625
 
-Asked as: recurring PO missing end date; frequency required recurring; end_date is required; recurring order no frequency; recurring PO needs fields
+Asked as: recurring PO missing end date; recurring order no frequency; repeating purchase order needs; recurring order required fields
 
 A recurring purchase order without an end date fails with "end_date is required for recurring purchase orders". One without a frequency fails with "frequency is required for recurring purchase orders".
 
-## Recurring PO dates must be valid dates
+## Recurring PO schedule runs from its date to its end date
 
-Lines 626-637
+Lines 627-638
 
-Asked as: recurring PO date parsing error; recurring total value fails; recurring PO date error; recurring dates unreadable; recurring calculation date failure
+Asked as: recurring PO schedule dates; payment schedule for recurring order; how recurring order payments run; recurring PO total across dates
 
-When Turbo calculates the total value of a recurring purchase order, it reads the start date (date) and end date (end_date) as YYYY-MM-DD dates. A date that cannot be read stops the calculation with a date-parsing error. Turbo gives no custom message for this case.
+Turbo reads the first payment date from the purchase order's date (date) and the last boundary from its end date (end_date). It multiplies the order's total (total) by the number of payments. The frequency (frequency) sets how the payments are spaced.
 
 ## Recurring PO end date must be after start date
 
 Lines 640-649
 
-Asked as: end date before start date; recurring end before start; end date earlier than start; recurring end date wrong; end_date is before start_date
+Asked as: end date before start; recurring order dates reversed; end date earlier than start; recurring PO date order
 
-A recurring purchase order whose end date is on or before its start date fails with "end_date is before start_date" (end_date must be after start_date).
+A recurring purchase order whose end date is on or before its start date (date) fails with "end_date is before start_date".
 
-## Recurring PO frequency must be known
+## Recurring PO needs valid frequency and two occurrences
 
-Lines 651-660
+Lines 651-671
 
-Asked as: invalid frequency error; frequency not accepted; weekly biweekly monthly options; unknown recurring frequency; frequency value rejected
+Asked as: invalid recurring frequency; recurring PO only once; recurring order occurs once; frequency not allowed recurring
 
-An unknown frequency fails with "invalid frequency". Valid values are Weekly, Biweekly and Monthly.
+The frequency must be Weekly, Biweekly or Monthly, otherwise Turbo says "invalid frequency". A recurring PO with fewer than 2 occurrences fails with "recurring purchase order must occur at least twice". The hint is to adjust the end date or the frequency.
 
-## Recurring PO must occur at least twice
-
-Lines 662-671
-
-Asked as: recurring occurs once only; only one occurrence; recurring PO too short; recurring must repeat twice; single occurrence error
-
-A recurring purchase order with fewer than 2 occurrences fails with "recurring purchase order must occur at least twice". The hint says to adjust the end date or the frequency.
-
-## Recurring PO total value is total times occurrences
+## Recurring PO total is total times occurrences
 
 Lines 673-673
 
-Asked as: recurring PO total wrong; total value multiplied; recurring value calculation; recurring total times occurrences; recurring order total amount
+Asked as: recurring PO total amount; recurring order overall value; total for repeating order; multiply payment total
 
-Turbo sets the total value of a recurring purchase order to its total multiplied by its number of occurrences.
+Turbo sets a recurring purchase order's total value as its per-payment total multiplied by the number of occurrences.
 
-## Recurring occurrences count payments before the end date
+## Recurring occurrences exclude the end date
 
 Lines 676-705
 
-Asked as: how many recurring payments; number of occurrences; end date excluded payments; monthly payments count; recurring payment dates
+Asked as: how many recurring payments; does last payment count; recurring payment count end date; monthly recurring payment dates
 
-The start date is the first payment and the end date is excluded. Weekly and Biweekly payments repeat every 7 or 14 days. Monthly payments fall on the start day of the month, or the last day of shorter months, always measured from the start date. A one-year monthly term of 2026-02-01 to 2027-02-01 has 12 payments.
+Turbo counts payments from the start date up to, but not including, the end date. The first payment falls on the start date. Weekly payments are 7 days apart and Biweekly payments are 14 days apart. Monthly payments fall on the start day of the month, or the last day of shorter months, always measured from the start date.
 
-## Recurring PO is exhausted when commits reach occurrences
+## Recurring PO exhausted when commits reach occurrences
 
 Lines 707-733
 
-Asked as: recurring PO used up; recurring PO closed; no more recurring commits; occurrences all committed; recurring order finished
+Asked as: recurring PO used up; recurring order fully committed; no more recurring payments; occurrences reached commits
 
-A recurring purchase order is exhausted when its committed expenses plus pending commits reach or equal its occurrences count (>=). Drafts and uncommitted expenses do not count. The occurrences count was fixed when the PO was saved.
+A recurring purchase order is exhausted when its committed expenses plus commits in progress are at least its occurrences count. Drafts and uncommitted expenses are not counted. The occurrences count is fixed when the PO is saved.
 
-## Cumulative PO expense total, all or committed only
+## Cumulative PO expense totals
 
-Lines 735-755
+Lines 735-772
 
-Asked as: PO total of expenses; sum of PO expenses; PO spent so far; total of committed expenses; expenses total on PO
+Asked as: cumulative PO total wrong; PO expense total sum; PO running total expenses; total excluding edited expense
 
-Turbo sums the totals of a purchase order's expenses, or only the committed ones when requested. No expenses gives 0. The function does not check that the PO is Cumulative.
+The expense total for a cumulative purchase order sums the totals of its expenses, or only committed ones when requested. For an update, the total can leave out the expense being edited so its old total is not counted twice. These functions do not check that the PO is cumulative.
 
-## Required PO approver tier is the smallest covering the amount
+## PO approval tier chosen by amount
 
-Lines 757-787
+Lines 774-804
 
-Asked as: which approval tier applies; approver level for PO; amount above all tiers; PO needs which approver; approval tier amount
+Asked as: which approval tier; PO approver level by amount; approval tier for amount; amount over all tiers
 
-Turbo picks the approval tier with the lowest maximum amount that is at least the PO amount (an amount equal to the maximum qualifies). If the amount exceeds every tier, or there are no tiers, the claim is empty.
+Turbo picks the po_approval_tiers record with the smallest max_amount that is greater than or equal to the PO amount, so an amount equal to a tier's limit stays in that tier. It returns no claim when the amount exceeds every tier or no tiers exist.
 
-## Lowest or highest approval tier lookup
+## Lowest and highest approval tiers
 
-Lines 789-815
+Lines 806-832
 
-Asked as: no approval tiers found; lowest approval tier; highest approval tier amount; top approval tier lookup; approval tier missing
+Asked as: lowest approval tier; highest approval tier; no approval tiers; top tier approval limit
 
-Turbo can return the claim and maximum amount of the lowest or highest approval tier. If no tiers exist the error is "no approval tiers found".
+Turbo can look up the lowest or highest po_approval_tiers record and return its claim and max_amount. It fails with "no approval tiers found" when there are none.
 
-## Edits mark records as not imported for writeback
+## Local edits mark records as not imported
 
-Lines 817-853
+Lines 834-870
 
-Asked as: record sent back to legacy; imported flag reset; why record not imported; writeback after edit; edit resets imported flag
+Asked as: record not sent to legacy; edit not imported; imported flag reset; record resent legacy system
 
-When an existing record changes in any field other than created, updated or _imported, Turbo sets _imported to false. The record is then written back to the legacy system. Unchanged records keep their flag.
+When an existing record changes in any field except created, updated and the imported flag, Turbo sets _imported to false. This makes the record written back to the legacy system. A change to only those fields does not.
 
-## Job changes mark jobs not imported
+## Job changes mark jobs as not imported
 
-Lines 855-894
+Lines 872-911
 
-Asked as: job not imported; invalid jobs reference column; job update legacy sync; job change writeback; jobs client owner contact update
+Asked as: job not imported; job marked unimported; job reference change import; job legacy sync flag
 
-Turbo marks a job as not imported and refreshes its updated time. It can also do this for all jobs that reference a given client, job owner or contact. Any other reference column gives the error "invalid jobs reference column".
+Turbo can set _imported to false and refresh updated on a job. It can do the same for all jobs that reference a client, job_owner or contact. Any other reference column is rejected.
 
-## Only tables with an _imported column are flagged for writeback
+## Machine token validation
 
-Lines 896-913
+Lines 932-960
 
-Asked as: table has imported column; direct SQL imported flag; writeback table check; imported column missing; SQL update imported flag
+Asked as: machine token invalid; expired machine token; machine secret not working; token check failing
 
-Turbo checks whether a table has an `_imported` column (TableHasImportedColumn) by reading the table's column list. It reports true only when a column named `_imported` exists. Direct SQL updates use this check to decide whether to set `_imported = false`, because those updates bypass the record hooks.
-
-## Machine token valid only if unexpired and hash matches
-
-Lines 915-943
-
-Asked as: machine token rejected; expired machine secret; token hash mismatch; invalid machine token; machine secret not working
-
-A machine token is valid only if an unexpired machine secret with the same role has a SHA-256 hash equal to salt plus token. An expired secret or a mismatch is rejected.
+A machine token is valid only when an unexpired machine_secrets record with the given role has a matching salted SHA-256 hash. An expired record never matches.

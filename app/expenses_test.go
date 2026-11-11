@@ -4968,3 +4968,193 @@ func TestCumulativePOCommitAndUncommitCompareWholeCents(t *testing.T) {
 		scenario.Test(t)
 	}
 }
+
+// An update of an expense on a Cumulative purchase order must count that
+// expense once: the check compares the other expenses plus the new total with
+// the PO total, and not the stored total as well (issue #182).
+//
+// Fixtures: PO cumeditpo000001 is Cumulative with a total of 1000. It has two
+// draft expenses of time@test.com: cumeditexp00001 (600, the one edited here)
+// and cumeditexp00002 (300). So the other expenses of cumeditexp00001 sum to
+// 300 and every expense of the PO sums to 900.
+func TestCumulativePOExpenseUpdateCountsTheExpenseOnce(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "time@test.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Fixture change at test time: cumeditpo000001 is stored Closed so that it
+	// does not change the count of Active purchase orders that other tests
+	// check. An expense can be saved only against an Active PO, so reopen it.
+	setupApp := func(tb testing.TB) *tests.TestApp {
+		app := testutils.SetupTestApp(tb)
+		if _, err := app.DB().NewQuery(
+			"UPDATE purchase_orders SET status = 'Active', closed = '', closer = '' WHERE id = 'cumeditpo000001'",
+		).Execute(); err != nil {
+			tb.Fatalf("failed to reopen cumeditpo000001: %v", err)
+		}
+		return app
+	}
+
+	const editedExpenseURL = "/api/collections/expenses/records/cumeditexp00001"
+	jsonHeaders := map[string]string{"Authorization": recordToken, "Content-Type": "application/json"}
+
+	expectStoredTotal := func(want float64) func(testing.TB, *tests.TestApp, *http.Response) {
+		return func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+			record, err := app.FindRecordById("expenses", "cumeditexp00001")
+			if err != nil {
+				tb.Fatalf("failed to load cumeditexp00001: %v", err)
+			}
+			if got := record.GetFloat("total"); got != want {
+				tb.Fatalf("expected stored total %v, got %v", want, got)
+			}
+		}
+	}
+
+	// multipart body for a create on the same PO, with a receipt the
+	// fixtures do not already hold.
+	createBody := func(total string) (*bytes.Buffer, string) {
+		buf := &bytes.Buffer{}
+		w := multipart.NewWriter(buf)
+		fields := map[string]string{
+			"uid":            "rzr98oadsp9qc11",
+			"date":           "2026-01-20",
+			"division":       "vccd5fo56ctbigh",
+			"description":    "Cumulative edit: new expense",
+			"payment_type":   "OnAccount",
+			"total":          total,
+			"vendor":         "yxhycv2ycpvsbt4",
+			"purchase_order": "cumeditpo000001",
+		}
+		for k, v := range fields {
+			if err := w.WriteField(k, v); err != nil {
+				t.Fatal(err)
+			}
+		}
+		fw, err := w.CreateFormFile("attachment", "cumedit-new.png")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fw.Write([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 'c', 'u', 'm', 'e', 'd', 'i', 't'}); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buf, w.FormDataContentType()
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			// Before the fix: 900 + 600 = 1500 is above 1000.
+			Name:            "an edit that keeps the total is accepted though twice the total is above the PO total",
+			Method:          http.MethodPatch,
+			URL:             editedExpenseURL,
+			Body:            strings.NewReader(`{"description": "Cumulative edit: new description"}`),
+			Headers:         jsonHeaders,
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"description":"Cumulative edit: new description"`, `"total":600`},
+			ExpectedEvents:  map[string]int{"OnRecordUpdate": 1},
+			TestAppFactory:  setupApp,
+			AfterTestFunc:   expectStoredTotal(600),
+		},
+		{
+			// 300 + 650 = 950. Before the fix: 900 + 650 = 1550.
+			Name:            "an edit that raises the total to an amount that fits is accepted",
+			Method:          http.MethodPatch,
+			URL:             editedExpenseURL,
+			Body:            strings.NewReader(`{"total": 650}`),
+			Headers:         jsonHeaders,
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"total":650`},
+			ExpectedEvents:  map[string]int{"OnRecordUpdate": 1},
+			TestAppFactory:  setupApp,
+			AfterTestFunc:   expectStoredTotal(650),
+		},
+		{
+			// 300 + 700 = 1000, which is not above the PO total.
+			Name:            "an edit that raises the total to exactly the PO total is accepted",
+			Method:          http.MethodPatch,
+			URL:             editedExpenseURL,
+			Body:            strings.NewReader(`{"total": 700}`),
+			Headers:         jsonHeaders,
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"total":700`},
+			ExpectedEvents:  map[string]int{"OnRecordUpdate": 1},
+			TestAppFactory:  setupApp,
+			AfterTestFunc:   expectStoredTotal(700),
+		},
+		{
+			// 300 + 700.01 - 1000 = 0.01: one cent too many.
+			Name:           "an edit one cent above the PO total is refused with an overflow of one cent",
+			Method:         http.MethodPatch,
+			URL:            editedExpenseURL,
+			Body:           strings.NewReader(`{"total": 700.01}`),
+			Headers:        jsonHeaders,
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"code":"cumulative_po_overflow"`,
+				`"overflow_amount":0.01`,
+				`"po_total":1000`,
+			},
+			ExpectedEvents: map[string]int{"OnRecordUpdate": 0},
+			TestAppFactory: setupApp,
+			AfterTestFunc:  expectStoredTotal(600),
+		},
+		{
+			// 300 + 750.25 - 1000 = 50.25. Before the fix the overflow was
+			// 900 + 750.25 - 1000 = 650.25.
+			Name:           "an edit that raises the total above what fits is refused with the overflow of the other expenses and the new total",
+			Method:         http.MethodPatch,
+			URL:            editedExpenseURL,
+			Body:           strings.NewReader(`{"total": 750.25}`),
+			Headers:        jsonHeaders,
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				`"code":"cumulative_po_overflow"`,
+				`"overflow_amount":50.25`,
+				`"purchase_order":"cumeditpo000001"`,
+			},
+			ExpectedEvents: map[string]int{"OnRecordUpdate": 0},
+			TestAppFactory: setupApp,
+			AfterTestFunc:  expectStoredTotal(600),
+		},
+		func() tests.ApiScenario {
+			// A create has nothing to leave out: 900 + 100 = 1000.
+			b, ct := createBody("100")
+			return tests.ApiScenario{
+				Name:            "a new expense that fits with every existing expense is accepted",
+				Method:          http.MethodPost,
+				URL:             "/api/collections/expenses/records",
+				Body:            b,
+				Headers:         map[string]string{"Authorization": recordToken, "Content-Type": ct},
+				ExpectedStatus:  http.StatusOK,
+				ExpectedContent: []string{`"purchase_order":"cumeditpo000001"`, `"total":100`},
+				ExpectedEvents:  map[string]int{"OnRecordCreate": 1},
+				TestAppFactory:  setupApp,
+			}
+		}(),
+		func() tests.ApiScenario {
+			// 900 + 150.5 - 1000 = 50.5.
+			b, ct := createBody("150.5")
+			return tests.ApiScenario{
+				Name:           "a new expense that does not fit with every existing expense is refused with the right overflow",
+				Method:         http.MethodPost,
+				URL:            "/api/collections/expenses/records",
+				Body:           b,
+				Headers:        map[string]string{"Authorization": recordToken, "Content-Type": ct},
+				ExpectedStatus: http.StatusBadRequest,
+				ExpectedContent: []string{
+					`"code":"cumulative_po_overflow"`,
+					`"overflow_amount":50.5`,
+				},
+				ExpectedEvents: map[string]int{"OnRecordCreate": 0},
+				TestAppFactory: setupApp,
+			}
+		}(),
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}

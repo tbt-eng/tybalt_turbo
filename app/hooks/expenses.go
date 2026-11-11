@@ -833,12 +833,17 @@ func ProcessExpense(app core.App, e *core.RecordRequestEvent) error {
 	// purchase order.
 
 	// if the purchase_order record's type property is "Cumulative", get the sum
-	// of the total property of all of the expenses associated with this purchase
-	// order and pass the sum to the validateExpense function. Do this using SQL
-	// via DB().NewQuery() since we just want the sum.
+	// of the total property of the other expenses associated with this purchase
+	// order and pass the sum to the validateExpense function, which adds the
+	// total of this expense. On an update the stored row of this expense is
+	// left out of the sum, or its old total would be counted with its new one.
 	existingExpensesTotal := 0.0
 	if poRecord != nil && poRecord.GetString("type") == "Cumulative" {
-		existingExpensesTotal, err = utilities.CumulativeTotalExpensesForPurchaseOrder(app, poRecord, false)
+		if expenseRecord.IsNew() {
+			existingExpensesTotal, err = utilities.CumulativeTotalExpensesForPurchaseOrder(app, poRecord, false)
+		} else {
+			existingExpensesTotal, err = utilities.CumulativeTotalOtherExpensesForPurchaseOrder(app, poRecord, expenseRecord.Id)
+		}
 		if err != nil {
 			return &errs.HookError{
 				Status:  http.StatusInternalServerError,
