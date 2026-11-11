@@ -110,6 +110,19 @@ Each user still has their own limit of questions in an hour, so the group's size
 
 ### 5. Check that it works
 
+An admin opens **App Config** in the menu (`/app_config`). The **Help chat** section says whether the chat can run and each reason why not:
+
+- whether the `help_chat` row is valid, with the error when it is not;
+- for each provider, the name of its secret and whether the server has it. The page never shows a key or a part of one;
+- the deploy group, its members and its id;
+- whether the search index is in memory;
+- for the last 24 hours, the questions, the users who asked, the turns that ended in an error, and the share of input tokens read from the cache;
+- when the model last answered, and the last error with its message.
+
+**Test the key** sends one request to the provider. It asks for the description of the model (`GET /v1/models/{id}` at Anthropic and OpenAI) or of the key (`GET /key` at OpenRouter, where the model is not checked). The request has no prompt and uses no tokens, so it shows that the key works without the cost of a question. It runs only on a press, never when the page opens.
+
+The page gets this from `/api/help/status` and `/api/help/status/test_key` (`app/helpchat/status.go`). Both need the `admin` claim, and both work when the chat is off or its setting is bad. Neither returns a question or an answer: the admin claim is not a right to read chats.
+
 Open Help and type a question in the search bar. **Ask Help** is the first row, and Enter sends the question. Then look at the turn's row in `chat_turns`: after the first call of a few minutes, `tokens_cache_read` must not be zero.
 
 To test the route with no UI, send a question from a terminal. Copy your token from the browser: it is the `token` in the `pocketbase_auth` item of the site's local storage.

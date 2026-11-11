@@ -4,6 +4,8 @@ The `app_config` collection is a key-value store for runtime configuration. Each
 
 Configuration is read via helpers in `app/utilities/config.go`. Missing or invalid values fall back to defaults.
 
+An admin can read every row on the **App Config** page (`/app_config`, `ui/src/routes/app_config/`). The page changes nothing. It also shows the status of Help chat: see [help_chat.md](help_chat.md).
+
 ---
 
 ## Deploy groups

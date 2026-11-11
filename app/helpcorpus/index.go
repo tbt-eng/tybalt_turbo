@@ -122,6 +122,9 @@ func (ix *Index) Handbook() string { return ix.corpus.Handbook }
 // Hash identifies the corpus that the index holds.
 func (ix *Index) Hash() string { return ix.corpus.Hash }
 
+// Size is the number of chunks in the index.
+func (ix *Index) Size() int { return len(ix.corpus.Chunks) }
+
 // Search returns the chunks that best match the query, best first, and only
 // chunks that the claims open. The query is plain words: a chunk matches if it
 // holds any of them, and holds more of them to rank higher.

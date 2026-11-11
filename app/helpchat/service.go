@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"tybalt/constants"
@@ -21,6 +22,13 @@ import (
 // 5 minutes after its last use.
 const warmEvery = 4 * time.Minute
 
+// The states of the search index. See Service.indexState.
+const (
+	indexNotLoaded int32 = iota
+	indexLoaded
+	indexFailed
+)
+
 // Service holds what the routes need: the search index and the model clients.
 type Service struct {
 	// Model and Index are set directly in tests. In the app they are nil. The
@@ -31,6 +39,9 @@ type Service struct {
 
 	indexOnce sync.Once
 	indexErr  error
+	// indexState says how the load went, for the status page. Index and
+	// indexErr are safe to read once it is not indexNotLoaded.
+	indexState atomic.Int32
 
 	modelsMu sync.Mutex
 	models   map[string]Model
@@ -76,6 +87,13 @@ func (s *Service) ready(settings Settings) (Model, error) {
 // loadIndex builds the search index on the first call. It needs no model.
 func (s *Service) loadIndex() error {
 	s.indexOnce.Do(func() {
+		defer func() {
+			if s.indexErr != nil {
+				s.indexState.Store(indexFailed)
+			} else {
+				s.indexState.Store(indexLoaded)
+			}
+		}()
 		if s.Index != nil {
 			return
 		}
@@ -107,6 +125,9 @@ func AddRoutes(app core.App, service *Service) {
 		group.POST("/ask", service.handleAsk(app))
 		group.POST("/turns/{id}/feedback", service.handleFeedback(app))
 		group.POST("/warm", service.handleWarm(app))
+		// For an admin. See status.go.
+		group.GET("/status", service.handleStatus(app))
+		group.POST("/status/test_key", service.handleTestKey(app))
 		return se.Next()
 	})
 }
