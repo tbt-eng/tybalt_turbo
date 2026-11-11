@@ -2,6 +2,11 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DsActionButton from "$lib/components/DSActionButton.svelte";
+  import ShareModal from "$lib/components/ShareModal.svelte";
+  import TimesheetSharedBadge from "$lib/components/TimesheetSharedBadge.svelte";
+  import { pb } from "$lib/pocketbase";
+  import { canShareTimesheet } from "$lib/timesheets/actions";
   import type { PageData } from "./$types";
   import type { TimeSheetTallyQueryRow } from "$lib/utilities";
   import { shortDate } from "$lib/utilities";
@@ -9,6 +14,12 @@
 
   let { data }: { data: PageData } = $props();
   let items: TimeSheetTallyQueryRow[] = $state(untrack(() => data.items));
+  let shareModal: ShareModal | undefined = $state();
+  const viewerId = pb.authStore.record?.id ?? "";
+
+  function setSharedCount(id: string, count: number) {
+    items = items.map((ts) => (ts.id === id ? { ...ts, shared_reviewer_count: count } : ts));
+  }
 </script>
 
 <DsList items={items as TimeSheetTallyQueryRow[]} search={true} inListHeader="Approved Time Sheets">
@@ -31,7 +42,10 @@
     {/if}
   {/snippet}
   {#snippet line1(tally: TimeSheetTallyQueryRow)}
-    <span>{tally.non_work_total_hours} hours off</span>
+    <span class="flex flex-wrap items-center gap-1">
+      <span>{tally.non_work_total_hours} hours off</span>
+      <TimesheetSharedBadge count={tally.shared_reviewer_count} />
+    </span>
   {/snippet}
   {#snippet line2(tally: TimeSheetTallyQueryRow)}
     {#if tally.approved !== ""}
@@ -49,4 +63,16 @@
       </div>
     {/if}
   {/snippet}
+  {#snippet actions(tally: TimeSheetTallyQueryRow)}
+    {#if canShareTimesheet(tally, viewerId)}
+      <DsActionButton
+        action={() => shareModal?.openModal(tally.id)}
+        icon="mdi:ios-share"
+        title="Share with another manager"
+        color="purple"
+      />
+    {/if}
+  {/snippet}
 </DsList>
+
+<ShareModal bind:this={shareModal} onchange={setSharedCount} />

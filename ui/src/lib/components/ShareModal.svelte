@@ -1,10 +1,23 @@
 <script lang="ts">
+  // Shares a time sheet with another manager. Work on a person's time sheet may
+  // have been done under another manager. The person's own manager approves the
+  // time sheet and shares it so that the other manager can see the hours worked
+  // for them. Each viewer is a time_sheet_reviewers row. A viewer finds the time
+  // sheet under Shared with Me and can read it, but can't approve or reject it.
+  //
+  // Only the approver of the time sheet can add or remove a viewer. The create
+  // and delete rules of time_sheet_reviewers enforce this, and pages show the
+  // button that opens this modal only when canShareTimesheet() in
+  // $lib/timesheets/actions.ts is true.
   import DsActionButton from "./DSActionButton.svelte";
-  import { fade } from "svelte/transition";
+  import DSModal from "./DSModal.svelte";
+  import DSSection from "./DSSection.svelte";
+  import DSSelector from "./DSSelector.svelte";
   import { pb } from "$lib/pocketbase";
   import { managers } from "$lib/stores/managers";
   import { globalStore } from "$lib/stores/global";
-  import { timesheets } from "$lib/stores/timesheets";
+  import { getApiErrorMessage } from "$lib/errors";
+  import { shortDate } from "$lib/utilities";
 
   type Reviewer = {
     id: string;
@@ -15,50 +28,52 @@
     given_name: string;
   };
 
+  type ReviewSummary = {
+    owner_name?: string;
+    week_ending?: string;
+    reviewers?: Reviewer[];
+  };
+
   // initialize the stores, noop if already initialized
   managers.init();
 
-  let { collectionName }: { collectionName: string } = $props();
+  // onchange gets the time sheet id and its new viewer count after a viewer is
+  // added or removed, so the page can update its "Shared (N)" badge.
+  let { onchange }: { onchange?: (timeSheetId: string, count: number) => void } = $props();
+
+  const viewerId = pb.authStore.record?.id ?? "";
 
   let show = $state(false);
   let itemId = $state("");
   let newViewer = $state("");
   let reviewers = $state([] as Reviewer[]);
-  let ownerName = $state("Share");
-  let timesheetDate = $state("");
+  let ownerName = $state("");
+  let weekEnding = $state("");
+
+  // Managers who are not viewers yet. The signed-in approver is left out.
+  const choices = $derived(
+    $managers.items.filter((m) => m.id !== viewerId && !reviewers.some((r) => r.reviewer === m.id)),
+  );
 
   function closeModal() {
     show = false;
     itemId = "";
     newViewer = "";
     reviewers = [];
-    ownerName = "Share";
-    timesheetDate = "";
+    ownerName = "";
+    weekEnding = "";
   }
 
   async function reloadReviewers() {
     try {
-      const summary: any = await pb.send("/api/time_sheets/" + itemId + "/reviewers", {
+      const summary: ReviewSummary = await pb.send("/api/time_sheets/" + itemId + "/reviewers", {
         method: "GET",
       });
-
       reviewers = summary.reviewers || [];
-      ownerName = summary.owner_name || "Share";
-
-      if (summary.week_ending) {
-        const dateObj = new Date(summary.week_ending);
-        timesheetDate = dateObj.toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        });
-      } else {
-        timesheetDate = "";
-      }
-
-      newViewer = "";
-    } catch (error: any) {
-      globalStore.addError(`Failed to load reviewers: ${error}`);
+      ownerName = summary.owner_name || "";
+      weekEnding = summary.week_ending || "";
+    } catch (error) {
+      globalStore.addError(getApiErrorMessage(error, "Failed to load viewers"));
       reviewers = []; // Ensure we have valid state even on error
     }
   }
@@ -66,65 +81,52 @@
   export async function openModal(id: string) {
     show = true;
     itemId = id;
-    reloadReviewers();
-  }
-
-  async function refreshTimesheetListIfNeeded() {
-    if (collectionName === "time_sheet_reviewers") {
-      await timesheets.refresh();
-    }
+    await reloadReviewers();
   }
 
   async function addViewer() {
     if (!newViewer) {
-      globalStore.addError("Please select a manager to add as viewer");
+      globalStore.addError("Select a manager to add as a viewer");
       return;
     }
 
     try {
-      await pb.collection(collectionName).create({
+      await pb.collection("time_sheet_reviewers").create({
         time_sheet: itemId,
         reviewer: newViewer,
       });
+      newViewer = "";
       await reloadReviewers();
-      await refreshTimesheetListIfNeeded();
-    } catch (error: any) {
-      globalStore.addError(`Failed to add viewer: ${error}`);
+      onchange?.(itemId, reviewers.length);
+    } catch (error) {
+      globalStore.addError(getApiErrorMessage(error, "Failed to add viewer"));
     }
   }
 
   async function deleteViewer(reviewerRecordId: string) {
     try {
-      await pb.collection(collectionName).delete(reviewerRecordId);
+      await pb.collection("time_sheet_reviewers").delete(reviewerRecordId);
       await reloadReviewers();
-      await refreshTimesheetListIfNeeded();
-    } catch (error: any) {
-      globalStore.addError(`Failed to remove viewer: ${error}`);
+      onchange?.(itemId, reviewers.length);
+    } catch (error) {
+      globalStore.addError(getApiErrorMessage(error, "Failed to remove viewer"));
     }
   }
 </script>
 
-{#if show}
-  <div
-    class="fixed inset-0 z-50 overflow-x-hidden overflow-y-auto"
-    transition:fade={{ duration: 200 }}
-  >
-    <div class="bg-opacity-80 fixed inset-0 z-10 bg-black"></div>
-    <div
-      class="relative z-20 mx-auto my-20 flex w-fit max-w-full flex-col rounded-lg bg-neutral-800 p-4 text-neutral-300"
-    >
-      <div class="flex items-baseline justify-between gap-2">
-        <h1 class="text-xl font-bold">{ownerName}</h1>
-        {#if timesheetDate}
-          <h5 class="text-sm text-neutral-400">{timesheetDate}</h5>
-        {/if}
-      </div>
-      <div class="my-2 flex flex-col items-stretch gap-2 overflow-auto">
-        <div class="rounded-sm bg-neutral-700 p-4">
-          <h3 class="text-lg font-semibold">{reviewers.length === 0 ? "No " : ""}Viewers</h3>
-          <!-- Grid layout: two columns (names | delete button) with vertical spacing -->
-          <div class="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2">
-            {#each reviewers as reviewer (reviewer.id)}
+<DSModal
+  bind:show
+  title={ownerName ? `Share ${ownerName}'s time sheet` : "Share time sheet"}
+  subtitle={weekEnding ? `Week ending ${shortDate(weekEnding, true)}` : ""}
+  size="sm"
+  onclose={closeModal}
+>
+  <div class="flex flex-col gap-4">
+    {#if reviewers.length > 0}
+      <DSSection title="Viewers">
+        <ul class="flex flex-col gap-2">
+          {#each reviewers as reviewer (reviewer.id)}
+            <li class="flex items-center justify-between gap-2">
               <span>{reviewer.surname}, {reviewer.given_name}</span>
               <DsActionButton
                 action={() => deleteViewer(reviewer.id)}
@@ -132,32 +134,30 @@
                 color="red"
                 title="Remove Viewer"
               />
-            {/each}
-          </div>
-        </div>
-
-        <span class="flex items-center gap-1">
-          <select name="manager" bind:value={newViewer} class="rounded-sm bg-neutral-700 p-1">
-            <option disabled selected>- select manager -</option>
-            {#each $managers.items as m (m.id)}
-              {#if !reviewers.find((r) => r.reviewer === m.id)}
-                <option value={m.id}>
-                  {m.surname}, {m.given_name}
-                </option>
-              {/if}
-            {/each}
-          </select>
-          <DsActionButton
-            action={addViewer}
-            icon="feather:plus-circle"
-            color="green"
-            title="Add Viewer"
-          />
-        </span>
-      </div>
-      <div class="gap-2">
-        <DsActionButton action={closeModal}>Close</DsActionButton>
-      </div>
-    </div>
+            </li>
+          {/each}
+        </ul>
+      </DSSection>
+    {/if}
+    <DSSelector
+      bind:value={() => newViewer, (value) => (newViewer = String(value))}
+      items={choices}
+      errors={{}}
+      fieldName="reviewer"
+      uiName="Manager"
+    >
+      {#snippet optionTemplate(m)}{m.surname}, {m.given_name}{/snippet}
+      {#snippet trailing()}
+        <DsActionButton
+          action={addViewer}
+          icon="feather:plus-circle"
+          color="green"
+          title="Add Viewer"
+        />
+      {/snippet}
+    </DSSelector>
   </div>
-{/if}
+  {#snippet footer()}
+    <DsActionButton variant="secondary" action={closeModal}>Close</DsActionButton>
+  {/snippet}
+</DSModal>

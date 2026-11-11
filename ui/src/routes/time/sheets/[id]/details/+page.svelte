@@ -11,6 +11,7 @@
   import { type UnsubscribeFunc } from "pocketbase";
   import { onMount, onDestroy, untrack } from "svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
+  import ShareModal from "$lib/components/ShareModal.svelte";
   import UncommitConfirmPopover from "$lib/components/UncommitConfirmPopover.svelte";
   import { goto } from "$app/navigation";
   import DsEditingDisabledBanner from "$lib/components/DsEditingDisabledBanner.svelte";
@@ -20,6 +21,7 @@
     canCommitTimesheet,
     canRecallTimesheet,
     canRejectTimesheet,
+    canShareTimesheet,
   } from "$lib/timesheets/actions";
   import { getApiErrorMessage } from "$lib/errors";
 
@@ -34,6 +36,7 @@
   let uncommitSubmitting = $state(false);
   let uncommitError = $state<string | null>(null);
   let rejectModal: RejectModal;
+  let shareModal: ShareModal | undefined = $state();
   const viewerId = pb.authStore.record?.id ?? "";
   const isCommitUser = () => $globalStore.showAllUi || $globalStore.claims.includes("commit");
   const isAdminUser = () => $globalStore.showAllUi || $globalStore.claims.includes("admin");
@@ -313,6 +316,14 @@
             />
           {/if}
         {/if}
+        {#if canShareTimesheet(timeSheet, viewerId)}
+          <DsActionButton
+            action={() => shareModal?.openModal(timeSheet.id)}
+            icon="mdi:ios-share"
+            title="Share with another manager"
+            color="purple"
+          />
+        {/if}
       </div>
     </div>
   </div>
@@ -457,6 +468,7 @@
       refreshDetails(timeSheet.id);
     }}
   />
+  <ShareModal bind:this={shareModal} onchange={(_id, count) => (sharedReviewerCount = count)} />
   <UncommitConfirmPopover
     bind:show={showUncommitConfirm}
     recordLabel="time sheet"

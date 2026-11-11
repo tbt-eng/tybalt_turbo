@@ -8,6 +8,17 @@ Managers see **Approved By Me**. It lists every time sheet that you approved, wi
 
 Select the week-ending date to open a time sheet. To take back an approval, select **Reject** there. You can't reject a committed time sheet.
 
+## Share a time sheet with a manager
+
+A time sheet can hold work done for another manager. Its approver shares it so that manager can see those hours.
+
+1. Open **Pending My Approval** or **Approved By Me**.
+2. Select **Share with another manager** on the time sheet.
+3. Select a manager.
+4. Select **Add Viewer**.
+
+That manager can read it but can't approve or reject it. **Remove Viewer** stops sharing.
+
 ## See time sheets shared with you
 
 **Shared with Me** lists the time sheets that a manager shared with you. Select **Details** to open one. You can read it. You can't approve or reject it.

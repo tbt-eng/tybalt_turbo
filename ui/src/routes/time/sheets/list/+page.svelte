@@ -18,6 +18,7 @@
     canApproveTimesheet,
     canRecallTimesheet,
     canRejectTimesheet,
+    canShareTimesheet,
   } from "$lib/timesheets/actions";
   import { getApiErrorMessage } from "$lib/errors";
 
@@ -140,15 +141,18 @@
       color="orange"
     />
   {/if}
-  <DsActionButton
-    action={() => shareModal?.openModal(id)}
-    icon="mdi:ios-share"
-    title="Share with another manager"
-    color="purple"
-  />
+  <!-- This list holds your own time sheets, so only a person who approves their own can share. -->
+  {#if canShareTimesheet({ approver, submitted }, viewerId)}
+    <DsActionButton
+      action={() => shareModal?.openModal(id)}
+      icon="mdi:ios-share"
+      title="Share with another manager"
+      color="purple"
+    />
+  {/if}
 {/snippet}
 
-<ShareModal bind:this={shareModal} collectionName="time_sheet_reviewers" />
+<ShareModal bind:this={shareModal} onchange={() => timesheets.refresh()} />
 <RejectModal collectionName="time_sheets" bind:this={rejectModal} />
 
 {#if !$timeEditingEnabled}

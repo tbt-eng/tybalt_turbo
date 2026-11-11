@@ -531,6 +531,62 @@ func TestAddTimesheetReviewer_QueuesSharedNotifications(t *testing.T) {
 	scenario.Test(t)
 }
 
+// TestAddTimesheetReviewer_OnlyApproverCanShare verifies that the owner of a
+// time sheet who is not its approver can't share it, and that its approver can.
+func TestAddTimesheetReviewer_OnlyApproverCanShare(t *testing.T) {
+	// ctw2sheet000001 belongs to fatt@mac.com and is approved by
+	// fakemanager@fakesite.xyz.
+	const timesheetID = "ctw2sheet000001"
+	const viewerUID = "rzr98oadsp9qc11" // time@test.com
+
+	ownerToken, err := testutils.GenerateRecordToken("users", "fatt@mac.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	approverToken, err := testutils.GenerateRecordToken("users", "fakemanager@fakesite.xyz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body := fmt.Sprintf(`{"time_sheet": "%s", "reviewer": "%s"}`, timesheetID, viewerUID)
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:   "the owner who is not the approver can't share the time sheet",
+			Method: http.MethodPost,
+			URL:    "/api/collections/time_sheet_reviewers/records",
+			Body:   strings.NewReader(body),
+			Headers: map[string]string{
+				"Authorization": ownerToken,
+				"Content-Type":  "application/json",
+			},
+			ExpectedStatus:  http.StatusBadRequest,
+			ExpectedContent: []string{`"data":{}`},
+			TestAppFactory:  testutils.SetupTestApp,
+		},
+		{
+			Name:   "the approver can share the time sheet",
+			Method: http.MethodPost,
+			URL:    "/api/collections/time_sheet_reviewers/records",
+			Body:   strings.NewReader(body),
+			Headers: map[string]string{
+				"Authorization": approverToken,
+				"Content-Type":  "application/json",
+			},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"time_sheet":"` + timesheetID + `"`,
+				`"reviewer":"` + viewerUID + `"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
 // TestAddTimesheetReviewer_InactiveReviewerFails verifies that adding an inactive
 // user as a reviewer is rejected.
 func TestAddTimesheetReviewer_InactiveReviewerFails(t *testing.T) {

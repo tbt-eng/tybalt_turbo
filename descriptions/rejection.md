@@ -3,8 +3,9 @@
 ## The RejectModal component
 
 - implemented in ui/src/lib/components/ directory as RejectModal.svelte
-- The RejectModal component is very similar to the existing ShareModal component
-  which is found in ui/src/lib/components/ShareModal.svelte. The RejectModal is
+- The RejectModal component was modelled on the ShareModal component
+  which is found in ui/src/lib/components/ShareModal.svelte (now built on
+  DSModal; RejectModal still has its own overlay). The RejectModal is
   used to reject a timesheet by prompting the user to enter a rejection reason.
   Once the user enters the reason and clicks Reject, the modal calls the reject
   route with the timesheet ID in the URL and the rejection reason in the body.

@@ -610,6 +610,16 @@ func AddHooks(app core.App) {
 		return e.Next()
 	})
 
+	// A time_sheet_reviewers row shares a time sheet with another manager. Work
+	// on a person's time sheet may have been done under another manager. The
+	// person's own manager approves the time sheet and shares it so that the
+	// other manager can see the hours worked for them. The other manager finds it
+	// under Shared with Me and can read it, but can't approve or reject it.
+	//
+	// Only the approver of the time sheet can share it. The collection's create
+	// and delete rules allow only the approver to add or remove a row, and they
+	// have no state condition. These hooks don't change who can share.
+	//
 	// Hook for time_sheet_reviewers: validate that reviewer is an active user
 	app.OnRecordCreateRequest("time_sheet_reviewers").BindFunc(func(e *core.RecordRequestEvent) error {
 		reviewerUID := e.Record.GetString("reviewer")

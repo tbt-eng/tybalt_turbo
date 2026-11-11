@@ -2,6 +2,9 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
+  import ShareModal from "$lib/components/ShareModal.svelte";
+  import TimesheetSharedBadge from "$lib/components/TimesheetSharedBadge.svelte";
+  import { canShareTimesheet } from "$lib/timesheets/actions";
   import { pb } from "$lib/pocketbase";
   import type { PageData } from "./$types";
   import type { TimeSheetTallyQueryRow } from "$lib/utilities";
@@ -12,6 +15,12 @@
 
   let { data }: { data: PageData } = $props();
   let items: TimeSheetTallyQueryRow[] = $state(untrack(() => data.items));
+  let shareModal: ShareModal | undefined = $state();
+  const viewerId = pb.authStore.record?.id ?? "";
+
+  function setSharedCount(id: string, count: number) {
+    items = items.map((ts) => (ts.id === id ? { ...ts, shared_reviewer_count: count } : ts));
+  }
 
   async function approve(id: string) {
     try {
@@ -48,19 +57,32 @@
     {/if}
   {/snippet}
   {#snippet line1(tally: TimeSheetTallyQueryRow)}
-    <span>{tally.non_work_total_hours} hours off</span>
+    <span class="flex flex-wrap items-center gap-1">
+      <span>{tally.non_work_total_hours} hours off</span>
+      <TimesheetSharedBadge count={tally.shared_reviewer_count} />
+    </span>
   {/snippet}
   {#snippet line2(tally: TimeSheetTallyQueryRow)}
     {#if tally.committed !== ""}
       <span>Committed on {shortDate(tally.committed, true)} by {tally.committer_name}</span>
     {/if}
   {/snippet}
-  {#snippet actions({ id }: TimeSheetTallyQueryRow)}
+  {#snippet actions(tally: TimeSheetTallyQueryRow)}
+    {#if canShareTimesheet(tally, viewerId)}
+      <DsActionButton
+        action={() => shareModal?.openModal(tally.id)}
+        icon="mdi:ios-share"
+        title="Share with another manager"
+        color="purple"
+      />
+    {/if}
     <DsActionButton
-      action={`/time/sheets/${id}/details`}
+      action={`/time/sheets/${tally.id}/details`}
       icon="mdi:details"
       title="Details"
       color="purple"
     />
   {/snippet}
 </DsList>
+
+<ShareModal bind:this={shareModal} onchange={setSharedCount} />
