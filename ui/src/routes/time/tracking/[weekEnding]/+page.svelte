@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { pb } from "$lib/pocketbase";
   import { globalStore } from "$lib/stores/global";
   import DsList from "$lib/components/DSList.svelte";
@@ -200,6 +201,7 @@
     >
       <Icon icon="mdi:download" class="text-base" /> JSON
     </button>
+    <DSHelp doc="review-time#track-the-time-sheets-of-a-week" label="Help" />
   {/snippet}
 </DSTabBar>
 
@@ -305,9 +307,7 @@
         action={() => copy(m.email)}
       />
       {#if hasCommitAccess()}
-        <DsActionButton action={() => ignoreThisWeek(m.id)}>
-          Ignore This Week
-        </DsActionButton>
+        <DsActionButton action={() => ignoreThisWeek(m.id)}>Ignore This Week</DsActionButton>
       {/if}
     {/snippet}
   </DsList>

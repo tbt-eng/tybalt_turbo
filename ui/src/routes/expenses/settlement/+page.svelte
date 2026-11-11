@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
@@ -110,6 +111,7 @@
           options={settlementTabs}
           ariaLabel="Expense settlement status filter"
         />
+        <DSHelp doc="commit-expenses#settle-a-foreign-currency-expense" label="Help" />
       </div>
     {/snippet}
 

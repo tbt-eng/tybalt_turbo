@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import Icon from "@iconify/svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
@@ -113,6 +114,7 @@
           options={statusOptions}
           ariaLabel="PO status filter"
         />
+        <DSHelp doc="find-a-purchase-order#search-for-a-po" label="Help" />
       </div>
     {/snippet}
 

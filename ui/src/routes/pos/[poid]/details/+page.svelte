@@ -604,6 +604,7 @@
           Revise Total
         </DsActionButton>
       {/if}
+      <DSHelp doc="find-a-purchase-order#print-a-po" label="Help" />
     </div>
   {/if}
 

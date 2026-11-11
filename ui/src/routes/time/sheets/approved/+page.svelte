@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import type { PageData } from "./$types";
@@ -11,6 +12,9 @@
 </script>
 
 <DsList items={items as TimeSheetTallyQueryRow[]} search={true} inListHeader="Approved Time Sheets">
+  {#snippet searchBarExtra()}
+    <DSHelp doc="review-time#see-the-time-sheets-you-approved" label="Help" />
+  {/snippet}
   {#snippet anchor({ id, week_ending }: TimeSheetTallyQueryRow)}
     <a class="font-bold hover:underline" href={`/time/sheets/${id}/details`}
       >{shortDate(week_ending, true)}</a

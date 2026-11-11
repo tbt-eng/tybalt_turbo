@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import { shortDate } from "$lib/utilities";
@@ -12,6 +13,9 @@
 </script>
 
 <DsList items={items as TimeSheetTallyQueryRow[]} search={true} inListHeader="Shared Time Sheets">
+  {#snippet searchBarExtra()}
+    <DSHelp doc="review-time#see-time-sheets-shared-with-you" label="Help" />
+  {/snippet}
   {#snippet anchor({ id, week_ending }: TimeSheetTallyQueryRow)}
     <a class="font-bold hover:underline" href={`/time/sheets/${id}/details`}
       >{shortDate(week_ending, true)}</a

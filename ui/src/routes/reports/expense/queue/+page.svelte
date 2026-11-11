@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { resolve } from "$app/paths";
   import { pb } from "$lib/pocketbase";
   import { globalStore } from "$lib/stores/global";
@@ -65,6 +66,9 @@
 <RejectModal collectionName="expenses" bind:this={rejectModal} on:refresh={() => refreshRows()} />
 
 <DsList items={rows} search={true} inListHeader="Expense Commit Queue">
+  {#snippet searchBarExtra()}
+    <DSHelp doc="commit-expenses#commit-an-expense" label="Help" />
+  {/snippet}
   {#snippet headline(r: ExpenseCommitQueueRow)}
     <a href={resolve(`/expenses/${r.id}/details`)} class="underline">{r.surname}, {r.given_name}</a>
     {#if r.rejected !== ""}

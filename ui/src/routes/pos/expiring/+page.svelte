@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import PurchaseOrdersList from "$lib/components/PurchaseOrdersList.svelte";
   import { fetchVisiblePOs, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
@@ -90,6 +91,10 @@
       inListHeader={`Expiring Recurring Purchase Orders (end date on or before ${expiringBefore})`}
       data={listData}
       showRemaining={true}
-    />
+    >
+      {#snippet searchBarExtra()}
+        <DSHelp doc="find-a-purchase-order#recurring-pos-that-end-soon" label="Help" />
+      {/snippet}
+    </PurchaseOrdersList>
   {/key}
 {/if}

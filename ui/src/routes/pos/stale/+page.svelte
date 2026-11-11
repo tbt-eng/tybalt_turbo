@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import type { PageData } from "./$types";
   import PurchaseOrdersList from "$lib/components/PurchaseOrdersList.svelte";
   import DsCheck from "$lib/components/DsCheck.svelte";
@@ -29,6 +30,7 @@
         fieldName="expense_only"
         uiName="Expense only"
       />
+      <DSHelp doc="find-a-purchase-order#stale-pos" label="Help" />
     </div>
   {/snippet}
 </PurchaseOrdersList>

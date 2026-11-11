@@ -157,7 +157,10 @@ export const docPageOrder = [
 // Pages that Help lists under another page, with a shorter label. The children
 // of one page show in the order of this list.
 const childDocPages: Record<string, { parent: string; label: string }> = {
+  "review-time": { parent: "time", label: "Review and track" },
   "revise-a-purchase-order": { parent: "purchase-orders", label: "Revisions" },
+  "find-a-purchase-order": { parent: "purchase-orders", label: "Find and print" },
+  "commit-expenses": { parent: "expenses", label: "Review and commit" },
   "admin-profiles": { parent: "profile", label: "Admin profiles" },
 };
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import MiniSearch from "minisearch";
   import DSSearchList from "$lib/components/DSSearchList.svelte";
   import DSToggle from "$lib/components/DSToggle.svelte";
@@ -50,6 +51,7 @@
         options={prefixOptions}
         ariaLabel="Work record prefix filter"
       />
+      <DSHelp doc="review-time#find-a-work-record" label="Help" />
     </div>
   {/snippet}
 
@@ -64,7 +66,8 @@
 
   {#snippet byline(item: WorkRecordSearchRow)}
     <span class="opacity-60">
-      {item.entry_count} {item.entry_count === 1 ? "entry" : "entries"}
+      {item.entry_count}
+      {item.entry_count === 1 ? "entry" : "entries"}
     </span>
   {/snippet}
 </DSSearchList>
