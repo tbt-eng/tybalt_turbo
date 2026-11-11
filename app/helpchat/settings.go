@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -24,6 +25,10 @@ const settingsKey = "help_chat"
 type Settings struct {
 	// Enabled turns the chat on. It is off until an admin adds the setting.
 	Enabled bool `json:"enabled"`
+	// DeployGroup is the id of a deploy_groups row. With one, the chat is on
+	// only for the users in that group. Empty means every user. See
+	// utilities.InDeployGroup.
+	DeployGroup string `json:"deploy_group"`
 	// Provider is the company whose API runs the model. See providers.go.
 	Provider string `json:"provider"`
 	// Model is a model id of that provider.
@@ -74,7 +79,11 @@ func LoadSettings(app core.App) (Settings, error) {
 	// The default model belongs to the default provider. A row that names
 	// another provider gets that provider's default, or must name a model.
 	settings.Model = ""
-	if err := json.Unmarshal([]byte(record.GetString("value")), &settings); err != nil {
+	// A property that the chat doesn't know is an error. Otherwise a mistake in
+	// the name deploy_group would give the chat to every user.
+	decoder := json.NewDecoder(strings.NewReader(record.GetString("value")))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&settings); err != nil {
 		return DefaultSettings(), fmt.Errorf("app_config %s: %w", settingsKey, err)
 	}
 	if settings.Model == "" {

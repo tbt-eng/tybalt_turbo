@@ -85,9 +85,28 @@ Edit the `value` of the `help_chat` record. The next question uses the new value
 - To change the model, change `model`.
 - To change the provider, change `provider` and `model` together. The server must have that provider's key already (step 2).
 - To turn the chat off, set `enabled` to `false`.
+- To give the chat to a test group first, see the next step.
 - `effort` is `"low"` unless you set it. For an OpenAI model that has no reasoning setting, set `"effort": ""`.
 
 Each row of `chat_turns` records the provider and the model that answered, so you can compare two models on real questions.
+
+A property that the chat does not know is a bad setting, and the chat is then off for everyone (HTTP 503). So a mistake in the name of a property can't remove a limit.
+
+### 4a. Give the chat to a test group first
+
+A deploy group turns the chat on for some users and leaves it off for the rest. [app_config.md](app_config.md#deploy-groups) says how deploy groups work.
+
+1. In the PocketBase admin, add a record to `deploy_groups` with a `name`, such as `help chat testers`. Copy its `id`.
+2. Add one record to `deploy_group_memberships` for each tester: the group and the user.
+3. Set the group's id in the `help_chat` record:
+
+```json
+{ "enabled": true, "deploy_group": "THE_GROUP_ID" }
+```
+
+A member sees **Ask Help** and can ask. Every other user sees Help with its search and no **Ask Help**, and `/api/help/ask` returns HTTP 403 for them. To add a tester, add a membership record: it takes effect at once. To give the chat to everyone, remove `deploy_group` from the record.
+
+Each user still has their own limit of questions in an hour, so the group's size sets the most that a test can cost. With few users, more questions find the model's cache cold and pay to write it again. So the cost of a question in a small test is higher than it will be with all users: use the benchmark to estimate the cost.
 
 ### 5. Check that it works
 

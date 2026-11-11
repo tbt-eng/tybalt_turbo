@@ -10,6 +10,7 @@ import (
 	"tybalt/constants"
 	"tybalt/errs"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -49,6 +50,75 @@ func GetConfigBool(app core.App, domainKey string, property string, defaultValue
 		return defaultValue, nil
 	}
 	return boolVal, nil
+}
+
+// InDeployGroup says whether a feature that names the deploy group is on for
+// the user. group is the id of a deploy_groups row.
+//
+// A deploy group gives a feature to some users before the rest. A feature's
+// app_config row names the group in its property deploy_group, and the feature
+// is on for a user when its own switch is on AND this function returns true:
+//
+//   - no group ("") returns true, so the switch alone decides;
+//   - a group returns true only for a user with a row in
+//     deploy_group_memberships.
+//
+// An id that matches no group has no members, so it returns false for every
+// user. A mistake in the id can turn a feature off, but can't give it to all.
+func InDeployGroup(app core.App, group string, uid string) (bool, error) {
+	if group == "" {
+		return true, nil
+	}
+	if uid == "" {
+		return false, nil
+	}
+	_, err := app.FindFirstRecordByFilter(
+		"deploy_group_memberships",
+		"user={:user} && deploy_group={:group}",
+		dbx.Params{"user": uid, "group": group},
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// DeployGroupAllows reads the property deploy_group of an app_config row and
+// says whether that group lets the user in. See InDeployGroup. Use it with the
+// feature's own switch:
+//
+//	on, _ := GetConfigBool(app, "some_feature", "enabled", false)
+//	allowed, _ := DeployGroupAllows(app, "some_feature", uid)
+//	if on && allowed { ... }
+//
+// With no row or no deploy_group, it returns true. A deploy_group that is not
+// text returns false and an error.
+func DeployGroupAllows(app core.App, domainKey string, uid string) (bool, error) {
+	// GetConfigValue treats every error as "no row". Here that would let all
+	// users in when the database can't be read, so this reads the row itself.
+	record, err := app.FindFirstRecordByData("app_config", "key", domainKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var config map[string]any
+	if err := json.Unmarshal([]byte(record.GetString("value")), &config); err != nil {
+		return false, err
+	}
+	raw, exists := config["deploy_group"]
+	if !exists || raw == nil {
+		return true, nil
+	}
+	group, valid := raw.(string)
+	if !valid {
+		return false, fmt.Errorf("%s.deploy_group must be the id of a deploy group", domainKey)
+	}
+	return InDeployGroup(app, group, uid)
 }
 
 // IsJobsEditingEnabled checks if job creation/editing/absorb is allowed.

@@ -14,6 +14,7 @@ import (
 
 	"tybalt/helpcorpus"
 	"tybalt/internal/testseed"
+	"tybalt/utilities"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -1102,5 +1103,116 @@ func TestAnAnswerWithNoStepsInTheDocsIsStillAnAnswer(t *testing.T) {
 	mustStatus(t, f.ask(t, adminEmail, map[string]any{"question": "And then?", "chat": chat}), http.StatusOK)
 	if history := f.model.requests[1].History; len(history) != 1 || !strings.Contains(history[0].Answer, "An admin can change it.") {
 		t.Errorf("history = %+v", history)
+	}
+}
+
+// deployGroup makes a deploy group with the users as members and returns its
+// id.
+func (f *fixture) deployGroup(t *testing.T, name string, emails ...string) string {
+	t.Helper()
+	groups, err := f.app.FindCollectionByNameOrId("deploy_groups")
+	if err != nil {
+		t.Fatal(err)
+	}
+	group := core.NewRecord(groups)
+	group.Set("name", name)
+	if err := f.app.Save(group); err != nil {
+		t.Fatal(err)
+	}
+	memberships, err := f.app.FindCollectionByNameOrId("deploy_group_memberships")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, email := range emails {
+		membership := core.NewRecord(memberships)
+		membership.Set("deploy_group", group.Id)
+		membership.Set("user", f.uid(t, email))
+		if err := f.app.Save(membership); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return group.Id
+}
+
+// With a deploy group in the setting, the chat is on for the members of the
+// group and off for every other user, the admin too.
+func TestADeployGroupLimitsTheChatToItsMembers(t *testing.T) {
+	f := newFixture(t, nil, step{text: "An answer."})
+	group := f.deployGroup(t, "help chat testers", staffEmail)
+	question := map[string]any{"question": "How do I submit my week?"}
+	warm := func(email string) *httptest.ResponseRecorder {
+		return f.do(t, context.Background(), http.MethodPost, "/api/help/warm", email, "")
+	}
+
+	f.setSettings(t, map[string]any{"enabled": true, "deploy_group": group})
+	for _, email := range []string{otherEmail, adminEmail} {
+		mustStatus(t, f.ask(t, email, question), http.StatusForbidden)
+		mustStatus(t, warm(email), http.StatusForbidden)
+	}
+	if len(f.turns(t)) != 0 || len(f.model.requests) != 0 || f.model.warmed != 0 {
+		t.Fatal("the chat ran for a user outside the deploy group")
+	}
+	events(t, f.ask(t, staffEmail, question))
+	if turn := f.onlyTurn(t); turn.GetString("uid") != f.uid(t, staffEmail) {
+		t.Fatal("the turn is not the member's")
+	}
+
+	// The switch still turns the chat off for the members.
+	f.setSettings(t, map[string]any{"enabled": false, "deploy_group": group})
+	mustStatus(t, f.ask(t, staffEmail, question), http.StatusForbidden)
+
+	// An id that matches no group lets nobody in.
+	f.setSettings(t, map[string]any{"enabled": true, "deploy_group": "nosuchgroup00000"})
+	for _, email := range []string{staffEmail, otherEmail, adminEmail} {
+		mustStatus(t, f.ask(t, email, question), http.StatusForbidden)
+	}
+
+	// A mistake in the name of the property is a bad setting, and does not
+	// give the chat to every user.
+	f.setSettings(t, map[string]any{"enabled": true, "deploy_grp": group})
+	mustStatus(t, f.ask(t, otherEmail, question), http.StatusServiceUnavailable)
+	if len(f.turns(t)) != 1 {
+		t.Fatal("the chat ran when it was off for the user")
+	}
+
+	// With no deploy group, the chat is on for every user.
+	f.setSettings(t, on())
+	events(t, f.ask(t, otherEmail, question))
+	if len(f.turns(t)) != 2 {
+		t.Fatal("the chat did not run for a user when no deploy group was set")
+	}
+}
+
+// A user reads their own deploy group memberships, which is how the UI knows
+// what to show. No user reads another's, reads the groups, or writes either.
+func TestAUserReadsOnlyTheirOwnDeployGroupsAndWritesNone(t *testing.T) {
+	f := newFixture(t, on())
+	group := f.deployGroup(t, "help chat testers", staffEmail)
+	const memberships = "/api/collections/deploy_group_memberships/records"
+	const groups = "/api/collections/deploy_groups/records"
+
+	list := func(email string) string {
+		recorder := f.do(t, context.Background(), http.MethodGet, memberships, email, "")
+		mustStatus(t, recorder, http.StatusOK)
+		return recorder.Body.String()
+	}
+	if body := list(staffEmail); !strings.Contains(body, group) {
+		t.Errorf("the member does not see their group: %s", body)
+	}
+	for _, email := range []string{otherEmail, adminEmail, ""} {
+		if body := list(email); strings.Contains(body, group) {
+			t.Errorf("%q sees a membership of another user: %s", email, body)
+		}
+	}
+
+	create := fmt.Sprintf(`{"deploy_group":%q,"user":%q}`, group, f.uid(t, otherEmail))
+	for _, email := range []string{staffEmail, otherEmail, adminEmail} {
+		mustStatus(t, f.do(t, context.Background(), http.MethodPost, memberships, email, create), http.StatusForbidden)
+		mustStatus(t, f.do(t, context.Background(), http.MethodGet, groups, email, ""), http.StatusForbidden)
+		mustStatus(t, f.do(t, context.Background(), http.MethodPost, groups, email, `{"name":"mine"}`), http.StatusForbidden)
+		mustStatus(t, f.do(t, context.Background(), http.MethodDelete, groups+"/"+group, email, ""), http.StatusForbidden)
+	}
+	if allowed, err := utilities.InDeployGroup(f.app, group, f.uid(t, otherEmail)); err != nil || allowed {
+		t.Fatalf("a user joined a deploy group through the collection API: %v", err)
 	}
 }

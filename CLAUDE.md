@@ -141,6 +141,8 @@ Every call to a model API costs money per token. Any new or changed model integr
 
 **Feature Flags**: Checked via `utilities.IsExpensesEditingEnabled(app)`. When expenses editing is disabled, create/update/delete hooks on expenses, purchase_orders, and vendors all return an error before proceeding.
 
+**Deploy groups**: Give a feature to some users before the rest. A feature's `app_config` row names a group's id in `deploy_group`; the feature is on for a user when its switch is on AND `utilities.InDeployGroup` (or `DeployGroupAllows`) returns true. No group means every user. The UI makes the same check with `ui/src/lib/deployGroups.ts`. See the Deploy groups section of `descriptions/app_config.md`.
+
 **Writeback**: Changes to certain records (POs, expenses, user profiles) are synced to Firebase for legacy system compatibility, handled by `*_writeback.go` route files.
 
 **Migrations**: Go migration files in `app/migrations/`. PocketBase auto-generates migration stubs when schema changes are made via the admin UI while running with `go run`. Name all new migration files with a `date +%s` Unix timestamp prefix. Never invent or approximate the timestamp, and never delete or reorder migrations.

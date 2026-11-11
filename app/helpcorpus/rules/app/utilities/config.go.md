@@ -1,156 +1,204 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/utilities/config.go","sha256":"a37b7ec7f56f8b645565cbfa621f3662163d40e855b07959ef87c142864fd66d","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/utilities/config.go","sha256":"819a472d8760a6e4d9ac577c77853b18c220cefe1e1a3175c3e29865e8aac25b","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/utilities/config.go
 
-## Unreadable config JSON gives an error with the default
+## Missing or unreadable config domain returns nothing
 
-Lines 16-52
+Lines 17-31
 
-Asked as: config value broken; settings won't parse; bad config json error; config shows error default
+Asked as: config value not showing; setting shows blank; default value used instead; config lookup returns nothing; app config empty
 
-When the stored value of a config row (app_config) is not valid JSON, reading a Boolean switch returns the default value along with an error. A missing config row is not an error: it simply gives the default.
+Turbo's config lookup (GetConfigValue) returns no value when the app_config row for a domain key does not exist. It also returns no value when the row cannot be found for any reason, and each setting then falls back to its own default. A stored value that is not valid JSON gives an error.
 
-## Non-Boolean config switch value falls back to its default
+## Boolean config setting falls back to its default
 
-Lines 32-52
+Lines 33-53
 
-Asked as: setting holds a string; config switch wrong value; switch ignored default used; config value not true false
+Asked as: true setting ignored; toggle not applying; yes flag not working; boolean setting stuck; setting reverts to default
 
-When a config switch (a property in app_config) holds something other than true or false, such as a string, Turbo ignores it and uses the switch's default. The same happens when the property is absent or the config row for the domain is missing.
+A boolean setting (GetConfigBool) uses its default when the config row is missing, when the property is absent, or when the property is not true or false. A lookup error returns the default along with the error. Only a real boolean overrides the default.
 
-## Job editing switch defaults to on when config is missing
+## Deploy group limits a feature to its members
 
-Lines 54-59
+Lines 55-87
 
-Asked as: can still edit jobs; jobs editable without setting; job editing allowed by default; job creation open by default
+Asked as: feature not showing for me; only some users see feature; not in rollout group; feature hidden on my account; beta feature missing for me
 
-Turbo allows job creation, editing and absorb unless the jobs setting create_edit_absorb is false. If the jobs config row or that property is missing, or is not true/false, Turbo allows it (fail-open).
+A feature whose settings name a deploy group (deploy_group) is on for a user only if the feature's own switch is on and the user is a member of that group (deploy_group_memberships). If no group is named, the switch alone decides. A user with no ID is never in a named group.
 
-## Project request approval requirement defaults to off
+## Unknown deploy group gives the feature to nobody
 
-Lines 61-83
+Lines 66-87
 
-Asked as: job request approval not required; no approval for project requests; jobs must be boolean error; project request approval default
+Asked as: feature off for everyone; wrong group id disables feature; rollout group typo; feature vanished after group change; group id mistake turned off
 
-Turbo requires project request approval only when the jobs setting require_job_request_approval is true. If the jobs config row or the property is missing, approval is not required. A value that is not true/false produces the error 'jobs.require_job_request_approval must be Boolean'.
+A deploy group ID that matches no group has no members, so the feature is off for every user. A mistake in the ID can turn a feature off, but it cannot turn it on for everyone.
 
-## Job editing refused while disabled
+## Missing deploy group setting lets everyone in
 
-Lines 85-92
+Lines 99-122
 
-Asked as: cannot create job; job editing turned off; jobs locked during transition; job editing is disabled
+Asked as: feature open to everyone; rollout not restricted; everyone can see feature; no group set access; why does everyone get it
 
-When job editing is switched off, Turbo refuses job creation and editing with 'job editing is currently disabled'. The detail reads 'job creation and editing is disabled during transition' (jobs_editing_disabled).
+If a feature has no settings row, or its settings have no deploy_group (or it is null), the deploy group check lets every user in. A deploy_group that is not text refuses with the error "<key>.deploy_group must be the id of a deploy group". A database read error also fails the check instead of letting users in.
 
-## Expense, PO and vendor editing switch defaults to on
+## Job creating, editing and absorbing default to on
 
-Lines 94-99
+Lines 124-129
 
-Asked as: expense edits allowed by default; vendor creation always allowed; PO absorb allowed by default; expense setting missing allowed
+Asked as: cannot create job; job absorb blocked; job edits greyed out; cannot absorb job; job changes not allowed
 
-Turbo allows expense, vendor and purchase order creation, editing and absorb unless the expenses setting create_edit_absorb is false. A missing config or property means allowed (fail-open).
+Job creation, editing and absorbing are allowed unless the jobs setting create_edit_absorb is set to false. If the setting is missing or is not true/false, they stay allowed.
 
-## Time editing switch defaults to on
+## Project request approval is off by default
 
-Lines 101-107
+Lines 131-153
 
-Asked as: time entries editable by default; timesheet changes allowed default; time editing open by default; time setting missing allowed
+Asked as: job request needs approval; project request approval missing; approval step skipped for projects; no approval on project requests; why requests not approved
 
-Turbo allows time entry creation and editing, and selected time sheet changes, unless the time setting create_edit is false. A missing config or property means allowed (fail-open).
+Turbo requires project request approval only when the jobs setting require_job_request_approval is true. If the jobs row or the setting is missing, approval is not required. A value that is not true/false gives the error "jobs.require_job_request_approval must be Boolean".
 
-## Notification features default to off
+## Message when job editing is disabled
 
-Lines 109-114
+Lines 155-162
 
-Asked as: notification not sending; email template disabled; notifications off by default; notification code missing
+Asked as: job editing disabled message; cannot edit jobs now; jobs locked during transition; job edit blocked error; job changes refused
 
-A notification template is enabled only when the notifications setting has its template code set to true. If the config or the code is missing or not true/false, the notification is off (fail-closed).
+When job editing is switched off, Turbo refuses with "job editing is currently disabled". The detail says "job creation and editing is disabled during transition".
+
+## Expense, PO and vendor editing default to on
+
+Lines 164-169
+
+Asked as: cannot edit expense; vendor edit blocked; purchase order editing locked; can't absorb expense; expense changes not saved
+
+Creating, editing and absorbing expenses, vendors and purchase orders is allowed unless the expenses setting create_edit_absorb is false. If the setting is missing, editing stays allowed.
+
+## Time editing defaults to on
+
+Lines 171-177
+
+Asked as: cannot edit timesheet entry; time amendment blocked; cannot add time entry; timesheet entry locked; time changes refused
+
+Time entry creation and editing, and some time sheet actions, are allowed unless the time setting create_edit is false. If the setting is missing, they stay allowed.
+
+## Notifications default to off
+
+Lines 179-184
+
+Asked as: no notification emails; notification not sending; template notifications turned off; alerts not arriving; notifications silent
+
+A notification template is on only if the notifications setting has true under that template's code. If the setting is missing or is not true/false, the notification is off.
 
 ## PO second approver timeout defaults to 24 hours
 
-Lines 116-145
+Lines 186-215
 
-Asked as: second approver deadline; PO approval timeout hours; how long PO second approval waits; purchase order timeout default
+Asked as: second approver timeout hours; PO approval expires too soon; why PO approval timing out; purchase order reminder time; second stage deadline
 
-The purchase order second-stage timeout is the purchase_orders setting second_stage_timeout_hours. Turbo uses 24 hours when the setting is missing, zero, negative or not a number.
+The second-stage timeout for a purchase order is the purchase_orders setting second_stage_timeout_hours. It must be a number above 0. If it is missing, zero, negative or not a number, Turbo uses 24 hours.
 
 ## Legacy PO create/update flow is off by default
 
-Lines 147-152
+Lines 217-222
 
-Asked as: old PO screen missing; legacy purchase order form; hidden PO create page; old PO update flow
+Asked as: old PO form missing; legacy purchase order screen; cannot create old style PO; hidden PO editor; old PO flow gone
 
-The hidden legacy purchase order create/update flow is enabled only when purchase_orders.enable_legacy_po_create_update is true. If the setting is missing, it is off.
+The hidden legacy purchase order create/update flow is on only if the purchase_orders setting enable_legacy_po_create_update is true. If the setting is missing, it is off.
 
-## Allowed expense excess over PO: defaults and validation
+## PO expense excess settings and defaults
 
-Lines 178-222
+Lines 248-292
 
-Asked as: PO excess percent setting; allowed overspend over PO; invalid excess percentage config; PO overage default values
+Asked as: allowed excess over PO; expense over PO total; PO overspend tolerance; excess percent setting; PO excess settings
 
-The allowed excess of expenses over a PO total comes from expenses.po_expense_allowed_excess. Turbo falls back to the built-in defaults (constants MAX_PURCHASE_ORDER_EXCESS_PERCENT and MAX_PURCHASE_ORDER_EXCESS_VALUE, mode lesser_of) when it is missing or not an object. Each field is checked separately and an invalid one keeps its default. Percent must be 0 to 100 (entered as 5 for 5%), value must be 0 or more, and mode must be lesser_of or greater_of.
+The allowed excess of expenses over a PO total uses the expenses setting po_expense_allowed_excess. Each part is checked alone: percent must be 0 to 100 (entered as 5 for 5%), value must be 0 or more, and mode must be "lesser_of" or "greater_of". A part that is missing or invalid falls back to its default. The defaults are the constants MAX_PURCHASE_ORDER_EXCESS_PERCENT and MAX_PURCHASE_ORDER_EXCESS_VALUE, with mode lesser_of.
 
-## PO currency and rate for the excess limit
+## Percent excess config must be between 0 and 100
 
-Lines 224-250
+Lines 273-279
 
-Asked as: foreign currency PO rate; exchange rate for PO limit; PO in USD conversion; currency rate missing on PO
+Asked as: excess percent invalid; percent over 100 ignored; enter 5 for percent; percentage not accepted; excess percent rejected
 
-A PO in the home currency is never converted, and a currency that can't be found is treated as the home currency. For a foreign PO the rate is approval_total_home divided by approval_total. If either total is missing or zero, Turbo uses the currency's current rate, or 1 if it has none or it is not positive.
+In the expenses config, the percent of allowed PO excess is entered as a whole percentage, such as 5 for 5%. Turbo accepts it only from 0 to 100 inclusive and divides it by 100. Any other or non-numeric value is ignored and the default percent stays.
 
-## How the maximum expense total for a PO is calculated
+## Fixed excess value must not be negative
 
-Lines 252-308
+Lines 281-283
 
-Asked as: max expense on PO; how expense limit is computed; PO overage limit calculation; maximum expenses against purchase order
+Asked as: negative excess amount; fixed PO excess ignored; excess value rejected; excess dollar amount wrong; excess fixed amount refused
 
-The limit is the PO total plus the percent excess or the fixed amount. The fixed amount is in home currency (CAD) and is divided by the PO's home rate on a foreign PO. In lesser_of mode (default) the fixed amount is used only when it is strictly less than the percent excess, so an equal value uses the percent. In greater_of mode the fixed amount is used when it is greater than or equal to the percent excess. The limit is floored to the cent.
+The fixed PO excess amount (value) in the expenses config is accepted when it is a number of 0 or more. A negative or non-numeric value is ignored and the default stays. The amount is in the home currency (CAD).
 
-## Zero-total PO reports a percentage excess
+## Excess mode accepts only lesser_of or greater_of
 
-Lines 261-264
+Lines 285-289
 
-Asked as: zero total PO shows percent; $0 PO percentage message; PO with no total excess
+Asked as: lesser of greater of; excess mode ignored; PO excess mode wrong; malformed excess setting; excess mode reset
 
-When the PO total is 0, the percent excess is 0 and the percent branch is chosen in lesser_of mode, so the text shows a percentage even though the allowed excess is $0.
+The PO excess mode is used only when it is the text lesser_of or greater_of. Any other value is ignored and the mode stays lesser_of. A malformed excess setting as a whole gives all the defaults.
 
-## Excess text in the over-limit message
+## Foreign PO currency rate for the excess limit
 
-Lines 283-301
+Lines 294-320
 
-Asked as: over limit message format; how excess is displayed; PO over limit wording; excess amount shown wrong
+Asked as: PO exchange rate wrong; foreign currency PO limit; currency conversion PO total; rate used for USD PO; PO rate for limit
 
-The excess is shown as a percentage like '5.00%' when the percent applies, or as '$100.00' when the fixed amount applies on a home-currency PO. On a foreign PO it is shown as '100.00 CAD (74.07 USD)'. The PO total is shown as '$1500.00', or in its own currency on a foreign PO.
+For a PO in a foreign currency, Turbo takes the rate from the PO's stored totals: approval_total_home divided by approval_total. If either total is not above 0, it uses the currency's current rate. If that rate is missing or 0 or less, it uses 1. A PO in the home currency, or one whose currency cannot be found, is treated as home currency and not converted.
 
-## Text in a numeric config setting is rejected
+## Excess text in the limit message
 
-Lines 310-326
+Lines 331-371
 
-Asked as: number saved as text; quoted number config ignored; config number in quotes; numeric setting rejected
+Asked as: limit message shows percent; excess text wrong; zero total PO message; limit message currency amount; excess message confusing
 
-Numeric config settings, such as the PO excess percent and value and the no-PO expense limit, accept only JSON numbers. A value written as text, such as "5", is rejected and Turbo uses the default for that setting.
+The excess text reports the percent (such as "5.00%") when the percent limit applies. It reports the fixed amount (such as "$100.00") when the fixed amount applies. On a foreign PO it shows the CAD amount with the PO-currency amount in parentheses. When the PO total is 0, the percent branch is always chosen in lesser_of mode, even though the allowed excess is $0.
 
-## No-PO expense limit default and zero meaning
+## How the PO expense total limit is calculated
 
-Lines 328-341
+Lines 335-378
 
-Asked as: no PO expense threshold; expenses without PO limit; zero no PO limit meaning; expense amount needs PO
+Asked as: maximum expense on PO; PO limit calculation; how expense limit computed; why limit rounded down; PO expense cap amount
 
-The no-PO expense limit comes from expenses.no_po_expense_limit. Turbo uses the built-in default (NO_PO_EXPENSE_LIMIT) when the config or key is missing, the value is not a number, or it is negative. A value of 0 means all non-exempt expenses require a PO.
+The largest allowed expense total is the PO total plus the excess. The percent limit is the PO total times (1 + percent). The fixed limit is the PO total plus the fixed amount. In lesser_of mode, Turbo uses the fixed amount only if it is strictly less than the percent excess. In greater_of mode, it uses the fixed amount if it is greater than or equal to the percent excess. Otherwise it uses the percent. The limit is floored to the cent.
 
-## Expense editing refused while disabled
+## Fixed excess is converted on a foreign PO
 
-Lines 343-350
+Lines 335-342
 
-Asked as: cannot edit expenses; expense editing locked; expenses frozen during transition; expense changes blocked
+Asked as: fixed excess foreign PO; CAD excess in USD PO; excess conversion wrong; home currency excess limit; excess not converted
 
-When expense editing is switched off, Turbo refuses with 'expense editing is currently disabled'. The detail reads 'expense, purchase order, and vendor creation and editing is disabled during transition' (expenses_editing_disabled).
+The fixed excess amount is in the home currency (CAD). On a foreign PO, Turbo divides it by the PO's home rate before comparing it with the percent and before adding it, so the limit is in the PO's currency. A rate of 0 or less leaves the amount unconverted.
 
-## Time editing refused while disabled
+## Number settings accept only JSON numbers
 
-Lines 352-359
+Lines 380-396
 
-Asked as: cannot edit time; time entries locked; timesheet submission disabled; time editing blocked
+Asked as: number setting text ignored; setting stored as string; numeric value not taken; quoted number config; number config rejected
 
-When time editing is switched off, Turbo refuses with 'time editing is currently disabled'. The detail says time entry and time amendment creation/editing, plus time sheet submission/approval, are disabled during transition (time_editing_disabled).
+The number coercion (CoerceFloat64) accepts only float64, int and int64 values. A missing value or any other type, such as text, counts as invalid. Settings that use it then fall back to their default.
+
+## No-PO expense limit default and zero value
+
+Lines 398-411
+
+Asked as: expense needs PO over limit; no PO limit amount; zero limit every expense PO; expense without PO threshold; no PO expense cutoff
+
+The no-PO expense limit comes from the expenses setting no_po_expense_limit. If it is missing, not a number or negative, Turbo uses the constant NO_PO_EXPENSE_LIMIT. A value of 0 means every non-exempt expense needs a PO.
+
+## Message when expense editing is disabled
+
+Lines 413-420
+
+Asked as: expense editing disabled; cannot edit expenses now; expense locked message; PO vendor creation blocked; expense changes refused
+
+When expense editing is switched off, Turbo refuses with "expense editing is currently disabled". The detail says "expense, purchase order, and vendor creation and editing is disabled during transition".
+
+## Message when time editing is disabled
+
+Lines 422-429
+
+Asked as: time editing disabled; timesheet submission blocked; time amendment locked; time approval disabled transition; cannot submit timesheet now
+
+When time editing is switched off, Turbo refuses with "time editing is currently disabled". The detail says time entry and time amendment creation/editing, plus time sheet submission/approval, are disabled during transition.

@@ -802,3 +802,146 @@ func TestGetNoPOExpenseLimit(t *testing.T) {
 		})
 	}
 }
+
+// addDeployGroup makes a deploy group with the users as members and returns
+// its id.
+func addDeployGroup(t *testing.T, app *tests.TestApp, name string, uids ...string) string {
+	t.Helper()
+	groups, err := app.FindCollectionByNameOrId("deploy_groups")
+	if err != nil {
+		t.Fatal(err)
+	}
+	group := core.NewRecord(groups)
+	group.Set("name", name)
+	if err := app.Save(group); err != nil {
+		t.Fatal(err)
+	}
+	memberships, err := app.FindCollectionByNameOrId("deploy_group_memberships")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, uid := range uids {
+		membership := core.NewRecord(memberships)
+		membership.Set("deploy_group", group.Id)
+		membership.Set("user", uid)
+		if err := app.Save(membership); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return group.Id
+}
+
+func setConfigRow(t *testing.T, app *tests.TestApp, key, rawValue string) {
+	t.Helper()
+	collection, err := app.FindCollectionByNameOrId("app_config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := app.FindFirstRecordByData("app_config", "key", key)
+	if err != nil || record == nil {
+		record = core.NewRecord(collection)
+		record.Set("key", key)
+	}
+	record.Set("value", rawValue)
+	if err := app.Save(record); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func twoUserIDs(t *testing.T, app *tests.TestApp) (string, string) {
+	t.Helper()
+	users, err := app.FindRecordsByFilter("users", "id != ''", "id", 2, 0)
+	if err != nil || len(users) < 2 {
+		t.Fatalf("the seed needs two users: %v", err)
+	}
+	return users[0].Id, users[1].Id
+}
+
+func TestInDeployGroup(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	member, outsider := twoUserIDs(t, app)
+	group := addDeployGroup(t, app, "testers", member)
+	empty := addDeployGroup(t, app, "nobody yet")
+
+	cases := []struct {
+		name  string
+		group string
+		uid   string
+		want  bool
+	}{
+		{"no group is every user", "", outsider, true},
+		{"no group is every user, also with no user", "", "", true},
+		{"a member", group, member, true},
+		{"a user outside the group", group, outsider, false},
+		{"a group with no members", empty, member, false},
+		{"an id that matches no group", "nosuchgroup00000", member, false},
+		{"no user", group, "", false},
+	}
+	for _, c := range cases {
+		got, err := InDeployGroup(app, c.group, c.uid)
+		if err != nil {
+			t.Errorf("%s: %v", c.name, err)
+		}
+		if got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// A second membership row for the same user and group is refused, so a group
+// can't count a user twice.
+func TestADeployGroupHoldsAUserOnce(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	member, _ := twoUserIDs(t, app)
+	group := addDeployGroup(t, app, "testers", member)
+
+	memberships, err := app.FindCollectionByNameOrId("deploy_group_memberships")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again := core.NewRecord(memberships)
+	again.Set("deploy_group", group)
+	again.Set("user", member)
+	if err := app.Save(again); err == nil {
+		t.Fatal("the same user was added to the group twice")
+	}
+}
+
+func TestDeployGroupAllows(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	member, outsider := twoUserIDs(t, app)
+	group := addDeployGroup(t, app, "testers", member)
+	const key = "some_feature"
+
+	check := func(name, uid string, want, wantErr bool) {
+		t.Helper()
+		got, err := DeployGroupAllows(app, key, uid)
+		if (err != nil) != wantErr {
+			t.Errorf("%s: error %v, want error %v", name, err, wantErr)
+		}
+		if got != want {
+			t.Errorf("%s: got %v, want %v", name, got, want)
+		}
+	}
+
+	check("no row", outsider, true, false)
+
+	setConfigRow(t, app, key, `{"enabled": true}`)
+	check("no deploy_group", outsider, true, false)
+
+	setConfigRow(t, app, key, `{"enabled": true, "deploy_group": ""}`)
+	check("an empty deploy_group", outsider, true, false)
+
+	setConfigRow(t, app, key, `{"enabled": true, "deploy_group": "`+group+`"}`)
+	check("a member", member, true, false)
+	check("a user outside the group", outsider, false, false)
+
+	setConfigRow(t, app, key, `{"enabled": true, "deploy_group": "nosuchgroup00000"}`)
+	check("an id that matches no group", member, false, false)
+
+	setConfigRow(t, app, key, `{"enabled": true, "deploy_group": 7}`)
+	check("a deploy_group that is not text", member, false, true)
+}

@@ -6,6 +6,31 @@ Configuration is read via helpers in `app/utilities/config.go`. Missing or inval
 
 ---
 
+## Deploy groups
+
+A deploy group gives a feature to some users before the rest. The feature is then on for some users and off for others at the same time.
+
+- `deploy_groups` names a group: `id`, `name`.
+- `deploy_group_memberships` puts a user in a group: `id`, `deploy_group`, `user`. A user is in a group once.
+
+A feature's row in `app_config` names one group by its id, in the property `deploy_group`. The feature is on for a user when its own switch is on AND the group lets the user in:
+
+| `deploy_group` | Who the group lets in |
+| --- | --- |
+| Not set, or `""` | Every user. The switch alone decides. |
+| The id of a group | The users with a membership row for that group. |
+| An id that matches no group | Nobody. A mistake in the id can turn a feature off, but can't give it to all. |
+
+So one row takes a feature through three stages: off, on for a group, on for all. The switch still turns the feature off for everybody.
+
+The server is the gate: `InDeployGroup` and `DeployGroupAllows` in `app/utilities/config.go`. The UI makes the same check to decide what to show (`ui/src/lib/deployGroups.ts`, with the user's own memberships in the `appConfig` store). A new feature that needs a group reads its switch, then calls one of these with the user's id.
+
+Only a PocketBase superuser adds a group or a member, in the PocketBase admin. A user can list their own memberships and nothing else. `deploy_groups` has no API rule.
+
+Today `help_chat` is the only domain that reads `deploy_group`.
+
+---
+
 ## Domain: `jobs`
 
 Controls job editing and the Project Request creation workflow.
@@ -142,6 +167,7 @@ Controls Help chat, which answers questions about Turbo in Help. [help_chat.md](
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | bool | `false` | Turns the chat on. When false, `/api/help/ask` returns HTTP 403. |
+| `deploy_group` | string | `""` | The id of a deploy group. With one, the chat is on only for the users in that group, and every other user gets HTTP 403. See [Deploy groups](#deploy-groups). |
 | `provider` | string | `"anthropic"` | The company whose API runs the model: `"anthropic"`, `"openai"` or `"openrouter"`. The server needs that provider's key. |
 | `model` | string | see below | A model id of the provider. Each turn records the provider and the model that answered it. |
 | `effort` | string | `"low"` | How much the model thinks before it answers. |

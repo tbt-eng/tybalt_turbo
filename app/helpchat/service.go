@@ -11,6 +11,7 @@ import (
 
 	"tybalt/constants"
 	"tybalt/helpcorpus"
+	"tybalt/utilities"
 
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -111,14 +112,25 @@ func AddRoutes(app core.App, service *Service) {
 }
 
 // enabledSettings returns the settings, or the error to send when the chat is
-// off or its settings are bad.
-func enabledSettings(app core.App) (Settings, error) {
+// off for this user or its settings are bad. The chat is on for a user when
+// the setting turns it on and the user is in the setting's deploy group, if it
+// names one. A user outside the group gets the same answer as when the chat is
+// off.
+func enabledSettings(app core.App, uid string) (Settings, error) {
 	settings, err := LoadSettings(app)
 	if err != nil {
 		app.Logger().Error("help chat settings are not valid", "error", err)
 		return settings, apis.NewApiError(http.StatusServiceUnavailable, "Help chat is not set up.", nil)
 	}
 	if !settings.Enabled {
+		return settings, apis.NewForbiddenError("Help chat is off.", nil)
+	}
+	allowed, err := utilities.InDeployGroup(app, settings.DeployGroup, uid)
+	if err != nil {
+		app.Logger().Error("help chat can't read the deploy group", "error", err)
+		return settings, apis.NewApiError(http.StatusServiceUnavailable, "Help chat is not set up.", nil)
+	}
+	if !allowed {
 		return settings, apis.NewForbiddenError("Help chat is off.", nil)
 	}
 	return settings, nil
@@ -152,7 +164,7 @@ func (s *Service) request(settings Settings) Request {
 //	done     the result of the turn
 func (s *Service) handleAsk(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		settings, err := enabledSettings(app)
+		settings, err := enabledSettings(app, e.Auth.Id)
 		if err != nil {
 			return err
 		}
@@ -255,7 +267,7 @@ func (s *Service) handleFeedback(app core.App) func(e *core.RequestEvent) error 
 // does the work at most once in 4 minutes, for all users together.
 func (s *Service) handleWarm(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		settings, err := enabledSettings(app)
+		settings, err := enabledSettings(app, e.Auth.Id)
 		if err != nil {
 			return err
 		}

@@ -9,9 +9,13 @@ import { writable, derived, get } from "svelte/store";
 import { pb } from "$lib/pocketbase";
 import type { UnsubscribeFunc } from "pocketbase";
 import type { AppConfigResponse } from "$lib/pocketbase-types";
+import { deployGroupAllows } from "$lib/deployGroups";
 
 interface AppConfigState {
   items: AppConfigResponse[];
+  // The ids of the deploy groups that the signed-in user is in. See
+  // $lib/deployGroups.
+  deployGroups: string[];
   loading: boolean;
   initialized: boolean;
   error: string | null;
@@ -19,13 +23,18 @@ interface AppConfigState {
 
 const store = writable<AppConfigState>({
   items: [],
+  deployGroups: [],
   loading: false,
   initialized: false,
   error: null,
 });
 
 let unsubscribeFunc: UnsubscribeFunc | null = null;
+let unsubscribeGroupsFunc: UnsubscribeFunc | null = null;
 let loadPromise: Promise<void> | null = null;
+// The user that the deploy groups were loaded for. Sign-out doesn't reset this
+// store, so a second user in the same tab must not keep the first user's groups.
+let loadedFor = "";
 
 /**
  * Initialize the store by loading all config records and setting up
@@ -35,8 +44,8 @@ async function init() {
   // Check authentication before proceeding
   if (!pb.authStore.token || !pb.authStore.record) return;
 
-  // If already initialized, return (idempotent)
-  if (get(store).initialized) return;
+  // If already initialized for this user, return (idempotent)
+  if (get(store).initialized && loadedFor === pb.authStore.record.id) return;
 
   // A caller that arrives during a load waits for that load
   loadPromise ??= load().finally(() => {
@@ -45,18 +54,38 @@ async function init() {
   return loadPromise;
 }
 
+// Reads the deploy groups of the signed-in user. The collection's rule returns
+// only the user's own rows. On an error the user is in no group, so a feature
+// that names a group stays hidden.
+async function loadDeployGroups(): Promise<string[]> {
+  try {
+    const rows = await pb
+      .collection("deploy_group_memberships")
+      .getFullList<{ deploy_group: string }>({ requestKey: "deploy_groups_init" });
+    return rows.map((row) => row.deploy_group);
+  } catch {
+    return [];
+  }
+}
+
 async function load() {
   store.update((state) => ({ ...state, loading: true }));
+  const uid = pb.authStore.record?.id ?? "";
 
   try {
     // Load all config records
-    const items = await pb.collection("app_config").getFullList<AppConfigResponse>({
-      requestKey: "app_config_init",
-    });
+    const [items, deployGroups] = await Promise.all([
+      pb.collection("app_config").getFullList<AppConfigResponse>({
+        requestKey: "app_config_init",
+      }),
+      loadDeployGroups(),
+    ]);
+    loadedFor = uid;
 
     store.update((state) => ({
       ...state,
       items,
+      deployGroups,
       loading: false,
       initialized: true,
       error: null,
@@ -87,6 +116,24 @@ async function load() {
         }));
       }
     });
+
+    // A change to the user's memberships shows without a reload. The server
+    // sends only the user's own rows. A failure here must not undo the config
+    // load above: the groups then change on the next reload.
+    if (unsubscribeGroupsFunc) {
+      unsubscribeGroupsFunc();
+      unsubscribeGroupsFunc = null;
+    }
+    try {
+      unsubscribeGroupsFunc = await pb
+        .collection("deploy_group_memberships")
+        .subscribe("*", async () => {
+          const deployGroups = await loadDeployGroups();
+          store.update((state) => ({ ...state, deployGroups }));
+        });
+    } catch {
+      // Keep the groups that were loaded.
+    }
   } catch (error) {
     store.update((state) => ({
       ...state,
@@ -105,10 +152,16 @@ function unsubscribe() {
     unsubscribeFunc();
     unsubscribeFunc = null;
   }
+  if (unsubscribeGroupsFunc) {
+    unsubscribeGroupsFunc();
+    unsubscribeGroupsFunc = null;
+  }
+  loadedFor = "";
   store.update((state) => ({
     ...state,
     initialized: false,
     items: [],
+    deployGroups: [],
     loading: false,
     error: null,
   }));
@@ -189,7 +242,11 @@ export const jobRequestsEnabled = derived(store, ($store) =>
 
 // Help chat answers questions in Help. Reads from app_config where
 // key="help_chat", checks value.enabled. Defaults to false (fail-closed): with
-// no row, Help has its search and no Ask.
-export const helpChatEnabled = derived(store, ($store) =>
-  getConfigBool($store.items, "help_chat", "enabled", false),
+// no row, Help has its search and no Ask. When the row names a deploy group,
+// only the users in that group get Ask.
+export const helpChatEnabled = derived(
+  store,
+  ($store) =>
+    getConfigBool($store.items, "help_chat", "enabled", false) &&
+    deployGroupAllows(getConfigValue($store.items, "help_chat"), $store.deployGroups),
 );
