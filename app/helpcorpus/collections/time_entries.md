@@ -79,6 +79,7 @@ tsid = ""
 | `meals_hours` | number | max 3 |
 | `job` | relation | maxSelect 1; to `jobs` |
 | `work_record` | text | pattern "^[FKQ][0-9]{2}-[0-9]{3,}(-[0-9]+)?$" |
+| `work_record_subject_id` | relation | maxSelect 1; to `work_records_subjects` |
 | `payout_request_amount` | number |  |
 | `date` | text | required; pattern "^\\d{4}-\\d{2}-\\d{2}$" |
 | `week_ending` | text | required; pattern "^\\d{4}-\\d{2}-\\d{2}$" |
@@ -106,5 +107,6 @@ A unique index means that two records can't have the same values in its fields.
 - `CREATE INDEX `idx_a7yXF8hMf0` ON `time_entries` ( `tsid`, `time_type` )`
 - `CREATE INDEX `idx_ZX8ABROs07` ON `time_entries` ( `uid`, `week_ending` )`
 - `CREATE INDEX `idx_8f2UYSxtZu` ON `time_entries` (`work_record`)`
+- `CREATE UNIQUE INDEX idx_time_entries_work_record_subject_id ON time_entries (work_record_subject_id) WHERE work_record_subject_id != ''`
 - `CREATE INDEX `idx_time_entries_time_type_date` ON `time_entries` (`time_type`, `date`)`
 - `CREATE INDEX `idx_time_entries_job_division_date_work` ON `time_entries` (`job`, `division`, `date`) WHERE `hours` > 0`

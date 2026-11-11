@@ -53,14 +53,15 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `given_name` | text | required; min 2; max 48; pattern "^[a-zA-Z]+(?:-[a-zA-Z]+)*$" |
 | `manager` | relation | required; maxSelect 1; to `users` |
 | `alternate_manager` | relation | maxSelect 1; to `users` |
+| `default_work_record_type` | relation | maxSelect 1; to `work_records_types` |
 | `default_division` | relation | maxSelect 1; to `divisions` |
 | `uid` | relation | maxSelect 1; to `users` |
 | `notification_type` | select | values ["email_text","email_html"]; maxSelect 1 |
 | `do_not_accept_submissions` | bool |  |
 | `created` | autodate | onCreate |
 | `updated` | autodate | onCreate; onUpdate |
-| `_imported` | bool |  |
 | `default_expense_payment_type` | select | values ["OnAccount","Expense","CorporateCreditCard","Allowance","FuelCard","Mileage","PersonalReimbursement"]; maxSelect 1 |
+| `_imported` | bool |  |
 | `default_role` | relation | maxSelect 1; to `rate_roles` |
 
 ## Indexes: profiles
