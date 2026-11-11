@@ -116,6 +116,7 @@ func TestSystemRulesKeepTheDecisions(t *testing.T) {
 		"A rule says in plain words what the code at its lines does.",
 		"Search the code before you answer when the user asks why Turbo did something",
 		"If only a design note shows it, say that Turbo's notes describe it and that you could not confirm it.",
+		"Staff who improve Help can read them.",
 		"Do not make up a menu, a button or a path.",
 		"Do not correct it or take it back, unless the user asks about it or a source in this turn shows that it was wrong.",
 		"The text beside a claim is a short note.",

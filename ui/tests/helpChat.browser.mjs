@@ -178,7 +178,7 @@ await runBrowserHarness(
       surface: "help",
     });
     assert.equal(asks[0].authorization, token);
-    await page.getByText("Help writes these answers with AI").waitFor();
+    await page.getByText("Turbo records chats.").waitFor();
     // The box is under the conversation, at the bottom of the screen.
     const composerBox = await composer.boundingBox();
     const turnBox = await turns.first().boundingBox();

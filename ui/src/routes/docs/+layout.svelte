@@ -117,7 +117,7 @@
       <!-- The conversation has its own box, at the bottom, for the next question. -->
       <DSChat
         {turns}
-        notice="Help writes these answers with AI, and they can be wrong. Turbo records your questions and the answers."
+        notice="Don't share private info like passwords. Turbo records chats. AI can make mistakes."
         closeLabel="End chat"
         onask={ask}
         onrate={helpChat.rate}
