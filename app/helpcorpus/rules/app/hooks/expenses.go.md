@@ -1,324 +1,412 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/expenses.go","sha256":"a8ac88b61eb70314a26349b8e39cd9ebed5a6bfa07bd80ab1c395262c7cce367","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/expenses.go","sha256":"27ecf124030a75a6e8fd1b12391b1db02fbeeead6ea7f3f82218ba8a529d29c2","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/expenses.go
 
-## Expense requires a uid
+## Expense needs an owner (uid)
 
 Lines 27-38
 
-Asked as: expense has no uid; cannot save expense missing user id; no uid error
+Asked as: expense has no owner; cannot clean expense; missing uid on expense; expense without user
 
-Turbo refuses to clean an expense with no uid ('no uid provided in for expense record').
+Turbo refuses to clean an expense that has no uid. The message is 'no uid provided in for expense record'.
 
 ## Expense without a PO gets a default kind
 
 Lines 53-57
 
-Asked as: expense kind not set; what kind without PO; default capital or project
+Asked as: expense kind wrong; kind set automatically; capital or project default; which kind is my expense
 
-When an expense has no purchase order, Turbo sets its kind from whether it has a job. The helper utilities.DefaultExpenditureKindIDForJob(hasJob) picks the kind. The comments say a no-job expense defaults to capital and a job expense to project.
+When an expense has no purchase order, Turbo sets its kind by itself. The default depends on whether the expense has a job: capital with no job, project with a job. The code calls utilities.DefaultExpenditureKindIDForJob.
 
-## Approver is the manager, or the bookkeeper creator
+## Expense approver is the creator when a bookkeeper enters it
 
-Lines 59-67
+Lines 59-64
 
-Asked as: who approves my expense; expense approver is my manager; who gets approval request
+Asked as: bookkeeper entered expense for me; who approves bookkeeper expense; bookkeeper approver not active; approver is me
 
-A normal expense takes the manager on the submitter's profile as its approver. An expense that a bookkeeper creates on behalf of another person takes the bookkeeper (the creator) as its approver.
+When a bookkeeper creates an expense for another person, Turbo sets the approver to the creator. The creator must be an active user and hold the bookkeeper claim (book_keeper). Otherwise Turbo refuses with 'bookkeeper approver must be an active user' or 'the approver must have the book_keeper claim'. A missing creator gives 'creator is required'.
+
+## Expense approver is the submitter's manager
+
+Lines 65-66
+
+Asked as: who approves my expense; my manager cannot approve; no profile found; manager not set on profile
+
+For a regular expense, Turbo sets the approver to the manager on the submitter's profile (profiles.manager). With no profile Turbo refuses with 'no profile found for uid'. If the manager is not active it refuses with 'your manager must be an active user to create expenses'. If the manager lacks the approver claim (tapr) it refuses with 'the approver must have the tapr claim'.
 
 ## PO expense takes branch and currency from the PO
 
 Lines 69-104
 
-Asked as: expense branch from PO; currency changed from PO; PO branch expense error
+Asked as: branch from purchase order; currency from PO; PO not found on expense; PO has no branch
 
-An expense linked to a purchase order takes its branch and currency from that PO. Turbo refuses if the PO is not found ('referenced purchase order not found'). It also refuses if the PO has no branch ('referenced purchase order is missing a branch').
+An expense with a purchase order gets its branch and currency from that PO. Turbo refuses with 'referenced purchase order not found' if the PO is missing, and with 'referenced purchase order is missing a branch' if the PO has no branch.
 
-## Non-PO expense branch comes from job or default branch
+## Referenced job or PO must exist and have a branch
+
+Lines 70-128
+
+Asked as: purchase order not found; job not found; job has no branch; missing branch on job or PO
+
+If the PO is not found, Turbo refuses with "referenced purchase order not found". If the PO has no branch, it refuses with "referenced purchase order is missing a branch". For an expense with no PO, a missing job gives "referenced job not found" and a job with no branch gives "referenced job is missing a branch".
+
+## Expense without PO takes branch from job or default branch
 
 Lines 105-154
 
-Asked as: wrong branch on expense; job missing branch error; default branch admin profile
+Asked as: branch for expense without PO; default branch missing; job branch missing; which branch does expense use
 
-Without a PO, an expense takes its branch from its job. Turbo refuses if the job is missing ('referenced job not found') or has no branch ('referenced job is missing a branch'). With no job, Turbo uses the submitter's default branch from the admin profile. If none is set, it says 'your admin_profiles record is missing a default_branch'. If the admin profile cannot be found, it says 'error looking up admin profile'.
+An expense without a PO gets its branch from its job. If the job is not found Turbo refuses with 'referenced job not found'. If the job has no branch it refuses with 'referenced job is missing a branch'. With no job, Turbo uses the default branch on the submitter's admin profile. If that is empty it refuses with 'your admin_profiles record is missing a default_branch'. If the admin profile cannot be found it refuses with 'error looking up admin profile'.
 
-## Mileage needs valid vehicle insurance
+## Missing default branch or admin profile blocks no-job, no-PO expense
 
-Lines 159-217
+Lines 130-152
 
-Asked as: mileage insurance expired; vehicle insurance expiry error; cannot claim mileage insurance
+Asked as: no job expense branch error; admin profile error; default branch empty; expense with no PO or job
 
-A mileage expense needs the admin profile's personal vehicle insurance expiry to be set. If it is empty, Turbo says 'cannot submit mileage expense: personal vehicle insurance expiry must be updated with a valid date'. If the expense date is after the expiry date, Turbo says 'cannot submit mileage expense: personal vehicle insurance expired on <date>'. An expense dated on the expiry day itself passes.
+An expense with no PO and no job takes the default branch from the submitter's admin profile (default_branch). If the profile is missing, Turbo refuses with "error looking up admin profile". If the default branch is empty, it refuses with "your admin_profiles record is missing a default_branch".
 
-## Mileage expense needs an expense rate record
+## Mileage expense needs valid personal vehicle insurance
 
-Lines 218-231
+Lines 162-217
 
-Asked as: mileage rate record error; error loading expense rate; cannot save mileage rate
+Asked as: mileage insurance expired; cannot claim mileage; vehicle insurance date; insurance expiry blocks mileage
 
-When a mileage expense is saved, Turbo loads the expense rate record (utilities.GetExpenseRateRecord) after the insurance check. If it cannot load, Turbo refuses the save with "hook error when cleaning expense" (error_loading_expense_rate_record: "error loading expense rate record").
+A mileage expense is refused if the admin profile has no personal vehicle insurance expiry: 'cannot submit mileage expense: personal vehicle insurance expiry must be updated with a valid date'. It is also refused if the expense date is after the expiry date: 'cannot submit mileage expense: personal vehicle insurance expired on <date>'. An expense dated on the expiry date is allowed.
 
-## Mileage distance must be a whole number
+## Mileage needs insurance expiry date on admin profile
 
-Lines 233-248
+Lines 163-188
 
-Asked as: mileage distance decimal; distance must be whole number; fractional miles not accepted
+Asked as: insurance expiry date missing; update vehicle insurance; mileage needs insurance date; admin profile insurance blank
 
-Mileage distance must be an integer, or Turbo says 'distance must be an integer for mileage expenses'.
+A mileage expense needs the admin profile to have a personal vehicle insurance expiry date. If it is empty, Turbo refuses with "cannot submit mileage expense: personal vehicle insurance expiry must be updated with a valid date". If the admin profile is not found, Turbo refuses with an error about the profile lookup.
 
-## Mileage total is calculated and vendor cleared
+## Mileage expense dated after insurance expiry is refused
 
-Lines 250-278
+Lines 206-217
 
-Asked as: mileage total wrong; how mileage amount calculated; mileage vendor cleared
+Asked as: mileage date after insurance; insurance ran out; expense date past insurance; insurance expired on date
 
-For a mileage expense, Turbo calculates the total from the distance and the expense rate (utilities.CalculateMileageTotal). It clears the vendor. The commit step recalculates the total using the whole year's committed mileage.
+Turbo compares the expense date with the insurance expiry date. It refuses only when the expense date is after the expiry date, so an expense dated on the expiry day passes. The message is "cannot submit mileage expense: personal vehicle insurance expired on <date>".
 
-## Personal reimbursement needs permission on profile
+## Mileage distance must be a whole number and sets total
+
+Lines 219-278
+
+Asked as: mileage distance decimal; miles must be whole number; mileage total wrong; vendor cleared on mileage
+
+A mileage expense needs a whole-number distance, or Turbo refuses with 'distance must be an integer for mileage expenses'. Turbo calculates the total from the distance and the expense rate (utilities.CalculateMileageTotal). It also clears the vendor. At commit the mileage total is recalculated using the year's committed mileage.
+
+## Mileage and allowance need an expense rate record
+
+Lines 219-231
+
+Asked as: expense rate not loading; mileage rate missing; allowance rate error; cannot load rate record
+
+For mileage and allowance expenses, Turbo loads the expense rate record. If it cannot, it refuses with "error loading expense rate record".
+
+## Mileage and allowance clear the vendor
+
+Lines 264-342
+
+Asked as: allowance vendor removed; allowance description changed; vendor disappears on allowance; allowance total meals
+
+Turbo clears the vendor on a mileage or allowance expense. For an allowance, Turbo also sets the description to "Allowance for " followed by the allowance types separated by commas. The total is the sum of the rate for each type (breakfast, lunch, dinner, lodging).
+
+## Personal reimbursement needs permission on the profile
 
 Lines 280-304
 
-Asked as: cannot submit personal reimbursement; personal reimbursement disabled; reimbursement not enabled for me
+Asked as: cannot claim personal reimbursement; reimbursement not allowed; enable personal reimbursement; reimbursement option blocked
 
-A personal reimbursement expense is refused unless the admin profile allows it (allow_personal_reimbursement). Turbo says 'cannot submit personal reimbursement expense: personal reimbursement is not enabled for your profile'.
+A personal reimbursement expense is refused unless the admin profile has allow_personal_reimbursement turned on. The message is 'cannot submit personal reimbursement expense: personal reimbursement is not enabled for your profile'.
 
-## Allowance total and description are calculated
+## Allowance expense total and description are calculated
 
 Lines 306-342
 
-Asked as: allowance total calculation; allowance description meals; breakfast lunch dinner amount
+Asked as: allowance total wrong; breakfast lunch dinner totals; allowance description text; allowance amount calculated
 
-For an allowance expense, Turbo sums the expense rate for each selected allowance type (Breakfast, Lunch, Dinner, Lodging). It sets that sum as the total. It sets the description to 'Allowance for ' followed by the types joined with commas, and clears the vendor.
+For an allowance expense Turbo adds up the rates for each selected allowance type (Breakfast, Lunch, Dinner, Lodging) from the expense rate record. The sum becomes the total. The description becomes 'Allowance for ' plus the types joined by commas. The vendor is cleared.
 
-## Allowance expense needs an expense rate record
-
-Lines 306-319
-
-Asked as: allowance save fails; allowance rate error; allowance error loading rate
-
-When an allowance expense is saved, Turbo loads the expense rate record. If it cannot load, Turbo refuses the save with "hook error when cleaning expense" (error_loading_expense_rate_record: "error loading expense rate record").
-
-## Home currency forced for some payment types without PO
+## Home currency for non-PO allowance, fuel card, mileage, reimbursement
 
 Lines 353-362
 
-Asked as: currency switched to home; fuel card currency wrong; mileage home currency forced
+Asked as: currency set to home currency; fuel card currency; mileage currency automatic; no currency on expense
 
-Without a PO, an expense paid as Allowance, FuelCard, Mileage or PersonalReimbursement uses the home currency. An empty currency also falls back to the home currency.
+Without a PO, expenses with payment type Allowance, FuelCard, Mileage or PersonalReimbursement are set to the home currency. Any expense with no currency also gets the home currency, if one exists.
 
-## Foreign currency must exist and have a rate
+## Expense currency must exist and have a rate
 
 Lines 364-385
 
-Asked as: currency has no exchange rate; foreign currency not found; exchange rate missing expense
+Asked as: currency not found; foreign currency no rate; missing exchange rate; pick another currency
 
-Turbo refuses an expense whose currency is not found ('referenced currency not found'). It refuses a foreign currency with no positive exchange rate ('selected foreign currency is missing an exchange rate').
+Turbo refuses an expense whose currency is not found: 'referenced currency not found'. It refuses a foreign currency with no positive exchange rate: 'selected foreign currency is missing an exchange rate'.
 
-## Settlement fields are reset on save
+## Settled total reset on save
 
 Lines 387-398
 
-Asked as: settled total reset; settled date cleared on save; settler removed after edit
+Asked as: settled total changed; settled amount reset; settled total zero; settler cleared on save
 
-On every save, Turbo clears the settler and the settled date. In the home currency, it sets the settled total to the expense total. In a foreign currency with payment type Expense, it leaves the settled total alone. In a foreign currency with any other payment type, it sets the settled total to 0.
+On every save Turbo clears the settler and settled fields. For a home-currency expense it sets the settled total equal to the total. For a foreign-currency expense with payment type Expense it leaves the settled total alone. For other foreign-currency payment types it sets the settled total to 0.
 
-## Expense manager approver must be active and hold tapr
+## Manager approver checks
 
 Lines 402-470
 
-Asked as: manager not active expense; approver lacks tapr; no profile for my user
+Asked as: manager checks failing; manager not active; manager lacks tapr; manager becomes approver
 
-Turbo refuses an expense if the profile has no match for the uid ('no profile found for uid'). It refuses if the manager is not an active user: 'your manager must be an active user to create expenses'. It refuses if the manager lacks the approver claim (tapr): 'the approver must have the tapr claim'.
+The manager approver (profile manager) is checked in three steps. The manager must be an active user ('your manager must be an active user to create expenses'). The manager must hold the tapr claim ('the approver must have the tapr claim'). Then the manager becomes the expense's approver.
 
-## Manager approver lookup failures
+## Manager must be active to approve expenses
 
-Lines 402-429
+Lines 402-447
 
-Asked as: cannot find my manager; no manager on profile; approver lookup failed
+Asked as: manager inactive for approval; approver not active; no manager to approve; submit to manager error
 
-Turbo needs the submitter's profile to find the manager. If no profile exists, it refuses with "no profile found for uid". The approver (manager) is checked as active and holding tapr.
+For a regular expense, Turbo takes the approver from the manager on the submitter's profile. If the manager is not an active user, Turbo refuses with "your manager must be an active user to create expenses". If the submitter has no profile, Turbo refuses with "no profile found for uid".
 
-## Bookkeeper approver must be active with book_keeper claim
+## Manager approver needs the tapr claim
+
+Lines 449-469
+
+Asked as: manager cannot approve; manager missing approver claim; tapr claim needed; approver permission missing
+
+The manager on the submitter's profile must hold the time sheet and expense approver claim (tapr). Otherwise Turbo refuses with "the approver must have the tapr claim". When the check passes, Turbo sets the manager as the approver.
+
+## Bookkeeper approver must be active and hold the book_keeper claim
 
 Lines 472-520
 
-Asked as: bookkeeper creating expense for someone; book_keeper claim missing; creator not active bookkeeper
+Asked as: bookkeeper creator not active; book_keeper claim missing; creator required error; bookkeeper approver check
 
-When a bookkeeper creates an expense for someone else, the creator must be provided. The creator must be an active user ('bookkeeper approver must be an active user'). The creator must hold the bookkeeper claim (book_keeper), or Turbo says 'the approver must have the book_keeper claim'.
+When a bookkeeper enters an expense for another person, Turbo checks the creator as approver. The creator must be given, must be an active user, and must have the bookkeeper claim (book_keeper). Otherwise Turbo refuses with "bookkeeper approver must be an active user", "creator is required" or "the approver must have the book_keeper claim".
 
-## Bookkeeper creating on behalf must follow strict rules
+## Bookkeeper creating on behalf must follow PO rules
 
 Lines 522-590
 
-Asked as: expense for another person; bookkeeper expense needs PO; on behalf of owner mismatch
+Asked as: bookkeeper PO rules; PO must be active for bookkeeper; payment type not allowed for bookkeeper; same user PO refused
 
-A person who creates an expense for someone else must hold the bookkeeper claim (book_keeper). Otherwise Turbo says 'uid must be equal to the authenticated user's id'. The expense needs a PO ('purchase order is required for bookkeeper-created expenses'). The PO must be Active, have a po number, and have an owner. The expense uid must match the PO owner ('uid must match the purchase order owner'). A PO that belongs to the bookkeeper must use the regular flow ('same-user purchase orders must use the regular expense flow'). The payment type must be OnAccount or CorporateCreditCard.
+A person who creates an expense for another user must hold the bookkeeper claim and must name a PO. Otherwise Turbo refuses with 'purchase order is required for bookkeeper-created expenses' or 'uid must be equal to the authenticated user's id'. The PO must be Active ('purchase order must be active'). It must have a PO number ('purchase order must have a po number') and an owner ('purchase order is missing an owner'). A PO owned by the bookkeeper is refused: 'same-user purchase orders must use the regular expense flow'. The expense uid must be the PO owner ('uid must match the purchase order owner'). The payment type must be OnAccount or CorporateCreditCard ('bookkeeper-created expenses must be OnAccount or CorporateCreditCard').
 
-## Expense saving needs authentication and open editing
+## Bookkeeper on-behalf expense needs a PO
 
-Lines 596-613
+Lines 522-531
 
-Asked as: not signed in expense; expense editing closed authentication; authentication is required expense
+Asked as: bookkeeper expense without PO; PO needed for someone else expense; enter expense for colleague; on behalf needs PO
 
-Turbo checks whether expense editing is open (checkExpensesEditing). It refuses unauthenticated requests ('authentication is required').
+A bookkeeper creating an expense for someone else must link a purchase order. Otherwise Turbo refuses with "purchase order is required for bookkeeper-created expenses".
 
-## Expense editing can be switched off
+## Only bookkeepers can create expenses for others
+
+Lines 533-551
+
+Asked as: cannot enter expense for others; not my expense uid; only bookkeepers enter for others; wrong user on expense
+
+If the logged-in user lacks the bookkeeper claim (book_keeper) and the uid is not their own, Turbo refuses with "uid must be equal to the authenticated user's id".
+
+## Bookkeeper PO must be active, numbered and owned by another user
+
+Lines 553-574
+
+Asked as: PO owned by me; PO has no number; PO missing owner; PO not active for bookkeeper
+
+The PO must be Active ("purchase order must be active") and have a PO number ("purchase order must have a po number"). The PO needs an owner ("purchase order is missing an owner"). A PO owned by the bookkeeper is refused with "same-user purchase orders must use the regular expense flow".
+
+## Bookkeeper expense owner and payment type restrictions
+
+Lines 575-590
+
+Asked as: payment type on bookkeeper expense; expense owner must match PO; OnAccount or corporate card; bookkeeper payment method
+
+The expense uid must match the PO owner ("uid must match the purchase order owner"). The payment type must be OnAccount or CorporateCreditCard ("bookkeeper-created expenses must be OnAccount or CorporateCreditCard").
+
+## Expense saving needs login and an existing PO
+
+Lines 596-634
+
+Asked as: cannot save expense; not logged in save; PO does not exist; expense save refused
+
+Turbo refuses an expense save without authentication ('authentication is required'). It refuses a purchase order that does not exist ('purchase order not found'). Turbo first checks whether expense editing is allowed (checkExpensesEditing).
+
+## Expenses are not editable when editing is turned off
 
 Lines 596-598
 
-Asked as: expense editing disabled; cannot edit expenses now; expenses editing closed
+Asked as: expenses locked; editing turned off; cannot edit expenses now; expense editing disabled
 
-Before anything else, Turbo checks whether expense editing is open (checkExpensesEditing). If editing is closed, the save is refused with that check's error.
+Before processing an expense, Turbo checks whether expense editing is allowed (checkExpensesEditing). If that check fails, the save is refused.
 
-## Expense needs a signed-in user
+## Expense needs a login
 
-Lines 600-613
+Lines 602-613
 
-Asked as: not logged in save expense; validating uid error; session expired expense
+Asked as: not logged in; session expired expense; authentication needed; save without login
 
-Turbo refuses to save an expense when nobody is authenticated. The error is "hook error when validating uid" (authentication_required: "authentication is required").
+Saving an expense without a logged-in user is refused with "authentication is required".
 
-## Linked purchase order must exist
+## Creator is set on create and cannot change
 
-Lines 615-634
+Lines 636-708
 
-Asked as: purchase order not found; PO number wrong; linked PO missing
+Asked as: who created expense; cannot change creator; cannot change owner; creator set on create
 
-When an expense names a purchase order that cannot be found, Turbo says 'purchase order not found'.
+On create Turbo sets the creator to the logged-in user. If the expense uid differs from the user, the bookkeeper on-behalf rules apply. On update only the creator can edit ('only the creator can edit this expense'). The uid cannot change ('uid cannot be changed'). The creator cannot change ('creator cannot be changed'). An expense whose creator differs from its owner is treated as bookkeeper-created and uses the on-behalf checks again.
 
-## On create, uid must be the user unless bookkeeper
+## Creating an expense for another user needs the bookkeeper path
 
 Lines 639-649
 
-Asked as: expense created for someone else; submit expense on behalf; creator set to me
+Asked as: expense for another user; expense for myself approval; bookkeeper expense for self; uid differs from me
 
-On create, Turbo sets the creator to the signed-in user. If the uid differs from the user, the bookkeeper on-behalf rules apply and the creator becomes the approver.
+Creating an expense where uid differs from the logged-in user goes through the bookkeeper checks. An expense for yourself uses the regular manager approval, even for a bookkeeper.
 
-## Only the creator can edit; uid and creator are fixed
+## Only the creator can edit an expense; uid cannot change
 
-Lines 650-708
+Lines 650-702
 
-Asked as: cannot edit someone else's expense; change uid of expense; creator changed error
+Asked as: only creator can edit; cannot change expense owner; cannot validate expense update; someone else edited my expense
 
-Only the creator can edit an expense ('only the creator can edit this expense'). The uid cannot be changed ('uid cannot be changed'). The creator cannot be changed ('creator cannot be changed'). On an expense a bookkeeper created for someone else, the bookkeeper rules are checked again.
+On update, only the creator may edit the expense. Others get "only the creator can edit this expense". The owner (uid) cannot change: "uid cannot be changed". The creator cannot change: "creator cannot be changed". If the original record is missing, Turbo refuses with "cannot validate ownership for this expense update".
+
+## Bookkeeper rules apply again on update of on-behalf expense
+
+Lines 703-708
+
+Asked as: editing on-behalf expense; bookkeeper expense edit rules; creator stays approver; edit expense for colleague
+
+If an expense was created by someone other than its owner, the bookkeeper-on-behalf checks run again on every edit. The creator stays the approver.
 
 ## Submitted expenses cannot be edited
 
 Lines 710-736
 
-Asked as: edit submitted expense; submitted expense locked; recall expense to edit
+Asked as: cannot edit submitted expense; expense already submitted; recall expense first; edit after submit
 
-Turbo refuses to edit a submitted expense, whether the stored or the new record is submitted: 'cannot edit submitted expense'. A person must recall it first.
+Turbo refuses to edit an expense that is already submitted or that the request marks as submitted: 'cannot edit submitted expense'. A person must recall it first.
 
 ## Division must be active and branch usable
 
 Lines 743-750
 
-Asked as: division inactive expense; branch not usable expense; cannot use expense branch
+Asked as: division inactive; cannot use branch; branch not allowed; division not active on expense
 
-The expense's division must be active. Turbo also checks that the user may use the record's branch (EnsureUserCanUseRecordBranch).
+After cleaning, Turbo checks that the expense's division is active. It also checks that the user may use the expense's branch (EnsureUserCanUseRecordBranch).
 
-## Attachment upload is read from the request's attachment field
-
-Lines 766-785
-
-Asked as: receipt upload not working; attachment field request; file upload expense API
-
-Turbo reads an uploaded file from the request field "attachment" (JSON body or multipart form) and treats it as a pending attachment. Turbo sanitizes the pending file names. Expense files are stored as expense documents, not on the expense itself.
-
-## Attachment document is server-managed
-
-Lines 786-797
-
-Asked as: attachment document cleared; missing receipt reason cleared; cannot set attachment
-
-A client cannot set the attachment document. On create, or when the attachment is explicitly removed, Turbo clears it and the missing-receipt reason. On other updates it keeps the stored values. An empty attachment with no new file and no source expense counts as an explicit removal.
-
-## Source expense can be linked to reuse an attachment
+## Source expense in request is copied to the expense
 
 Lines 786-790
 
-Asked as: reuse receipt from another expense; source expense attachment; copy receipt previous expense
+Asked as: copy existing expense; reuse source expense; source expense attachment; duplicate expense receipt
 
-If the request has a non-blank source_expense, Turbo sets it on the expense so that the attachment of that expense can be reused. A blank value is ignored.
+A non-empty source_expense in the request is set on the expense. Turbo uses it to reuse that expense's document as the attachment.
 
-## Sending an empty attachment removes it only when nothing replaces it
+## Attachment document is managed by Turbo
 
-Lines 791-805
+Lines 791-797
 
-Asked as: remove receipt from expense; clear attachment value; delete attachment expense
+Asked as: attachment keeps changing; cannot set receipt; attachment removed by itself; receipt document managed
 
-If the request sends an empty "attachment" value, Turbo treats it as an explicit removal only when there is no uploaded file and no source_expense. Then it clears attachment_document. On a new expense or on explicit removal, Turbo also clears attachment_missing_reason. Otherwise it restores both from the stored expense before validation.
+A client cannot set the attachment document. On create, or when the attachment is explicitly removed, Turbo clears the attachment document and the missing-attachment reason. On other updates it restores the stored values before validation. Sending an empty attachment with no new file and no source expense counts as removal.
 
-## Expense kind is inherited from PO
+## Removing attachment needs an empty attachment and no new file or source expense
+
+Lines 792-797
+
+Asked as: remove receipt from expense; delete attachment; clear attachment field; empty attachment removal
+
+A request with an empty "attachment" field counts as an explicit removal only when no file is uploaded and the expense has no source expense. Then Turbo clears the attachment document.
+
+## Stored attachment and file-hash read
+
+Lines 798-813
+
+Asked as: receipt upload fails; file hash error; attachment not saving; reuse same receipt file
+
+Turbo hashes any uploaded attachment file to create or reuse its expense document. If hashing fails, the save is refused. On update, Turbo remembers the stored attachment document and missing reason.
+
+## Expense kind comes from its PO
 
 Lines 815-820
 
-Asked as: expense kind cannot change; kind taken from PO; why kind locked
+Asked as: kind from purchase order; cannot change expense kind; kind follows PO; expense kind locked
 
-For an expense with a PO, the kind comes from the PO's kind. A user cannot edit it. Turbo normalizes it with the PO's job status.
+An expense with a PO takes its kind from the PO. The user cannot edit it. Turbo normalizes the kind using whether the PO has a job.
 
-## PO must be Active for expense
+## PO must be active for expenses
 
-Lines 822-833
+Lines 822-827
 
-Asked as: purchase order not active; PO closed expense; submit against inactive PO
+Asked as: PO not active for expense; closed purchase order; purchase order inactive; cannot use this PO
 
-Turbo refuses an expense on a purchase order that is not Active: 'purchase order must be active'. Any user can submit against any Active PO.
+An expense on a purchase order that is not Active is refused: 'purchase order must be active'.
+
+## Any staff may use any active PO
+
+Lines 829-833
+
+Asked as: anyone use any PO; use someone else's PO; PO owner check; submit against other PO
+
+Anybody can submit an expense against any active PO if the other rules are met. This was decided on August 26, 2025. Turbo does not check the caller against the PO.
 
 ## Cumulative PO total excludes this expense's old total
 
 Lines 835-859
 
-Asked as: cumulative PO total double counted; PO total wrong on edit; cumulative purchase order limit
+Asked as: cumulative PO total; PO running total; cumulative total error; PO over limit
 
-For a Cumulative PO, validation adds the totals of the other expenses on the PO to this one. On an update, Turbo leaves out this expense's stored total so it is not counted twice.
+For a Cumulative PO, Turbo sums the totals of the other expenses on the PO and adds this expense's total. On an update it leaves out this expense's stored total. If the calculation fails Turbo says 'error calculating cumulative total'.
 
-## Expense total is not set from the PO's expenses for non-cumulative POs
+## Cumulative PO sum for new expense uses all expenses
 
 Lines 840-859
 
-Asked as: PO total ignores other expenses; non cumulative PO total; PO total zero validation
+Asked as: cumulative PO new expense; cumulative total wrong; PO total includes all; cumulative calculation error
 
-Turbo sums the other expenses on a purchase order only when the PO's type (type) is "Cumulative". For other PO types the existing total passed to validation is 0.
+For a Cumulative PO, a new expense is checked against the cumulative total of all expenses on the PO. An update uses the total of the other expenses only. An error gives "error calculating cumulative total".
 
-## Payables admin claim is checked before validation
+## Payables staff claim is checked during expense save
 
-Lines 861-889
+Lines 861-874
 
-Asked as: error checking claim; payables admin permission; payables claim failed
+Asked as: payables admin check; payables staff claim; claim check error; payables permission error
 
-Turbo checks whether the user holds the payables admin claim (payables_admin) and passes the result to expense validation. If the check fails, Turbo refuses with "error checking claim".
+Turbo checks whether the user has the payables_admin claim (payables staff) and passes the result to the expense validation. If the check fails, Turbo refuses with "error checking payables_admin claim".
 
-## Attachment rules by payment type on save
+## Attachment fields are reset before validation
 
-Lines 891-926
+Lines 876-884
 
-Asked as: payment type no receipt needed; receipt skipped for payment type; missing receipt reason saved
+Asked as: receipt cleared on save; attachment reset; client attachment ignored; missing attachment reason reset
 
-For payment types that skip attachments, Turbo clears the document and the missing-receipt reason. On explicit removal, Turbo clears both. With a new file or source expense, Turbo creates or reuses an expense document and clears the missing reason. With none of these, an existing expense keeps its stored document and a new expense has none.
+For a new expense or an explicit attachment removal, Turbo clears the attachment document and the missing-attachment reason. For other updates, it restores both from the stored record, so a value from the client is ignored.
 
-## Bookkeeper claim check can fail
+## Invoice details and bookkeeper claim used when saving attachment
 
-Lines 891-903
+Lines 891-930
 
-Asked as: error checking bookkeeper claim; book keeper check failed; claim check error save
+Asked as: vendor invoice details; invoice saved with expense; book_keeper claim error; attachment transaction failed
 
-Turbo checks whether the user holds the bookkeeper claim (book_keeper) when saving an expense. If the check fails, it refuses with "error checking claim".
+Turbo checks the bookkeeper claim (book_keeper). If the check fails, it refuses with "error checking book_keeper claim". It then saves the vendor invoice details with the document in the same transaction as the expense.
 
-## Attachment handling on save
+## Attachment handling by payment type and request
 
-Lines 905-926
+Lines 905-930
 
-Asked as: receipt not saved on expense; attachment lost on update; new receipt not linked
+Asked as: which payment types need receipt; receipt not kept; no receipt needed; new file replaces receipt
 
-Payment types that skip attachments keep no document and no missing reason. Explicit removal clears both. A new file or a source expense links a document and clears the missing reason. An update with no attachment input keeps the stored document. A create with none leaves the document empty.
+Payment types that skip attachments never keep a document or missing reason (expensePaymentTypeSkipsAttachment). An explicit removal clears both. A new file or a source expense links a document, reusing or creating it (resolveExpenseDocumentForSave), and clears the missing reason. With no attachment input, an existing expense keeps its document and a new expense has none.
 
-## Request attachment files accepted forms
+## Attachment upload can come from request body or multipart form
 
-Lines 931-970
+Lines 933-953
 
-Asked as: attach multiple files expense; attachment list accepted; multipart attachment files
+Asked as: upload receipt; attach file to expense; multipart upload; file name attachment
 
-Turbo accepts the attachment as a single file or a list of files, and ignores other values. If the body has none and the request is multipart, it reads the uploaded files named "attachment".
+Turbo reads the attachment from the request body field "attachment". For multipart/form-data requests, it also looks for uploaded files named "attachment". File names are normalized.

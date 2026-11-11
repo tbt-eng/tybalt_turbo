@@ -1,100 +1,68 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/expenses_write_api.go","sha256":"f5088733e28d6d06a3878fce86bdcaff5b2cf31df999d9d5f7c21d8105a064c2","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/expenses_write_api.go","sha256":"2d24560a4d5faea776acadc0d2dabe256a44f3330e5ceda33b2740b9afdf461a","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/expenses_write_api.go
 
-## Only listed expense fields can be written
+## Only listed expense fields can be written through this endpoint
 
-Lines 15-34
+Lines 15-167
 
-Asked as: field not editable; unknown expense field; field rejected on expense; can't change this expense field
+Asked as: field not editable; can't change this field; unknown field in expense request; not_editable error; expense field refused
 
-Turbo accepts these expense fields: uid, date, division, description, total, payment_type, attachment, job, category, kind, allowance_types, distance, cc_last_4_digits, currency, settled_total, purchase_order, vendor and source_expense. Any other field in the request is refused with "expense field is not editable through this endpoint". The error names the field with the code not_editable and the message "field is not editable through this endpoint".
+The create and update endpoints accept only these fields: uid, date, division, description, total, payment_type, attachment, job, category, kind, allowance_types, distance, cc_last_4_digits, currency, settled_total, purchase_order, vendor, source_expense, vendor_invoice_number, vendor_invoice_date and vendor_invoice_total. A request that has any other field is refused with "expense field is not editable through this endpoint". The error names the field with the code "not_editable" and the message "field is not editable through this endpoint".
 
-## Saving an expense requires a signed-in user
+## Vendor invoice details are written with the expense
 
-Lines 38-40
+Lines 34-38
 
-Asked as: not signed in expense; expense unauthorized error; can't save expense logged out; save expense no user
+Asked as: vendor invoice number; vendor invoice date; save invoice details on expense; invoice total on expense; attach invoice info to expense
 
-Creating or updating an expense through this endpoint is refused when the request has no signed-in user. Turbo answers "unauthorized".
+The vendor invoice number, date and total (vendor_invoice_number, vendor_invoice_date, vendor_invoice_total) are accepted on the expense request. Turbo applies them to the expense's document.
 
-## Updating an expense requires a signed-in user
+## Only signed-in users can create or update expenses through the API
 
-Lines 54-56
+Lines 42-44
 
-Asked as: update expense unauthorized; edit expense not logged in; can't update expense signed out; expense update access denied
+Asked as: unauthorized expense update; not signed in expense api; can't create expense via api; expense api login required; unauthorized create expense
 
-Turbo refuses an update to an expense (the update endpoint) when the user is not signed in. The response is "unauthorized".
+Turbo refuses a create or update request for an expense when the caller is not signed in. The message is "unauthorized".
 
-## Updating an expense that does not exist is refused
+## Updating a missing expense is refused
 
-Lines 58-66
+Lines 62-70
 
-Asked as: expense not found; wrong expense id; update missing expense id; edit expense doesn't exist
+Asked as: missing expense id; expense not found; update expense with no id; wrong expense id; can't find expense to update
 
-When a person updates an expense and the id is missing, Turbo answers "missing expense id". When no expense has that id, Turbo answers "expense not found".
+When a caller updates an expense, Turbo needs an expense id in the path and an existing expense with that id. If the id is missing, Turbo says "missing expense id". If no expense has that id, Turbo says "expense not found".
 
-## Expense update without an id is refused
+## Fields such as status and approval or commit data cannot be set through this endpoint
 
-Lines 58-61
+Lines 86-88
 
-Asked as: expense update no id; missing id on expense; edit expense without id; expense id blank
+Asked as: set expense status via api; approve expense through api; commit expense api; workflow field refused; can't set approval status
 
-Turbo refuses an expense update that has no expense id. It answers "missing expense id".
+The allowed list has no approval, commit or other workflow fields. A request that sends one is refused as not editable. This check runs before Turbo processes or saves the expense.
 
-## Fields outside the allowed list are refused with an error
+## Expense validation and save run together in one transaction
 
-Lines 82-84
+Lines 100-120
 
-Asked as: expense request refused field; not_editable error expense; forbidden expense field; expense field not allowed
+Asked as: expense save rolled back; expense validation fails nothing saved; uploaded files deleted after failure; expense transaction failed; expense save all or nothing
 
-When a create or update request for an expense includes a field that is not allowed, Turbo refuses the whole request. The message is "expense field is not editable through this endpoint". The field gets the code "not_editable" and the message "field is not editable through this endpoint". Turbo checks this before it processes or saves the expense.
+Turbo runs the expense rules (hooks.ProcessExpense) and then saves the record in a single transaction. If either step fails, nothing is saved. Turbo then cleans up the document files uploaded with the request (CleanupExpenseDocumentUploads).
 
-## Expense save runs as one all-or-nothing transaction
+## File uploads become the expense attachment
 
-Lines 96-112
+Lines 133-145
 
-Asked as: expense partly saved; expense save half done; rollback expense save; expense transaction failed
+Asked as: upload receipt to expense; attachment not replaced; file upload as attachment; expense attachment from upload; receipt file missing on expense
 
-Turbo processes the expense (hooks.ProcessExpense) and then saves it in one transaction. If either step fails, Turbo saves nothing. The same rules apply when staff create or update an expense.
+When the request is multipart/form-data and has uploaded files in "attachment", those files replace the attachment value in the request data. When no file is uploaded, the attachment value is not replaced.
 
-## Failed expense save removes uploaded documents
+## Expense save errors are returned with their own message
 
-Lines 113-116
+Lines 169-181
 
-Asked as: leftover expense uploads; expense upload stays after failure; delete attachments failed expense; clean up expense files
+Asked as: failed to save expense; expense error message; expense rule rejected; why expense save failed; field errors expense save
 
-When an expense save fails, Turbo cleans up the documents that the request uploaded (CleanupExpenseDocumentUploads).
-
-## Successful expense save returns the saved expense
-
-Lines 118-118
-
-Asked as: expense saved response; what expense comes back; expense save success result; returned expense record
-
-When the save succeeds, Turbo returns the saved expense record.
-
-## Uploaded attachments replace the attachment field in multipart requests
-
-Lines 129-141
-
-Asked as: expense attachment upload; file not attached to expense; multipart expense file; attach receipt to expense
-
-When a request is multipart/form-data and includes uploaded files under "attachment", Turbo uses those files as the expense's attachment value. If no files are uploaded, Turbo does not set the attachment from the upload.
-
-## Rejected field check covers every submitted field
-
-Lines 146-163
-
-Asked as: which field is wrong; only one bad field named; multiple invalid expense fields; first rejected field
-
-Turbo checks every field in the request data, and it stops at the first field that is not allowed. The message names only one such field, even if several are wrong.
-
-## Expense save errors are reported as specific or generic failures
-
-Lines 165-177
-
-Asked as: failed to save expense; expense save error message; expense validation errors; why expense won't save
-
-When a processing hook refuses an expense save, Turbo returns the hook's own status and message. Validation errors return "failed to save expense" with the filtered validation details. Any other error also returns "failed to save expense".
+When an expense rule fails, Turbo returns that rule's status and message. Other validation errors are returned as "failed to save expense" with the field errors.
