@@ -169,6 +169,17 @@
     }
     return "";
   });
+  // A PO's amounts are in its own currency. An expense must use that currency,
+  // and a PO with expenses can't change it, so both totals share this code.
+  const linkedPurchaseOrderCurrencyCode = $derived.by(() => {
+    if (data.linked_purchase_order?.currency_code) {
+      return data.linked_purchase_order.currency_code;
+    }
+    if (linkedPurchaseOrderCurrency === "") {
+      return "CAD";
+    }
+    return $currencies.items.find((row) => row.id === linkedPurchaseOrderCurrency)?.code ?? "";
+  });
   const currencySelectionDisabled = $derived.by(
     () => item.purchase_order !== "" || fixedHomePaymentType,
   );
@@ -393,6 +404,7 @@
           parent_po_number: errorData.po_number,
           po_total: parseFloat(errorData.po_total),
           overflow_amount: parseFloat(errorData.overflow_amount),
+          currency_code: linkedPurchaseOrderCurrencyCode,
         });
       } else {
         errors = error.data?.data ?? {};
@@ -510,7 +522,10 @@
     <span
       class="w-full rounded-sm border border-cyan-300 bg-cyan-50 px-2 py-1 text-sm text-cyan-900"
     >
-      Provisional Remaining: ${linkedRemainingAmount.toFixed(2)} (includes uncommitted expenses)
+      Provisional Remaining: {formatCurrencyAmount(
+        linkedRemainingAmount,
+        linkedPurchaseOrderCurrencyCode,
+      )} (includes uncommitted expenses)
     </span>
   {/if}
 

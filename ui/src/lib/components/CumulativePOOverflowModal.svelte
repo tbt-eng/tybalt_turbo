@@ -2,6 +2,7 @@
   import DsActionButton from "./DSActionButton.svelte";
   import { fade } from "svelte/transition";
   import { goto } from "$app/navigation";
+  import { formatCurrencyAmount } from "$lib/utilities";
 
   let show = $state(false);
   let overflowData = $state<{
@@ -9,6 +10,8 @@
     parent_po_number: string;
     overflow_amount: number;
     po_total: number;
+    // The PO's currency; the PO total and the overflow are both in it.
+    currency_code: string;
   } | null>(null);
 
   function closeModal() {
@@ -21,6 +24,8 @@
     parent_po_number: string;
     overflow_amount: number;
     po_total: number;
+    // The PO's currency; the PO total and the overflow are both in it.
+    currency_code: string;
   }) {
     show = true;
     overflowData = data;
@@ -50,8 +55,9 @@
         {#if overflowData}
           <p>
             This expense (together with others that may exist against this PO) exceeds total of
-            purchase order {overflowData.parent_po_number} by ${overflowData.overflow_amount.toFixed(
-              2,
+            purchase order {overflowData.parent_po_number} by {formatCurrencyAmount(
+              overflowData.overflow_amount,
+              overflowData.currency_code,
             )}.
           </p>
           <p>

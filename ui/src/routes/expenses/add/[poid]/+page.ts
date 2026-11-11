@@ -46,6 +46,7 @@ export const load: PageLoad<ExpensesPageData> = async ({ params, url }) => {
       uid: result.uid,
       po_number: result.po_number,
       currency: result.currency ?? "",
+      currency_code: result.currency_code,
       type: result.type,
       payment_type: result.payment_type,
       status: result.status,

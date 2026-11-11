@@ -50,6 +50,7 @@
     "test:change-client-browser": "node tests/changeClient.browser.mjs",
     "test:close-project-browser": "node tests/closeProject.browser.mjs",
     "test:expense-tracking-browser": "node tests/expenseTracking.browser.mjs",
+    "test:cumulative-po-currency-browser": "node tests/cumulativePOCurrency.browser.mjs",
     "test:timesheet-actions": "node --test --experimental-strip-types tests/timesheetActions.test.ts",
     "test:timesheet-share-browser": "node tests/timesheetShare.browser.mjs",
     "test:timesheet-rejected-browser": "node tests/timesheetRejected.browser.mjs"

@@ -62,6 +62,8 @@ export type LinkedPurchaseOrderSummary = {
   uid: string;
   po_number: string;
   currency: string;
+  // The code of the currency the PO's amounts are in; CAD when blank.
+  currency_code: string;
   type: VisiblePurchaseOrderResponse["type"];
   payment_type: VisiblePurchaseOrderResponse["payment_type"];
   status: VisiblePurchaseOrderResponse["status"];
