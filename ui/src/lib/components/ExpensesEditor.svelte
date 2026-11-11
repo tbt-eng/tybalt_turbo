@@ -462,13 +462,16 @@
   enctype="multipart/form-data"
   onsubmit={save}
 >
-  <h1 class="w-full text-xl font-bold text-neutral-800">
-    {#if data.editing}
-      Editing Expense
-    {:else}
-      Create Expense
-    {/if}
-  </h1>
+  <div class="flex w-full items-center gap-2">
+    <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
+      {#if data.editing}
+        Editing Expense
+      {:else}
+        Create Expense
+      {/if}
+    </h1>
+    {@render help?.()}
+  </div>
 
   {#if !data.editing}
     <div class="w-full">

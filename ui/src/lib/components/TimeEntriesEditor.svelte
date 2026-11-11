@@ -494,14 +494,15 @@
   class="flex w-full flex-col items-center gap-2 p-2 max-lg:[&_button]:text-base max-lg:[&_input]:text-base max-lg:[&_label]:text-base max-lg:[&_select]:text-base max-lg:[&_textarea]:text-base"
 >
   <div class="flex w-full flex-col gap-2">
-    <div class="flex w-full flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl font-bold text-neutral-800">
+    <div class="flex w-full items-center gap-2">
+      <h1 class="min-w-0 flex-1 text-xl font-bold text-neutral-800">
         {#if data.editing}
           Editing Time Entry
         {:else}
           Create Time Entry
         {/if}
       </h1>
+      {@render help?.()}
     </div>
 
     {#if linkedWorkRecord && linkedWorkRecordLocked}

@@ -910,7 +910,7 @@ Job details page:
   an approved timesheet
 - paginate the approved work-record list when the job has many work records
 - move this job-scoped approved-record surface onto a first-class job tab
-  beside `Active POs`
+  beside `POs`
 
 Main list behavior:
 
