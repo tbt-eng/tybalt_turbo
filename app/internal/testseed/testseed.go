@@ -148,7 +148,9 @@ func DefaultSeedDir() string {
 // migrated-and-seeded template directory.
 //
 // Each call still creates an isolated TestApp clone; only the expensive
-// migrations-plus-load step is cached.
+// migrations-plus-load step is cached. The clone is removed when tb and its
+// subtests finish, so callers don't need to call app.Cleanup() themselves.
+// Calling it as well is harmless.
 func NewSeededTestApp(tb testing.TB) *tests.TestApp {
 	tb.Helper()
 
@@ -157,13 +159,19 @@ func NewSeededTestApp(tb testing.TB) *tests.TestApp {
 	if err != nil {
 		tb.Fatal(err)
 	}
+	tb.Cleanup(app.Cleanup)
 	return app
 }
 
 // EnsureTemplateDir returns the cached template directory or fails the test if
-// template creation was unsuccessful.
+// template creation was unsuccessful, or if the package has no TestMain that
+// calls Main to remove the template when its tests finish.
 func EnsureTemplateDir(tb testing.TB) string {
 	tb.Helper()
+
+	if !mainActive.Load() {
+		tb.Fatal("testseed: add func TestMain(m *testing.M) { testseed.Main(m) } to this package so its seeded template is removed")
+	}
 
 	dir, err := TemplateDir()
 	if err != nil {
@@ -178,16 +186,17 @@ func EnsureTemplateDir(tb testing.TB) string {
 //
 // The directory is created once on first use by running the current migration
 // set against a fresh DB and then loading the test-full seed group from
-// DefaultSeedDir.
+// DefaultSeedDir. Main removes it when the package's tests finish.
 func TemplateDir() (string, error) {
 	templateOnce.Do(func() {
-		dir, err := os.MkdirTemp("", "tybalt-testseed-template-*")
+		dir, err := os.MkdirTemp("", templateDirPrefix+"*")
 		if err != nil {
 			templateErr = err
 			return
 		}
 
 		if err := BuildSeededDataDirForProfile(dir, DefaultSeedDir(), TestFullProfile); err != nil {
+			os.RemoveAll(dir)
 			templateErr = err
 			return
 		}

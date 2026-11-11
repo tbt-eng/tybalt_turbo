@@ -11,11 +11,13 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 )
 
-// setup the test ApiScenario app instance
+// SetupTestApp returns a seeded test app with the app's hooks and routes. Its
+// data folder is removed when t and its subtests finish (see
+// testseed.NewSeededTestApp), so callers don't need to call Cleanup.
 func SetupTestApp(t testing.TB) *tests.TestApp {
+	t.Helper()
+
 	testApp := testseed.NewSeededTestApp(t)
-	// no need to cleanup since scenario.Test() will do that for us
-	// defer testApp.Cleanup()
 
 	// Add the hooks to the test app
 	hooks.AddHooks(testApp)
