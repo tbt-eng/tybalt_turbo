@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { globalStore } from "$lib/stores/global";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
@@ -98,6 +99,9 @@
   groupField="employee_group"
   inListHeader={`Committed Expenses for ${shortDate(committedWeekEnding || "", true)}`}
 >
+  {#snippet inListHeaderExtra()}
+    <DSHelp doc="commit-expenses#track-committed-expenses" label="Help" />
+  {/snippet}
   {#snippet anchor(r: GroupedRow)}
     <a href={`/expenses/${r.id}/details`} class="text-blue-600 hover:underline">{r.date}</a>
   {/snippet}

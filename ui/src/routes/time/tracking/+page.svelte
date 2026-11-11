@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { globalStore } from "$lib/stores/global";
   import { authStore } from "$lib/stores/auth";
   import DsList from "$lib/components/DSList.svelte";
@@ -54,6 +55,9 @@
 </script>
 
 <DsList items={rows} inListHeader="Time Tracking">
+  {#snippet inListHeaderExtra()}
+    <DSHelp doc="review-time#download-the-time-of-a-week" label="Help" />
+  {/snippet}
   {#snippet anchor({ id, week_ending }: Row)}
     <a class="font-bold hover:underline" href={`/time/tracking/${id}`}
       >{shortDate(week_ending, true)}</a
@@ -81,8 +85,6 @@
   {/snippet}
   {#snippet actions(r: Row)}
     <DsActionButton action={() => downloadWeeklyTime(r.week_ending)}>Weekly Time</DsActionButton>
-    <DsActionButton action={() => downloadWeeklyByEmployee(r.week_ending)}
-      >By Staff</DsActionButton
-    >
+    <DsActionButton action={() => downloadWeeklyByEmployee(r.week_ending)}>By Staff</DsActionButton>
   {/snippet}
 </DsList>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import { timesheets } from "$lib/stores/timesheets";
@@ -76,6 +77,9 @@
   }
 </script>
 
+{#snippet searchBarExtra()}
+  <DSHelp doc="time#change-a-time-sheet" label="Help" />
+{/snippet}
 {#snippet anchor({ id, week_ending }: TimeSheetTallyQueryRow)}
   <a class="font-bold hover:underline" href="/time/sheets/{id}/details">{shortDate(week_ending)}</a>
 {/snippet}
@@ -164,6 +168,7 @@
   items={$timesheets.tallies}
   inListHeader="Time Sheets"
   search={true}
+  {searchBarExtra}
   {anchor}
   {headline}
   {byline}

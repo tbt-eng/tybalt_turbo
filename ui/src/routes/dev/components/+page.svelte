@@ -608,7 +608,10 @@
     </DSSection>
 
     <DSSection title="DSList">
-      <DSList items={listItems} inListHeader="Sample list">
+      <DSList items={listItems} inListHeader="Sample list, with help in inListHeaderExtra">
+        {#snippet inListHeaderExtra()}
+          <DSHelp doc="project-requests#approve-a-request" label="Help" />
+        {/snippet}
         {#snippet headline(item)}{item.name}{/snippet}
         {#snippet byline(item)}{item.detail}{/snippet}
         {#snippet actions()}
@@ -625,6 +628,9 @@
 </div>
 
 <DSModal bind:show={showModal} title={`DSModal size="${modalSize}"`} size={modalSize}>
+  {#snippet help()}
+    <DSHelp doc="project-requests#approve-a-request" label="Help" />
+  {/snippet}
   <p>
     Native dialog: Escape or a backdrop click closes it, focus stays inside, and the page behind is
     inert.

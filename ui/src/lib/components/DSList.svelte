@@ -30,6 +30,7 @@
     line3,
     actions,
     searchBarExtra,
+    inListHeaderExtra,
   }: {
     items: T[];
     search?: boolean;
@@ -59,6 +60,9 @@
     actions?: Snippet<[T]>;
     stripeKey?: (item: T) => string;
     searchBarExtra?: Snippet;
+    // Sits at the far right of the inListHeader row. Use it for page help on a
+    // list that has no search bar.
+    inListHeaderExtra?: Snippet;
   } = $props();
 
   function searchString(item: T) {
@@ -238,7 +242,7 @@
     </li>
   {/if}
   {#if inListHeader !== undefined}
-    <DSInListHeader value={inListHeader} />
+    <DSInListHeader value={inListHeader} extra={inListHeaderExtra} />
   {/if}
 
   {#snippet itemList(_processedItems: T[])}

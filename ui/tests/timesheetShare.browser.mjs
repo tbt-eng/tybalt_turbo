@@ -156,14 +156,46 @@ await runBrowserHarness(
     const share = page.getByRole("button", { name: "Share with another manager", exact: true });
     const dialog = page.getByRole("dialog");
 
+    // Help sits at the far right of an existing row and opens its docs section.
+    const checkHelp = async (row, title) => {
+      const help = row.getByRole("button", { name: /^Help/ });
+      const [rowBox, helpBox] = [await row.boundingBox(), await help.boundingBox()];
+      assert.ok(rowBox.x + rowBox.width - (helpBox.x + helpBox.width) < 20, "Help is at the right");
+      assert.ok(helpBox.y < rowBox.y + rowBox.height && helpBox.y + helpBox.height > rowBox.y);
+      await help.click();
+      const panel = page.getByRole("dialog", { name: title, exact: true });
+      await panel.getByRole("link", { name: "Open the full page", exact: true }).waitFor();
+      await page.keyboard.press("Escape");
+      await panel.waitFor({ state: "hidden" });
+    };
+    const shots = process.env.SCREENSHOT_DIR;
+    const screenshot = async (name) => {
+      if (!shots) return;
+      await page.evaluate(() => document.activeElement?.blur());
+      await page.screenshot({ path: `${shots}/${name}-desktop.png`, fullPage: true });
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.screenshot({ path: `${shots}/${name}-375.png`, fullPage: true });
+      await page.setViewportSize({ width: 1000, height: 900 });
+    };
+
     // Approved By Me: only the row that the signed-in person approves can be shared.
     await page.goto(`${origin}/time/sheets/approved`);
     await page.getByText("Approved Time Sheets").waitFor();
     await share.first().waitFor();
     assert.equal(await share.count(), 1);
     await share.click();
-    await dialog.getByRole("heading", { name: "Share Ann Smith's time sheet" }).waitFor();
+    const shareTitle = dialog.getByRole("heading", { name: "Share Ann Smith's time sheet" });
+    await shareTitle.waitFor();
     assert.equal(await dialog.getByRole("heading", { name: "Viewers" }).count(), 0);
+    // The dialog starts in its content, not on Help.
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.getAttribute("name")),
+      "reviewer",
+    );
+    // Escape closes the help and leaves the share dialog open.
+    await checkHelp(shareTitle.locator(".."), "Share a time sheet with a manager");
+    await shareTitle.waitFor();
+    await screenshot("share-dialog");
 
     // The approver is not offered as a viewer.
     const manager = dialog.getByRole("combobox", { name: "Manager" });
@@ -200,10 +232,15 @@ await runBrowserHarness(
     await page.goto(`${origin}/time/sheets/list`);
     await share.first().waitFor();
     assert.equal(await share.count(), 1);
+    await checkHelp(page.locator("li[data-listbar]"), "Change a time sheet");
+    await screenshot("sheets-list");
 
     // Details: the approver shares, and the badge follows the viewer count.
     await page.goto(`${origin}/time/sheets/ts1/details`);
     await share.waitFor();
+    const detailsTitle = page.getByRole("heading", { level: 1, name: "Time Sheet Details" });
+    await checkHelp(detailsTitle.locator(".."), "Time sheet statuses");
+    await screenshot("sheet-details");
     await share.click();
     await dialog.getByRole("combobox", { name: "Manager" }).selectOption("mgra");
     await dialog.getByRole("button", { name: "Add Viewer", exact: true }).click();
@@ -214,7 +251,7 @@ await runBrowserHarness(
 
     assert.deepEqual(errors, []);
     console.log(
-      "Time sheet share checks passed: Approved By Me, Pending My Approval, Sheets and details show Share only to the approver; add and remove viewers; badge counts.",
+      "Time sheet share checks passed: Approved By Me, Pending My Approval, Sheets and details show Share only to the approver; add and remove viewers; badge counts; Help on Sheets, details and the share dialog.",
     );
   },
   { app: true },

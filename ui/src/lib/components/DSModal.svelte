@@ -16,6 +16,7 @@
     onclose,
     children,
     footer,
+    help,
   }: {
     show: boolean;
     title: string;
@@ -25,6 +26,8 @@
     onclose?: () => void;
     children: Snippet;
     footer?: Snippet;
+    // Page help (DSHelp) at the far right of the title row.
+    help?: Snippet;
   } = $props();
 
   const titleId = $props.id();
@@ -36,14 +39,26 @@
   } as const;
 
   let dialog: HTMLDialogElement | undefined = $state();
+  let helpBox: HTMLDivElement | undefined = $state();
+  const focusable =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   // A drag that starts inside the panel and ends on the backdrop is not a
   // backdrop click.
   let pressedBackdrop = false;
 
   $effect(() => {
     if (!dialog) return;
-    if (show && !dialog.open) dialog.showModal();
-    else if (!show && dialog.open) dialog.close();
+    if (show && !dialog.open) {
+      dialog.showModal();
+      // Help is first in the title row. Start in the content, as without help.
+      if (helpBox?.contains(document.activeElement)) {
+        const box = helpBox;
+        const first = [...dialog.querySelectorAll<HTMLElement>(focusable)].find(
+          (element) => !box.contains(element),
+        );
+        first?.focus();
+      }
+    } else if (!show && dialog.open) dialog.close();
   });
 
   function dismiss() {
@@ -89,7 +104,14 @@
 >
   {#if show}
     <div class="p-6">
-      <h2 id={titleId} class="mb-2 text-xl font-bold">{title}</h2>
+      {#if help}
+        <div class="mb-2 flex items-start justify-between gap-2">
+          <h2 id={titleId} class="min-w-0 text-xl font-bold">{title}</h2>
+          <div bind:this={helpBox} class="shrink-0">{@render help()}</div>
+        </div>
+      {:else}
+        <h2 id={titleId} class="mb-2 text-xl font-bold">{title}</h2>
+      {/if}
       {#if subtitle}
         <p class="mb-4 text-sm text-neutral-600">{subtitle}</p>
       {/if}

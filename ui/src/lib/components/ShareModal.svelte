@@ -10,6 +10,7 @@
   // button that opens this modal only when canShareTimesheet() in
   // $lib/timesheets/actions.ts is true.
   import DsActionButton from "./DSActionButton.svelte";
+  import DSHelp from "./DSHelp.svelte";
   import DSModal from "./DSModal.svelte";
   import DSSection from "./DSSection.svelte";
   import DSSelector from "./DSSelector.svelte";
@@ -121,6 +122,9 @@
   size="sm"
   onclose={closeModal}
 >
+  {#snippet help()}
+    <DSHelp doc="review-time#share-a-time-sheet-with-a-manager" label="Help" />
+  {/snippet}
   <div class="flex flex-col gap-4">
     {#if reviewers.length > 0}
       <DSSection title="Viewers">

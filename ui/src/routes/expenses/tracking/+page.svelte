@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { globalStore } from "$lib/stores/global";
   import { authStore } from "$lib/stores/auth";
   import DsList from "$lib/components/DSList.svelte";
@@ -47,6 +48,9 @@
 </script>
 
 <DsList items={rows} inListHeader="Expenses Tracking">
+  {#snippet inListHeaderExtra()}
+    <DSHelp doc="commit-expenses#download-the-expenses-of-a-week" label="Help" />
+  {/snippet}
   {#snippet anchor({ id, committed_week_ending }: Row)}
     <a class="font-bold hover:underline" href={`/expenses/tracking/${id}`}
       >{shortDate(committed_week_ending, true)}</a

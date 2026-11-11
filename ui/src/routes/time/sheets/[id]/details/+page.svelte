@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
@@ -195,7 +196,10 @@
 </script>
 
 <div class="mx-auto p-4">
-  <h1 class="mb-4 text-2xl font-bold">Time Sheet Details</h1>
+  <div class="mb-4 flex items-center gap-2">
+    <h1 class="min-w-0 flex-1 text-2xl font-bold">Time Sheet Details</h1>
+    <DSHelp doc="time#time-sheet-statuses" label="Help" />
+  </div>
   {#if !$timeEditingEnabled}
     <DsEditingDisabledBanner message={timeEditingDisabledMessage} />
   {/if}
