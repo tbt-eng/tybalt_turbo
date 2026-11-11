@@ -30,7 +30,7 @@
       {/if}
     {/snippet}
     {#snippet context()}
-      {data.item.tsid === "" ? "Standalone time entry" : "Bundled into a timesheet"}
+      {data.item.tsid === "" ? "Standalone time entry" : "Bundled into a time sheet"}
     {/snippet}
     {#snippet actions()}
       <DsActionButton action="/time/entries/list">Back to Entries</DsActionButton>
@@ -41,7 +41,7 @@
       {/if}
       {#if data.item.tsid !== ""}
         <DsActionButton action={`/time/sheets/${data.item.tsid}/details?entry=${data.item.id}`}>
-          Open Timesheet
+          Open Time Sheet
         </DsActionButton>
       {/if}
       {#if data.item.work_record_subject_id && linkedWorkRecord?.id}

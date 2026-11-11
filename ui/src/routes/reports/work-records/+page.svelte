@@ -25,7 +25,7 @@
   const tabs: Array<{ id: Tab; name: string }> = [
     { id: "records", name: "Records" },
     { id: "unlinked", name: "Unlinked" },
-    { id: "pending", name: "Not On Approved Timesheet" },
+    { id: "pending", name: "Not On Approved Time Sheet" },
     { id: "consumables", name: "Consumables" },
   ];
 
@@ -148,7 +148,7 @@
         idField="uid"
         errors={{}}
         fieldName="uid"
-        uiName="Employee"
+        uiName="Staff Member"
       >
         {#snippet resultTemplate(item)}{item.surname}, {item.given_name}{/snippet}
       </DsAutoComplete>
