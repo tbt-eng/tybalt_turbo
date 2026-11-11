@@ -550,6 +550,8 @@ Notes:
 
 - The running total check currently uses all associated expenses (not just committed ones) during create/update validation.
 - This overflow error is used by the expense UI to trigger the child-PO overflow workflow.
+- Commit uses the same limit: the committed expenses plus the expense being committed must not exceed `po.total` (in whole cents), or commit fails with code `exceeded_purchase_order_total`. The One-Time and Recurring allowance does not apply to a Cumulative PO, at save or at commit. Until November 2026 commit allowed that excess, a leftover from before January 2025, when save allowed it too.
+- Because every save keeps all expenses at or under the total, commit can only go over through a path that skips the save check. Conversion from One-Time is the known one, so conversion checks the expenses (see Closure below). A mileage expense is another: commit works out its total again.
 
 ### Known Limitation
 
@@ -616,7 +618,7 @@ Automatic closure rules:
 
 Automatic close sets `status = Closed`, `closed` to the commit timestamp of the closing expense and `closed_by_system = true`, and leaves `closer` blank. The PO details page shows it as closed automatically and names the limit that was reached. Uncommitting an expense that reopens the PO clears all three fields. It does not use the manual pending-expense check and can still leave other expenses pending when the amount or recurrence limit is reached.
 
-A `payables_admin` holder can convert a One-Time PO to Cumulative while it is `Active`, or after an automatic close. Converting an automatically closed PO reopens it and leaves its committed expense alone. It is refused when committed expenses already use the full PO total, and for imported POs, whose real cause of closure is unknown.
+A `payables_admin` holder can convert a One-Time PO to Cumulative while it is `Active`, or after an automatic close. Converting an automatically closed PO reopens it and leaves its committed expense alone. It is refused when committed expenses already use the full PO total, and for imported POs, whose real cause of closure is unknown. Conversion of an `Active` or closed PO is also refused, with code `po_expenses_over_total`, when the expenses of the PO, committed or not, total more than the PO total. Those expenses were saved under the One-Time allowance, and nothing checks them again after the conversion.
 
 ## API Endpoints (Non-approver-list)
 

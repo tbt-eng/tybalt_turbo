@@ -1,396 +1,476 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/purchase_orders.go","sha256":"996973010d8c0ff97dbedf1a88d12555007cb8019f68c8bd849f2adc70f47ec5","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/purchase_orders.go","sha256":"ae6df821be2a8c9d8e9d04b5fe936061c435818d6f05cc6dc4379cfc9f3bf99a","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/purchase_orders.go
 
-## Revised purchase orders are identified by status, number and entry type
+## Revised purchase order is recognised by status, number and legacy flag
 
 Lines 23-29
 
-Asked as: revised purchase order; PO being edited again; resubmitted PO in list; unapproved PO with number
+Asked as: PO shows as under revision; revised PO not in list; unapproved PO with number; revision flag on purchase order
 
-A purchase order is under revision when its status (status) is Unapproved, it already has a PO number (po_number), and it is not a legacy manual entry (legacy_manual_entry = 0). Turbo uses this test in the PO lists and queries.
+Turbo treats a purchase order as under revision when its status is Unapproved, it already has a PO number (po_number) and it is not a legacy manual entry (legacy_manual_entry = 0). Lists and job summaries use this test.
 
-## Second approval status messages
+## Second approver lookup fails when nobody can final-approve
 
 Lines 179-214
 
-Asked as: second approver status; why second approval needed; second approval summary message; what second approval state means
+Asked as: no second approver available; can't find second approver; no one can final approve; second approver error message
 
-The second approver summary reports one of four states. "not_required" means second approval is not required. "requester_qualifies" means the requester can do it. "candidates_available" means eligible second approvers exist. "required_no_candidates" means no second-stage approver can final-approve the amount. The summary also gives the threshold, limit column, evaluated amount and second-stage timeout hours.
+If second approval is required, the requester does not qualify and no second-stage approver exists, the lookup fails with "no second-stage approvers can final-approve this amount; contact an administrator". The result status is otherwise not_required, requester_qualifies or candidates_available.
+
+## Second approver lookup returns the timeout
+
+Lines 185-196
+
+Asked as: second approver timeout hours; how many recurring payments; second approval threshold lookup; approver lookup result details
+
+The second approver lookup returns the PO's second-stage timeout in hours, the second approval threshold and the number of recurring payments. For a non-recurring PO the payment count is 0.
+
+## Second-stage timeout is shown with second approver candidates
+
+Lines 216-234
+
+Asked as: when do second approvers see PO; second stage timeout visibility; PO hidden from second approvers; second approver candidates timing
+
+The visibility lists use the second-stage timeout hours (GetPurchaseOrderSecondStageTimeoutHours) to decide when general second approvers see a first-approved PO. The value comes from another file.
+
+## Single purchase order lookup returns nothing when not visible
+
+Lines 236-255
+
+Asked as: purchase order lookup returns nothing; can't open PO by id; PO id returns empty; cannot see purchase order
+
+Looking up a purchase order by id returns nothing, both when it does not exist and when the caller may not see it under the PO visibility rules.
+
+## Approving a purchase order that does not exist is refused
+
+Lines 271-279
+
+Asked as: approve PO that doesn't exist; approval fails po not found; error fetching purchase order approve; approve missing purchase order
+
+When staff approve a purchase order and Turbo cannot find it, Turbo refuses the approval. The message starts with "error fetching purchase order:" and then gives the lookup error (code po_not_found).
 
 ## Only unapproved purchase orders can be approved
 
 Lines 281-297
 
-Asked as: can't approve PO; approve button not working; PO already approved error; cannot approve purchase order
+Asked as: can't approve rejected PO; approve PO already active; why won't PO approve; only unapproved can be approved
 
-Approving a purchase order that is not Unapproved is refused with "only unapproved purchase orders can be approved". A purchase order that has been rejected is refused with "rejected purchase orders cannot be approved".
+Approving a purchase order whose status is not Unapproved fails with "only unapproved purchase orders can be approved". A purchase order that has been rejected fails with "rejected purchase orders cannot be approved". The Unapproved status is checked first.
 
-## Rejected purchase orders cannot be approved
-
-Lines 290-297
-
-Asked as: approve rejected PO; rejected PO won't approve; bring back rejected purchase order; approving a rejected order
-
-When a purchase order has a rejection date (rejected), Turbo refuses to approve it with the message "rejected purchase orders cannot be approved". Turbo checks this after the Unapproved status check.
-
-## Approval policy uses home-currency total, kind and job
+## Approval fails when the purchase order kind is invalid
 
 Lines 299-323
 
-Asked as: which approval policy applies; approval limits by division; home currency approval total; approval rules for PO
+Asked as: PO kind invalid approval; approval fails kind missing; kind no longer exists approve; approve PO kind error
 
-On approve, Turbo works out the approval policy from the purchase order's division, its effective approval total in home currency, its expenditure kind and whether it has a job. The kind is normalized with the has-job flag. An unknown kind is refused with "purchase order kind is invalid or no longer exists".
+If the purchase order's kind no longer exists, approval fails with "purchase order kind is invalid or no longer exists". Turbo normalizes the kind from whether the PO has a job. It uses the approval total in home currency (EffectiveApprovalTotalHome) to find the approvers.
 
-## Unknown PO kind blocks approval and rejection
-
-Lines 310-317
-
-Asked as: PO kind deleted; invalid expenditure kind; kind no longer exists; can't approve after kind removed
-
-If the purchase order's kind no longer exists, Turbo refuses approval or rejection with "purchase order kind is invalid or no longer exists".
-
-## Activation generates a PO number if missing
+## PO number is generated at activation only if missing
 
 Lines 335-350
 
-Asked as: PO number missing on activation; no PO number after active; error generating PO number; activated PO without number
+Asked as: PO number not changing on activation; revised PO new number; PO number when activated; keep PO number revision
 
-When a purchase order becomes Active, it keeps any PO number it already has. If it has none, Turbo generates one. If generating fails, Turbo reports "error generating PO number" with the cause.
+When a PO becomes Active, Turbo generates a PO number only if the PO has none. A revised PO keeps its existing number.
 
-## Second approver can approve both stages at once
+## Second-stage approver can approve both stages at once
 
-Lines 355-371
+Lines 353-371
 
-Asked as: approve both stages at once; approve and second approve together; combined approval; I'm second approver approving alone
+Asked as: approve both stages at once; second approver approves everything; combined approval single action; skip first approval as second approver
 
-If the purchase order needs second approval and the person approving is a second-stage approver, they can complete both approvals in one action. Turbo records them as approver and second approver, sets the approved and second approval times, and makes the purchase order Active. The approver must have enough final approval limit for the total, or Turbo refuses with "you do not have sufficient approval limit to complete final approval".
+On a PO that needs second approval and has no first approval yet, a second-stage approver (the caller) approves both stages in one action. Turbo records them as approver and second approver, sets both approval times, and makes the PO Active. A PO number is generated if it has none.
 
-## Final approval of a dual-approval PO needs sufficient limit
+## Combined approval needs a sufficient final limit
 
 Lines 355-362
 
-Asked as: not enough approval limit; can't final approve over limit; approval limit too low; final approval limit error
+Asked as: not enough limit to approve; insufficient approval limit final; limit too low for PO; approval limit error combined
 
-A second-stage approver who approves a purchase order that needs second approval must have a final approval limit that covers the total. If not, Turbo refuses with "you do not have sufficient approval limit to complete final approval". This applies both to combined first-and-second approval and to the second stage.
+A second-stage approver who approves both stages at once needs a limit that covers the approval total. Otherwise approval fails with "you do not have sufficient approval limit to complete final approval". The same message applies to the second approval step.
 
-## First-stage approval only by the assigned approver
+## Only the assigned approver can give first approval
 
 Lines 372-379
 
-Asked as: not authorized to approve; someone else approving my PO; wrong approver can't approve; only assigned approver approves
+Asked as: not authorised to approve PO; not the assigned approver; can't give first approval; first approval permission denied
 
-When a first approval is pending and the combined path does not apply, only the assigned approver (approver) may approve. Anyone else is refused with "you are not authorized to approve this purchase order".
+For a first approval that does not use the combined path, the caller must be the assigned approver on the PO. Anyone else gets "you are not authorized to approve this purchase order".
 
-## Second approval needs a non-empty second approver pool
+## First approval checks pools and the priority second approver
 
-Lines 381-387
+Lines 381-413
 
-Asked as: no second approvers available; second approval list empty; second approver pool empty; contact admin no second approver
+Asked as: second approval pool empty; no priority second approver; first approval pool empty; priority approver not valid
 
-On first approval of a purchase order that needs second approval, an empty second-stage pool is refused with "second approval pool is empty for this purchase order; contact an administrator".
+When the PO needs second approval, first approval runs these checks in order. An empty second-approver pool fails with "second approval pool is empty for this purchase order; contact an administrator". A missing priority second approver fails with "priority second approver is required when second approval is required". A priority second approver who is not valid for the second stage fails with "priority second approver is not valid for second-stage approval". An empty first-approver pool fails with "first approval pool is empty for this purchase order; contact an administrator", unless the assigned approver is valid for the first stage through the bypass.
 
-## Priority second approver required and must be valid
+## Assigned approver must be valid for first stage
 
-Lines 389-405
+Lines 415-421
 
-Asked as: priority second approver required; pick second approver; invalid second approver chosen; second approver not allowed
+Asked as: assigned approver invalid first stage; assigned approver not valid; owner bypass approver; approver not eligible first stage
 
-On first approval of a purchase order that needs second approval, a priority second approver must be set, or Turbo refuses with "priority second approver is required when second approval is required". That person must be a valid second-stage approver, or Turbo refuses with "priority second approver is not valid for second-stage approval".
+If the assigned approver is empty or not valid for first-stage approval, approval fails with "assigned approver is not valid for first-stage approval". A valid assigned approver can also qualify through the bypass rule for the PO owner.
 
-## First-stage pool and assigned approver validity checks
-
-Lines 407-421
-
-Asked as: first approval pool empty; assigned approver not valid; approver not valid first stage; first stage approver missing
-
-If second approval is required, the first-stage pool is empty and the assigned approver is not valid through the bypass, Turbo refuses with "first approval pool is empty for this purchase order; contact an administrator". An assigned approver that is missing or not valid for the first stage is refused with "assigned approver is not valid for first-stage approval".
-
-## First approval activates single-stage purchase orders
+## First approval activates single-approval purchase orders
 
 Lines 423-432
 
-Asked as: first approval sets approved; PO active after approval; waiting for second approver; approved but still unapproved
+Asked as: first approval makes PO active; single approval PO activated; PO still waiting after first approval; approval time recorded first stage
 
-A valid first approval sets the approved time and the approver. If no second approval is needed, the purchase order becomes Active at once. If second approval is needed, it stays Unapproved and waits for the second approver.
+A successful first approval records the approval time and the approver. If the PO does not need second approval, it becomes Active and gets a PO number if it has none. If second approval is needed, it stays Unapproved and waits for the second approval.
 
-## Final approval of first-approved dual-approval purchase orders
+## Second approval completes a dual-approval purchase order
 
-Lines 436-464
+Lines 435-464
 
-Asked as: give second approval; final approval after first; second approval already done; final approve dual PO
+Asked as: final approval of dual PO; second approval completes PO; already second approved error; second stage approve not authorised
 
-For a first-approved purchase order that needs second approval, a second approval already recorded is refused with "only unapproved purchase orders can be approved". Only a second-stage approver may give it, or Turbo refuses with "you are not authorized to perform second approval on this purchase order". The approver needs enough final limit, or Turbo refuses with "you do not have sufficient approval limit to complete final approval". Success records the second approver and time and activates the purchase order.
+A PO that already has its first approval and needs second approval is completed by a second-stage approver whose limit covers the amount. The PO becomes Active. A PO that already has its second approval fails with "only unapproved purchase orders can be approved". A caller who is not a second-stage approver gets "you are not authorized to perform second approval on this purchase order". A caller whose limit is too low gets "you do not have sufficient approval limit to complete final approval".
 
-## Second approval cannot be repeated
-
-Lines 436-443
-
-Asked as: approve twice; approve again already approved; double approval error; second approval repeated
-
-If a purchase order is already first-approved and already second-approved, approving it again fails with "only unapproved purchase orders can be approved".
-
-## Only second-stage approvers can give second approval
-
-Lines 444-450
-
-Asked as: not a second approver; can't give second approval; who can second approve; second stage access denied
-
-On the second stage of a dual-approval purchase order, a caller who is not a second-stage approver is refused with "you are not authorized to perform second approval on this purchase order".
-
-## Second approval sets second approver and activates the PO
-
-Lines 459-464
-
-Asked as: second approval activates PO; second approver recorded; PO active after second approval; second approval time set
-
-A successful second approval sets second_approval to now and second_approver to the caller. The status becomes Active.
-
-## Activating a first-approved single-stage purchase order
+## Approving a first-approved single-stage purchase order
 
 Lines 465-485
 
-Asked as: approved but not active; activate approved PO; stuck approved purchase order; single stage approved not activated
+Asked as: approve first approved single PO; PO stuck after first approval; reapprove single stage PO; assigned approver no longer first stage
 
-For a first-approved purchase order that needs no second approval but is not yet Active, the assigned approver must be a valid first-stage approver, or Turbo refuses with "assigned approver is not valid for first-stage approval". The caller must be the assigned approver or a first-stage approver, or Turbo refuses with "you are not authorized to approve this purchase order". Success activates it.
+A single-stage PO that was first-approved but never activated can be approved again. The assigned approver must still be a first-stage approver, or approval fails with "assigned approver is not valid for first-stage approval". The caller must be the assigned approver or any first-stage approver. Otherwise approval fails with "you are not authorized to approve this purchase order". Approval then makes the PO Active.
 
-## Approval notifications
+## Approval saves the updated purchase order and returns it
 
-Lines 527-580
+Lines 488-524
 
-Asked as: approval emails; who gets notified on approval; group email for PO; approval notification sent
+Asked as: what is returned after approving; approved PO saved details; save approval transaction; PO details after approve
 
-After a first approval that leaves the purchase order awaiting second approval with a priority second approver, Turbo notifies that person. A purchase order in a group with no PO number gets one email for the whole group. A revised purchase order, which already has a number, gets the single email. When a purchase order becomes Active and the approver is not its creator, Turbo notifies the creator that it is active.
+After a successful approval, Turbo saves the purchase order in one transaction. It then returns the updated record with the creator, approver, division and job details.
 
-## Priority second approver is emailed after first approval
+## Priority second approver is notified after first approval
 
 Lines 527-556
 
-Asked as: email to second approver; second approver didn't get email; priority approver notification; second approval email missing
+Asked as: who gets email after first approval; priority approver notification email; second approver emailed; group email approval notice
 
-After first approval of a PO that needs second approval and has a priority second approver, Turbo emails that person (template po_priority_second_approval_required). A PO in a group with no PO number yet sends one email for the whole group. A revised PO, which already has a number, gets the single-PO email.
+After a first approval that leaves the PO waiting for second approval, Turbo notifies the priority second approver. A PO in a group with no number yet sends one email for the whole group. A revised PO already has a number, so it sends a single-PO email instead.
 
-## Creator is notified when PO becomes active
+## Creator is notified when a purchase order becomes active
 
 Lines 557-580
 
-Asked as: creator email PO active; notify creator; told PO is active; creator not notified
+Asked as: creator notified PO active; email when PO approved; who is told PO approved; no email to approver
 
-When an approval makes the PO Active, Turbo sends the creator the po_active email. It sends none if the creator is the person who approved.
+When an approval makes the PO Active, Turbo notifies the creator. It sends no notification if the creator is the one who approved.
 
 ## Pending purchase orders list
 
 Lines 587-640
 
-Asked as: my pending approvals; POs waiting for me; to approve list; pending purchase orders list
+Asked as: POs waiting for my approval; my approvals list; pending approvals for me; PO not in my approval queue
 
-The pending list returns the purchase orders the caller can approve now, using the PO visibility rules. These are first-stage ones assigned to the caller, second-stage ones where the caller is the priority second approver, and second-stage ones open to all eligible second approvers after the second-stage timeout. A single pending purchase order that is not found for the caller is refused with "pending purchase order not found". A missing id is refused with "purchase order id is required".
+Turbo lists the purchase orders the caller can approve now. These are first-stage POs assigned to the caller, second-stage POs where the caller is the priority second approver, and second-stage POs that other eligible second approvers see after the timeout. A single pending PO that is not available to the caller gets "pending purchase order not found". A missing ID gets "purchase order id is required".
 
-## Pending PO lookup by id
+## Pending purchase order lookup by id returns not found
 
 Lines 610-640
 
-Asked as: find pending PO by id; pending PO not found; PO id required; look up one pending order
+Asked as: pending PO not found; PO not in my pending list; empty id pending lookup; find pending approval by id
 
-Fetching one pending purchase order needs an id, otherwise Turbo says "purchase order id is required". If the PO is not in the caller's pending set, Turbo says "pending purchase order not found".
+If the purchase order is not among the caller's pending approvals, Turbo answers 'pending purchase order not found'. An empty id gives 'purchase order id is required'.
 
-## Visible purchase orders scope and parameters
+## Visible purchase orders list scopes and required parameters
+
+Lines 642-681
+
+Asked as: invalid PO list scope; filter purchase orders by status; scope group needs group; stale or expiring PO filter
+
+The visible purchase orders list accepts scope all (the default), mine, active, rejected, stale, expiring, approved_by_me_awaiting_second or group. Any other scope fails with "scope must be one of: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second, group". Scope group needs a group, scope stale needs stale_before, and scope expiring needs expiring_before. The messages are "group is required when scope=group", "stale_before is required when scope=stale" and "expiring_before is required when scope=expiring".
+
+## Visible purchase orders scope defaults to all and is validated
 
 Lines 646-658
 
-Asked as: invalid scope; PO list filter options; scope value error; filter purchase orders by scope
+Asked as: default PO list filter; unknown scope on PO list; list all purchase orders default; scope validation message
 
-The visible purchase orders list takes a scope of all (the default), mine, active, rejected, stale, expiring, approved_by_me_awaiting_second or group. Any other value is refused with "scope must be one of: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second, group". The scope is lowercased and trimmed.
+The visible purchase orders list uses scope 'all' when none is given. An unknown scope returns 'scope must be one of: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second, group'.
 
-## Scope-specific required parameters
-
-Lines 660-681
-
-Asked as: group parameter missing; stale before date needed; expiring before date required; scope needs date
-
-Scope group requires group, refused with "group is required when scope=group". Scope stale requires stale_before, refused with "stale_before is required when scope=stale". Scope expiring requires expiring_before, refused with "expiring_before is required when scope=expiring".
-
-## Limit must be a positive integer
+## Visible purchase orders limit must be positive
 
 Lines 682-693
 
-Asked as: limit positive number; PO list limit error; limit must be number; how many POs to show
+Asked as: limit on PO list invalid; purchase order list row limit; negative limit PO list; limit must be positive
 
-The optional limit on the visible purchase orders list must be a positive integer. Zero, negative or non-numeric values are refused with "limit must be a positive integer". With no limit, the list is not limited.
+The optional limit on the visible purchase orders list must be a positive integer. Zero, a negative number or text fails with "limit must be a positive integer". Without a limit, Turbo applies none.
 
-## Single visible purchase order lookup
+## Single purchase order lookup respects visibility
 
 Lines 709-736
 
-Asked as: PO not visible; can't open purchase order; purchase order not found; view single PO
+Asked as: PO not found or not visible; can't view purchase order; open PO by id denied; PO id required message
 
-Fetching one purchase order requires an id ("purchase order id is required"). A purchase order that does not exist or is not visible to the caller gives "purchase order not found or not visible".
+Turbo returns one purchase order only if it is visible to the caller. A PO that is missing or not visible gets "purchase order not found or not visible". A missing ID gets "purchase order id is required".
 
-## Searchable purchase orders list
+## Searchable purchase orders list uses visibility rules
 
 Lines 738-754
 
-Asked as: search purchase orders; which POs can I see; PO search results; list POs I may view
+Asked as: search purchase orders list; find POs I can see; PO search results; all visible purchase orders
 
-The search list returns the purchase orders the caller may see under the PO visibility rules.
+The purchase order search list returns the purchase orders the caller can see under the PO visibility rules, with scope 'all'.
 
-## Rejection reason is required
+## Rejection reason is required and needs 5 characters
 
 Lines 771-803
 
-Asked as: reject without reason; rejection note too short; reason missing when rejecting; rejection reason needed
+Asked as: reject PO without reason; rejection reason too short; reason needs more characters; why reject message needed
 
-Rejecting a purchase order needs a rejection_reason in the request. If the field is missing, Turbo refuses with "you must provide a rejection reason". If the trimmed reason is shorter than 5 characters, Turbo refuses with "rejection reason must be at least 5 characters".
+Rejecting a purchase order without a rejection reason fails with "you must provide a rejection reason". A reason shorter than 5 characters after trimming spaces fails with "rejection reason must be at least 5 characters".
 
-## Rejection only for unapproved, not-yet-rejected purchase orders
+## Rejecting a purchase order that does not exist is refused
 
-Lines 821-837
+Lines 811-819
 
-Asked as: reject twice; cannot reject PO; already rejected order; reject approved PO error
+Asked as: reject PO that doesn't exist; rejection fails po not found; error fetching PO reject; reject missing purchase order
 
-A purchase order that is already rejected is refused with "rejected purchase orders cannot be rejected again". One that is not Unapproved is refused with "only unapproved purchase orders can be rejected".
+When staff reject a purchase order and Turbo cannot find it, Turbo refuses the rejection. The message starts with "error fetching purchase order:" and then gives the lookup error (code po_not_found). A rejection reason of at least 5 characters is checked before the lookup.
+
+## Only unapproved, unrejected purchase orders can be rejected
+
+Lines 821-861
+
+Asked as: can't reject approved PO; reject already rejected PO; cannot reject again; rejecting active purchase order
+
+A PO that is already rejected fails with "rejected purchase orders cannot be rejected again". A PO that is not Unapproved fails with "only unapproved purchase orders can be rejected". An invalid kind fails with "purchase order kind is invalid or no longer exists".
 
 ## Who can reject a purchase order
 
-Lines 841-884
-
-Asked as: reject permission; can't reject PO; not allowed to reject; who is allowed to reject
-
-The caller must be a first-stage approver, the assigned approver valid through the bypass, or a qualified second-stage approver. Anyone else is refused with "you are not authorized to reject this purchase order". A purchase order that is already first-approved but not yet Active can still be rejected by any such person.
-
-## Who may reject a purchase order
-
 Lines 863-884
 
-Asked as: rejecting first approved PO; reject approved not active PO; reject access for approvers; reject after first approval
+Asked as: who is allowed to reject; not authorised to reject PO; reject after first approval; approver rejection rights
 
-The caller must be a first-stage approver, the assigned approver through the bypass rule, or a qualified second-stage approver. Otherwise Turbo says "you are not authorized to reject this purchase order". A first-approved PO that is not yet Active can still be rejected by any of these.
+A first-stage approver, a qualified second-stage approver, or the assigned approver who is valid through the bypass can reject. Anyone else gets "you are not authorized to reject this purchase order". A PO that already has its first approval can still be rejected by these people, because it is not yet Active.
 
-## Rejection records and notifies the creator
+## Rejection records the reason and notifies the creator
 
 Lines 886-943
 
-Asked as: rejected PO email creator; rejection notification failed; who rejected PO; record of rejection
+Asked as: rejection notification to creator; record who rejected PO; rejected PO email sent; rejection reason saved
 
-Rejecting records the time, reason and rejector, and notifies the creator. If the notification fails, the rejection still stands.
+Rejecting a PO records the time, the reason and the rejector. Turbo then sends the creator a rejection notification. If the notification fails, the rejection stays.
+
+## Rejection notification failure does not undo the rejection
+
+Lines 926-945
+
+Asked as: rejection email failed; notification error on reject; rejection still saved after error; reject email not sent
+
+If the rejection notification to the creator cannot be sent, Turbo logs the error and still returns the rejected purchase order.
+
+## Cancelling a purchase order that does not exist is refused
+
+Lines 958-966
+
+Asked as: cancel PO that doesn't exist; cancellation fails not found; error fetching PO cancel; cancel missing purchase order
+
+When staff cancel a purchase order and Turbo cannot find it, Turbo refuses the cancellation. The message starts with "error fetching purchase order:" and then gives the lookup error (code po_not_found). Turbo makes this check before any check on status or claim.
 
 ## Creator can cancel a rejected revision
 
 Lines 968-980
 
-Asked as: cancel rejected revision; withdraw rejected PO; delete my rejected change; creator cancel rejected edit
+Asked as: cancel my rejected revision; creator cancel rejected PO; cancel revision without payables; only creator can cancel
 
-A rejected revision of a purchase order can be cancelled by its creator instead of being resubmitted, and the Active and payables admin checks do not apply. Anyone else is refused with "only the creator can cancel a rejected revision".
+A rejected revision keeps its PO number but has no approval. Its creator can cancel it without payables staff rights, and the Active status check does not apply. Anyone else gets "only the creator can cancel a rejected revision".
 
-## Who can cancel a purchase order
+## Cancelling a purchase order needs payables staff and Active status
 
-Lines 981-1006
+Lines 981-1032
 
-Asked as: cancel PO button; cancel active purchase order; not allowed to cancel; who can cancel PO
+Asked as: cancel active purchase order; who can cancel PO; payables staff cancel PO; only active can be cancelled
 
-Only an Active purchase order can be cancelled, or Turbo refuses with "only active purchase orders can be cancelled". The caller needs the payables admin claim (payables_admin), or Turbo refuses with "you are not authorized to cancel this purchase order".
+Only an Active PO can be cancelled, or it fails with "only active purchase orders can be cancelled". The caller must have the payables_admin claim (payables staff), or it fails with "you are not authorized to cancel this purchase order". Cancelling sets the status to Cancelled and records the time and the canceller.
 
-## Purchase orders with expenses cannot be cancelled
+## Purchase order with expenses cannot be cancelled
 
-Lines 1009-1032
+Lines 1009-1027
 
-Asked as: cancel PO with expenses; PO has expenses can't cancel; cancel blocked by expense; expenses stop cancellation
+Asked as: PO has expenses cancel; can't cancel PO with expense; expense linked blocks cancel; cancel blocked by expenses
 
-A purchase order that has any expenses is refused with "this purchase order has associated expenses and cannot be cancelled". Otherwise cancelling sets the status to Cancelled and records the time and the canceller.
+If any expense is linked to the PO, cancelling fails with "this purchase order has associated expenses and cannot be cancelled".
 
-## Conversion to Cumulative requires Active or system-closed status
+## Cancellation records time and canceller
 
-Lines 1064-1102
+Lines 1029-1060
 
-Asked as: convert to cumulative; make PO cumulative; cumulative conversion not allowed; change PO to cumulative type
+Asked as: cancelled date and who cancelled; record canceller; PO cancel timestamp; status changed to cancelled
 
-Only an Active purchase order, or a Closed one that the system closed, can be converted to Cumulative. Imported purchase orders closed by the system are refused. Others are refused with "only active or automatically closed purchase orders can be converted to Cumulative".
+Cancelling sets the status to Cancelled, and records the cancel time (cancelled) and the person who cancelled (canceller).
 
-## Imported system-closed POs cannot be converted
+## Convert to Cumulative: allowed statuses and type
 
-Lines 1094-1102
+Lines 1064-1113
 
-Asked as: imported PO convert; system closed PO cumulative; auto closed PO convert; closed PO won't convert
+Asked as: convert PO to cumulative; which POs can become cumulative; one-time to cumulative; closed PO cumulative conversion
 
-A Closed PO converts only if closed_by_system is set and it is not imported (_imported). Otherwise Turbo says "only active or automatically closed purchase orders can be converted to Cumulative".
+Only an Active PO, or a PO that Turbo closed automatically (closed_by_system), can be converted to Cumulative. Otherwise conversion fails with "only active or automatically closed purchase orders can be converted to Cumulative". Imported POs that are closed are refused, because their cause of closure is unknown. Only a One-Time PO can be converted, or it fails with "only One-Time purchase orders can be converted to Cumulative".
 
-## Only One-Time purchase orders convert, by payables admin
+## Converting a purchase order returns it as Cumulative
 
-Lines 1104-1128
+Lines 1096-1104
 
-Asked as: one-time PO convert; payables admin convert; who can convert PO; convert one-time order
+Asked as: PO type now cumulative; result after cumulative conversion; imported PO closed cannot convert; converted PO returned
 
-Only a One-Time purchase order can be converted, or Turbo refuses with "only One-Time purchase orders can be converted to Cumulative". The caller needs the payables admin claim (payables_admin), or Turbo refuses with "you are not authorized to convert this purchase order to Cumulative".
+After conversion, the type becomes Cumulative and Turbo returns the saved purchase order. Imported purchase orders closed by the system cannot be converted.
 
-## Reopening a system-closed purchase order on conversion
+## Convert to Cumulative needs payables staff
 
-Lines 1130-1154
+Lines 1115-1130
 
-Asked as: reopen closed PO; no room for invoice; committed expenses full total; reopen PO on conversion
+Asked as: who can make cumulative; cumulative needs payables rights; not authorised to convert PO; payables staff convert
 
-Converting a system-closed purchase order reopens it as Active and clears its closed time and closer. Committed expenses are compared with the total in whole cents. If they equal or exceed the total, Turbo refuses with "committed expenses already use the full purchase order total, so there is no room for another invoice". On success the type becomes Cumulative.
+Converting a PO to Cumulative needs the payables_admin claim (payables staff). Others get "you are not authorized to convert this purchase order to Cumulative".
 
-## Child purchase order numbers
+## Expenses cannot total more than the PO to convert
 
-Lines 1203-1270
+Lines 1132-1151
 
-Asked as: child PO number; PO suffix numbering; sub PO number format; parent PO number suffix
+Asked as: expenses exceed PO total convert; too many expenses cumulative; reduce expense before converting; expenses total over PO
 
-A child purchase order's number is its parent's number plus a two-digit suffix, YYMM-NNNN-XX, one above the highest existing child. A missing parent fails with "parent PO not found". A parent without a number fails with "parent PO does not have a PO number". After suffix 99 it fails with "maximum number of child POs reached (99) for parent" and the parent number. A number that already exists also fails.
+Conversion fails if all expenses of the PO, committed or not, total more than the PO total, compared in whole cents. The message is "the expenses of this purchase order total more than the purchase order total, so it can't be Cumulative. Reduce or remove an expense first". A total equal to the PO total passes.
 
-## Parent purchase order numbers
+## Converting an auto-closed PO reopens it
 
-Lines 1271-1332
+Lines 1153-1177
 
-Asked as: next PO number; PO number sequence; no unique PO number; how PO numbers are assigned
+Asked as: reopen auto closed PO; auto closed PO conversion; closed PO becomes active again; clear closed date on PO
 
-A parent purchase order number is YYMM-NNNN, using the current year and month, one above the highest existing number for that month. Numbers from 5000 up are reserved for manual or imported purchase orders, so automatic numbers stop at 4999. When none is free, it fails with "unable to generate a unique PO number".
+When a PO that Turbo closed automatically is converted, committed expenses must be below the PO total. If they equal or exceed it, conversion fails with "committed expenses already use the full purchase order total, so there is no room for another invoice". Otherwise the PO becomes Active again, and its closed time, closer and closed_by_system flag are cleared. The type then changes to Cumulative.
 
-## Approver lookup request validation
+## Auto-closed conversion refused when committed expenses use the full total
 
-Lines 1335-1404
+Lines 1153-1169
 
-Asked as: approvers lookup amount invalid; approver lookup missing division; has job boolean error; approvers request validation
+Asked as: no room for another invoice; committed expenses use full total; auto closed convert refused; committed expenses equal total
 
-The approvers lookup requires a valid numeric amount ("Amount must be a valid number"), a division ("division is required") and a kind ("kind is required"). has_job, if given, must be a valid boolean ("has_job must be a valid boolean"). The kind defaults to the default capital expenditure kind and is normalized with has_job.
+When converting an auto-closed PO, if committed expenses equal or exceed the PO total (compared in cents), Turbo refuses with 'committed expenses already use the full purchase order total, so there is no room for another invoice'.
 
-## Approver lookup query validation
+## Auto-closed conversion clears the closure details
 
-Lines 1335-1403
+Lines 1170-1174
 
-Asked as: approver search query error; find approvers missing kind; approver query amount; approver lookup parameters
+Asked as: closed fields cleared; status back to active; reset closed PO status; closed by system flag removed
 
-The approver lookup needs a valid amount ("Amount must be a valid number"), a valid has_job if given ("has_job must be a valid boolean"), a division ("division is required") and a kind ("kind is required"). When kind is not given, the default capital expenditure kind is used.
+Converting an auto-closed purchase order sets status back to Active and clears closed, closer and closed_by_system.
 
-## Recurring amount in approver lookup
+## Parent PO number format and sequence
 
-Lines 1406-1432
+Lines 1211-1224
 
-Asked as: recurring PO total; recurring approver amount; invalid recurrence dates; recurring total for approvers
+Asked as: how PO numbers are formatted; next PO number sequence; PO number 4999 limit; unable to generate PO number
 
-For a Recurring purchase order, the approvers lookup replaces the amount with the total value over all payments, calculated from the start date, end date and frequency. Date or frequency errors are returned as "invalid_recurrence" field errors. Other errors give "Error calculating recurring PO total" with the cause.
+A new parent PO number has the format YYMM-NNNN, from the current year and month. The next number is the highest existing one for that month plus one. Numbers from 5000 up are reserved for manual or imported POs, so automatic numbering stops at 4999. If no number is free, generation fails with "unable to generate a unique PO number".
 
-## Approver lookup converts currency to home
+## Child PO number format and limit
 
-Lines 1434-1467
+Lines 1226-1292
 
-Asked as: exchange rate missing; foreign currency approver lookup; currency invalid approver; approver lookup currency error
+Asked as: child PO number format; maximum child POs reached; 99 child POs limit; child PO suffix numbering
 
-The approvers lookup converts the amount to home currency using the currency's exchange rate. An invalid currency is refused with "currency is invalid or no longer exists". A foreign currency with no positive rate is refused with "selected foreign currency is missing an exchange rate". An unknown kind is refused with "kind is invalid or no longer exists".
+A child PO number is the parent's PO number plus a two-digit suffix, such as 2401-0001-01. The suffix is the highest existing child suffix plus one. The parent must exist and have a PO number. At most 99 children are allowed, and the next one fails with "maximum number of child POs reached (99)" and the parent number.
 
-## Second approver candidates lookup
+## Parent PO numbers: automatic range
 
-Lines 1469-1491
+Lines 1296-1353
 
-Asked as: no second approvers for amount; list of second approvers empty; cannot final approve amount; second approver candidates
+Asked as: automatic PO number range; PO number below 5000; skip existing PO number; monthly PO number counting
 
-The second approver lookup returns the second-stage approvers for the amount, plus a status summary. If the requester can give second approval and it is required, the list is empty so the form selects the requester. If it is required, the requester does not qualify and nobody can final-approve the amount, Turbo refuses with "no second-stage approvers can final-approve this amount; contact an administrator".
+Automatic parent PO numbers count up from the highest number of the current month below 5000. Turbo skips a number that already exists.
 
-## First approver candidates include the requester
+## Approver lookup validates its inputs
 
-Lines 1493-1500
+Lines 1358-1427
 
-Asked as: requester as first approver; I am not in approver list; approver list missing me; add myself as first approver
+Asked as: approver lookup amount invalid; division missing approver lookup; has job not true or false; kind required approver search
 
-The first approver lookup returns the first-stage approvers. When second approval is required, the requester is not a first-stage approver but has a non-zero limit for the kind, and is eligible, they are added to the list.
+The approver lookup needs a valid numeric amount, or it fails with "Amount must be a valid number". A has_job value that is not a boolean fails with "has_job must be a valid boolean". An empty division fails with "division is required". An empty kind fails with "kind is required". If no kind is given, it defaults to the default capital expenditure kind.
+
+## Approver lookup defaults and optional inputs
+
+Lines 1358-1426
+
+Asked as: approver lookup default kind; approver search optional fields; capital expenditure default kind; numeric amount required lookup
+
+The approver lookup needs a numeric amount ('Amount must be a valid number') and a division ('division is required'). Kind defaults to the capital expenditure kind, and has_job must be a boolean ('has_job must be a valid boolean') when given.
+
+## Recurring PO approver lookup uses the total value
+
+Lines 1429-1455
+
+Asked as: recurring PO approver total; approvers for recurring PO; recurring PO total value; recurring PO start end frequency
+
+For a Recurring PO, the approver lookup calculates the number of payments and the total value from the start date, end date and frequency. It finds approvers for that total, not for one payment. Recurrence errors return "invalid_recurrence" with the field messages. Other errors return "Error calculating recurring PO total".
+
+## Recurring approver lookup reports recurrence errors
+
+Lines 1439-1454
+
+Asked as: recurring dates invalid error; bad frequency recurring PO; invalid recurrence message; recurring calculation error
+
+When a recurring PO's dates or frequency are invalid, the approver lookup returns 'invalid_recurrence' with field errors. Other calculation failures say 'Error calculating recurring PO total'.
+
+## Approver lookup converts foreign currency to home currency
+
+Lines 1457-1470
+
+Asked as: foreign currency approver conversion; currency no longer exists; no exchange rate for currency; home currency amount approvers
+
+The approver lookup converts the amount to home currency with the currency's exchange rate. An unknown currency fails with "currency is invalid or no longer exists". A foreign currency with no rate (zero or less) fails with "selected foreign currency is missing an exchange rate".
+
+## Approver lookup refuses invalid or unrated currency
+
+Lines 1457-1469
+
+Asked as: currency missing rate error; unknown currency on PO; exchange rate zero foreign currency; currency invalid message
+
+An unknown currency gives 'currency is invalid or no longer exists'. A foreign currency without an exchange rate gives 'selected foreign currency is missing an exchange rate'.
+
+## Approver lookup rejects an unknown kind
+
+Lines 1472-1485
+
+Asked as: kind no longer exists lookup; approver search invalid kind; unknown PO kind lookup; kind invalid for approvers
+
+If the kind no longer exists, the approver lookup fails with "kind is invalid or no longer exists".
+
+## Second approver lookup: requester who qualifies
+
+Lines 1492-1500
+
+Asked as: I can second approve myself; requester qualifies second approval; no second approver needed for me; requester approves second stage
+
+When second approval is required and the requester is a second-stage approver, the lookup returns an empty approver list. The requester then approves in the second stage. The result is marked requester_qualifies.
+
+## Second approver list is empty for a qualifying requester
+
+Lines 1492-1499
+
+Asked as: second approver list empty; requester selected automatically; empty approver list qualifying; auto select me second approval
+
+If second approval is required and the requester can second-approve, the list is returned empty so the UI selects the requester automatically.
+
+## Second approver lookup refuses when the pool is empty
+
+Lines 1501-1508
+
+Asked as: no second approvers available amount; nobody can final approve; second approver pool empty lookup; contact administrator second approval
+
+If second approval is required, the requester does not qualify and no approvers exist, Turbo says 'no second-stage approvers can final-approve this amount; contact an administrator'.
+
+## First approver list adds a requester with a limit
+
+Lines 1516-1523
+
+Asked as: add myself as first approver; requester with limit first approver; I can approve first stage; requester eligible first approval
+
+The first approver list holds the first-stage approvers. When second approval is required, the requester is not a first-stage approver and has a non-zero limit for the kind, Turbo adds the requester as an eligible approver.

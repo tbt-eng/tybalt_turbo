@@ -861,6 +861,21 @@ func TestConvertSystemClosedOneTimePurchaseOrderToCumulative(t *testing.T) {
 		expectUnchanged(t, app)
 	})
 
+	// The committed total leaves room, but an uncommitted expense saved under
+	// the One-Time rule would take the Cumulative PO over its total.
+	t.Run("refuses when uncommitted expenses would go over the total", func(t *testing.T) {
+		app := setup(t, 1000, true, false)
+		if _, err := app.DB().NewQuery(`
+			UPDATE expenses SET purchase_order = {:po}, total = 600, committed = '' WHERE id = 'hlqb5xdzm2xbii7'
+		`).Bind(dbx.Params{"po": uncommitPOExpensePO}).Execute(); err != nil {
+			t.Fatal(err)
+		}
+		res := performTestAPIRequest(t, app, http.MethodPost, url, nil, uncommitToken(t, uncommitPayablesEmail))
+		mustStatus(t, res, http.StatusBadRequest)
+		mustUncommitErrorCode(t, res.Body.Bytes(), "po_expenses_over_total")
+		expectUnchanged(t, app)
+	})
+
 	t.Run("refuses a purchase order closed by a person", func(t *testing.T) {
 		app := setup(t, 1000, false, false)
 		res := performTestAPIRequest(t, app, http.MethodPost, url, nil, uncommitToken(t, uncommitPayablesEmail))
@@ -882,6 +897,68 @@ func TestConvertSystemClosedOneTimePurchaseOrderToCumulative(t *testing.T) {
 		res := performTestAPIRequest(t, app, http.MethodPost, url, nil, uncommitToken(t, uncommitCommitEmail))
 		mustStatus(t, res, http.StatusForbidden)
 		expectUnchanged(t, app)
+	})
+}
+
+// A One-Time PO allows an expense a little over its total, but a Cumulative PO
+// allows no excess. So an Active PO converts only when its expenses, committed
+// or not, do not total more than the PO total.
+func TestConvertActiveOneTimePurchaseOrderChecksItsExpenses(t *testing.T) {
+	url := "/api/purchase_orders/" + uncommitPOExpensePO + "/make_cumulative"
+
+	// setup makes the PO Active with its expense uncommitted, and sets the PO
+	// total to the expenses total plus delta.
+	setup := func(t *testing.T, delta float64) *tests.TestApp {
+		t.Helper()
+		app := testutils.SetupTestApp(t)
+		if _, err := app.DB().NewQuery(`
+			UPDATE expenses SET committed = '', committer = '', committed_week_ending = '' WHERE purchase_order = {:po}
+		`).Bind(dbx.Params{"po": uncommitPOExpensePO}).Execute(); err != nil {
+			t.Fatal(err)
+		}
+		var sum struct {
+			Total float64 `db:"total"`
+		}
+		if err := app.DB().NewQuery(`SELECT COALESCE(SUM(total), 0) AS total FROM expenses WHERE purchase_order = {:po}`).
+			Bind(dbx.Params{"po": uncommitPOExpensePO}).One(&sum); err != nil {
+			t.Fatal(err)
+		}
+		if sum.Total == 0 {
+			t.Fatal("expected the fixture purchase order to have expenses")
+		}
+		if _, err := app.DB().NewQuery(`
+			UPDATE purchase_orders SET status = 'Active', closed = '', closer = '', closed_by_system = 0, total = {:total} WHERE id = {:id}
+		`).Bind(dbx.Params{"total": sum.Total + delta, "id": uncommitPOExpensePO}).Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return app
+	}
+	poType := func(t *testing.T, app *tests.TestApp) string {
+		t.Helper()
+		po, err := app.FindRecordById("purchase_orders", uncommitPOExpensePO)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return po.GetString("type")
+	}
+
+	t.Run("converts when the expenses exactly fill the total", func(t *testing.T) {
+		app := setup(t, 0)
+		res := performTestAPIRequest(t, app, http.MethodPost, url, nil, uncommitToken(t, uncommitPayablesEmail))
+		mustStatus(t, res, http.StatusOK)
+		if got := poType(t, app); got != "Cumulative" {
+			t.Fatalf("expected Cumulative, got %q", got)
+		}
+	})
+
+	t.Run("refuses when the expenses are one cent over the total", func(t *testing.T) {
+		app := setup(t, -0.01)
+		res := performTestAPIRequest(t, app, http.MethodPost, url, nil, uncommitToken(t, uncommitPayablesEmail))
+		mustStatus(t, res, http.StatusBadRequest)
+		mustUncommitErrorCode(t, res.Body.Bytes(), "po_expenses_over_total")
+		if got := poType(t, app); got != "One-Time" {
+			t.Fatalf("expected the purchase order to stay One-Time, got %q", got)
+		}
 	})
 }
 

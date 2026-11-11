@@ -229,8 +229,8 @@ func createCommitRecordHandler(app core.App, collectionName string) func(e *core
 
 					 	 - `Cumulative` type means we need to check if the cumulative total
 					     of all committed expenses against the PO's amount plus the
-					     current expense match or exceed the PO total and set the Status
-					     to Closed if so, otherwise do nothing.
+					     current expense match the PO total and set the Status to Closed
+					     if so, refuse the commit if it goes over, otherwise do nothing.
 					*/
 					purchaseOrderType := purchaseOrderRecord.GetString("type")
 					var dirtyPurchaseOrderRecord bool
@@ -257,20 +257,21 @@ func createCommitRecordHandler(app core.App, collectionName string) func(e *core
 						// Compare whole cents: float sums can land a hair above or
 						// below an exact total.
 						committedTotalCents := utilities.CurrencyAmountToCents(existingExpensesTotal) + utilities.CurrencyAmountToCents(record.GetFloat("total"))
+						poTotalCents := utilities.CurrencyAmountToCents(purchaseOrderRecord.GetFloat("total"))
 
-						excessCfg := utilities.GetPOExpenseExcessConfig(app)
-						limitResult := utilities.CalculatePOExpenseTotalLimit(purchaseOrderRecord.GetFloat("total"), utilities.GetPOExpenseCurrency(txApp, purchaseOrderRecord), excessCfg)
-
-						if committedTotalCents > limitResult.TotalLimitCents {
+						// A Cumulative PO allows no excess, the same as the save
+						// check in validateExpense. The One-Time and Recurring
+						// allowance does not apply here.
+						if committedTotalCents > poTotalCents {
 							httpResponseStatusCode = http.StatusBadRequest
 							return &CodeError{
 								Code:    "exceeded_purchase_order_total",
-								Message: "the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus",
+								Message: "the committed expenses total exceeds the total value of the purchase order",
 							}
-						} else if committedTotalCents >= utilities.CurrencyAmountToCents(purchaseOrderRecord.GetFloat("total")) {
+						} else if committedTotalCents == poTotalCents {
 							// Set the status to Closed since the total of all committed
-							// expenses plus the pending expense matches or exceeds the
-							// purchase order total
+							// expenses plus the pending expense matches the purchase
+							// order total
 							closePurchaseOrderBySystem(purchaseOrderRecord, now)
 							dirtyPurchaseOrderRecord = true
 						}

@@ -3682,12 +3682,12 @@ func TestExpensesRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 		},
 		{
-			Name:            "commit fails against cumulative purchase_orders record if the total exceeds the PO total by more than specified excess",
+			Name:            "commit fails against cumulative purchase_orders record if the committed total exceeds the PO total",
 			Method:          http.MethodPost,
 			URL:             "/api/expenses/um1uoad5a4mhfcu/commit",
 			Headers:         map[string]string{"Authorization": commitToken},
 			ExpectedStatus:  400,
-			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus"`},
+			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order"`},
 			ExpectedEvents: map[string]int{
 				"OnBeforeApiError": 0,
 				"OnAfterApiError":  0,
@@ -4911,35 +4911,21 @@ func TestCumulativePOCommitAndUncommitCompareWholeCents(t *testing.T) {
 			},
 		},
 		{
-			// 5% of 3.80 is exactly 0.19, but 3.80 * 1.05 is 3.9899999999999998.
-			Name:            "commit allows a cumulative purchase order to reach exactly its allowed excess",
-			Method:          http.MethodPost,
-			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
-			Headers:         map[string]string{"Authorization": commitToken},
-			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"message":"Record committed successfully"`},
-			TestAppFactory: func(tb testing.TB) *tests.TestApp {
-				return setupCumulativePOCentsFixture(tb, 3.80, "Active", map[string]float64{
-					"su3hyft6n9rlt7d": 3.00,
-					"hlqb5xdzm2xbii7": 0.99,
-				}, nil)
-			},
-			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-				expectPurchaseOrderStatus(tb, app, "ly8xyzpuj79upq1", "Closed")
-			},
-		},
-		{
-			Name:            "commit refuses a cumulative purchase order one cent beyond its allowed excess",
+			// A Cumulative PO allows no excess at commit, the same as at save.
+			Name:            "commit refuses a cumulative purchase order one cent over its total",
 			Method:          http.MethodPost,
 			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
 			Headers:         map[string]string{"Authorization": commitToken},
 			ExpectedStatus:  http.StatusBadRequest,
-			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus"`},
+			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order"`},
 			TestAppFactory: func(tb testing.TB) *tests.TestApp {
 				return setupCumulativePOCentsFixture(tb, 3.80, "Active", map[string]float64{
 					"su3hyft6n9rlt7d": 3.00,
-					"hlqb5xdzm2xbii7": 1.00,
+					"hlqb5xdzm2xbii7": 0.81,
 				}, nil)
+			},
+			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+				expectPurchaseOrderStatus(tb, app, "ly8xyzpuj79upq1", "Active")
 			},
 		},
 		{
@@ -5190,12 +5176,10 @@ func setupForeignCumulativePOFixture(tb testing.TB, poTotal float64, expenseTota
 	return app
 }
 
-// On a foreign Cumulative PO, the fixed part of the allowed excess ($100) is
-// in the home currency (issue #183). The PO here is 1500 USD with a stored
-// home total of 2025 CAD, so $100 is 74.07 USD, which is less than 5% (75.00
-// USD): the limit is 1574.07 USD. The old code added 100 USD, chose 5% and
-// allowed 1575.00.
-func TestForeignCumulativePOCommitUsesHomeCurrencyExcess(t *testing.T) {
+// A Cumulative PO allows no excess at commit, in any currency. The PO here is
+// 1500 USD. The allowance of a One-Time PO (issue #183) would let it reach
+// 1574.07 USD, so these amounts show that the allowance is not applied.
+func TestForeignCumulativePOCommitAllowsNoExcess(t *testing.T) {
 	commitToken, err := testutils.GenerateRecordToken("users", "fakemanager@fakesite.xyz")
 	if err != nil {
 		t.Fatal(err)
@@ -5203,7 +5187,7 @@ func TestForeignCumulativePOCommitUsesHomeCurrencyExcess(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:            "commit allows a US dollar cumulative purchase order to reach its allowed excess",
+			Name:            "commit closes a US dollar cumulative purchase order at exactly its total",
 			Method:          http.MethodPost,
 			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
 			Headers:         map[string]string{"Authorization": commitToken},
@@ -5212,7 +5196,7 @@ func TestForeignCumulativePOCommitUsesHomeCurrencyExcess(t *testing.T) {
 			TestAppFactory: func(tb testing.TB) *tests.TestApp {
 				return setupForeignCumulativePOFixture(tb, 1500, map[string]float64{
 					"su3hyft6n9rlt7d": 1000,
-					"hlqb5xdzm2xbii7": 574.07,
+					"hlqb5xdzm2xbii7": 500,
 				})
 			},
 			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
@@ -5220,16 +5204,16 @@ func TestForeignCumulativePOCommitUsesHomeCurrencyExcess(t *testing.T) {
 			},
 		},
 		{
-			Name:            "commit refuses a US dollar cumulative purchase order one cent beyond its allowed excess",
+			Name:            "commit refuses a US dollar cumulative purchase order one cent over its total",
 			Method:          http.MethodPost,
 			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
 			Headers:         map[string]string{"Authorization": commitToken},
 			ExpectedStatus:  http.StatusBadRequest,
-			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus"`},
+			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order"`},
 			TestAppFactory: func(tb testing.TB) *tests.TestApp {
 				return setupForeignCumulativePOFixture(tb, 1500, map[string]float64{
 					"su3hyft6n9rlt7d": 1000,
-					"hlqb5xdzm2xbii7": 574.08,
+					"hlqb5xdzm2xbii7": 500.01,
 				})
 			},
 		},

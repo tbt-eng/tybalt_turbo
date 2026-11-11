@@ -54,13 +54,12 @@ After final approval, you can't delete your PO. If it has no expenses, you can [
 
 ## Convert a One-Time PO
 
-Payables staff can change a One-Time PO to Cumulative. It then accepts several expenses, up to its total.
+Payables staff can change a One-Time PO to Cumulative. It then accepts several expenses, up to its total. Its existing expenses can't go over the total.
 
-1. Under **Purchase Orders**, open **Search**.
-2. Find the PO and open it.
-3. Select **Convert to Cumulative**.
-4. Review the changes.
-5. Select **Convert**.
+1. Open the PO.
+2. Select **Convert to Cumulative**.
+3. Review the changes.
+4. Select **Convert**.
 
 You can also convert a One-Time PO that Turbo closed since March 12, 2026. Its committed expenses must total less than the PO total.
 

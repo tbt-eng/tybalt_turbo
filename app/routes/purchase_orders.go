@@ -1069,7 +1069,9 @@ record. It may only be called by a user with the payables_admin claim.
 The record must be Active, or Closed by the system. A One-Time PO closes as soon
 as an expense is committed against it, so without the second case the only way
 to convert it would be to uncommit a correct expense. A converted PO reopens,
-which needs the committed total to be below the PO total. Imported POs are
+which needs the committed total to be below the PO total. In both cases the
+expenses of the PO must not total more than the PO total, because a
+Cumulative PO allows no excess. Imported POs are
 refused because the import tool sets closed_by_system on all of them, so their
 real cause of closure is unknown.
 */
@@ -1124,6 +1126,27 @@ func createConvertToCumulativePurchaseOrderHandler(app core.App) func(e *core.Re
 				return &CodeError{
 					Code:    "unauthorized_conversion",
 					Message: "you are not authorized to convert this purchase order to Cumulative",
+				}
+			}
+
+			// A Cumulative PO allows no excess. Its expenses were saved under the
+			// One-Time rule, which allows a small one, and nothing checks them
+			// again after the conversion. So the expenses of the PO, committed or
+			// not, must not total more than the PO total. This is the same sum
+			// that the save check in validateExpense uses.
+			expensesTotal, err := utilities.CumulativeTotalExpensesForPurchaseOrder(txApp, po, false)
+			if err != nil {
+				httpResponseStatusCode = http.StatusInternalServerError
+				return &CodeError{
+					Code:    "error_totalling_expenses",
+					Message: fmt.Sprintf("error totalling expenses: %v", err),
+				}
+			}
+			if utilities.CurrencyAmountToCents(expensesTotal) > utilities.CurrencyAmountToCents(po.GetFloat("total")) {
+				httpResponseStatusCode = http.StatusBadRequest
+				return &CodeError{
+					Code:    "po_expenses_over_total",
+					Message: "the expenses of this purchase order total more than the purchase order total, so it can't be Cumulative. Reduce or remove an expense first",
 				}
 			}
 
