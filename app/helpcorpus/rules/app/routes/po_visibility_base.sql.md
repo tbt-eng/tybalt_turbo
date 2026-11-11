@@ -1,220 +1,300 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/po_visibility_base.sql","sha256":"d07549eec8d9db276bc3c9640d674c4758a0a690ae829d55acd0c0569887d304","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/po_visibility_base.sql","sha256":"39872a5879772f48b6bed76bbaee082b67b0b6575cc7c3d34ded10581d7935e3","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/po_visibility_base.sql
 
-## PO visibility differs from linked expense visibility
+## Pending queue is narrower than purchase order visibility
+
+Lines 31-35
+
+Asked as: PO shows in list but not in my queue; why isn't PO in my pending; purchase order not in my approvals; unapproved PO I can see but can't approve
+
+A person can see more Unapproved purchase orders than they can act on. The pending queue holds only the first-stage approver's items, the priority second approver's items, and the second-stage fallback items after the timeout. Seeing a purchase order does not put it in that person's pending queue.
+
+## Seeing a purchase order does not show all its linked expenses
 
 Lines 41-58
 
-Asked as: can't open PO but see expense; expense visible without PO; PO closed but my expense shows; expense totals don't match list
+Asked as: can't see all expenses on PO; missing expenses on purchase order; can't open expense after PO closed; expense count doesn't match what I see
 
-The ability to open a purchase order does not give access to every expense linked to it. Expense visibility follows separate rules. The count of committed expenses and the expense total on a PO can therefore be larger than the list of expenses a user sees. An expense owner can view their own expense even when they can no longer see the PO after it is Closed or Cancelled.
+Purchase order visibility and expense visibility follow separate rules. A person who can open a purchase order may not see every expense linked to it. The committed expense count on the purchase order (committed_expenses_count) can be larger than the list of expenses that person sees. An expense owner can still view their own expense after the purchase order becomes Closed or Cancelled, even when they cannot view that purchase order.
 
-## Report claim holders are identified for visibility
+## Report claim holders see Closed and Cancelled purchase orders
 
 Lines 64-75
 
-Asked as: report role sees closed POs; who can see cancelled orders; report access to old POs; see closed purchase orders
+Asked as: can see closed POs but shouldn't; why can I view cancelled purchase orders; report access closed POs; see all closed purchase orders
 
-Turbo checks whether the caller holds the report claim (name 'report'). That claim lets the caller see Closed and Cancelled purchase orders they have no other link to.
+The caller context (caller_context) sets has_report_claim when the user holds the report claim. That claim lets the user see every Closed or Cancelled purchase order (via is_closed_cancelled_visible).
 
-## Legacy PO claim holders are identified
+## Approver limits depend on the PO's kind
 
-Lines 76-85
+Lines 98-150
 
-Asked as: legacy PO editor access; old PO create permission; legacy flag on user; who can edit legacy POs
+Asked as: approval limit wrong for PO; my approver limit not applied; limit depends on PO type; why am I not eligible to approve
 
-Turbo treats a user as a legacy PO editor when the user holds the claim named 'legacy_po_create_update'. The flag has_legacy_po_create_update_claim is 1 for them and 0 for everyone else. Legacy manual PO visibility uses this flag.
+The limit used for an approver comes from the PO's expenditure kind. Capital uses max_amount, project uses project_max, and sponsorship, staff and social, media and event, and computer each use their own max. If the PO has no kind, it counts as project when it has a job and capital when it has none. An unknown kind gives no limit, so the approver is not eligible. Approver limits count only while the approver's admin profile is active.
 
-## super_po and admin claims give PO group access
-
-Lines 86-95
-
-Asked as: who sees PO group members; super_po group access; admin sees PO group; PO group flag
-
-A user who holds the 'super_po' claim or the 'admin' claim gets has_po_group_claim = 1. Any other user gets 0. Turbo uses this flag to show purchase order group members.
-
-## Approver limits count only with active admin profile
+## PO approver limits count only with an active admin profile
 
 Lines 98-115
 
-Asked as: approver limits not working; no limit as approver; inactive admin profile approver; approver can't be second stage
+Asked as: approver limit missing; can't approve no limit showing; admin profile inactive approver; approver claim but no limit
 
-Turbo reads a user's PO approver limits (po_approver_props) only when the user holds the PO approver claim. The user's admin profile must also be active (active = 1). Otherwise the user has no limits and cannot qualify as a second-stage approver or as a limit-based approver.
+Turbo reads a person's purchase order limits (caller_approver_props) only when the person holds the PO approver claim and the admin profile is active (ap.active = 1). Without both, no limit exists. The person then cannot qualify as an approver in the second-stage visibility or pending checks.
 
-## Which limit applies to a purchase order
-
-Lines 125-150
-
-Asked as: which approval limit applies; approval limit by PO kind; why can't I approve this PO; unknown kind no limit
-
-Turbo picks the approver's limit from the PO's expenditure kind: capital (max_amount), project, sponsorship, staff and social, media and event, or computer. When the PO has no kind, Turbo treats it as project if it has a job and as capital if it has no job. An unknown kind gives no limit (NULL), so the person cannot approve.
-
-## Second approval threshold falls back to default kind
+## Second approval threshold falls back to the job-based kind
 
 Lines 125-150
 
-Asked as: second approval threshold zero; no second approval needed; threshold when no kind; why no second approver
+Asked as: second approval not required; PO skipped second approver; what threshold for second approval; no second approval needed on PO
 
-Turbo takes the second approval threshold from the PO's expenditure kind. When the PO has no kind, it takes the threshold of project (job present) or capital (no job). When none is found, the threshold is 0, which means no second approval.
+The PO's second approval threshold comes from its expenditure kind. If the PO has no kind, it uses the threshold of the project kind when the PO has a job, or the capital kind when it has none. If none is found, the threshold is 0, so no second approval is needed.
 
-## Revision rejection reason is hidden from others
+## Revisions are visible to every signed-in user
 
 Lines 170-176
 
-Asked as: rejection reason blank; can't see why PO rejected; hidden rejection comment; revision reason missing
+Asked as: rejected PO still showing; revised PO visible to everyone; rejection reason blank; resubmitted PO shows to others
 
-On a revision, the rejection reason is blank unless the viewer is the creator, the approver or the rejector.
+A revision is an Unapproved PO that has a po_number. Any authenticated user can see it, so it does not look deleted while it waits for approval again. This does not make it actionable for them. The rejection reason is blank for everyone except the creator, the approver and the rejector.
 
-## Project budget coverage flag defaults to 0
+## Print-limit and approval fields show 0 or blank when unset
 
 Lines 194-194
 
-Asked as: project budget covered shows 0; not covered within budget; budget coverage empty; covered flag zero
+Asked as: budget field shows zero; blank approver name on PO; empty fields on purchase order; covered budget shows 0
 
-When a purchase order has no value for covered_within_project_budget, Turbo reports 0, which means not covered.
+Turbo shows a missing 'covered within project budget' value as 0 (covered_within_project_budget). Names such as the user, approver, vendor, job, client, division, category and branch show as blank when the record has none.
 
-## Approval total uses home currency when set
+## Approval total uses the home-currency amount when set
 
 Lines 197-200
 
-Asked as: approval total wrong currency; home currency for limits; approval amount in CAD; limit compares wrong amount
+Asked as: approval uses wrong amount; home currency total not used; approval total mismatch; which amount is used for approval
 
-For threshold and limit comparisons Turbo uses the approval total in home currency. When that is 0 or empty, it uses approval_total.
+Approval checks compare the PO's approval_total_home to limits and thresholds. If approval_total_home is 0 or empty, they use approval_total.
 
-## Currency defaults to CAD
+## Currency and display defaults
 
 Lines 201-206
 
-Asked as: PO shows CAD only; no currency on PO; missing currency code; currency blank rate 1
+Asked as: PO shows CAD by default; no currency on purchase order; exchange rate shows 1; PO kind label wrong
 
-When a PO has no currency record, Turbo shows code CAD, symbol CAD, rate 1 and no icon or rate date.
+A PO with no currency shows CAD as its code and symbol, and a rate of 1. Kind name and label fall back to project when the PO has a job and capital when it has none, if the PO kind is blank.
 
-## Committed expenses count and expense total
+## Committed expense count counts only committed expenses
 
-Lines 207-208
+Lines 207-207
 
-Asked as: committed expense count wrong; expense total too high; why committed total differs; total includes uncommitted expenses
+Asked as: committed expense count too high; why count differs from my expenses; count of committed expenses; expenses count incorrect on PO
 
-Turbo counts only committed expenses as committed expenses. The expense total on a PO sums all linked expenses, committed or not. These figures cover every expense, not only those the viewer can see.
+A PO's committed expense count includes only expenses that have a commit date. The count can exceed the expenses a given user may see.
 
-## Recurring PO occurrences remaining
+## Expenses total counts all expenses, committed or not
 
-Lines 209-214
+Lines 208-208
 
-Asked as: recurring PO occurrences left; remaining occurrences count; how many recurring left; occurrences never negative
+Asked as: expenses total includes uncommitted; total expenses on PO; sum of expenses wrong; total zero with no expenses
 
-A Recurring PO shows its expected occurrences. Remaining occurrences equal expected minus committed expenses and never go below 0. Other PO types show 0 for both.
+The expenses total (expenses_total) adds up the total of every expense linked to the purchase order, committed or not. It is 0 when there are none.
 
 ## Remaining amount calculation
 
-Lines 215-222
+Lines 209-222
 
-Asked as: remaining amount on recurring PO; how much is left on PO; PO balance after expenses; recurring remaining amount wrong
+Asked as: remaining amount wrong; PO balance calculation; how much left on PO; recurring PO remaining balance
 
-For a Recurring PO the remaining amount is the approval total minus all linked expenses. For other types it is the PO total minus all linked expenses.
+A Recurring PO's remaining amount is its approval_total minus all its expenses. Other PO types use total minus all expenses. Expenses count whether committed or not. The remaining occurrences of a Recurring PO are its occurrences minus its committed expenses, never below 0.
 
-## Print maximum amount for Cumulative POs
+## Recurring purchase orders show remaining occurrences, never below zero
 
-Lines 223-229
+Lines 209-214
 
-Asked as: print max amount cumulative; cumulative PO print total; maximum to print PO; printed amount cumulative wrong
+Asked as: remaining occurrences negative; recurring PO occurrences left; how many occurrences remain; occurrences showing zero
 
-For a Cumulative PO the print maximum is the total minus committed expenses only, rounded to 2 decimals. For other types it is the PO total, rounded to 2 decimals.
+For a Recurring purchase order, Turbo shows the expected occurrences (occurrences). It also shows the remaining occurrences: occurrences minus committed expenses, with a floor of 0. Other PO types show 0 for both.
 
-## Missing names and display values show blank
+## Maximum amount to print for the vendor
 
-Lines 230-250
+Lines 223-232
 
-Asked as: blank vendor on PO; empty job or client field; missing division shows nothing; parent PO blank
+Asked as: how much can be printed; print amount for vendor; maximum amount to print; cumulative PO print total
 
-When a related person, vendor, job, client, division, category, branch or parent PO is missing, Turbo shows an empty text. The kind name and label fall back to project (job present) or capital (no job) when the PO has no kind.
+The most that can be printed is the PO total, rounded to 2 decimals. For a Cumulative PO it is the total minus committed expenses only. Printing uses the PO currency.
 
-## Active purchase orders are visible to everyone
+## Names and lookup fields show blank when the record is missing
 
-Lines 253-261
+Lines 233-251
 
-Asked as: active PO visible to everyone; why can everyone see this PO; anyone can view active order; active orders open to all
+Asked as: PO missing creator name; blank vendor on purchase order; PO shows no job number; names blank on PO list
 
-Any signed-in user can see a purchase order whose status is Active (is_active_visible).
+Turbo lists every purchase order even when a related record is missing. A person's name is their given name and surname joined with a space. The creator, approvers, rejector, canceller and closer names show '' when the profile is missing. The same blank applies to the parent PO number, vendor name and alias, job number and description, division code and name, category name, and branch code and name.
 
-## Who sees Closed or Cancelled purchase orders
+## Display kind falls back to job-based kind
 
-Lines 263-285
+Lines 252-253
 
-Asked as: who can see closed PO; expense owner can't see cancelled PO; closed PO access list; cancelled order visibility
+Asked as: kind blank on PO; PO kind shows project; why kind says capital; kind name empty
 
-A Closed or Cancelled PO is visible only to its creator, its first approver, its second approver, the job's manager, the job's alternate manager, and holders of the report claim. Expense owners do not see it unless they are in one of these groups.
+When a purchase order has no kind (kind blank), Turbo shows the kind 'project' if the PO has a job and 'capital' if it has none (kind_name, kind_label). Without a match the name is blank.
+
+## Active purchase orders are visible to every signed-in user
+
+Lines 256-264
+
+Asked as: can open active PO but not expenses; see active purchase orders; anyone can view active PO; active PO visible to all
+
+Any authenticated user can see a purchase order whose status is Active (is_active_visible). Linked expenses follow separate expense visibility rules, so a user may open the PO and still not see all its expenses.
+
+## Who can see Closed or Cancelled purchase orders
+
+Lines 266-288
+
+Asked as: who can view closed PO; cancelled PO visibility; why can't I see closed PO; job manager sees cancelled PO
+
+A Closed or Cancelled purchase order is visible to its creator, its first approver and its second approver. It is also visible to the job's manager or alternate manager when the PO has a job, and to holders of the report claim. Expense owners are not included unless they fall into one of these groups.
 
 ## Direct visibility of Unapproved purchase orders
 
-Lines 287-318
+Lines 290-321
 
-Asked as: I can't see my unapproved PO; rejector still sees rejected PO; who sees pending PO; creator sees unapproved order
+Asked as: creator can't see rejected PO; who sees my unapproved PO; rejected PO visibility; approver can't see new PO
 
-The creator always sees their own Unapproved PO, including a rejected one. The rejector sees a rejected PO they rejected. For a PO that is not rejected and has no first approval, only the assigned approver sees it. After first approval and before second approval, the first approver and the priority second approver see it.
+The creator always sees their own Unapproved PO, including a rejected one. The rejector sees a rejected PO they rejected. While the PO is not rejected and has no first approval, the assigned approver sees it. After first approval and before second approval, the first approver and the priority second approver see it.
 
-## Second-stage approvers can see Unapproved purchase orders
+## Second-stage eligible approvers can see Unapproved purchase orders
 
-Lines 320-353
+Lines 323-356
 
-Asked as: why can I see this unapproved PO; second approver sees PO; approve PO as second approver; PO visible for second approval
+Asked as: second approver can see PO; why can I view PO waiting second approval; approver sees PO but can't approve; PO over threshold visible to me
 
-Once the first approval is done, a PO is visible to anyone who could be its second approver, with no timeout. The PO must not be rejected and must have no second approval. The PO's approval total (home currency when set) must exceed the second approval threshold, which must be above 0. The person's limit must be above the threshold and at least the total. Their division list must be empty or include the PO's division.
+An approver can see an Unapproved, non-rejected PO that has its first approval and no second approval when all of these hold. Their approver profile is active and has a limit for the PO's kind. Their divisions list is empty or includes the PO's division. The PO's approval total exceeds the second approval threshold, which must be above 0. Their limit exceeds the threshold and covers the full total (limit >= total). The timeout is not applied to visibility.
 
-## Revisions stay visible to all users
+## Division list limits which purchase orders an approver can act on
 
-Lines 355-362
+Lines 338-346
 
-Asked as: revised PO looks deleted; why revision still shows; sent back PO still visible; revision access for everyone
+Asked as: divisions restrict my approvals; can't approve PO from my division; division limit on approver; approver restricted to divisions
 
-A revision is an Active PO sent back to Unapproved with its PO number. Every signed-in user can see it, so it does not look deleted. Revisions do not change who can act on the PO.
+An approver's division list (divisions) restricts the purchase orders that approver can vet or approve at the second stage. An empty list means no restriction. A non-empty list must contain the PO's division.
 
-## Legacy manual POs visible to legacy claim holders
+## Second-stage eligibility needs a limit strictly above the threshold
 
-Lines 364-370
+Lines 347-352
 
-Asked as: manual legacy PO hidden; legacy entered PO access; can't see manual old PO; legacy claim sees manual PO
+Asked as: limit equal to threshold; why am I not second approver; limit too low for second approval; threshold equals my limit
 
-A PO entered manually as legacy (legacy_manual_entry = 1) is visible to holders of the legacy_po_create_update claim.
+To be an eligible second approver, the person's limit must be strictly above the second-approval threshold. It must also be at least the approval amount, which must exceed a positive threshold. A limit equal to the threshold does not qualify.
 
-## PO group members visible to super_po and admin
+## Revision visibility flag
 
-Lines 372-379
+Lines 358-365
 
-Asked as: super_po sees all group POs; admin sees every group order; group PO visible to admins; see PO group in any status
+Asked as: revision shows for everyone; who can see revised PO; revised PO visibility; revision not actionable
 
-Holders of the super_po or admin claim see every purchase order that belongs to a PO group, in any status.
+A revision is visible to any signed-in user (is_revision_visible). Visibility does not affect who can act on it.
 
-## Stage 1 pending: assigned approver within limits
+## Legacy manual-entry purchase orders need the legacy claim
 
-Lines 388-437
+Lines 367-373
 
-Asked as: why is PO waiting on me; pending approval for my PO; first approval queue; approver can't see pending PO
+Asked as: legacy PO not visible; manual entry PO hidden; legacy purchase order access; can't see old manual PO
 
-An Unapproved, not rejected PO with no first approval is pending for its assigned approver only. The approver's division list must be empty or include the PO's division, and the approver must have a limit for the PO's kind. One of three cases must apply. (1) The threshold is exceeded and the approver's limit is above 0 but below the total (first-stage vetting). (2) The threshold is exceeded, the approver is also the requester, and the limit is above 0. (3) The threshold is not exceeded, so the PO needs one approval. In case 3 the check does not compare the limit with the total.
+A PO flagged legacy_manual_entry is visible to holders of the legacy_po_create_update claim.
 
-## Stage 2 pending for priority second approver
+## PO group members are visible to super_po and admin holders
 
-Lines 438-443
+Lines 375-382
 
-Asked as: PO waiting for second approver; priority second approver pending; second approval queue; pending after first approval
+Asked as: group PO not showing; super PO can't see closed; PO group members hidden; see unapproved group POs
 
-After first approval, and with no second approval, the PO is pending for its priority second approver. This applies even when the person's limit would not cover the PO. The PO must not be rejected.
+Holders of the super_po or admin claim see every PO that belongs to a PO group, in every status. This lets the people who create groups see the unapproved and closed ones, which belong to the staff member they were created for.
 
-## Stage 2 fallback after timeout
+## Pending queue: first-stage approver
 
-Lines 444-468
+Lines 391-440
 
-Asked as: timeout second approval fallback; approval waiting too long; other approvers see PO after timeout; overdue first approval second stage
+Asked as: why is PO pending for me; PO waiting for my approval; first approver queue; pending PO not showing
 
-Once the first approval is older than the timeout in hours (timeoutHours), any eligible second approver sees the PO as pending. The PO must not be rejected and must have no second approval. The approver's division must match, the PO's total must exceed the threshold above 0, and the approver's limit must be above the threshold and at least the total.
+An Unapproved, non-rejected PO with no first approval is pending for its assigned approver only. The approver's divisions list must be empty or include the PO's division, and they must have a limit for the PO's kind. When the PO needs two approvals, they must have a positive limit below the PO total. In the single-stage case, any limit works.
 
-## Blank PO kind shows default kind name and label
+## Pending actionability only applies to unrejected Unapproved purchase orders
 
-Lines 489-492
+Lines 391-396
 
-Asked as: blank kind shows project name; PO kind empty label; default kind on PO; kind shows capital instead
+Asked as: rejected PO still in queue; pending status wrong; PO shows pending incorrectly; who must act on PO now
 
-When a purchase order's kind is empty, Turbo shows the kind name and label of the 'project' kind if the PO has a job. If the PO has no job, it shows the 'capital' kind. A PO with a kind set shows its own kind.
+A purchase order is pending for a person (is_unapproved_actionable_now) only when its status is Unapproved and it has no rejection. Then one of three paths must match: first-stage approver, priority second approver, or fallback after timeout.
+
+## First-stage approver needs a limit and a matching division
+
+Lines 397-413
+
+Asked as: assigned approver can't approve; first stage approval blocked; limit for kind missing; division blocks my approval
+
+For a stage-1 pending PO, the person must be the assigned approver and the PO must not yet be approved. The person's limit for the PO's kind must exist, and the division rule must pass.
+
+## Two-stage first-stage approver needs a positive limit below the amount
+
+Lines 414-422
+
+Asked as: first approver can't act on two-stage PO; limit above amount first approver; two stage PO not pending; limit too high to approve first
+
+When the amount exceeds a positive second-approval threshold, the assigned first approver sees the PO as pending only if their limit is above 0 and below the full approval amount.
+
+## Pending queue: requester exception for two-stage purchase orders
+
+Lines 423-430
+
+Asked as: creator approver can't approve own PO; I created PO can't approve; self approval over threshold; requester approving own purchase order
+
+When the PO exceeds the second approval threshold, the assigned first approver can act on it even when their limit covers the full amount, provided they are also the PO's creator and their limit is above 0.
+
+## Single-stage purchase orders are pending for the assigned approver at any limit
+
+Lines 431-437
+
+Asked as: single stage PO not pending; why does low limit still approve; no second approval PO pending; one approver PO queue
+
+When the second-approval threshold does not apply (threshold is 0, or the amount does not exceed it), the assigned first approver sees the PO as pending. Their limit only needs to exist, and it can be lower than the amount.
+
+## Pending queue: priority second approver
+
+Lines 441-446
+
+Asked as: PO waiting for priority approver; second approver queue; first approved PO next step; who approves after first approval
+
+After first approval and before second approval, an Unapproved non-rejected PO is pending for its priority second approver. No timeout applies to them.
+
+## Pending queue: second-stage fallback after timeout
+
+Lines 447-471
+
+Asked as: other approvers can approve after wait; timeout before other approvers; PO stuck waiting second approval; fallback approver after timeout
+
+If the first approval is older than the timeout window (timeoutHours), other eligible second approvers can act on the PO. They need a division match, a threshold above 0, a PO total above the threshold, and a limit above the threshold that covers the full total. Before the timeout, only the priority second approver can act.
+
+## Fallback second-stage timeout is strictly older than the timeout
+
+Lines 447-451
+
+Asked as: how long until fallback approver; timeout hours second approval; when others can approve PO; first approval too recent
+
+The fallback second-stage path requires the first approval (approved) to be older than the timeout window in hours (timeoutHours). Only then can any eligible approver see the PO as pending.
+
+## Fallback second approver needs a limit above the threshold covering the amount
+
+Lines 452-471
+
+Asked as: fallback approver limit too low; why I can't take over PO; limit covers amount fallback; timeout approver not eligible
+
+For the fallback path, the approver's limit must be greater than the second-approval threshold and at least the approval amount. The threshold must be above 0 and the amount above the threshold. The division rule also applies.
+
+## Client of a purchase order comes from its job
+
+Lines 486-489
+
+Asked as: client missing on PO; PO client blank; which client is on purchase order; client comes from job
+
+Turbo takes a purchase order's client name and client ID (client_name, client_id) from the client of its job. A purchase order with no job, or whose job has no client, shows a blank client. The job's manager and alternate manager also come from this job link.

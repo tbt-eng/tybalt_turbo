@@ -39,15 +39,15 @@ You can print an Active PO.
 
 1. Open the PO.
 2. Select **Print**.
-3. Check **Amount to print**, or enter a lower amount.
-4. Tick **Plus tax** or **Plus shipping** if the vendor adds them.
+3. Check **Amount to print**, or enter the quoted price to hide the approved amount from the vendor.
+4. Tick **Plus tax** or **Plus shipping** if the vendor adds them on top of that price.
 5. Select **Proceed**.
 
 The printed PO shows only the amount that you chose.
 
 ## Amounts on a printed PO
 
-For a Cumulative PO, Turbo offers the total less the committed expenses. If you tick **Plus tax** or **Plus shipping**, the extra cost must fit in the rest of the approved amount. A higher cost needs a new approved PO.
+The approved amount can be higher than the quoted price, to allow for a price rise. For a Cumulative PO, Turbo offers the total less the committed expenses. If you tick **Plus tax** or **Plus shipping**, the extra cost must fit in the rest of the approved amount. A higher cost needs a new approved PO.
 
 ## See who can approve POs
 

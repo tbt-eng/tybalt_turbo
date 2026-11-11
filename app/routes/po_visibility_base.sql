@@ -220,6 +220,9 @@ SELECT
     ELSE
       po.total - COALESCE((SELECT SUM(expenses.total) FROM expenses WHERE expenses.purchase_order = po.id), 0)
   END AS remaining_amount,
+  -- The most a person can print for the vendor. The approved amount is a
+  -- ceiling, not the price, so Print options start here and let the person
+  -- print less (see ui/src/lib/poPrint.ts).
   -- Printing uses committed expenses only, in the PO currency.
   ROUND(CASE
     WHEN po.type = 'Cumulative' THEN

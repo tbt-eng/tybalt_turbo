@@ -780,6 +780,10 @@ incomplete options fail without opening the print dialog. A changed limit requir
 a new acknowledgement when additional charges are selected. A direct print link
 without options uses the current default amount and no additional charges.
 
+The approved amount is a ceiling, not the price. A person can ask for approval
+of more than the quote, so that a price rise, tax or shipping does not need a
+second PO and a second approval. The vendor must not see that room.
+
 The vendor sees the selected Authorized Amount and terms. Internal approval
 limits, unused allowances, and warnings are omitted. Recurring POs retain the
 period label but omit Maximum Authorized Total. This lets users match the vendor's

@@ -14,6 +14,9 @@
     type POPrintOptions,
   } from "$lib/poPrint";
 
+  // The approved amount is a ceiling that the vendor must not see, so these
+  // options let a person print less. The reason and the rules are at the top of
+  // $lib/poPrint.ts.
   let { poId }: { poId: string } = $props();
   let dialog: HTMLDialogElement;
   let po = $state<VisiblePurchaseOrderResponse | null>(null);

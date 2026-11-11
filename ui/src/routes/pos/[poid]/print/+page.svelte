@@ -7,6 +7,9 @@
   let { data }: { data: PageData } = $props();
 
   const po = $derived(data.po);
+  // The vendor sees only the amount chosen in Print options, never the approved
+  // amount: it is a ceiling (see the top of $lib/poPrint.ts). Show no other PO
+  // total on this page.
   const amountText = $derived(authorizedAmountText(po, data.printOptions));
 
   function displayValue(value: string | null | undefined, fallback = "Not specified"): string {

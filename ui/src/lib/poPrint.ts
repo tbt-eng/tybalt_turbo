@@ -1,3 +1,29 @@
+// Why a printed PO can show less than the approved amount.
+//
+// The approved amount of a PO is a ceiling, not the price. A person often asks
+// for approval of more than the vendor's quote, so that a price rise, tax or
+// shipping does not force a second PO and a second approval.
+//
+// The vendor must not see that ceiling. A printed PO that shows the full
+// approved amount tells the vendor how much room there is. So the person can
+// print a lower amount, usually the quoted price. The print page shows only
+// that amount: never the print limit, the allowance or the warning. The print
+// link holds only an opaque key, so a browser print footer cannot show the
+// limit either (poPrintStorageKey).
+//
+// Plus tax and Plus shipping let the person authorize the quoted price and tell
+// the vendor that tax or shipping come on top. Those extras still come out of
+// the ceiling. Their allowance is the print limit less the printed amount, and
+// tax and shipping share it. So a plus box needs a printed amount below the
+// limit (validatePOPrintOptions), and the person must acknowledge the warning
+// that states the allowance (poPrintWarning). Printing does not change the PO
+// or its approved amount, so an extra cost above the allowance needs a new
+// approved PO.
+//
+// The print limit (print_max_amount) comes from the server: the PO total (for a
+// Recurring PO, the amount per period), or for a Cumulative PO the total less
+// committed expenses. See app/routes/po_visibility_base.sql.
+//
 // Keep the popup and print-page checks consistent. Amounts use integer cents.
 export type PrintablePO = {
   status: string;
