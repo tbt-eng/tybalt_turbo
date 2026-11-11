@@ -262,20 +262,15 @@
         </DSCallout>
       {/if}
       {#if isRejected}
-        <div class="rounded-sm border border-red-300 bg-red-50 p-3 text-sm text-red-900">
-          <div class="font-semibold">This purchase order was rejected.</div>
-          <div class="mt-1">
-            {#if data.po.rejector_name}{data.po.rejector_name}{:else}An approver{/if}
-            rejected it on {shortDate(data.po.rejected)}.
-          </div>
+        <DSCallout tone="danger" title="This purchase order was rejected.">
+          <p>
+            {data.po.rejector_name || "An approver"} rejected it on {shortDate(data.po.rejected)}.
+          </p>
           {#if data.po.rejection_reason}
-            <div class="mt-1">
-              <span class="font-semibold">Reason:</span>
-              {data.po.rejection_reason}
-            </div>
+            <p>Reason: {data.po.rejection_reason}</p>
           {/if}
-          {#if isOwner && $expensesEditingEnabled && !data.po.legacy_manual_entry}
-            <div class="mt-2 flex gap-2">
+          {#snippet actions()}
+            {#if isOwner && $expensesEditingEnabled && !data.po.legacy_manual_entry}
               <DsActionButton action={`/pos/${data.po.id}/edit`} color="red">
                 Edit and Resubmit
               </DsActionButton>
@@ -284,9 +279,9 @@
                   Cancel Purchase Order
                 </DsActionButton>
               {/if}
-            </div>
-          {/if}
-        </div>
+            {/if}
+          {/snippet}
+        </DSCallout>
       {/if}
 
       {#if hasSecondApproverAlert && secondApproverMeta}
