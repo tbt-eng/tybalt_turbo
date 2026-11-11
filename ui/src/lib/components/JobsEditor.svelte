@@ -1585,14 +1585,14 @@
     onCancel={() => (statusCommentConfirming = false)}
   >
     <div class="rounded-sm border border-amber-300 bg-amber-50 p-3 text-amber-900">
-      <p class="font-semibold">This action is permanent.</p>
-      <p class="mt-1">
-        {#if pendingStatus === "Cancelled"}
-          This proposal will be cancelled and can no longer be modified.
-        {:else}
-          This proposal will be marked as No Bid and can no longer be modified.
-        {/if}
-      </p>
+      {#if pendingStatus === "Cancelled"}
+        <p class="font-semibold">This action is permanent.</p>
+        <p class="mt-1">This proposal will be cancelled and can no longer be modified.</p>
+      {:else}
+        <p>
+          This proposal will be marked as No Bid. You can still edit it and change its status later.
+        </p>
+      {/if}
     </div>
     <div>
       <p class="text-sm font-semibold text-neutral-600">Your comment:</p>
