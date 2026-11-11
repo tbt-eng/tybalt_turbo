@@ -5158,3 +5158,84 @@ func TestCumulativePOExpenseUpdateCountsTheExpenseOnce(t *testing.T) {
 		scenario.Test(t)
 	}
 }
+
+// setupForeignCumulativePOFixture builds on setupCumulativePOCentsFixture and
+// turns PO ly8xyzpuj79upq1 into a US dollar PO at test time.
+//
+// Fixture change at test time: the PO gets currency usdcurr00000001,
+// approval_total = poTotal and approval_total_home = poTotal * 1.35 (the rate
+// that the stored home total implies). Its expenses su3hyft6n9rlt7d (committed)
+// and hlqb5xdzm2xbii7 (the one committed here) get the same currency, and
+// hlqb5xdzm2xbii7 is marked settled, because a foreign on-account expense must
+// be settled before it can be committed.
+func setupForeignCumulativePOFixture(tb testing.TB, poTotal float64, expenseTotals map[string]float64) *tests.TestApp {
+	tb.Helper()
+
+	app := setupCumulativePOCentsFixture(tb, poTotal, "Active", expenseTotals, nil)
+	if _, err := app.DB().NewQuery(
+		"UPDATE purchase_orders SET currency = 'usdcurr00000001', approval_total = {:total}, approval_total_home = {:home} WHERE id = 'ly8xyzpuj79upq1'",
+	).Bind(dbx.Params{"total": poTotal, "home": poTotal * 1.35}).Execute(); err != nil {
+		tb.Fatalf("failed to make purchase order foreign: %v", err)
+	}
+	if _, err := app.DB().NewQuery(
+		"UPDATE expenses SET currency = 'usdcurr00000001' WHERE id IN ('su3hyft6n9rlt7d', 'hlqb5xdzm2xbii7')",
+	).Execute(); err != nil {
+		tb.Fatalf("failed to make expenses foreign: %v", err)
+	}
+	if _, err := app.DB().NewQuery(
+		"UPDATE expenses SET settled = '2024-11-07 16:30:00.000Z', settled_total = total * 1.35, settler = 'wegviunlyr2jjjv' WHERE id = 'hlqb5xdzm2xbii7'",
+	).Execute(); err != nil {
+		tb.Fatalf("failed to settle expense: %v", err)
+	}
+	return app
+}
+
+// On a foreign Cumulative PO, the fixed part of the allowed excess ($100) is
+// in the home currency (issue #183). The PO here is 1500 USD with a stored
+// home total of 2025 CAD, so $100 is 74.07 USD, which is less than 5% (75.00
+// USD): the limit is 1574.07 USD. The old code added 100 USD, chose 5% and
+// allowed 1575.00.
+func TestForeignCumulativePOCommitUsesHomeCurrencyExcess(t *testing.T) {
+	commitToken, err := testutils.GenerateRecordToken("users", "fakemanager@fakesite.xyz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:            "commit allows a US dollar cumulative purchase order to reach its allowed excess",
+			Method:          http.MethodPost,
+			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
+			Headers:         map[string]string{"Authorization": commitToken},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"message":"Record committed successfully"`},
+			TestAppFactory: func(tb testing.TB) *tests.TestApp {
+				return setupForeignCumulativePOFixture(tb, 1500, map[string]float64{
+					"su3hyft6n9rlt7d": 1000,
+					"hlqb5xdzm2xbii7": 574.07,
+				})
+			},
+			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
+				expectPurchaseOrderStatus(tb, app, "ly8xyzpuj79upq1", "Closed")
+			},
+		},
+		{
+			Name:            "commit refuses a US dollar cumulative purchase order one cent beyond its allowed excess",
+			Method:          http.MethodPost,
+			URL:             "/api/expenses/hlqb5xdzm2xbii7/commit",
+			Headers:         map[string]string{"Authorization": commitToken},
+			ExpectedStatus:  http.StatusBadRequest,
+			ExpectedContent: []string{`"error":"the committed expenses total exceeds the total value of the purchase order beyond the allowed surplus"`},
+			TestAppFactory: func(tb testing.TB) *tests.TestApp {
+				return setupForeignCumulativePOFixture(tb, 1500, map[string]float64{
+					"su3hyft6n9rlt7d": 1000,
+					"hlqb5xdzm2xbii7": 574.08,
+				})
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}

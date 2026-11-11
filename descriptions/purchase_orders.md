@@ -520,8 +520,15 @@ For `One-Time` and `Recurring` POs, a small overage is allowed.
 - Default constants are:
   - `MAX_PURCHASE_ORDER_EXCESS_PERCENT = 0.05` (5%)
   - `MAX_PURCHASE_ORDER_EXCESS_VALUE = 100.0` ($100)
+- The fixed value is in CAD. On a foreign-currency PO it is converted to the
+  PO's currency with the rate of its stored home total
+  (`approval_total_home / approval_total`) before the mode compares it. See
+  `app_config.md`.
 - If expense total exceeds that limit, save fails with a `total` validation error:
   - `expense exceeds purchase order total of $... by more than ...`
+  - On a foreign-currency PO the amounts carry their currency codes, for
+    example `expense exceeds purchase order total of 1,500.00 USD by more than
+    100.00 CAD (74.07 USD)`.
 
 Recurring-specific date rules still apply (expense date must be within PO date and end date range).
 

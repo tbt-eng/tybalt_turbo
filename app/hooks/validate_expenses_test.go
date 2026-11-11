@@ -979,3 +979,144 @@ func TestValidateExpense_POExcessLimitComparesWholeCents(t *testing.T) {
 		})
 	}
 }
+
+// The fixed part of the allowed excess (default $100) is in the home currency
+// (issue #183). On a foreign PO it is converted to the PO's currency with the
+// rate that the PO's stored home total implies (approval_total_home /
+// approval_total), and the message names the currencies (issue #184).
+//
+// The POs here are built in memory, not loaded from fixtures. The USD rate of
+// these POs is 2025 / 1500 = 1.35, so $100 is 74.07 USD (floored to the cent).
+// The fixture currency usdcurr00000001 also has a rate of 1.35, which the
+// fallback uses when the stored home total is missing.
+func TestValidateExpense_POExcessLimitByCurrency(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+	if err := utilities.ValidateExpenditureKindsConfig(app); err != nil {
+		t.Fatalf("failed to load expenditure kinds config: %v", err)
+	}
+
+	const usd = "usdcurr00000001"
+	const chf = "wipcurr00000001" // a foreign currency with no rate
+
+	tests := map[string]struct {
+		po           map[string]any
+		currency     string
+		expenseTotal float64
+		wantMessage  string // "" means the expense is valid
+	}{
+		// Home currency: the old limit and the old message, byte for byte.
+		"home_fixed_at_limit": {
+			po:           map[string]any{"total": 4000.0, "type": "One-Time"},
+			expenseTotal: 4100.00,
+		},
+		"home_fixed_cent_over": {
+			po:           map[string]any{"total": 4000.0, "type": "One-Time"},
+			expenseTotal: 4100.01,
+			wantMessage:  "expense exceeds purchase order total of $4000.00 by more than $100.00",
+		},
+		"home_percent_at_limit": {
+			po:           map[string]any{"total": 1000.0, "type": "One-Time"},
+			expenseTotal: 1050.00,
+		},
+		"home_percent_cent_over": {
+			po:           map[string]any{"total": 1000.0, "type": "One-Time"},
+			expenseTotal: 1050.01,
+			wantMessage:  "expense exceeds purchase order total of $1000.00 by more than 5.00%",
+		},
+		// USD, lesser of 5% (75.00 USD) and $100 (74.07 USD): the fixed amount
+		// applies. The old code used 100 USD, so it chose 5% and allowed 1575.00.
+		"usd_fixed_at_limit": {
+			po:           map[string]any{"total": 1500.0, "approval_total": 1500.0, "approval_total_home": 2025.0, "type": "One-Time", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1574.07,
+		},
+		"usd_fixed_cent_over": {
+			po:           map[string]any{"total": 1500.0, "approval_total": 1500.0, "approval_total_home": 2025.0, "type": "One-Time", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1574.08,
+			wantMessage:  "expense exceeds purchase order total of 1,500.00 USD by more than 100.00 CAD (74.07 USD)",
+		},
+		// USD, lesser of 5% (50.00 USD) and $100 (74.07 USD): the percent applies.
+		"usd_percent_at_limit": {
+			po:           map[string]any{"total": 1000.0, "approval_total": 1000.0, "approval_total_home": 1350.0, "type": "One-Time", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1050.00,
+		},
+		"usd_percent_cent_over": {
+			po:           map[string]any{"total": 1000.0, "approval_total": 1000.0, "approval_total_home": 1350.0, "type": "One-Time", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1050.01,
+			wantMessage:  "expense exceeds purchase order total of 1,000.00 USD by more than 5.00%",
+		},
+		// Recurring: total is one period and approval_total covers all three.
+		// The rate comes from the pair, so the limit is the same as One-Time.
+		"usd_recurring_at_limit": {
+			po:           map[string]any{"total": 1500.0, "approval_total": 4500.0, "approval_total_home": 6075.0, "type": "Recurring", "end_date": "2024-04-22", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1574.07,
+		},
+		"usd_recurring_cent_over": {
+			po:           map[string]any{"total": 1500.0, "approval_total": 4500.0, "approval_total_home": 6075.0, "type": "Recurring", "end_date": "2024-04-22", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1574.08,
+			wantMessage:  "expense exceeds purchase order total of 1,500.00 USD by more than 100.00 CAD (74.07 USD)",
+		},
+		// No stored home total: fall back to the currency's rate today (1.35).
+		"usd_no_home_total_uses_currency_rate": {
+			po:           map[string]any{"total": 1500.0, "approval_total": 1500.0, "type": "One-Time", "currency": usd},
+			currency:     usd,
+			expenseTotal: 1574.08,
+			wantMessage:  "expense exceeds purchase order total of 1,500.00 USD by more than 100.00 CAD (74.07 USD)",
+		},
+		// No stored home total and no rate: treat the rate as 1, so $100 is
+		// 100 CHF, as before the fix.
+		"chf_no_rate_treats_rate_as_one": {
+			po:           map[string]any{"total": 4000.0, "approval_total": 4000.0, "type": "One-Time", "currency": chf},
+			currency:     chf,
+			expenseTotal: 4100.01,
+			wantMessage:  "expense exceeds purchase order total of 4,000.00 CHF by more than 100.00 CAD (100.00 CHF)",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			poFields := map[string]any{"date": "2024-01-22", "job": "mg0sp9iyjzo4zw9"}
+			for k, v := range tt.po {
+				poFields[k] = v
+			}
+			po := buildRecordFromMap(poCollection, poFields)
+			record := buildRecordFromMap(expensesCollection, map[string]any{
+				"allowance_types": []string{},
+				"date":            "2024-01-22",
+				"description":     "Excess limit currency test",
+				"job":             "mg0sp9iyjzo4zw9",
+				"payment_type":    "OnAccount",
+				"purchase_order":  "recordId",
+				"total":           tt.expenseTotal,
+				"currency":        tt.currency,
+				"vendor":          "2zqxtsmymf670ha",
+				"attachment":      "dummy.pdf",
+			})
+
+			err := validateExpense(app, record, po, 0, false)
+			if tt.wantMessage == "" {
+				if err != nil {
+					t.Fatalf("expected valid, got: %v", err)
+				}
+				return
+			}
+			errMap, ok := err.(validation.Errors)
+			if !ok {
+				t.Fatalf("expected validation.Errors, got %T: %v", err, err)
+			}
+			totalErr, ok := errMap["total"].(validation.Error)
+			if !ok {
+				t.Fatalf("expected total validation error, got %v", errMap)
+			}
+			if got := totalErr.Error(); got != tt.wantMessage {
+				t.Fatalf("message = %q, want %q", got, tt.wantMessage)
+			}
+		})
+	}
+}

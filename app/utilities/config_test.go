@@ -550,12 +550,189 @@ func TestCalculatePOExpenseTotalLimit(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := CalculatePOExpenseTotalLimit(tc.poTotal, tc.cfg)
+			got := CalculatePOExpenseTotalLimit(tc.poTotal, POExpenseCurrency{}, tc.cfg)
 			if got.TotalLimitCents != tc.wantTotalLimitCents {
 				t.Errorf("TotalLimitCents = %v, want %v", got.TotalLimitCents, tc.wantTotalLimitCents)
 			}
 			if got.ExcessText != tc.wantExcessText {
 				t.Errorf("ExcessText = %q, want %q", got.ExcessText, tc.wantExcessText)
+			}
+		})
+	}
+}
+
+// The fixed amount is in the home currency (issue #183). On a foreign PO it is
+// divided by the PO's rate (home units per unit of the PO's currency) before
+// the mode compares it with the percent and before it is added.
+func TestCalculatePOExpenseTotalLimitForeignCurrency(t *testing.T) {
+	usd := POExpenseCurrency{Code: "USD", HomeRate: 1.35} // $100 is 74.074... USD
+	lesser := POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "lesser_of"}
+	greater := POExpenseExcessConfig{Percent: 0.05, Value: 100.0, Mode: "greater_of"}
+
+	tests := []struct {
+		name                string
+		poTotal             float64
+		currency            POExpenseCurrency
+		cfg                 POExpenseExcessConfig
+		wantTotalLimitCents int64
+		wantExcessText      string
+		wantPOTotalText     string
+	}{
+		{
+			name: "lesser_of: fixed amount is lesser after conversion (old code chose the percent)",
+			// 5% of 1500 is 75.00 USD; $100 is 74.07 USD. The old code compared
+			// 100 with 75 and allowed 1575.00.
+			poTotal: 1500, currency: usd, cfg: lesser,
+			wantTotalLimitCents: 157407,
+			wantExcessText:      "100.00 CAD (74.07 USD)",
+			wantPOTotalText:     "1,500.00 USD",
+		},
+		{
+			name:    "lesser_of: percent is lesser",
+			poTotal: 1000, currency: usd, cfg: lesser,
+			// 5% of 1000 is 50.00 USD < 74.07 USD
+			wantTotalLimitCents: 105000,
+			wantExcessText:      "5.00%",
+			wantPOTotalText:     "1,000.00 USD",
+		},
+		{
+			name:    "lesser_of: large PO uses the converted fixed amount",
+			poTotal: 4000, currency: usd, cfg: lesser,
+			// The old code allowed 4100.00
+			wantTotalLimitCents: 407407,
+			wantExcessText:      "100.00 CAD (74.07 USD)",
+			wantPOTotalText:     "4,000.00 USD",
+		},
+		{
+			name: "greater_of: percent is greater after conversion (old code chose the fixed amount)",
+			// 75.00 USD > 74.07 USD. The old code compared 100 with 75 and
+			// allowed 1600.00.
+			poTotal: 1500, currency: usd, cfg: greater,
+			wantTotalLimitCents: 157500,
+			wantExcessText:      "5.00%",
+			wantPOTotalText:     "1,500.00 USD",
+		},
+		{
+			name:    "greater_of: fixed amount is greater",
+			poTotal: 1000, currency: usd, cfg: greater,
+			// 74.07 USD > 50.00 USD; the old code allowed 1100.00
+			wantTotalLimitCents: 107407,
+			wantExcessText:      "100.00 CAD (74.07 USD)",
+			wantPOTotalText:     "1,000.00 USD",
+		},
+		{
+			name: "a currency with a small unit gets a large fixed amount",
+			// 1 JPY is 0.0091 CAD, so $100 is 10989.01 JPY, less than 5% of
+			// 1,000,000 JPY (50000). The old code allowed 1,000,100 JPY.
+			poTotal: 1000000, currency: POExpenseCurrency{Code: "JPY", HomeRate: 0.0091}, cfg: lesser,
+			wantTotalLimitCents: 101098901,
+			wantExcessText:      "100.00 CAD (10,989.01 JPY)",
+			wantPOTotalText:     "1,000,000.00 JPY",
+		},
+		{
+			name: "a rate of 0 leaves the fixed amount unconverted",
+			// GetPOExpenseCurrency never returns 0; this guards a direct caller.
+			poTotal: 4000, currency: POExpenseCurrency{Code: "USD"}, cfg: lesser,
+			wantTotalLimitCents: 410000,
+			wantExcessText:      "100.00 CAD (100.00 USD)",
+			wantPOTotalText:     "4,000.00 USD",
+		},
+		{
+			name: "the home currency is never converted, even with a rate that is not 1",
+			// A stored home total can differ from the total by rounding.
+			poTotal: 4000, currency: POExpenseCurrency{Code: "CAD", HomeRate: 1.0001}, cfg: lesser,
+			wantTotalLimitCents: 410000,
+			wantExcessText:      "$100.00",
+			wantPOTotalText:     "$4000.00",
+		},
+		{
+			name:    "home currency (blank code) keeps the old text",
+			poTotal: 1000, currency: POExpenseCurrency{}, cfg: greater,
+			wantTotalLimitCents: 110000,
+			wantExcessText:      "$100.00",
+			wantPOTotalText:     "$1000.00",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := CalculatePOExpenseTotalLimit(tc.poTotal, tc.currency, tc.cfg)
+			if got.TotalLimitCents != tc.wantTotalLimitCents {
+				t.Errorf("TotalLimitCents = %v, want %v", got.TotalLimitCents, tc.wantTotalLimitCents)
+			}
+			if got.ExcessText != tc.wantExcessText {
+				t.Errorf("ExcessText = %q, want %q", got.ExcessText, tc.wantExcessText)
+			}
+			if got.POTotalText != tc.wantPOTotalText {
+				t.Errorf("POTotalText = %q, want %q", got.POTotalText, tc.wantPOTotalText)
+			}
+		})
+	}
+}
+
+// GetPOExpenseCurrency takes the rate from the PO's stored home total, and
+// falls back to the currency's rate today, then to 1. The POs are built in
+// memory; the currencies are fixtures (USD rate 1.35, CHF wipcurr00000001 has
+// no rate).
+func TestGetPOExpenseCurrency(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	defer app.Cleanup()
+
+	collection, err := app.FindCollectionByNameOrId("purchase_orders")
+	if err != nil {
+		t.Fatalf("failed to load purchase_orders collection: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		po   map[string]any
+		want POExpenseCurrency
+	}{
+		{
+			name: "blank currency is the home currency",
+			po:   map[string]any{"approval_total": 100.0, "approval_total_home": 100.0},
+			want: POExpenseCurrency{},
+		},
+		{
+			name: "CAD is never converted, even when the stored home total differs by rounding",
+			po:   map[string]any{"currency": "cadcurr00000001", "approval_total": 100.0, "approval_total_home": 100.004},
+			want: POExpenseCurrency{},
+		},
+		{
+			name: "USD uses the rate of the stored home total, not the rate today",
+			po:   map[string]any{"currency": "usdcurr00000001", "approval_total": 1000.0, "approval_total_home": 1400.0},
+			want: POExpenseCurrency{Code: "USD", HomeRate: 1.4},
+		},
+		{
+			name: "USD without a stored home total falls back to the rate today",
+			po:   map[string]any{"currency": "usdcurr00000001", "approval_total": 1000.0},
+			want: POExpenseCurrency{Code: "USD", HomeRate: 1.35},
+		},
+		{
+			name: "USD with a zero approval total falls back to the rate today",
+			po:   map[string]any{"currency": "usdcurr00000001", "approval_total_home": 1350.0},
+			want: POExpenseCurrency{Code: "USD", HomeRate: 1.35},
+		},
+		{
+			name: "a currency with no rate and no stored home total falls back to 1",
+			po:   map[string]any{"currency": "wipcurr00000001", "approval_total": 1000.0},
+			want: POExpenseCurrency{Code: "CHF", HomeRate: 1},
+		},
+		{
+			name: "a currency that can't be found is treated as the home currency",
+			po:   map[string]any{"currency": "nosuchcurrency1", "approval_total": 1000.0, "approval_total_home": 1350.0},
+			want: POExpenseCurrency{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			po := core.NewRecord(collection)
+			for k, v := range tc.po {
+				po.Set(k, v)
+			}
+			if got := GetPOExpenseCurrency(app, po); got != tc.want {
+				t.Errorf("GetPOExpenseCurrency = %+v, want %+v", got, tc.want)
 			}
 		})
 	}

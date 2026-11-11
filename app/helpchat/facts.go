@@ -365,7 +365,7 @@ func turboFacts(app core.App, kinds []kind) ([]string, error) {
 	if excess.Mode == "greater_of" {
 		which = "the greater"
 	}
-	lines = append(lines, fmt.Sprintf("The expenses of a PO can go over its total by %s of %s%% and %s (po_expense_allowed_excess)",
+	lines = append(lines, fmt.Sprintf("The expenses of a PO can go over its total by %s of %s%% and %s CAD (po_expense_allowed_excess)",
 		which, number(math.Round(excess.Percent*10000)/100), dollars(excess.Value)))
 	lines = append(lines, fmt.Sprintf("Hours that a PO waits for its second approval before the timeout (second_stage_timeout_hours): %s",
 		number(utilities.GetPurchaseOrderSecondStageTimeoutHours(app))))

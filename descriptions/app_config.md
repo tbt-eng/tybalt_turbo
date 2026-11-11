@@ -46,7 +46,7 @@ While `create_edit_absorb` is `false`, Turbo also refuses to delete an expense, 
 | Property  | Type   | Default       | Description                                                                                                                                            |
 |-----------|--------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `percent` | number | `5`           | Percentage overage allowed (0-100). Stored as human-readable percent, normalized internally to a fraction.                                             |
-| `value`   | number | `100.0`       | Absolute dollar overage allowed. Must be >= 0.                                                                                                         |
+| `value`   | number | `100.0`       | Fixed overage allowed, in the home currency (CAD). Must be >= 0.                                                                                       |
 | `mode`    | string | `"lesser_of"` | How to combine percent and value. `"lesser_of"` picks the smaller excess (more restrictive). `"greater_of"` picks the larger excess (more permissive). |
 
 **Mode examples** for a $2,000 PO with percent=5, value=100:
@@ -55,6 +55,15 @@ While `create_edit_absorb` is `false`, Turbo also refuses to delete an expense, 
 - For a $5,000 PO: 5% = $250, absolute = $100
   - `"lesser_of"` → uses $100 → limit is $5,100
   - `"greater_of"` → uses $250 → limit is $5,250
+
+**Foreign-currency PO:** the PO total and its expenses are in the PO's currency,
+but `value` is in CAD. Turbo divides `value` by the rate that the PO's stored
+home total implies (`approval_total_home / approval_total`), then applies the
+mode and adds the excess in the PO's currency. For a 1,500 USD PO with
+`approval_total_home` 2,025 (rate 1.35), $100 is 74.07 USD and 5% is 75.00 USD,
+so `"lesser_of"` gives a limit of 1,574.07 USD. A PO with no stored home total
+uses the currency's rate today, or 1 if it has none. A CAD PO is never
+converted.
 
 **Fail mode:** open (editing defaults to enabled)
 

@@ -26,6 +26,7 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 		poEndDate        time.Time
 		totalLimitCents  int64
 		excessErrorText  string
+		poTotalText      string
 		parseErr         error
 	)
 	if poRecord != nil {
@@ -62,9 +63,10 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 		}
 
 		excessCfg := utilities.GetPOExpenseExcessConfig(app)
-		limitResult := utilities.CalculatePOExpenseTotalLimit(poTotal, excessCfg)
+		limitResult := utilities.CalculatePOExpenseTotalLimit(poTotal, utilities.GetPOExpenseCurrency(app, poRecord), excessCfg)
 		totalLimitCents = limitResult.TotalLimitCents
 		excessErrorText = limitResult.ExcessText
+		poTotalText = limitResult.POTotalText
 
 		// For Cumulative POs, we check for overflow before other validations.
 		// This is done here (rather than in the "total" validation) because:
@@ -295,7 +297,7 @@ func validateExpense(app core.App, expenseRecord *core.Record, poRecord *core.Re
 			validation.When(hasPurchaseOrder && (poType == "One-Time" || poType == "Recurring"),
 				validation.By(func(value any) error {
 					if utilities.CurrencyAmountToCents(value.(float64)) > totalLimitCents {
-						return validation.NewError("validation_max_less_equal_required", fmt.Sprintf("expense exceeds purchase order total of $%0.2f by more than %s", poTotal, excessErrorText))
+						return validation.NewError("validation_max_less_equal_required", fmt.Sprintf("expense exceeds purchase order total of %s by more than %s", poTotalText, excessErrorText))
 					}
 					return nil
 				}),

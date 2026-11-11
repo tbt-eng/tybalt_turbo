@@ -87,11 +87,14 @@ unless the FX provider, derived-field semantics, and migration strategy are rede
 
 ### Currency vs. amount enforcement separation
 
-- **Approval authority** is evaluated in CAD (`approval_total_home`) — this is the only
-  place currency conversion matters for POs.
+- **Approval authority** is evaluated in CAD (`approval_total_home`).
 - **Expense amount caps** are enforced in the PO's stated currency — `expense.total` is
   compared against `po.total` (+ excess) directly, both in the same currency. This means
   forex fluctuations after PO approval do not require users to obtain a new PO.
+- **The fixed part of the excess** (`po_expense_allowed_excess.value`) is in CAD. It is
+  converted to the PO's currency with the rate of the PO's stored home total
+  (`approval_total_home / approval_total`), so it does not move with today's rate either.
+  See `app_config.md`.
 
 ### UI changes
 

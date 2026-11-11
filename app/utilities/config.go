@@ -155,15 +155,24 @@ func IsLegacyPOCreateUpdateEnabled(app core.App) (bool, error) {
 // exceed a purchase order total.
 type POExpenseExcessConfig struct {
 	Percent float64 // fractional, e.g. 0.05 = 5%
-	Value   float64 // absolute dollar amount
+	Value   float64 // fixed amount in the home currency (CAD)
 	Mode    string  // "lesser_of" or "greater_of"
+}
+
+// POExpenseCurrency is the currency of a PO as the excess limit needs it.
+type POExpenseCurrency struct {
+	Code string // ISO code of the PO's currency; "" means the home currency
+	// HomeRate is home-currency units per unit of Code. It is not used for the
+	// home currency.
+	HomeRate float64
 }
 
 // POExpenseLimitResult holds the computed total limit and a human-readable
 // description of the excess amount for use in error messages.
 type POExpenseLimitResult struct {
-	TotalLimitCents int64  // largest allowed total, in whole cents
-	ExcessText      string // e.g. "5.00%" or "$100.00"
+	TotalLimitCents int64  // largest allowed total, in whole cents of the PO's currency
+	ExcessText      string // e.g. "5.00%", "$100.00", or "100.00 CAD (74.07 USD)" on a foreign PO
+	POTotalText     string // the PO total, e.g. "$1500.00", or "1,500.00 USD" on a foreign PO
 }
 
 // GetPOExpenseExcessConfig reads the po_expense_allowed_excess config from the
@@ -212,43 +221,89 @@ func GetPOExpenseExcessConfig(app core.App) POExpenseExcessConfig {
 	return result
 }
 
+// GetPOExpenseCurrency returns the currency of a PO and the rate between it and
+// the home currency, for CalculatePOExpenseTotalLimit. The rate is the one the
+// PO's stored home total implies: approval_total_home / approval_total. Both
+// are totals over all periods of a Recurring PO, so the rate holds for total
+// too. A PO in the home currency is never converted.
+func GetPOExpenseCurrency(app core.App, po *core.Record) POExpenseCurrency {
+	info, err := ResolveCurrencyInfo(app, po.GetString("currency"))
+	if err != nil || IsHomeCurrencyInfo(info) {
+		// A currency that can't be found is treated as the home currency, as
+		// EffectiveCurrencyCode does.
+		return POExpenseCurrency{}
+	}
+	code := CurrencyCodeOrHome(info)
+	approvalTotal := po.GetFloat("approval_total")
+	approvalTotalHome := po.GetFloat("approval_total_home")
+	if approvalTotal > 0 && approvalTotalHome > 0 {
+		return POExpenseCurrency{Code: code, HomeRate: approvalTotalHome / approvalTotal}
+	}
+	// Fallback: an old or imported PO with no stored home total. Use the
+	// currency's rate today; if it has none, use 1, so the fixed amount is
+	// added as is, as it was before it was a home-currency amount.
+	rate := CurrencyRateOrOne(info)
+	if rate <= 0 {
+		rate = 1
+	}
+	return POExpenseCurrency{Code: code, HomeRate: rate}
+}
+
 // CalculatePOExpenseTotalLimit computes the maximum allowed expense total for a
-// purchase order, based on the excess configuration. The ExcessText field
-// describes which limit was applied (percent or absolute value).
+// purchase order, based on the excess configuration. poTotal is in the PO's
+// currency and so is the limit. The fixed amount (cfg.Value) is in the home
+// currency: on a foreign PO it is divided by currency.HomeRate before the mode
+// compares it with the percent and before it is added, so that all of the
+// arithmetic is in the PO's currency. On a home-currency PO it is used as is.
+// The limit is floored to the cent (CurrencyLimitToCents). The ExcessText field
+// describes which limit was applied (percent or fixed amount).
 //
 // Note: when poTotal is 0 the percent excess is also 0, so the percent branch
 // is always selected and ExcessText will report a percentage even though the
 // effective allowed excess is $0. This is acceptable because $0 POs are not
 // expected in practice.
-func CalculatePOExpenseTotalLimit(poTotal float64, cfg POExpenseExcessConfig) POExpenseLimitResult {
+func CalculatePOExpenseTotalLimit(poTotal float64, currency POExpenseCurrency, cfg POExpenseExcessConfig) POExpenseLimitResult {
+	isHome := IsHomeCurrencyInfo(CurrencyInfo{Code: currency.Code})
+	value := cfg.Value
+	if !isHome && currency.HomeRate > 0 {
+		value = cfg.Value / currency.HomeRate
+	}
+
 	percentLimit := poTotal * (1.0 + cfg.Percent)
-	valueLimit := poTotal + cfg.Value
+	valueLimit := poTotal + value
 
-	var totalLimit float64
-	var excessText string
-
+	var useValue bool
 	switch cfg.Mode {
 	case "greater_of":
-		if cfg.Value >= poTotal*cfg.Percent {
-			totalLimit = valueLimit
-			excessText = fmt.Sprintf("$%0.2f", cfg.Value)
-		} else {
-			totalLimit = percentLimit
-			excessText = fmt.Sprintf("%0.2f%%", cfg.Percent*100)
-		}
+		useValue = value >= poTotal*cfg.Percent
 	default: // "lesser_of"
-		if cfg.Value < poTotal*cfg.Percent {
-			totalLimit = valueLimit
+		useValue = value < poTotal*cfg.Percent
+	}
+
+	totalLimit := percentLimit
+	excessText := fmt.Sprintf("%0.2f%%", cfg.Percent*100)
+	if useValue {
+		totalLimit = valueLimit
+		if isHome {
 			excessText = fmt.Sprintf("$%0.2f", cfg.Value)
 		} else {
-			totalLimit = percentLimit
-			excessText = fmt.Sprintf("%0.2f%%", cfg.Percent*100)
+			// The amount in the PO's currency is floored to the cent, as the
+			// limit is.
+			excessText = fmt.Sprintf("%s (%s)",
+				FormatCurrencyAmount(cfg.Value, HomeCurrencyCode),
+				FormatCurrencyAmount(float64(CurrencyLimitToCents(value))/100, currency.Code))
 		}
+	}
+
+	poTotalText := fmt.Sprintf("$%0.2f", poTotal)
+	if !isHome {
+		poTotalText = FormatCurrencyAmount(poTotal, currency.Code)
 	}
 
 	return POExpenseLimitResult{
 		TotalLimitCents: CurrencyLimitToCents(totalLimit),
 		ExcessText:      excessText,
+		POTotalText:     poTotalText,
 	}
 }
 

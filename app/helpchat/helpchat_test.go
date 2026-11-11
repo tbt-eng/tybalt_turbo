@@ -1004,7 +1004,7 @@ func TestThePromptHasTheUsersOwnLimitsAndSettings(t *testing.T) {
 		"# Turbo's settings today\n",
 		"- A new project needs an approved project request (jobs.require_job_request_approval): no\n",
 		"- An expense of this amount or more needs a PO (no_po_expense_limit): $100\n",
-		"- The expenses of a PO can go over its total by the lesser of 5% and $100 (po_expense_allowed_excess)\n",
+		"- The expenses of a PO can go over its total by the lesser of 5% and $100 CAD (po_expense_allowed_excess)\n",
 		"(second_stage_timeout_hours): 24\n",
 		"- A PO needs a second approval when its amount is above (second_approval_threshold): Project $500; Capital $500; "+
 			"Computers/Software $500. No second approval for: Staff and Social, Sponsorship, Media/Advertising\n",

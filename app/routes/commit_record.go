@@ -259,7 +259,7 @@ func createCommitRecordHandler(app core.App, collectionName string) func(e *core
 						committedTotalCents := utilities.CurrencyAmountToCents(existingExpensesTotal) + utilities.CurrencyAmountToCents(record.GetFloat("total"))
 
 						excessCfg := utilities.GetPOExpenseExcessConfig(app)
-						limitResult := utilities.CalculatePOExpenseTotalLimit(purchaseOrderRecord.GetFloat("total"), excessCfg)
+						limitResult := utilities.CalculatePOExpenseTotalLimit(purchaseOrderRecord.GetFloat("total"), utilities.GetPOExpenseCurrency(txApp, purchaseOrderRecord), excessCfg)
 
 						if committedTotalCents > limitResult.TotalLimitCents {
 							httpResponseStatusCode = http.StatusBadRequest
