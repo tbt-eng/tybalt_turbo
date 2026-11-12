@@ -21,7 +21,7 @@ A project must have a rate sheet, and keeps it for its whole life. Choose the sh
 1. Select **Rate Sheets** under **Business**.
 2. Select the name of a sheet.
 
-The list shows the revision, the effective date, the number of jobs and **Active** or **Inactive**. To share the rates, select **Print** or **Download CSV** on the sheet.
+The list shows the revision, the effective date, the number of jobs and **Active** or **Inactive**. To share the rates, select **Print** or **Download CSV**.
 
 ## Create a rate sheet
 
@@ -47,15 +47,15 @@ Turbo sets each overtime rate to the rate times the multiplier. Check the overti
 1. Open the sheet.
 2. Select **Active**.
 
-A sheet must have a rate for every role. If roles are missing, Turbo shows **Add Entry**. Select the **Role**, enter the rates and select **Add Entry** for each one. Only procurement can activate a sheet.
+Only procurement can do this. A sheet needs a rate for every role. If roles are missing, select the **Role**, enter the rates and select **Add Entry** for each one.
 
-Turbo won't activate a sheet with the same rates as another active sheet.
+The rates can't match another active sheet.
 
 ## Deactivate a rate sheet
 
 Select **Inactive** on the sheet. Only procurement can do this.
 
-New projects can't select an inactive sheet. Jobs that use the sheet keep it, and Turbo still prices their time with it.
+New projects can't select an inactive sheet. Jobs on the sheet keep it and its rates.
 
 ## Revise a rate sheet
 
@@ -70,7 +70,7 @@ A revision is a new version of an active sheet. It has the same name and the nex
 
 Activation of a revision makes the older revisions inactive. You can't activate an older revision again.
 
-Jobs keep the revision that they use. A job doesn't move to the new revision.
+Jobs keep the revision that they use.
 
 ## Rename a rate sheet
 
