@@ -81,19 +81,19 @@ await runBrowserHarness(
     assert.equal(await results.count(), 0);
 
     // The arrow keys move the highlight, and Enter opens that hit at its section.
-    await input.fill("revise total");
+    await input.fill("make a revision");
     await results.first().waitFor();
     assert.equal(await results.first().getAttribute("data-active"), "");
     await input.press("ArrowDown");
     assert.equal(await results.nth(1).getAttribute("data-active"), "");
     await input.press("ArrowUp");
     const href = await results.first().getAttribute("href");
-    assert.equal(href, "/docs/revise-a-purchase-order#revise-the-total");
+    assert.equal(href, "/docs/revise-a-purchase-order#make-a-revision");
     await input.press("Enter");
     await page.waitForURL(`**${href}`);
     await pageTitle("Revise a purchase order").waitFor();
     assert.equal(await input.inputValue(), "");
-    const section = page.locator("#revise-the-total");
+    const section = page.locator("#make-a-revision");
     await section.waitFor();
     const top = async () =>
       section.evaluate((element) => {
@@ -102,7 +102,7 @@ await runBrowserHarness(
       });
     await page.waitForFunction(
       () => {
-        const element = document.querySelector("#revise-the-total");
+        const element = document.querySelector("#make-a-revision");
         const scroller = element?.closest(".overflow-y-auto");
         if (!element || !scroller) return false;
         const offset = element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
@@ -115,7 +115,7 @@ await runBrowserHarness(
 
     // The hits start at the top, and Escape returns the page to where it was.
     const scroller = page
-      .locator("#revise-the-total")
+      .locator("#make-a-revision")
       .locator("xpath=ancestor::div[contains(@class,'overflow-y-auto')][1]");
     await scroller.evaluate((element) => (element.scrollTop = 120));
     await input.fill("approve");
