@@ -196,7 +196,27 @@
 </script>
 
 <div class="mx-auto space-y-4 p-4">
-  <h1 class="text-2xl font-bold">Purchase Order Details</h1>
+  <div class="flex items-center justify-between gap-2">
+    <h1 class="text-2xl font-bold">Purchase Order Details</h1>
+    <!-- One Help for the page. It opens the section that says what this viewer
+         can do with the PO in its current status. Each reference is plain text
+         so that the docs test can check it. -->
+    {#if isRevisionPending && isRejected}
+      <DSHelp doc="revise-a-purchase-order#if-a-revision-is-rejected" label="Help" />
+    {:else if isRevisionPending}
+      <DSHelp doc="revise-a-purchase-order#while-it-is-under-revision" label="Help" />
+    {:else if isRejected}
+      <DSHelp doc="find-a-purchase-order#fix-a-rejected-po" label="Help" />
+    {:else if data.po.status === "Unapproved" && canApproveOrReject}
+      <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
+    {:else if data.po.status === "Unapproved"}
+      <DSHelp doc="purchase-orders#change-a-po" label="Help" />
+    {:else if data.po.status === "Active"}
+      <DSHelp doc="purchase-orders#use-an-active-po" label="Help" />
+    {:else}
+      <DSHelp doc="purchase-orders#po-statuses" label="Help" />
+    {/if}
+  </div>
 
   <div class="overflow-hidden rounded-sm">
     <div class="flex items-center justify-between bg-neutral-200 p-2">
@@ -587,7 +607,6 @@
       {#if canApproveOrReject}
         <DsActionButton action={() => approvePo()} color="green">Approve</DsActionButton>
         <DsActionButton action={() => openRejectModal()} color="orange">Reject</DsActionButton>
-        <DSHelp doc="purchase-orders#approve-a-po" label="Help" />
       {/if}
     </div>
   {/if}
@@ -598,7 +617,6 @@
       {#if canRevise}
         <DsActionButton action={`/pos/${data.po.id}/revise`} color="blue">Revise</DsActionButton>
       {/if}
-      <DSHelp doc="find-a-purchase-order#print-a-po" label="Help" />
     </div>
   {/if}
 

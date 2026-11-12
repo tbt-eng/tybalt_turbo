@@ -47,6 +47,14 @@ You can edit or delete your PO until it has final approval. If you make a meanin
 
 After final approval, you can't delete your PO. If it has no expenses, you can [revise it](/docs/revise-a-purchase-order).
 
+## Use an Active PO
+
+Open the PO. Then:
+
+- Select **Print** to give the vendor a copy. See [Print a PO](/docs/find-a-purchase-order#print-a-po).
+- Select **Create Expense** to record what you spent. See [Expenses](/docs/expenses).
+- Select **Revise** to change a PO that has no expenses. See [Revise a purchase order](/docs/revise-a-purchase-order).
+
 ## Spend more than the PO total
 
 - **One-Time or Recurring:** an expense can go over by a small amount. The default is the lesser of 5% or $100. On a PO in another currency, Turbo converts the fixed amount from Canadian dollars.
