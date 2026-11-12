@@ -18,9 +18,16 @@ export const load: PageLoad = async ({ params }) => {
     // Fetch all rate_roles (to compute missing roles)
     const allRoles = await pb.collection("rate_roles").getFullList({ sort: "name" });
 
+    // Earlier names of the sheet, newest first
+    const { former_names: formerNames } = await pb.send<{ former_names: string[] }>(
+      `/api/rate_sheets/${rateSheetId}/former_names`,
+      { method: "GET" },
+    );
+
     return {
       rateSheet,
       entries,
+      formerNames,
       allRoles,
     };
   } catch (err) {

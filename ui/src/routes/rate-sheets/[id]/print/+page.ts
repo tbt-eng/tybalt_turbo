@@ -15,9 +15,16 @@ export const load: PageLoad = async ({ params }) => {
       expand: "role",
     });
 
+    // Earlier names of the sheet, newest first
+    const { former_names: formerNames } = await pb.send<{ former_names: string[] }>(
+      `/api/rate_sheets/${rateSheetId}/former_names`,
+      { method: "GET" },
+    );
+
     return {
       rateSheet,
       entries,
+      formerNames,
     };
   } catch (err) {
     console.error(`loading rate sheet for print: ${err}`);

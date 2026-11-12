@@ -72,6 +72,15 @@ Activation of a revision makes the older revisions inactive. You can't activate 
 
 Jobs keep the revision that they use. A job doesn't move to the new revision.
 
+## Rename a rate sheet
+
+Only admins can do this. Every revision gets the new name, and jobs keep the sheet.
+
+1. Open the sheet and select **Rename**.
+2. Enter the **Name** and select **Rename**.
+
+The sheet shows its old names after **Formerly**.
+
 ## Correct a rate
 
 This is an exceptional fix, such as for a typing error. Don't use it to change rates. [Revise the sheet](/docs/rate-sheets#revise-a-rate-sheet) instead. Only admins can do this.

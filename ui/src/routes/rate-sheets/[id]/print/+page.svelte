@@ -8,6 +8,7 @@
 
   let rateSheet = $state(untrack(() => data.rateSheet));
   let entries = $state(untrack(() => data.entries));
+  let formerNames = $state(untrack(() => data.formerNames));
 
   // Sort entries by rate descending
   const sortedEntries = $derived([...entries].sort((a, b) => b.rate - a.rate));
@@ -35,6 +36,9 @@
     <p class="mt-1 text-sm text-black">
       Effective: {shortDate(rateSheet.effective_date, true)}
     </p>
+    {#if formerNames.length > 0}
+      <p class="mt-1 text-sm text-black">Formerly {formerNames.join(", ")}</p>
+    {/if}
   </div>
 
   <!-- Rate Entries Table -->

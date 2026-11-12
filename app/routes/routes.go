@@ -382,6 +382,8 @@ func AddRoutes(app core.App) {
 		rateSheetsGroup.POST("/compare", createCompareRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/activate", createActivateRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/deactivate", createDeactivateRateSheetHandler(app))
+		rateSheetsGroup.POST("/{id}/rename", createRenameRateSheetHandler(app))
+		rateSheetsGroup.GET("/{id}/former_names", createGetRateSheetFormerNamesHandler(app))
 
 		// Claims management (detail endpoint requires admin claim)
 		claimsGroup := se.Router.Group("/api/claims")

@@ -28,6 +28,7 @@ export enum Collections {
   Clients = "clients",
   Divisions = "divisions",
   RateRoles = "rate_roles",
+  RateSheetNameChanges = "rate_sheet_name_changes",
   ExpenseAllowanceTotals = "expense_allowance_totals",
   ExpenseDocuments = "expense_documents",
   ExpenseMileageTotals = "expense_mileage_totals",
@@ -666,6 +667,15 @@ export type RateRolesRecord = {
   updated: IsoDateString;
 };
 
+export type RateSheetNameChangesRecord = {
+  created: IsoDateString;
+  id: string;
+  new_name: string;
+  old_name: string;
+  rate_sheet: RecordIdString;
+  renamed_by: RecordIdString;
+};
+
 export enum ProfilesNotificationTypeOptions {
   email_text = "email_text",
   email_html = "email_html",
@@ -1214,6 +1224,8 @@ export type PoApproverPropsResponse<Texpand = unknown> = Required<PoApproverProp
   BaseSystemFields<Texpand>;
 export type RateRolesResponse<Texpand = unknown> = Required<RateRolesRecord> &
   BaseSystemFields<Texpand>;
+export type RateSheetNameChangesResponse<Texpand = unknown> = Required<RateSheetNameChangesRecord> &
+  BaseSystemFields<Texpand>;
 export type ProfilesResponse<Texpand = unknown> = Required<ProfilesRecord> &
   BaseSystemFields<Texpand>;
 export type PurchaseOrdersResponse<Texpand = PurchaseOrdersRecordExpands> =
@@ -1297,6 +1309,7 @@ export type CollectionRecords = {
   pending_items_for_qualified_po_second_approvers: PendingItemsForQualifiedPoSecondApproversRecord;
   po_approver_props: PoApproverPropsRecord;
   rate_roles: RateRolesRecord;
+  rate_sheet_name_changes: RateSheetNameChangesRecord;
   profiles: ProfilesRecord;
   purchase_orders: PurchaseOrdersRecord;
   purchase_orders_augmented: PurchaseOrdersAugmentedRecord;
@@ -1357,6 +1370,7 @@ export type CollectionResponses = {
   pending_items_for_qualified_po_second_approvers: PendingItemsForQualifiedPoSecondApproversResponse;
   po_approver_props: PoApproverPropsResponse;
   rate_roles: RateRolesResponse;
+  rate_sheet_name_changes: RateSheetNameChangesResponse;
   profiles: ProfilesResponse;
   purchase_orders: PurchaseOrdersResponse;
   purchase_orders_augmented: PurchaseOrdersAugmentedResponse;
@@ -1422,6 +1436,7 @@ export type TypedPocketBase = PocketBase & {
   ): RecordService<PendingItemsForQualifiedPoSecondApproversResponse>;
   collection(idOrName: "po_approver_props"): RecordService<PoApproverPropsResponse>;
   collection(idOrName: "rate_roles"): RecordService<RateRolesResponse>;
+  collection(idOrName: "rate_sheet_name_changes"): RecordService<RateSheetNameChangesResponse>;
   collection(idOrName: "profiles"): RecordService<ProfilesResponse>;
   collection(idOrName: "purchase_orders"): RecordService<PurchaseOrdersResponse>;
   collection(idOrName: "purchase_orders_augmented"): RecordService<PurchaseOrdersAugmentedResponse>;

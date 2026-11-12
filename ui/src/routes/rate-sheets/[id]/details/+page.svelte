@@ -8,7 +8,10 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
+  import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSTextInput from "$lib/components/DSTextInput.svelte";
   import Icon from "@iconify/svelte";
+  import type { ClientResponseError } from "pocketbase";
   import type { PageData } from "./$types";
   import { untrack } from "svelte";
 
@@ -18,9 +21,51 @@
   let entries = $state(untrack(() => data.entries));
   let rateSheet = $state(untrack(() => data.rateSheet));
   let allRoles = $state(untrack(() => data.allRoles));
+  let formerNames = $state(untrack(() => data.formerNames));
 
   // Admin check for editing capability
   const isAdmin = $derived($globalStore.claims.includes("admin"));
+
+  // Rename: admins only. The server renames every revision of the sheet.
+  let showRename = $state(false);
+  let renameName = $state("");
+  let renaming = $state(false);
+  let renameError = $state<string | null>(null);
+  let renameFieldErrors = $state<Record<string, { message: string }>>({});
+
+  function openRename() {
+    renameName = rateSheet.name;
+    renameError = null;
+    renameFieldErrors = {};
+    showRename = true;
+  }
+
+  async function rename() {
+    renaming = true;
+    renameError = null;
+    renameFieldErrors = {};
+    try {
+      const response = await pb.send<{ name: string; former_names: string[] }>(
+        `/api/rate_sheets/${rateSheet.id}/rename`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name: renameName }),
+        },
+      );
+      rateSheet = { ...rateSheet, name: response.name };
+      formerNames = response.former_names;
+      showRename = false;
+    } catch (error) {
+      const response = (error as ClientResponseError).data as {
+        message?: string;
+        data?: Record<string, { message: string }>;
+      };
+      renameFieldErrors = response?.data ?? {};
+      renameError = renameFieldErrors.name ? null : (response?.message ?? "Failed to rename");
+    } finally {
+      renaming = false;
+    }
+  }
 
   // Download entries as CSV sorted by rate descending
   function downloadCsv() {
@@ -291,6 +336,9 @@
     <p class="text-neutral-600">
       Effective: {shortDate(rateSheet.effective_date, true)}
     </p>
+    {#if formerNames.length > 0}
+      <p class="text-neutral-600">Formerly {formerNames.join(", ")}</p>
+    {/if}
   </div>
 
   <!-- Action Buttons -->
@@ -301,6 +349,9 @@
     <DsActionButton action={`/rate-sheets/copy?from=${rateSheet.id}`}>
       Use as Template
     </DsActionButton>
+    {#if isAdmin}
+      <DsActionButton action={openRename}>Rename</DsActionButton>
+    {/if}
   </div>
 
   <!-- Active Toggle -->
@@ -540,3 +591,23 @@
     </a>
   </div>
 </div>
+
+{#if isAdmin}
+  <DSPopover
+    bind:show={showRename}
+    title="Rename Rate Sheet"
+    subtitle="Changes the name of every revision. Jobs keep this sheet."
+    error={renameError}
+    submitting={renaming}
+    submitLabel="Rename"
+    submitDisabled={renameName.trim() === "" || renameName.trim() === rateSheet.name}
+    onSubmit={rename}
+  >
+    <DSTextInput
+      bind:value={renameName}
+      errors={renameFieldErrors}
+      fieldName="name"
+      uiName="Name"
+    />
+  </DSPopover>
+{/if}
