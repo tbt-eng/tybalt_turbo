@@ -608,14 +608,22 @@ type CompareRateSheetRequest struct {
 // createCompareRateSheetHandler compares unsaved entries with the active rate
 // sheets. It returns the exact matches, which a save or an activation would
 // block, and a few close sheets as information. It changes nothing. Only users
-// with the 'job' claim can call it, because only they create sheets.
+// who can save a sheet can call it: the 'job' claim creates new sheets and
+// copies, and the 'rate_sheet_revise' or 'admin' claim creates revisions.
 func createCompareRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		hasJobClaim, err := utilities.HasClaim(app, e.Auth, "job")
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+		allowed := false
+		for _, claim := range []string{"job", "rate_sheet_revise", "admin"} {
+			hasClaim, err := utilities.HasClaim(app, e.Auth, claim)
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+			}
+			if hasClaim {
+				allowed = true
+				break
+			}
 		}
-		if !hasJobClaim {
+		if !allowed {
 			return e.Error(http.StatusForbidden, "you do not have permission to compare rate sheets", nil)
 		}
 

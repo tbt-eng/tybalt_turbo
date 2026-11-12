@@ -58,9 +58,11 @@
 
   // Compare the staged entries with the active sheets as the user edits them.
   // Exact matches would block the save; near matches are information. The
-  // compare endpoint needs the job claim, so other users see only the result
-  // of the save.
-  const canCompare = $derived($globalStore.claims.includes("job"));
+  // compare endpoint needs the job, rate_sheet_revise or admin claim, so other
+  // users see only the result of the save.
+  const canCompare = $derived(
+    ["job", "rate_sheet_revise", "admin"].some((claim) => $globalStore.claims.includes(claim)),
+  );
   const noComparison: RateSheetComparison = { exact: [], near: [] };
   let comparison = $state<RateSheetComparison>(noComparison);
   let compareSequence = 0;
