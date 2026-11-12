@@ -161,6 +161,7 @@ const childDocPages: Record<string, { parent: string; label: string }> = {
   "review-time": { parent: "time", label: "Review and track" },
   "revise-a-purchase-order": { parent: "purchase-orders", label: "Revisions" },
   "find-a-purchase-order": { parent: "purchase-orders", label: "Find and print" },
+  "child-purchase-orders": { parent: "purchase-orders", label: "Child POs" },
   "commit-expenses": { parent: "expenses", label: "Review and commit" },
   "admin-profiles": { parent: "profile", label: "Admin profiles" },
 };

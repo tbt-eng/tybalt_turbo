@@ -58,7 +58,7 @@ Open the PO. Then:
 ## Spend more than the PO total
 
 - **One-Time or Recurring:** an expense can go over by a small amount. The default is the lesser of 5% or $100. On a PO in another currency, Turbo converts the fixed amount from Canadian dollars.
-- **Cumulative:** the expenses together can't go over the total.
+- **Cumulative:** the expenses together can't go over the total. For more, create a [child PO](/docs/child-purchase-orders).
 
 ## Convert a One-Time PO
 

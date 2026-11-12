@@ -35,7 +35,7 @@ With expenses, you can't change its details. Otherwise, ask payables staff to ca
 
 To spend more, check **Type**:
 
-- **Cumulative**: Add the expense. If it goes over, select **Create Child PO**. Set its total to the full expense. One expense can't use two purchase orders.
+- **Cumulative**: Add the expense. If it goes over, create a [child PO](/docs/child-purchase-orders).
 - **One-Time**: Ask payables staff to [convert it to Cumulative](/docs/purchase-orders#convert-a-one-time-po). Then follow **Cumulative**.
 - **Recurring**: Ask payables staff to close it after its last commit. Then create another.
 
