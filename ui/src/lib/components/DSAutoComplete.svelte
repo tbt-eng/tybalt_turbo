@@ -27,6 +27,7 @@
     multi = false,
     choose,
     helperText = "", // a line under the field explaining it
+    help, // field help (DSHelp) at the far right of the field row
   }: {
     value: string;
     index: MiniSearch<T>;
@@ -41,6 +42,7 @@
     multi?: boolean;
     choose?: (id: string | number) => void;
     helperText?: string;
+    help?: Snippet;
   } = $props();
 
   let results = $state([] as SearchResult[]);
@@ -178,7 +180,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="flex w-full flex-col gap-2" class:bg-red-200={errors[fieldName] !== undefined}>
   <div class="contents" onkeydown={keydown}>
-    <span class="flex w-full gap-2">
+    <span class="flex w-full gap-2" class:items-center={help !== undefined}>
       <label for={`autocomplete-input-${thisId}`}>{uiName}</label>
       {#if value && value !== ""}
         <span class="min-w-0 flex-1 {disabled ? 'opacity-50' : ''}">
@@ -203,6 +205,9 @@
         {#if !disabled && (searchQuery !== "" || results.length > 0)}
           <DsActionButton action={clearInput} title="Clear">Clear</DsActionButton>
         {/if}
+      {/if}
+      {#if help}
+        <span class="shrink-0">{@render help()}</span>
       {/if}
     </span>
 

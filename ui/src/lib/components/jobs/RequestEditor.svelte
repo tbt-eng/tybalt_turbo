@@ -9,6 +9,7 @@
   import DSActionButton from "$lib/components/DSActionButton.svelte";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
@@ -423,6 +424,9 @@
         uiName="Rate Sheet"
       >
         {#snippet resultTemplate(row)}{row.name} (rev. {row.revision}) - {row.effective_date}{/snippet}
+        {#snippet help()}
+          <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
+        {/snippet}
       </DsAutoComplete>
     {/if}
     {#if $jobs.index !== null}

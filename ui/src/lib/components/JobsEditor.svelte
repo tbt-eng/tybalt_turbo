@@ -1384,6 +1384,9 @@
             {#snippet resultTemplate(sheet)}
               {sheet.name} (rev. {sheet.revision}) - {sheet.effective_date}
             {/snippet}
+            {#snippet help()}
+              <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
+            {/snippet}
           </DsAutoComplete>
         {/if}
       {/if}

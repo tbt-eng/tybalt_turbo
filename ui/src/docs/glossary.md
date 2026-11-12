@@ -10,6 +10,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Category              | A group of costs within one job.                                                                                                                    |                 |
 | Child PO              | A One-Time PO for an expense that takes a Cumulative PO over its total. Its number is its parent's number plus a suffix, such as 2611-0379-01.      |                 |
 | Committer             | Staff who commit time sheets and expenses. Commit is the final step.                                                                                |                 |
+| Contract              | The agreement between the company and a client on the work and its rates. A project's rate sheet must match it.                                     |                 |
 | Default branch        | The branch that an admin sets on your admin profile. Turbo uses it when a record has no job or PO.                                                  |                 |
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
 | Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
