@@ -6,6 +6,8 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsToggle from "$lib/components/DSToggle.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
+  import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
   import Icon from "@iconify/svelte";
   import type { PageData } from "./$types";
   import { untrack } from "svelte";
@@ -66,6 +68,8 @@
   let saveError = $state("");
   let saving = $state(false);
   let toggleError = $state("");
+  // Active sheets with the same rates, when they blocked activation.
+  let activationMatches = $state<RateSheetMatch[] | null>(null);
 
   // Check if an entry has been modified (values differ from original)
   function isEntryModified(entry: any): boolean {
@@ -202,6 +206,7 @@
     if (shouldBeActive !== currentActive && !isToggling) {
       isToggling = true;
       toggleError = "";
+      activationMatches = null;
 
       const endpoint = shouldBeActive
         ? `/api/rate_sheets/${rateSheet.id}/activate`
@@ -213,7 +218,10 @@
         })
         .catch((error: any) => {
           console.error("Failed to update active status:", error);
-          toggleError = error.data?.message ?? "Failed to update status";
+          activationMatches = duplicateRateSheetMatches(error, "active");
+          if (!activationMatches?.length) {
+            toggleError = error.data?.message ?? "Failed to update status";
+          }
           // Revert toggle value on error
           activeToggleValue = currentActive ? "active" : "inactive";
         })
@@ -319,6 +327,16 @@
       <span class="text-sm text-red-600">{toggleError}</span>
     {/if}
   </div>
+  {#if activationMatches && activationMatches.length > 0}
+    <div class="mb-6">
+      <RateSheetMatchCallout
+        tone="danger"
+        title="Not activated"
+        intro="An active sheet has the same rates. Use that sheet instead."
+        matches={activationMatches}
+      />
+    </div>
+  {/if}
 
   <!-- Entries Table -->
   <div class="mb-6">

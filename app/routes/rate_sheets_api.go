@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 
+	"tybalt/errs"
 	"tybalt/hooks"
 	"tybalt/utilities"
 )
@@ -70,15 +72,39 @@ func createActivateRateSheetHandler(app core.App) func(e *core.RequestEvent) err
 			})
 		}
 
-		// Deactivate other revisions with same name BEFORE activating this one
-		// (no transaction, so order matters - ensures never two active revisions)
-		if err := hooks.DeactivateOtherRevisions(app, name, id); err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to deactivate previous revisions", err)
-		}
+		// Check for a duplicate, deactivate the other revisions and activate this
+		// one in a single transaction, so that two identical sheets can't both
+		// pass the check and be activated at the same time.
+		err = app.RunInTransaction(func(txApp core.App) error {
+			// Entries can be added between create and activate, so compare the
+			// stored entries with the other active sheets. Revisions of this
+			// sheet are excluded by name.
+			entries, err := hooks.LoadRateSheetEntryValues(txApp, id)
+			if err != nil {
+				return err
+			}
+			comparison, err := hooks.CompareWithActiveRateSheets(txApp, entries, name)
+			if err != nil {
+				return err
+			}
+			if len(comparison.Exact) > 0 {
+				return hooks.DuplicateRateSheetError("active", comparison.Exact)
+			}
 
-		// Update the record
-		record.Set("active", true)
-		if err := app.Save(record); err != nil {
+			// Deactivate other revisions with same name BEFORE activating this
+			// one, so there are never two active revisions.
+			if err := hooks.DeactivateOtherRevisions(txApp, name, id); err != nil {
+				return err
+			}
+
+			record.Set("active", true)
+			return txApp.Save(record)
+		})
+		if err != nil {
+			var hookErr *errs.HookError
+			if errors.As(err, &hookErr) {
+				return e.JSON(hookErr.Status, hookErr)
+			}
 			return e.Error(http.StatusInternalServerError, "failed to activate rate sheet", err)
 		}
 
@@ -421,6 +447,17 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 				}
 			}
 
+			// Block a sheet whose rates are identical to another active sheet.
+			// Sheets with this name are excluded, so a revision that changes
+			// only the effective date is allowed.
+			comparison, err := hooks.CompareWithActiveRateSheets(txApp, rateSheetEntryValues(req.Entries), req.Name)
+			if err != nil {
+				return err
+			}
+			if len(comparison.Exact) > 0 {
+				return hooks.DuplicateRateSheetError("entries", comparison.Exact)
+			}
+
 			// Create the rate sheet record
 			rateSheet := core.NewRecord(rateSheetsCollection)
 			rateSheet.Set("name", req.Name)
@@ -473,6 +510,10 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			if uce, ok := err.(*uniqueConstraintError); ok {
 				return apis.NewApiError(http.StatusConflict, uce.message, uce.data)
 			}
+			var hookErr *errs.HookError
+			if errors.As(err, &hookErr) {
+				return e.JSON(hookErr.Status, hookErr)
+			}
 			if eve, ok := err.(*entryValidationError); ok {
 				return apis.NewBadRequestError("Validation error", prefixEntryErrors(eve.index, eve.errors))
 			}
@@ -505,4 +546,57 @@ type uniqueConstraintError struct {
 
 func (e *uniqueConstraintError) Error() string {
 	return e.message
+}
+
+// rateSheetEntryValues converts request entries to the form that
+// hooks.CompareWithActiveRateSheets takes.
+func rateSheetEntryValues(entries []CreateRateSheetEntry) []hooks.RateSheetEntryValues {
+	values := make([]hooks.RateSheetEntryValues, 0, len(entries))
+	for _, entry := range entries {
+		values = append(values, hooks.RateSheetEntryValues{
+			Role:         entry.Role,
+			Rate:         entry.Rate,
+			OvertimeRate: entry.OvertimeRate,
+		})
+	}
+	return values
+}
+
+// CompareRateSheetRequest is the body of POST /api/rate_sheets/compare. Name
+// is the name of the sheet being made; active sheets with that name are not
+// compared.
+type CompareRateSheetRequest struct {
+	Name    string                 `json:"name"`
+	Entries []CreateRateSheetEntry `json:"entries"`
+}
+
+// createCompareRateSheetHandler compares unsaved entries with the active rate
+// sheets. It returns the exact matches, which a save or an activation would
+// block, and a few close sheets as information. It changes nothing. Only users
+// with the 'job' claim can call it, because only they create sheets.
+func createCompareRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		hasJobClaim, err := utilities.HasClaim(app, e.Auth, "job")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+		}
+		if !hasJobClaim {
+			return e.Error(http.StatusForbidden, "you do not have permission to compare rate sheets", nil)
+		}
+
+		var req CompareRateSheetRequest
+		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+			return e.Error(http.StatusBadRequest, "invalid request body", err)
+		}
+
+		comparison, err := hooks.CompareWithActiveRateSheets(app, rateSheetEntryValues(req.Entries), strings.TrimSpace(req.Name))
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to compare rate sheets", err)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"exact": comparison.Exact,
+			"near":  comparison.Closest(hooks.RateSheetNearMatchMaxRoles, hooks.RateSheetNearMatchLimit),
+		})
+	}
 }

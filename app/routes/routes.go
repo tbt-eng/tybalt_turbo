@@ -379,6 +379,7 @@ func AddRoutes(app core.App) {
 		rateSheetsGroup := se.Router.Group("/api/rate_sheets")
 		rateSheetsGroup.Bind(apis.RequireAuth("users"))
 		rateSheetsGroup.POST("", createRateSheetHandler(app))
+		rateSheetsGroup.POST("/compare", createCompareRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/activate", createActivateRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/deactivate", createDeactivateRateSheetHandler(app))
 

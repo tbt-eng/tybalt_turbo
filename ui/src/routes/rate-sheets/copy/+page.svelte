@@ -4,6 +4,13 @@
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
+  import { globalStore } from "$lib/stores/global";
+  import {
+    duplicateRateSheetMatches,
+    type RateSheetComparison,
+    type RateSheetMatch,
+  } from "$lib/rateSheetMatches";
   import { goto } from "$app/navigation";
   import type { PageData } from "./$types";
   import { untrack } from "svelte";
@@ -49,10 +56,56 @@
     }));
   }
 
+  // Compare the staged entries with the active sheets as the user edits them.
+  // Exact matches would block the save; near matches are information. The
+  // compare endpoint needs the job claim, so other users see only the result
+  // of the save.
+  const canCompare = $derived($globalStore.claims.includes("job"));
+  const noComparison: RateSheetComparison = { exact: [], near: [] };
+  let comparison = $state<RateSheetComparison>(noComparison);
+  let compareSequence = 0;
+  // Sheets that blocked the last save because they have the same rates.
+  let blockingMatches = $state<RateSheetMatch[] | null>(null);
+
+  $effect(() => {
+    const body = JSON.stringify({
+      name: name.trim(),
+      entries: stagedEntries.map((entry) => ({
+        role: entry.role,
+        rate: Number(entry.rate),
+        overtime_rate: Number(entry.overtime_rate),
+      })),
+    });
+    const sequence = ++compareSequence;
+    // An edit replaces the result of the last save.
+    blockingMatches = null;
+    if (!canCompare || stagedEntries.length === 0) {
+      comparison = noComparison;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const response = await pb.send("/api/rate_sheets/compare", {
+          method: "POST",
+          body,
+          requestKey: null,
+        });
+        if (sequence === compareSequence) {
+          comparison = { exact: response.exact ?? [], near: response.near ?? [] };
+        }
+      } catch (error) {
+        console.error("Failed to compare rate sheets:", error);
+        if (sequence === compareSequence) comparison = noComparison;
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  });
+
   async function save(event: Event) {
     event.preventDefault();
     saveError = "";
     errors = {};
+    blockingMatches = null;
 
     // Validate
     if (!name.trim()) {
@@ -87,6 +140,12 @@
       goto(`/rate-sheets/${response.id}/details`);
     } catch (error: any) {
       console.error("Failed to save:", error);
+      blockingMatches = duplicateRateSheetMatches(error, "entries");
+      if (blockingMatches?.length) {
+        // The callout below the entries names the matching sheets.
+        saving = false;
+        return;
+      }
       saveError = error.data?.message ?? error.message ?? "Failed to create rate sheet";
       if (error.data?.data) {
         errors = error.data.data;
@@ -252,6 +311,30 @@
         <p class="mt-2 text-red-600">{entriesError()?.message}</p>
       {/if}
     </div>
+
+    <!-- Comparison with the active sheets -->
+    {#if blockingMatches && blockingMatches.length > 0}
+      <RateSheetMatchCallout
+        tone="danger"
+        title="Not saved"
+        intro="An active sheet has the same rates. Use that sheet, or change a rate."
+        matches={blockingMatches}
+      />
+    {:else if comparison.exact.length > 0}
+      <RateSheetMatchCallout
+        tone="warning"
+        title="Same rates as an active sheet"
+        intro="Turbo won't save a sheet with the same rates. Use that sheet, or change a rate."
+        matches={comparison.exact}
+      />
+    {/if}
+    {#if comparison.near.length > 0}
+      <RateSheetMatchCallout
+        tone="info"
+        intro="Close to these active sheets:"
+        matches={comparison.near}
+      />
+    {/if}
 
     <!-- Save/Cancel buttons -->
     <div class="mt-4 flex items-center gap-2">

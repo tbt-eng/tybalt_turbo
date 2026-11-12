@@ -27,13 +27,13 @@ The list shows the revision, the effective date, the number of jobs and **Active
 
 Procurement creates rate sheets from an existing sheet.
 
-1. Find a sheet that is close to the new one.
+1. Find a sheet close to the new one.
 2. Select **Use as Template**.
 3. Enter the **Name** and the **Effective Date**.
 4. Change the **Rate** and the **Overtime Rate** for each role.
 5. Select **Save**.
 
-A rate is a whole number. Turbo saves the new sheet as Inactive.
+A rate is a whole number. The new sheet is Inactive. Turbo won't save rates that match an active sheet.
 
 ## Set the overtime rates
 
@@ -48,6 +48,8 @@ Turbo sets each overtime rate to the rate times the multiplier. Check the overti
 2. Select **Active**.
 
 A sheet must have a rate for every role. If roles are missing, Turbo shows **Add Entry**. Select the **Role**, enter the rates and select **Add Entry** for each one. Only procurement can activate a sheet.
+
+Turbo won't activate a sheet with the same rates as another active sheet.
 
 ## Deactivate a rate sheet
 
