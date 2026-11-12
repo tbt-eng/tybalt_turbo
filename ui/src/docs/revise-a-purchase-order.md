@@ -1,6 +1,6 @@
 # Revise a purchase order
 
-Change the total, currency, description, division, job or category of an approved purchase order and keep its number. It needs approval again.
+Change the total, currency, description, division, job or category of an Active purchase order and keep its number. It needs approval again.
 
 ```flow
 You | Make a revision | Enter the changes.
