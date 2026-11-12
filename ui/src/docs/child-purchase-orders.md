@@ -1,6 +1,6 @@
 # Child purchase orders
 
-A child PO covers an expense that takes a Cumulative PO over its total. It is a One-Time PO. Its number is its parent's number plus a suffix, such as 2611-0379-01.
+A child PO covers an expense that takes a Cumulative PO over its total. It is always a One-Time PO, never Cumulative or Recurring, so it takes one expense. Its number is its parent's number plus a suffix, such as 2611-0379-01.
 
 ## Create a child PO
 
@@ -10,7 +10,13 @@ A child PO covers an expense that takes a Cumulative PO over its total. It is a 
 4. Select an approver.
 5. Select **Save**.
 
-Turbo copies the vendor, job, category, description, kind and payment type from the parent. They must match the parent. One expense can't use two POs, so the child PO covers the full expense.
+Turbo copies the vendor, job, category, description, kind and payment type from the parent. They must match the parent.
+
+## Set the total to the full expense
+
+One expense can't use two POs. It can't use the amount that remains on the parent and take the rest from the child PO. The child PO must cover the full expense.
+
+For example, the parent has $200 left and the expense is $500. Set the child PO's total to $500, not $300. The parent keeps its $200.
 
 ## After approval
 
