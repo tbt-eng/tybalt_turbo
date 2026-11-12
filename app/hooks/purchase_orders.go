@@ -546,6 +546,12 @@ func ValidatePurchaseOrder(app core.App, purchaseOrderRecord *core.Record, legac
 		linkedJobRecord = jobRecord
 	}
 
+	if purchaseOrderCategoryNeedsCheck(purchaseOrderRecord) {
+		if categoryErr := purchaseOrderCategoryError(app, purchaseOrderRecord); categoryErr != nil {
+			validationsErrors["category"] = categoryErr
+		}
+	}
+
 	if purchaseOrderRecord.GetBool("covered_within_project_budget") {
 		switch {
 		case strings.TrimSpace(purchaseOrderRecord.GetString("job")) == "":
@@ -724,33 +730,37 @@ func RevisionJobChangeRefusal(po *core.Record, newJob string) (string, string) {
 	return "", ""
 }
 
-// ValidatePurchaseOrderCategory checks that a purchase order's category belongs
-// to its job, so a purchase order without a job can't have one. The collection
-// API rules check this on a create or an edit, but the revise route doesn't go
-// through them.
-func ValidatePurchaseOrderCategory(app core.App, po *core.Record) error {
+// purchaseOrderCategoryNeedsCheck reports whether a save creates the purchase
+// order or changes its job or category. Only then is the category checked
+// against the job, so an older purchase order whose category doesn't match can
+// still be edited for unrelated fields.
+func purchaseOrderCategoryNeedsCheck(po *core.Record) bool {
+	if po.IsNew() {
+		return true
+	}
+	original := po.Original()
+	if original == nil {
+		return true
+	}
+	return strings.TrimSpace(po.GetString("job")) != strings.TrimSpace(original.GetString("job")) ||
+		strings.TrimSpace(po.GetString("category")) != strings.TrimSpace(original.GetString("category"))
+}
+
+// purchaseOrderCategoryError checks that a purchase order's category belongs to
+// its job, so a purchase order without a job can't have one. The collection API
+// rules make the same check, but only on a category that the request sends, and
+// the revise and legacy routes don't go through them.
+func purchaseOrderCategoryError(app core.App, po *core.Record) error {
 	categoryID := strings.TrimSpace(po.GetString("category"))
 	if categoryID == "" {
 		return nil
 	}
 	category, err := app.FindRecordById("categories", categoryID)
 	if err != nil || category == nil {
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "hook error when validating category",
-			Data: map[string]errs.CodeError{
-				"category": {Code: "not_found", Message: "category not found"},
-			},
-		}
+		return validation.NewError("not_found", "category not found")
 	}
-	if category.GetString("job") != po.GetString("job") {
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "hook error when validating category",
-			Data: map[string]errs.CodeError{
-				"category": {Code: "must_match_job", Message: "category must belong to the selected job"},
-			},
-		}
+	if category.GetString("job") != strings.TrimSpace(po.GetString("job")) {
+		return validation.NewError("must_match_job", "category must belong to the selected job")
 	}
 	return nil
 }
@@ -1098,20 +1108,12 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 			}
 			// A category and a budget confirmation belong to the old job. Keep
 			// them only if the request sets them again for the new job.
-			jobChanged := record.GetString("job") != original.GetString("job")
-			if jobChanged {
+			if record.GetString("job") != original.GetString("job") {
 				if !requestBodyHas(e, "category") {
 					record.Set("category", "")
 				}
 				if !requestBodyHas(e, "covered_within_project_budget") {
 					record.Set("covered_within_project_budget", false)
-				}
-			}
-			// The update rule checks the category too. This gives the same
-			// error as the revise route.
-			if jobChanged || record.GetString("category") != original.GetString("category") {
-				if err := ValidatePurchaseOrderCategory(app, record); err != nil {
-					return "", err
 				}
 			}
 		}

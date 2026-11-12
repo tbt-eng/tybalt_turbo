@@ -183,7 +183,8 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 			// The branch follows the job in CleanPurchaseOrder. po was loaded
 			// with the old job and division, so when either changes
 			// ValidatePurchaseOrder checks that the division is allocated to the
-			// job, and it checks the approvers against the new division.
+			// job, and it checks the approvers against the new division. It
+			// also checks a new job or category against each other.
 			if jobChanged {
 				po.Set("job", job)
 				po.Set("covered_within_project_budget", req.CoveredWithinProjectBudget != nil && *req.CoveredWithinProjectBudget)
@@ -215,11 +216,6 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 			}
 			if err := hooks.ValidatePurchaseOrder(txApp, po, false); err != nil {
 				return err
-			}
-			if jobChanged || categoryChanged {
-				if err := hooks.ValidatePurchaseOrderCategory(txApp, po); err != nil {
-					return err
-				}
 			}
 
 			if err := txApp.Save(po); err != nil {
