@@ -36,9 +36,10 @@ You can't revise a purchase order if:
 - It has expenses.
 - It has child purchase orders.
 - It shows **Manually created**.
+- It came from a PO group.
 - It has a closed job, unless you change the job. **Save** shows an error.
 
-To change other details on a purchase order with no expenses, ask payables staff to cancel it. Then create a new one.
+To change other details when it has no expenses, ask payables staff to cancel it. Then create a new one.
 
 ## If it has expenses
 

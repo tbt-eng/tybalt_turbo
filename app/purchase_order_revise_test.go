@@ -222,6 +222,7 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			{name: "PO has expenses", poID: "ly8xyzpuj79upq1", body: `{"total": 5000}`, status: http.StatusBadRequest, code: "po_has_expenses"},
 			{name: "PO has child POs", poID: "xhkt5lx8cl64nj3", body: `{"total": 5000}`, asAuthor: true, setup: `DELETE FROM expenses WHERE purchase_order = 'xhkt5lx8cl64nj3'`, status: http.StatusBadRequest, code: "po_has_child_pos"},
 			{name: "PO is a legacy entry", poID: "po_export_no_exp_1", body: `{"total": 200}`, asAuthor: true, status: http.StatusBadRequest, code: "legacy_po_not_revisable"},
+			{name: "PO belongs to a PO group", poID: revisePOID, body: `{"total": 150}`, setup: `UPDATE purchase_orders SET po_group = 'testgroup000001' WHERE id = '` + revisePOID + `'`, status: http.StatusBadRequest, code: "group_po_not_revisable"},
 			{name: "total is unchanged", poID: revisePOID, body: `{"total": 132.1}`, status: http.StatusBadRequest, code: "revision_unchanged"},
 			{name: "total and currency are unchanged", poID: revisePOID, body: `{"total": 132.1, "currency": "cadcurr00000001"}`, status: http.StatusBadRequest, code: "revision_unchanged"},
 			{name: "total and job are unchanged", poID: revisePOID, body: `{"total": 132.1, "job": "` + reviseOldJob + `"}`, status: http.StatusBadRequest, code: "revision_unchanged"},
@@ -537,6 +538,19 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			if row.Revisable != want {
 				t.Errorf("%s revisable = %v, want %v", id, row.Revisable, want)
 			}
+		}
+	})
+
+	t.Run("a PO from a PO group is not revisable", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+
+		if _, err := app.DB().NewQuery("UPDATE purchase_orders SET po_group = 'testgroup000001' WHERE id = '" + revisePOID + "'").Execute(); err != nil {
+			t.Fatal(err)
+		}
+		body := reviseTestRequest(t, app, http.MethodGet, "/api/purchase_orders/visible/"+revisePOID, "", creator, http.StatusOK)
+		if !strings.Contains(body, `"revisable":false`) {
+			t.Fatalf("group PO is revisable: %s", body)
 		}
 	})
 

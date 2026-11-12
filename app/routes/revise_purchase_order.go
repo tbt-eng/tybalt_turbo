@@ -91,6 +91,18 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 				}
 			}
 
+			// A group purchase order was made for its owner by someone else, who
+			// set its amount for the whole group. The owner must not send it back
+			// for approval with other values, and the rules for a revision that
+			// awaits approval all assume that the owner made the revision.
+			if strings.TrimSpace(po.GetString("po_group")) != "" {
+				httpResponseStatusCode = http.StatusBadRequest
+				return &CodeError{
+					Code:    "group_po_not_revisable",
+					Message: "a purchase order from a PO group cannot be revised",
+				}
+			}
+
 			// An approval only matters once an expense uses it. Without expenses,
 			// replacing the approval loses nothing.
 			expenses, err := txApp.FindRecordsByFilter("expenses", "purchase_order = {:poId}", "", 1, 0, dbx.Params{

@@ -412,6 +412,7 @@ Conditions (otherwise HTTP 4xx and the PO is unchanged):
 - Caller is the creator (`unauthorized_revision`).
 - PO is `Active` (`po_not_active`).
 - PO is not a legacy manual entry or an imported record (`legacy_po_not_revisable`).
+- PO is not a member of a purchase order group (`group_po_not_revisable`). Someone else made it for its owner and set its amount for the whole group, and the rules for a pending revision assume that the owner made the revision. Nobody can revise it, including the group's creator; cancel it and create another.
 - PO has no expenses (`po_has_expenses`) and no child POs that are not `Cancelled` (`po_has_child_pos`).
 - The total, currency, job, description, division or category differs from the current one (`revision_unchanged`). A blank currency means the home currency. The approvers alone can't start a revision.
 - A new job replaces another job. A PO without a job can't get one (`revision_job_add_not_allowed`), the job can't be removed (`revision_job_removal_not_allowed`), and a child PO keeps its parent's job (`child_po_job_locked`). `kind` can't change.
@@ -653,6 +654,7 @@ A `super_po` claim holder can create one purchase order for each of many staff a
 - The approver gets one `po_group_approval_required` email for the whole group, with the count, description, vendor and total, linking to Pending My Approval. The per-purchase-order `po_approval_required` email is not sent for group members.
 - Each purchase order is then approved on its own through the normal approve endpoint, which assigns its PO number and sends the owner the usual `po_active` email.
 - When the first of a group's purchase orders needing second approval is first-approved, the priority second approver gets one `po_group_second_approval_required` email for the whole group instead of a `po_priority_second_approval_required` email for each. The daily `po_second_approval_required` reminder is already one email per approver.
+- A group purchase order can't be revised after approval (see Revision).
 - `po_group` can't be set or changed through the collection API (`ProcessPurchaseOrder` rejects it), so an owner can edit or delete their unapproved group purchase order but not move it out of the group.
 - `super_po` and `admin` holders can read every group purchase order through the collection API as well as the visibility routes, which also sends the group page realtime events. The `purchase_order_groups` collection has no API rules; groups are read through the group routes.
 - The migration adds these access clauses by wrapping each existing rule whole (`(existing) || (clause)`), so it works whatever the live rules look like, and its rollback removes the wrapper and the claim's `user_claims` records before the claim.

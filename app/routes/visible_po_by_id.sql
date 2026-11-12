@@ -79,6 +79,7 @@ SELECT
   (
     status = 'Active'
     AND legacy_manual_entry = 0
+    AND po_group = ''
     AND NOT EXISTS (SELECT 1 FROM purchase_orders p WHERE p.id = visibility_base.id AND p._imported = 1)
     AND NOT EXISTS (SELECT 1 FROM expenses e WHERE e.purchase_order = visibility_base.id)
     AND NOT EXISTS (SELECT 1 FROM purchase_orders c WHERE c.parent_po = visibility_base.id AND c.status != 'Cancelled')
