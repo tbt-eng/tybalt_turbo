@@ -3,6 +3,7 @@
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { goto } from "$app/navigation";
   import type { PageData } from "./$types";
   import { untrack } from "svelte";
@@ -96,9 +97,18 @@
 </script>
 
 <div class="p-4">
-  <h1 class="mb-4 text-xl font-bold">
-    {isRevising ? "Revise Rate Sheet" : "New Rate Sheet"}
-  </h1>
+  <div class="mb-4 flex items-center gap-2">
+    <h1 class="text-xl font-bold">
+      {isRevising ? "Revise Rate Sheet" : "New Rate Sheet"}
+    </h1>
+    <div class="ml-auto">
+      {#if isRevising}
+        <DSHelp doc="rate-sheets#revise-a-rate-sheet" label="Help" />
+      {:else}
+        <DSHelp doc="rate-sheets#create-a-rate-sheet" label="Help" />
+      {/if}
+    </div>
+  </div>
   <p class="mb-6 text-neutral-600">
     {isRevising
       ? `Creating revision ${nextRevision} of "${sourceSheet.name}"`
@@ -132,7 +142,7 @@
       <span class="flex w-full gap-2">
         <label for="effective_date">Effective Date</label>
         <DsDateInput
-          class="flex-1 md:flex-none rounded-sm border border-neutral-300 px-1"
+          class="flex-1 rounded-sm border border-neutral-300 px-1 md:flex-none"
           id="effective_date"
           name="effective_date"
           bind:value={effective_date}

@@ -20,8 +20,10 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
+| Rate sheet            | The hourly rates that a client pays for each role on a project. See [Rate sheets](/docs/rate-sheets).                                               |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
-| Revise                | Change the total or currency of an approved purchase order.                                                                                         |                 |
+| Revise                | Make a new version of a record: a new total or currency for an approved purchase order, or new rates for a rate sheet.                              |                 |
+| Role                  | The work that you do on a job. Each time entry on a job has a role, and the rate sheet sets its rate.                                               |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |
 | Subjob                | A project under a parent project. It has its parent's client. Its number is its parent's number plus a suffix, such as 25-123-01.                   |                 |
 | Time sheet            | Your time entries for one week.                                                                                                                     | timesheet       |

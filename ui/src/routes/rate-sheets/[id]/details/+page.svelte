@@ -5,6 +5,7 @@
   import ObjectTable from "$lib/components/ObjectTable.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsToggle from "$lib/components/DSToggle.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import Icon from "@iconify/svelte";
   import type { PageData } from "./$types";
   import { untrack } from "svelte";
@@ -275,6 +276,9 @@
         color="gray"
       />
       <DsActionButton action={downloadCsv} icon="mdi:download" title="Download CSV" color="gray" />
+      <div class="ml-auto">
+        <DSHelp doc="rate-sheets#activate-a-rate-sheet" label="Help" />
+      </div>
     </div>
     <p class="text-neutral-600">
       Effective: {shortDate(rateSheet.effective_date, true)}
