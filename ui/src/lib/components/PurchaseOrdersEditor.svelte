@@ -496,6 +496,26 @@
     });
   });
 
+  // A failed save leaves its error on the Job field or under Save. Once the
+  // job changes, that error is about a job no longer selected, so drop it.
+  let errorJobSeen: string | null = null;
+  $effect(() => {
+    const jobId = item.job ?? "";
+    untrack(() => {
+      if (
+        errorJobSeen !== null &&
+        errorJobSeen !== jobId &&
+        (errors.job !== undefined || errors.global !== undefined)
+      ) {
+        const nextErrors = { ...errors };
+        delete nextErrors.job;
+        delete nextErrors.global;
+        errors = nextErrors;
+      }
+      errorJobSeen = jobId;
+    });
+  });
+
   $effect(() => {
     if (legacyMode) {
       profiles.init();
