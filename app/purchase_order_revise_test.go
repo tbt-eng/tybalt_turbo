@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,7 +33,72 @@ const (
 	reviseNewBranch   = "xeq9q81q5307f70"
 	reviseCategoryJob = "mg0sp9iyjzo4zw9"
 	reviseNewCategory = "icxl5pp58cg4f17"
+
+	// The PO's division is MD. MF is not allocated to its job and CI is. Its
+	// approver can approve MF but not CI. Its category (fractal) belongs to
+	// another job, and reviseOldJobCategory (amoeba) belongs to its job.
+	reviseOldDivisionText = "MD Drilling Services"
+	reviseMFDivision      = "hcd86z57zjty6jo"
+	reviseMFDivisionText  = "MF Field Services"
+	reviseCIDivision      = "vccd5fo56ctbigh"
+	reviseOldCategoryText = "fractal"
+	reviseOldJobCategory  = "bdzvwxqm33xijkn"
+	reviseOldDescription  = "Buy a thing for the job"
 )
+
+// reviseTestAllocate allocates division to the job of PO 2024-0008, at test
+// time, as the refusal table edits fixture data.
+func reviseTestAllocate(t *testing.T, app *tests.TestApp, id, division string) {
+	t.Helper()
+	if _, err := app.DB().NewQuery(`
+		INSERT INTO job_time_allocations (id, job, division, hours, created, updated)
+		VALUES ({:id}, {:job}, {:division}, 10, '2026-11-01 00:00:00.000Z', '2026-11-01 00:00:00.000Z')
+	`).Bind(map[string]any{"id": id, "job": reviseOldJob, "division": division}).Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// reviseTestNotificationData returns the data of the newest revision email
+// for PO 2024-0008.
+func reviseTestNotificationData(t *testing.T, app *tests.TestApp) map[string]any {
+	t.Helper()
+	var row struct {
+		Data string `db:"data"`
+	}
+	if err := app.DB().NewQuery(`
+		SELECT n.data AS data FROM notifications n
+		JOIN notification_templates t ON t.id = n.template
+		WHERE t.code = 'po_revision_approval_required' AND json_extract(n.data, '$.POId') = {:po}
+		ORDER BY n.created DESC, n.rowid DESC LIMIT 1
+	`).Bind(map[string]any{"po": revisePOID}).One(&row); err != nil {
+		t.Fatal(err)
+	}
+	data := map[string]any{}
+	if err := json.Unmarshal([]byte(row.Data), &data); err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+// reviseTestAttachmentBody is a multipart body that uploads a small PNG. The
+// content makes the file's hash unique, because a PO can't reuse another PO's
+// attachment.
+func reviseTestAttachmentBody(t *testing.T, content string) (*bytes.Buffer, string) {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	w := multipart.NewWriter(buf)
+	fw, err := w.CreateFormFile("attachment", "quote.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fw.Write(append([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, content...)); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf, w.FormDataContentType()
+}
 
 func reviseTestTokens(t *testing.T) (creator, approver, payablesAdmin string) {
 	t.Helper()
@@ -163,7 +230,11 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			{name: "child PO changes its job", poID: "25046ft47x49cc2", body: `{"total": 126, "job": "` + reviseNewJob + `"}`, asAuthor: true, status: http.StatusBadRequest, code: "child_po_job_locked"},
 			{name: "division is not allocated to the new job", poID: revisePOID, body: `{"total": 132.1, "job": "u09fwwcg07y03m7", "division": "hcd86z57zjty6jo"}`, status: http.StatusBadRequest, code: `"division":{"code":"division_not_allowed"`},
 			{name: "category belongs to the old job", poID: revisePOID, body: `{"total": 132.1, "job": "` + reviseCategoryJob + `", "category": "kyed8fha9uaha27"}`, status: http.StatusBadRequest, code: `"category":{"code":"must_match_job"`},
-			{name: "division changes without a new job", poID: revisePOID, body: `{"total": 150, "division": "hcd86z57zjty6jo"}`, status: http.StatusBadRequest, code: "revision_requires_job_change"},
+			{name: "nothing changes", poID: revisePOID, body: `{"total": 132.1, "description": "` + reviseOldDescription + `", "division": "fy4i9poneukvq9u", "category": "kyed8fha9uaha27"}`, status: http.StatusBadRequest, code: "revision_unchanged"},
+			{name: "description is too short", poID: revisePOID, body: `{"total": 132.1, "description": "abc"}`, status: http.StatusBadRequest, code: `"description":{`},
+			{name: "division is not allocated to the job", poID: revisePOID, body: `{"total": 132.1, "division": "` + reviseMFDivision + `"}`, status: http.StatusBadRequest, code: `"division":{"code":"division_not_allowed"`},
+			{name: "approver is not valid for the new division", poID: revisePOID, body: `{"total": 132.1, "division": "` + reviseCIDivision + `"}`, status: http.StatusBadRequest, code: "invalid_approver_for_stage"},
+			{name: "category belongs to another job", poID: revisePOID, body: `{"total": 132.1, "category": "` + reviseNewCategory + `"}`, status: http.StatusBadRequest, code: `"category":{"code":"must_match_job"`},
 			{name: "budget is confirmed without a new job", poID: revisePOID, body: `{"total": 150, "covered_within_project_budget": true}`, status: http.StatusBadRequest, code: "revision_requires_job_change"},
 			{name: "currency does not exist", poID: revisePOID, body: `{"total": 150, "currency": "nosuchcurrency0"}`, status: http.StatusBadRequest, code: `"currency":{"code":"not_found"`},
 			{name: "currency has no exchange rate", poID: revisePOID, body: `{"total": 150, "currency": "wipcurr00000001"}`, status: http.StatusBadRequest, code: `"currency":{`},
@@ -182,6 +253,9 @@ func TestRevisePurchaseOrder(t *testing.T) {
 				before := reviseTestPOField(t, app, tc.poID, "status")
 				beforeCurrency := reviseTestPOField(t, app, tc.poID, "currency")
 				beforeJob := reviseTestPOField(t, app, tc.poID, "job")
+				beforeDivision := reviseTestPOField(t, app, tc.poID, "division")
+				beforeCategory := reviseTestPOField(t, app, tc.poID, "category")
+				beforeDescription := reviseTestPOField(t, app, tc.poID, "description")
 				token := creator
 				if tc.asAuthor {
 					token = approver
@@ -196,8 +270,10 @@ func TestRevisePurchaseOrder(t *testing.T) {
 				if got := reviseTestPOField(t, app, tc.poID, "currency"); got != beforeCurrency {
 					t.Fatalf("currency = %q, want unchanged %q", got, beforeCurrency)
 				}
-				if got := reviseTestPOField(t, app, tc.poID, "job"); got != beforeJob {
-					t.Fatalf("job = %q, want unchanged %q", got, beforeJob)
+				for field, want := range map[string]string{"job": beforeJob, "division": beforeDivision, "category": beforeCategory, "description": beforeDescription} {
+					if got := reviseTestPOField(t, app, tc.poID, field); got != want {
+						t.Fatalf("%s = %q, want unchanged %q", field, got, want)
+					}
 				}
 			})
 		}
@@ -259,15 +335,20 @@ func TestRevisePurchaseOrder(t *testing.T) {
 		}
 	})
 
-	t.Run("a revised PO only accepts changes to the total, currency and approvers", func(t *testing.T) {
+	t.Run("a revised PO refuses changes to its locked fields", func(t *testing.T) {
 		app := testutils.SetupTestApp(t)
 		t.Cleanup(app.Cleanup)
 		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 150}`, creator, http.StatusOK)
 
 		recordPath := "/api/collections/purchase_orders/records/" + revisePOID
-		body := reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"description": "a different description"}`, creator, http.StatusBadRequest)
-		if !strings.Contains(body, `"description":{"code":"revision_field_locked"`) {
-			t.Fatalf("expected revision_field_locked on description: %s", body)
+		for _, tc := range []struct{ patch, want string }{
+			{`{"vendor": "mmgxrnn144767x7"}`, `"vendor":{"code":"revision_field_locked"`},
+			{`{"date": "2024-09-01"}`, `"date":{"code":"revision_field_locked"`},
+			{`{"covered_within_project_budget": true}`, `"covered_within_project_budget":{"code":"revision_field_locked"`},
+		} {
+			if body := reviseTestRequest(t, app, http.MethodPatch, recordPath, tc.patch, creator, http.StatusBadRequest); !strings.Contains(body, tc.want) {
+				t.Fatalf("PATCH %s: want %s, got %s", tc.patch, tc.want, body)
+			}
 		}
 
 		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"total": 175}`, creator, http.StatusOK)
@@ -744,7 +825,8 @@ func TestRevisePurchaseOrder(t *testing.T) {
 		}
 
 		for _, tc := range []struct{ patch, want string }{
-			{`{"division": "hcd86z57zjty6jo"}`, `"division":{"code":"revision_field_locked"`},
+			{`{"division": "hcd86z57zjty6jo"}`, `"division":{"code":"division_not_allowed"`},
+			{`{"covered_within_project_budget": true}`, `"covered_within_project_budget":{"code":"revision_field_locked"`},
 			{`{"job": ""}`, `"job":{"code":"revision_job_removal_not_allowed"`},
 			{`{"job": "u09fwwcg07y03m7", "division": "hcd86z57zjty6jo"}`, `"division":{"code":"division_not_allowed"`},
 		} {
@@ -794,6 +876,164 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			`{"job": "`+reviseNewJob+`"}`, approver, http.StatusBadRequest)
 		if !strings.Contains(body, `"job":{"code":"child_po_job_locked"`) {
 			t.Fatalf("child PO job change: %s", body)
+		}
+	})
+
+	t.Run("a revision can change only the description, division or category", func(t *testing.T) {
+		for _, tc := range []struct {
+			name, body, field, want string
+			allocate                string
+			email                   []string
+		}{
+			{name: "description", body: `{"total": 132.1, "description": "Buy two things for the job"}`, field: "description", want: "Buy two things for the job",
+				email: []string{"Description: Buy two things for the job", "Previous description: " + reviseOldDescription}},
+			{name: "division", body: `{"total": 132.1, "division": "` + reviseMFDivision + `"}`, field: "division", want: reviseMFDivision, allocate: reviseMFDivision,
+				email: []string{"Division: " + reviseMFDivisionText, "Previous division: " + reviseOldDivisionText}},
+			{name: "category", body: `{"total": 132.1, "category": "` + reviseOldJobCategory + `"}`, field: "category", want: reviseOldJobCategory,
+				email: []string{"Category: amoeba", "Previous category: " + reviseOldCategoryText}},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				app := testutils.SetupTestApp(t)
+				t.Cleanup(app.Cleanup)
+				if tc.allocate != "" {
+					reviseTestAllocate(t, app, "revisealloc0001", tc.allocate)
+				}
+				reviseTestRequest(t, app, http.MethodPost, revisePath, tc.body, creator, http.StatusOK)
+				if got := reviseTestPOField(t, app, revisePOID, tc.field); got != tc.want {
+					t.Fatalf("%s = %q, want %q", tc.field, got, tc.want)
+				}
+				for field, want := range map[string]string{"status": "Unapproved", "po_number": revisePONumber, "job": reviseOldJob, "approved": ""} {
+					if got := reviseTestPOField(t, app, revisePOID, field); got != want {
+						t.Errorf("%s = %q, want %q", field, got, want)
+					}
+				}
+				email := app.TestMailer.LastMessage()
+				for _, want := range tc.email {
+					if !strings.Contains(email.Text, want) {
+						t.Fatalf("approval email is missing %q: %s", want, email.Text)
+					}
+				}
+				for _, unwanted := range []string{"Previous total", "Previous job", "Attachment:"} {
+					if strings.Contains(email.Text, unwanted) {
+						t.Fatalf("approval email reports %q that did not change: %s", unwanted, email.Text)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("the description, division, category and attachment of a revision can change before approval", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		recordPath := "/api/collections/purchase_orders/records/" + revisePOID
+		reviseTestAllocate(t, app, "revisealloc0001", reviseMFDivision)
+		revisionEmails := func() int {
+			t.Helper()
+			var result struct{ Count int }
+			if err := app.DB().NewQuery(`
+				SELECT COUNT(*) AS count FROM notifications n
+				JOIN notification_templates t ON t.id = n.template
+				WHERE t.code = 'po_revision_approval_required' AND json_extract(n.data, '$.POId') = {:po}
+			`).Bind(map[string]any{"po": revisePOID}).One(&result); err != nil {
+				t.Fatal(err)
+			}
+			return result.Count
+		}
+		// Setting the first approval directly stands in for a stage 1 approval,
+		// as in the tests above.
+		approveFirstStage := func() {
+			t.Helper()
+			po, err := app.FindRecordById("purchase_orders", revisePOID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			po.Set("approved", "2026-11-05 12:00:00.000Z")
+			if err := app.Save(po); err != nil {
+				t.Fatal(err)
+			}
+		}
+		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 150}`, creator, http.StatusOK)
+
+		for _, tc := range []struct {
+			name, patch string
+			wantData    map[string]string
+			wantEmail   string
+		}{
+			{name: "description", patch: `{"description": "Buy two things for the job"}`,
+				wantData:  map[string]string{"PreviousDescription": reviseOldDescription, "PreviousDivision": "", "PreviousCategory": "", "Attachment": ""},
+				wantEmail: "Previous description: " + reviseOldDescription},
+			{name: "division", patch: `{"division": "` + reviseMFDivision + `"}`,
+				wantData:  map[string]string{"Division": reviseMFDivisionText, "PreviousDivision": reviseOldDivisionText, "PreviousDescription": "", "PreviousCategory": ""},
+				wantEmail: "Previous division: " + reviseOldDivisionText},
+			{name: "category", patch: `{"category": "` + reviseOldJobCategory + `"}`,
+				wantData:  map[string]string{"Category": "amoeba", "PreviousCategory": reviseOldCategoryText, "PreviousDivision": ""},
+				wantEmail: "Previous category: " + reviseOldCategoryText},
+		} {
+			approveFirstStage()
+			before := revisionEmails()
+			reviseTestRequest(t, app, http.MethodPatch, recordPath, tc.patch, creator, http.StatusOK)
+			if got := reviseTestPOField(t, app, revisePOID, "approved"); got != "" {
+				t.Fatalf("%s: approved = %q after the change, want it cleared", tc.name, got)
+			}
+			if got := revisionEmails(); got != before+1 {
+				t.Fatalf("%s: revision emails = %d, want %d", tc.name, got, before+1)
+			}
+			data := reviseTestNotificationData(t, app)
+			for key, want := range tc.wantData {
+				if got, _ := data[key].(string); got != want {
+					t.Errorf("%s: notification %s = %q, want %q", tc.name, key, got, want)
+				}
+			}
+			if email := app.TestMailer.LastMessage(); !strings.Contains(email.Text, tc.wantEmail) {
+				t.Fatalf("%s: email is missing %q: %s", tc.name, tc.wantEmail, email.Text)
+			}
+		}
+
+		// Without a first approval, a change still tells the approver.
+		before := revisionEmails()
+		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"description": "Buy three things for the job"}`, creator, http.StatusOK)
+		if got := revisionEmails(); got != before+1 {
+			t.Fatalf("description change without a first approval: revision emails = %d, want %d", got, before+1)
+		}
+
+		for i, want := range []string{"added", "replaced"} {
+			approveFirstStage()
+			before := revisionEmails()
+			body, contentType := reviseTestAttachmentBody(t, want)
+			response := performTestAPIRequest(t, app, http.MethodPatch, recordPath, body,
+				map[string]string{"Authorization": creator, "Content-Type": contentType})
+			if response.Code != http.StatusOK {
+				t.Fatalf("attachment %d: status=%d, body=%s", i, response.Code, response.Body.String())
+			}
+			po, err := app.FindRecordById("purchase_orders", revisePOID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if po.GetString("attachment") == "" || po.GetString("attachment_hash") == "" {
+				t.Fatalf("attachment %d: attachment = %q, hash = %q", i, po.GetString("attachment"), po.GetString("attachment_hash"))
+			}
+			if po.GetString("approved") != "" {
+				t.Fatalf("attachment %d: approved = %q, want it cleared", i, po.GetString("approved"))
+			}
+			if got := revisionEmails(); got != before+1 {
+				t.Fatalf("attachment %d: revision emails = %d, want %d", i, got, before+1)
+			}
+			if got, _ := reviseTestNotificationData(t, app)["Attachment"].(string); got != want {
+				t.Fatalf("attachment %d: notification Attachment = %q, want %q", i, got, want)
+			}
+			if email := app.TestMailer.LastMessage(); !strings.Contains(email.Text, "Attachment: "+want) {
+				t.Fatalf("attachment %d: email is missing the attachment line: %s", i, email.Text)
+			}
+		}
+
+		// The update rule and the hook both refuse a category of another job.
+		response := performTestAPIRequest(t, app, http.MethodPatch, recordPath,
+			strings.NewReader(`{"category": "`+reviseNewCategory+`"}`), map[string]string{"Authorization": creator})
+		if response.Code == http.StatusOK {
+			t.Fatalf("category of another job was accepted: %s", response.Body.String())
+		}
+		if got := reviseTestPOField(t, app, revisePOID, "category"); got != reviseOldJobCategory {
+			t.Fatalf("category = %q after a refused edit, want %q", got, reviseOldJobCategory)
 		}
 	})
 }

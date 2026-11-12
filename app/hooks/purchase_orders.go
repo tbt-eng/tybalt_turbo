@@ -651,28 +651,36 @@ func purchaseOrderHasMeaningfulChanges(record *core.Record) bool {
 // a revision. The rest of the purchase order was approved before and keeps its
 // number, so it must not change. Computed fields are listed because
 // CleanPurchaseOrder overwrites whatever the request sends for them. The update
-// rule refuses changes to the skip fields.
+// rule refuses changes to the skip fields. A new attachment is possible only on
+// a revision that awaits approval, because the revise route takes no file.
+// attachment_hash is not listed: this check runs before ProcessPurchaseOrder
+// computes it from the uploaded file, so a submitted hash is always refused.
 var purchaseOrderRevisionEditableFields = append([]string{
 	"total",
 	"currency",
 	"approver",
 	"priority_second_approver",
+	"description",
+	"division",
+	"category",
+	"attachment",
 	"approval_total",
 	"approval_total_home",
 	"occurrences",
 }, purchaseOrderMeaningfulChangeSkipFields...)
 
 // purchaseOrderRevisionJobFields can change on a revision only together with
-// its job. The division must be allocated to the new job, a category belongs to
-// one job, and the budget confirmation was given for one job. CleanPurchaseOrder
-// sets the branch from the job.
+// its job. The budget confirmation was given for one job, and
+// CleanPurchaseOrder sets the branch from the job.
 var purchaseOrderRevisionJobFields = []string{
 	"job",
-	"division",
-	"category",
 	"covered_within_project_budget",
 	"branch",
 }
+
+// revisionFieldLockedMessage says what can change on a revision that awaits
+// approval. The update hook returns it with code revision_field_locked.
+const revisionFieldLockedMessage = "only the total, currency, approvers, description, division, category, job and attachment can change on a revised purchase order, and the budget confirmation only with a new job"
 
 // lockedRevisionFieldChange returns the first field outside
 // purchaseOrderRevisionEditableFields that differs from the original record,
@@ -717,8 +725,9 @@ func RevisionJobChangeRefusal(po *core.Record, newJob string) (string, string) {
 }
 
 // ValidatePurchaseOrderCategory checks that a purchase order's category belongs
-// to its job. The collection API rules check this on a create or an edit, but
-// the revise route doesn't go through them.
+// to its job, so a purchase order without a job can't have one. The collection
+// API rules check this on a create or an edit, but the revise route doesn't go
+// through them.
 func ValidatePurchaseOrderCategory(app core.App, po *core.Record) error {
 	categoryID := strings.TrimSpace(po.GetString("category"))
 	if categoryID == "" {
@@ -789,19 +798,48 @@ func shouldResetPurchaseOrderApprovals(record *core.Record) bool {
 
 // revisionChangeNeedsApproverEmail reports whether an update to a revision that
 // has no first approval changes what its approver must do or was told: a
-// resubmission after rejection, a new approver, a new total, a new currency or
-// a new job. A blank currency means the home currency, so filling it in changes
-// nothing.
+// resubmission after rejection, a new approver, or a new total, currency, job,
+// description, division, category or attachment. A blank currency means the
+// home currency, so filling it in changes nothing.
 func revisionChangeNeedsApproverEmail(app core.App, record *core.Record) bool {
 	original := record.Original()
 	if record.IsNew() || original == nil || !utilities.IsPurchaseOrderRevision(original) {
 		return false
 	}
-	return strings.TrimSpace(original.GetString("rejected")) != "" ||
-		original.GetString("approver") != record.GetString("approver") ||
+	if strings.TrimSpace(original.GetString("rejected")) != "" ||
 		original.GetFloat("total") != record.GetFloat("total") ||
-		original.GetString("job") != record.GetString("job") ||
-		utilities.EffectiveCurrencyCode(app, original.GetString("currency")) != utilities.EffectiveCurrencyCode(app, record.GetString("currency"))
+		utilities.EffectiveCurrencyCode(app, original.GetString("currency")) != utilities.EffectiveCurrencyCode(app, record.GetString("currency")) {
+		return true
+	}
+	for _, field := range []string{"approver", "job", "description", "division", "category"} {
+		if original.GetString(field) != record.GetString(field) {
+			return true
+		}
+	}
+	return PurchaseOrderAttachmentChange(record) != ""
+}
+
+// PurchaseOrderAttachmentChange says how an update changes a purchase order's
+// attachment: "added", "replaced" or "removed", or "" when it keeps it. A new
+// upload is a file, not a name, until the record is saved, so GetString can't
+// see it.
+func PurchaseOrderAttachmentChange(record *core.Record) string {
+	original := record.Original()
+	if original == nil {
+		return ""
+	}
+	before := strings.TrimSpace(original.GetString("attachment"))
+	uploaded := len(record.GetUnsavedFiles("attachment")) > 0
+	after := strings.TrimSpace(record.GetString("attachment"))
+	switch {
+	case !uploaded && before == after:
+		return ""
+	case !uploaded && after == "":
+		return "removed"
+	case before == "":
+		return "added"
+	}
+	return "replaced"
 }
 
 // PurchaseOrderApprovalTotalText is what the approver approves, with its
@@ -824,42 +862,93 @@ func purchaseOrderJobText(app core.App, jobID string) string {
 	return strings.TrimSpace(job.GetString("number") + " " + job.GetString("description"))
 }
 
+// purchaseOrderDivisionText is a division's code and name, or "" when there is
+// no division.
+func purchaseOrderDivisionText(app core.App, divisionID string) string {
+	divisionID = strings.TrimSpace(divisionID)
+	if divisionID == "" {
+		return ""
+	}
+	division, err := app.FindRecordById("divisions", divisionID)
+	if err != nil || division == nil {
+		return divisionID
+	}
+	return strings.TrimSpace(division.GetString("code") + " " + division.GetString("name"))
+}
+
+// purchaseOrderCategoryText is a category's name, or "" when there is no
+// category.
+func purchaseOrderCategoryText(app core.App, categoryID string) string {
+	categoryID = strings.TrimSpace(categoryID)
+	if categoryID == "" {
+		return ""
+	}
+	category, err := app.FindRecordById("categories", categoryID)
+	if err != nil || category == nil {
+		return categoryID
+	}
+	return category.GetString("name")
+}
+
+// revisionPreviousValue is the text of a value before a revision changed it, or
+// "" when it didn't change. A value that was blank before shows as "none", so
+// that the change still shows.
+func revisionPreviousValue(before, after string) string {
+	if before == after {
+		return ""
+	}
+	if strings.TrimSpace(before) == "" {
+		return "none"
+	}
+	return before
+}
+
 // RevisionApprovalNotification builds the email that asks a revision's approver
 // to approve it again. po_approval_required says the purchase order was just
 // created, which would mislead an approver about a number that already exists.
-// previousTotal is the approval total before this change and previousJobID the
-// job before it. The email shows each only if it differs, so that an approver
-// can't miss a new currency when the amount stays the same, or a new job.
-func RevisionApprovalNotification(app core.App, po *core.Record, previousTotal string, previousJobID string, actorID string, mode notifications.DeliveryMode) notifications.DispatchArgs {
+// previous is the purchase order before this change, and attachmentChange is
+// what PurchaseOrderAttachmentChange returned for it. The email shows each
+// previous value only if it differs, so that an approver can't miss a change:
+// a new currency when the amount stays the same, a new job, division, category
+// or description, or a new attachment.
+func RevisionApprovalNotification(app core.App, po *core.Record, previous *core.Record, attachmentChange string, actorID string, mode notifications.DeliveryMode) notifications.DispatchArgs {
 	vendorName := ""
 	if vendor, err := app.FindRecordById("vendors", po.GetString("vendor")); err == nil {
 		vendorName = vendor.GetString("name")
 	}
 	total := PurchaseOrderApprovalTotalText(app, po)
-	if previousTotal == total {
-		previousTotal = ""
+	job := purchaseOrderJobText(app, po.GetString("job"))
+	division := purchaseOrderDivisionText(app, po.GetString("division"))
+	category := purchaseOrderCategoryText(app, po.GetString("category"))
+	description := po.GetString("description")
+	if previous == nil {
+		previous = po
 	}
-	previousJob := ""
-	if strings.TrimSpace(previousJobID) != strings.TrimSpace(po.GetString("job")) {
-		previousJob = purchaseOrderJobText(app, previousJobID)
+	data := map[string]any{
+		"POId":                po.Id,
+		"PONumber":            po.GetString("po_number"),
+		"Description":         description,
+		"PreviousDescription": revisionPreviousValue(previous.GetString("description"), description),
+		"VendorName":          vendorName,
+		"Job":                 job,
+		"PreviousJob":         revisionPreviousValue(purchaseOrderJobText(app, previous.GetString("job")), job),
+		"Division":            division,
+		"PreviousDivision":    revisionPreviousValue(purchaseOrderDivisionText(app, previous.GetString("division")), division),
+		"Category":            category,
+		"PreviousCategory":    revisionPreviousValue(purchaseOrderCategoryText(app, previous.GetString("category")), category),
+		"Total":               total,
+		"PreviousTotal":       revisionPreviousValue(PurchaseOrderApprovalTotalText(app, previous), total),
+		// Attachment is "added", "replaced" or "removed", or "" when it is kept.
+		"Attachment": attachmentChange,
+		"ActionURL":  notifications.BuildActionURL(app, fmt.Sprintf("/pos/%s/details", po.Id)),
 	}
 	return notifications.DispatchArgs{
 		TemplateCode: "po_revision_approval_required",
 		RecipientUID: strings.TrimSpace(po.GetString("approver")),
-		Data: map[string]any{
-			"POId":          po.Id,
-			"PONumber":      po.GetString("po_number"),
-			"Description":   po.GetString("description"),
-			"VendorName":    vendorName,
-			"Job":           purchaseOrderJobText(app, po.GetString("job")),
-			"PreviousJob":   previousJob,
-			"Total":         total,
-			"PreviousTotal": previousTotal,
-			"ActionURL":     notifications.BuildActionURL(app, fmt.Sprintf("/pos/%s/details", po.Id)),
-		},
-		System:   false,
-		ActorUID: actorID,
-		Mode:     mode,
+		Data:         data,
+		System:       false,
+		ActorUID:     actorID,
+		Mode:         mode,
 	}
 }
 
@@ -873,8 +962,7 @@ func createPOApprovalRequiredNotification(app core.App, purchaseOrderRecord *cor
 		return "", nil
 	}
 	if utilities.IsPurchaseOrderRevision(purchaseOrderRecord) {
-		original := purchaseOrderRecord.Original()
-		return notifications.DispatchNotification(app, RevisionApprovalNotification(app, purchaseOrderRecord, PurchaseOrderApprovalTotalText(app, original), original.GetString("job"), actorID, notifications.DeliveryDeferred))
+		return notifications.DispatchNotification(app, RevisionApprovalNotification(app, purchaseOrderRecord, purchaseOrderRecord.Original(), PurchaseOrderAttachmentChange(purchaseOrderRecord), actorID, notifications.DeliveryDeferred))
 	}
 
 	return notifications.DispatchNotification(app, notifications.DispatchArgs{
@@ -994,7 +1082,7 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 					Data: map[string]errs.CodeError{
 						field: {
 							Code:    "revision_field_locked",
-							Message: "only the total, currency, approvers and job can change on a revised purchase order, and the division and category only with a new job",
+							Message: revisionFieldLockedMessage,
 						},
 					},
 				}
@@ -1010,13 +1098,18 @@ func ProcessPurchaseOrder(app core.App, e *core.RecordRequestEvent) (notificatio
 			}
 			// A category and a budget confirmation belong to the old job. Keep
 			// them only if the request sets them again for the new job.
-			if record.GetString("job") != original.GetString("job") {
+			jobChanged := record.GetString("job") != original.GetString("job")
+			if jobChanged {
 				if !requestBodyHas(e, "category") {
 					record.Set("category", "")
 				}
 				if !requestBodyHas(e, "covered_within_project_budget") {
 					record.Set("covered_within_project_budget", false)
 				}
+			}
+			// The update rule checks the category too. This gives the same
+			// error as the revise route.
+			if jobChanged || record.GetString("category") != original.GetString("category") {
 				if err := ValidatePurchaseOrderCategory(app, record); err != nil {
 					return "", err
 				}

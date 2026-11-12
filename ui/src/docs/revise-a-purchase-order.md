@@ -1,10 +1,10 @@
 # Revise a purchase order
 
-Change the total, currency or job of an approved purchase order and keep its number. It needs approval again.
+Change the total, currency, description, division, job or category of an approved purchase order and keep its number. It needs approval again.
 
 ```flow
-You | Make a revision | Enter the new total, currency or job.
-Approver | Approve or reject | Check the new total, currency and job.
+You | Make a revision | Enter the changes.
+Approver | Approve or reject | Check the changes.
 You | Add expenses | Use the same number after final approval.
 Note: Rejected? Edit and resubmit, or cancel.
 ```
@@ -13,7 +13,7 @@ Note: Rejected? Edit and resubmit, or cancel.
 
 1. Open the purchase order.
 2. Select **Revise**.
-3. Enter the new total, currency or job.
+3. Change the total, currency, description, division, job or category.
 4. Select the approvers that Turbo asks for.
 5. Select **Save**.
 
@@ -22,6 +22,8 @@ Only the person who created the purchase order can revise it. If Turbo doesn't a
 ## Change the job
 
 Select the new job, then its division and category. For a project, confirm the budget again. You can't add a job to a purchase order that has none, remove its job, or change the job of a child purchase order.
+
+The division must have hours on the job. The category must belong to the job.
 
 ## When you can't revise
 
@@ -51,17 +53,17 @@ Check its **Type**:
 ## Change a revision before approval
 
 1. Select **Edit Purchase Order**.
-2. Change the total, currency, job or approvers.
+2. Change the details or replace the attachment.
 3. Select **Save**.
 
-A change clears any first approval. To go back to the old total, enter it here. It still needs approval.
+You can replace the attachment only before approval. A change clears any first approval. To go back to the old total, enter it here. It still needs approval.
 
 You can't cancel it now. Ask the approver to reject it. Then select **Cancel Purchase Order**.
 
 ## Approve a revision
 
 1. Under **Purchase Orders**, open **Pending My Approval**.
-2. Open the purchase order and check the new total, currency and job.
+2. Open the purchase order and check the changes.
 3. Select **Approve** or **Reject**.
 
 A new total can require a second approval. After final approval, the purchase order is Active again. If the vendor has the old total, print a new copy.

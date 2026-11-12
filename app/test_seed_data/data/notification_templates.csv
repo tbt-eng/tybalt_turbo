@@ -209,12 +209,18 @@ po_revision_approval_required,2026-11-05 16:00:00.000Z,Asks the approver to appr
 
 {{.UserName}} revised purchase order {{.PONumber}}, and you are its approver. It was approved before, and it needs approval again.
 
-Description: {{.Description}}
+Description: {{.Description}}{{with index . ""PreviousDescription""}}
+Previous description: {{.}}{{end}}
 Vendor: {{.VendorName}}{{with index . ""Job""}}
 Job: {{.}}{{end}}{{with index . ""PreviousJob""}}
-Previous job: {{.}}{{end}}
+Previous job: {{.}}{{end}}{{with index . ""PreviousDivision""}}
+Division: {{index $ ""Division""}}
+Previous division: {{.}}{{end}}{{with index . ""PreviousCategory""}}
+Category: {{or (index $ ""Category"") ""none""}}
+Previous category: {{.}}{{end}}
 Revised total: {{.Total}}{{with index . ""PreviousTotal""}}
-Previous total: {{.}}{{end}}
+Previous total: {{.}}{{end}}{{with index . ""Attachment""}}
+Attachment: {{.}}{{end}}
 
 No expenses can be added to it until it is approved. You may review it, then approve or reject it here:
 

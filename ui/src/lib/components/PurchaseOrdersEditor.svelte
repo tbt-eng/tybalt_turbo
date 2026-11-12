@@ -108,10 +108,12 @@
 
   // A non-legacy purchase order with a po_number is a revision: an Active PO
   // about to be revised, or an Unapproved revision awaiting approval. The
-  // server only lets the total, currency, approvers and job change, so only
-  // those show. The job can move to another job, but a PO without a job can't
-  // get one and a child PO keeps its parent's job. Division, category and the
-  // budget confirmation show only with a new job.
+  // server only lets the total, currency, approvers, description, division,
+  // category and job change, and the attachment while the revision awaits
+  // approval, so only those show. The job can move to another job, but a PO
+  // without a job can't get one and a child PO keeps its parent's job,
+  // description and category. The budget confirmation shows only with a new
+  // job.
   const isRevision = $derived.by(
     () => !legacyMode && data.editing && (data.item.po_number ?? "") !== "",
   );
@@ -122,6 +124,24 @@
   const revisionJobChanged = $derived.by(
     () => canReviseJob && (item.job ?? "") !== (data.item.job ?? ""),
   );
+  const revisionAttachmentChanged = $derived.by(
+    () => isRevision && !isNewRevision && item.attachment !== data.item.attachment,
+  );
+  // The fields the callout names. Saving a new revision needs a change to one
+  // of them; approvers alone and the attachment can't start one.
+  const revisionChangeableFields = $derived.by(() => {
+    const isChild = (data.item.parent_po ?? "") !== "";
+    const fields = ["total", "currency"];
+    if (!isChild) fields.push("description");
+    fields.push("division");
+    if (canReviseJob) fields.push("job");
+    if ((data.item.job ?? "") !== "" && !isChild) fields.push("category");
+    return fields;
+  });
+  const joinFields = (fields: string[], conjunction: string): string =>
+    fields.length < 2
+      ? fields.join("")
+      : `${fields.slice(0, -1).join(", ")} ${conjunction} ${fields[fields.length - 1]}`;
 
   let categories = $state([] as CategoriesResponse[]);
   const syncCategoriesForJob = createJobCategoriesSync((rows) => {
@@ -989,21 +1009,31 @@
   }
 
   // Send only the fields a revision may change, so that values the editor
-  // derives for hidden fields can't reach the server. The job and the fields
-  // that belong to it go only when the job changes.
+  // derives for hidden fields can't reach the server. The job and the budget
+  // confirmation go only when the job changes, and the attachment only when
+  // it changes on a revision that awaits approval. A new file makes the SDK
+  // send the body as multipart form data. The category goes only when it or
+  // the job changes, because the update rule checks a sent category against
+  // the job, and an older PO may keep a category that no longer matches.
   async function saveRevision(id: string) {
     const body: Record<string, unknown> = {
       total: item.total,
       currency: item.currency,
       approver: item.approver,
       priority_second_approver: item.priority_second_approver,
+      description: item.description,
+      division: item.division,
     };
+    if (revisionJobChanged || (item.category ?? "") !== (data.item.category ?? "")) {
+      body.category = item.category ?? "";
+    }
     if (revisionJobChanged) {
       body.job = item.job;
-      body.division = item.division;
-      body.category = item.category ?? "";
       body.covered_within_project_budget =
         selectedJobIsProject && Boolean(item.covered_within_project_budget);
+    }
+    if (revisionAttachmentChanged) {
+      body.attachment = item.attachment;
     }
     try {
       if (isNewRevision) {
@@ -1025,11 +1055,11 @@
       const fieldErrors = await saveErrors(error, "Failed to save revision.");
       // The revision form hides most fields, so an error on one of them (a
       // closed job, say) has to show in the global error instead.
-      const shownFields = ["total", "currency", "global"];
+      const shownFields = ["total", "currency", "global", "description", "division"];
       if (canReviseJob) shownFields.push("job");
-      if (revisionJobChanged) {
-        shownFields.push("division", "category", "covered_within_project_budget");
-      }
+      if (item.job !== "") shownFields.push("category");
+      if (revisionJobChanged) shownFields.push("covered_within_project_budget");
+      if (!isNewRevision) shownFields.push("attachment");
       if (showApproverField) shownFields.push("approver");
       if (showSecondApproverField) shownFields.push("priority_second_approver");
       const hiddenMessages = Object.entries(fieldErrors as Record<string, { message: string }>)
@@ -1095,6 +1125,24 @@
       {/snippet}
     </DsSelector>
   {/if}
+{/snippet}
+
+{#snippet descriptionField()}
+  <DsTextInput
+    bind:value={item.description as string}
+    {errors}
+    fieldName="description"
+    uiName="Description"
+    disabled={isChildPO}
+  />
+{/snippet}
+
+{#snippet attachmentField()}
+  <DsFileSelect bind:record={item} {errors} fieldName="attachment" uiName="Attachment" />
+  <span class="flex w-full gap-2 text-sm text-neutral-600">
+    <span class="invisible">Attachment</span>
+    <span>include quotes, agreements, or any relevant supporting documentation</span>
+  </span>
 {/snippet}
 
 {#snippet budgetField()}
@@ -1216,8 +1264,8 @@
   {#if isNewRevision}
     <div class="w-full">
       <DSCallout tone="info">
-        Saving a new total, currency or job sends {item.po_number} back for approval. It keeps its number,
-        but no expenses can be added to it until it is approved again.
+        Saving a new {joinFields(revisionChangeableFields, "or")} sends {item.po_number} back for approval.
+        It keeps its number, but no expenses can be added to it until it is approved again.
         {#snippet actions()}
           <DSHelp doc="revise-a-purchase-order#make-a-revision" label="Help" />
         {/snippet}
@@ -1226,12 +1274,10 @@
   {:else if isRevision}
     <div class="w-full">
       <DSCallout tone="info">
-        This is a revision of {item.po_number}.
-        {#if canReviseJob}
-          Only the total, currency, approvers and job can change.
-        {:else}
-          Only the total, currency and approvers can change.
-        {/if}
+        This is a revision of {item.po_number}. Only the {joinFields(
+          [...revisionChangeableFields, "approvers", "attachment"],
+          "and",
+        )} can change.
         {#snippet actions()}
           <DSHelp doc="revise-a-purchase-order#change-a-revision-before-approval" label="Help" />
         {/snippet}
@@ -1312,16 +1358,16 @@
       <div class="w-full">
         <DSFieldList columns={2}>
           <DSField label="Type" value={item.type} />
-          <DSField label="Description" value={item.description} />
         </DSFieldList>
       </div>
+      {@render descriptionField()}
+      {@render divisionField()}
       {#if canReviseJob}
         {@render jobField()}
-        {#if revisionJobChanged}
-          {@render divisionField()}
-          {@render categoryField()}
-          {@render budgetField()}
-        {/if}
+      {/if}
+      {@render categoryField()}
+      {#if revisionJobChanged}
+        {@render budgetField()}
       {/if}
     {:else}
       <div class="flex w-full flex-col gap-1 {errors.type !== undefined ? 'bg-red-200' : ''}">
@@ -1495,14 +1541,7 @@
       {@render jobField()}
       {@render categoryField()}
       {@render budgetField()}
-
-      <DsTextInput
-        bind:value={item.description as string}
-        {errors}
-        fieldName="description"
-        uiName="Description"
-        disabled={isChildPO}
-      />
+      {@render descriptionField()}
     {/if}
 
     <DSCurrencyInput
@@ -1530,13 +1569,10 @@
       <VendorSelector bind:value={item.vendor as string} {errors} disabled={isChildPO} />
     {/if}
 
-    {#if !legacyMode && !isRevision}
-      <!-- File upload for attachment -->
-      <DsFileSelect bind:record={item} {errors} fieldName="attachment" uiName="Attachment" />
-      <span class="flex w-full gap-2 text-sm text-neutral-600">
-        <span class="invisible">Attachment</span>
-        <span>include quotes, agreements, or any relevant supporting documentation</span>
-      </span>
+    <!-- The revise route takes no file, so a revision's attachment can change
+    only while it awaits approval. -->
+    {#if !legacyMode && !isNewRevision}
+      {@render attachmentField()}
     {/if}
 
     <div class="flex w-full flex-col gap-2 {errors.global !== undefined ? 'bg-red-200' : ''}">
