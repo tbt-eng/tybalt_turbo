@@ -83,13 +83,13 @@ The sheet shows its old names after **Formerly**.
 
 ## Correct a rate
 
-This is an exceptional fix, such as for a typing error. Don't use it to change rates. [Revise the sheet](/docs/rate-sheets#revise-a-rate-sheet) instead. Only admins can do this.
+This fixes errors, such as typing errors. To change rates, [revise the sheet](/docs/rate-sheets#revise-a-rate-sheet). Only admins can do this.
 
 1. Open the sheet.
 2. Change the **Rate** or the **Overtime Rate** of a role.
 3. Select **Save** on that row.
 
-The change reprices all past time on every job that uses the sheet.
+The change reprices all past time on the sheet's jobs. Turbo won't save rates that match another active sheet.
 
 ## Your role on a time entry
 

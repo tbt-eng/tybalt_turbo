@@ -217,8 +217,43 @@ func createUpdateRateSheetEntryHandler(app core.App) func(e *core.RequestEvent) 
 			record.Set("overtime_rate", *req.OvertimeRate)
 		}
 
-		// Save the record
-		if err := app.Save(record); err != nil {
+		// Check for a duplicate and save in a single transaction. A change may
+		// not make an active sheet's rates equal to another active sheet's. An
+		// inactive sheet is not checked here, because activation checks it.
+		err = app.RunInTransaction(func(txApp core.App) error {
+			sheet, err := txApp.FindRecordById("rate_sheets", record.GetString("rate_sheet"))
+			if err != nil {
+				return err
+			}
+			if sheet.GetBool("active") {
+				entries, err := hooks.LoadRateSheetEntryValues(txApp, sheet.Id)
+				if err != nil {
+					return err
+				}
+				// Apply the change. Each role is on a sheet at most once.
+				role := record.GetString("role")
+				for i := range entries {
+					if entries[i].Role == role {
+						entries[i].Rate = record.GetFloat("rate")
+						entries[i].OvertimeRate = record.GetFloat("overtime_rate")
+					}
+				}
+				// Revisions of this sheet are excluded by name.
+				comparison, err := hooks.CompareWithActiveRateSheets(txApp, entries, sheet.GetString("name"))
+				if err != nil {
+					return err
+				}
+				if len(comparison.Exact) > 0 {
+					return hooks.DuplicateRateSheetError("entry", comparison.Exact)
+				}
+			}
+			return txApp.Save(record)
+		})
+		if err != nil {
+			var hookErr *errs.HookError
+			if errors.As(err, &hookErr) {
+				return e.JSON(hookErr.Status, hookErr)
+			}
 			return e.Error(http.StatusInternalServerError, "failed to update rate sheet entry", err)
 		}
 

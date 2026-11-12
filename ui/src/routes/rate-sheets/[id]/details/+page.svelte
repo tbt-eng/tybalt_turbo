@@ -86,6 +86,8 @@
   let editedEntries = $state<Record<string, { rate: number; overtime_rate: number }>>({});
   let savingEntryId = $state<string | null>(null);
   let entryErrors = $state<Record<string, string>>({});
+  // Active sheets with the same rates, when they blocked saving a corrected rate.
+  let entryMatches = $state<RateSheetMatch[] | null>(null);
 
   // Overtime multiplier for bulk calculation
   let overtimeMultiplier = $state(1.3);
@@ -151,6 +153,7 @@
     if (!edits) return;
 
     savingEntryId = entryId;
+    entryMatches = null;
     delete entryErrors[entryId];
     entryErrors = { ...entryErrors };
 
@@ -173,7 +176,10 @@
       editedEntries = { ...editedEntries };
     } catch (error: any) {
       console.error("Failed to update entry:", error);
-      entryErrors[entryId] = error.data?.message ?? "Failed to update";
+      entryMatches = duplicateRateSheetMatches(error, "entry");
+      entryErrors[entryId] = entryMatches?.length
+        ? "Not saved"
+        : (error.data?.message ?? "Failed to update");
       entryErrors = { ...entryErrors };
     } finally {
       savingEntryId = null;
@@ -186,6 +192,7 @@
     editedEntries = { ...editedEntries };
     delete entryErrors[entryId];
     entryErrors = { ...entryErrors };
+    entryMatches = null;
   }
 
   // Apply overtime multiplier to all entries
@@ -392,6 +399,16 @@
   <!-- Entries Table -->
   <div class="mb-6">
     <h2 class="mb-2 text-lg font-semibold">Rate Entries</h2>
+    {#if entryMatches && entryMatches.length > 0}
+      <div class="mb-4">
+        <RateSheetMatchCallout
+          tone="danger"
+          title="Rate not saved"
+          intro="With this rate, the sheet has the same rates as another active sheet."
+          matches={entryMatches}
+        />
+      </div>
+    {/if}
     {#if entries.length > 0}
       {#if isAdmin}
         <!-- Editable table for admins -->

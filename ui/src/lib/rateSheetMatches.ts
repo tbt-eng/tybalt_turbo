@@ -19,10 +19,10 @@ export interface RateSheetComparison {
 // Returns the matching sheets from a pb.send error when the save or the
 // activation was blocked because an active sheet has the same rates, or null
 // for any other error. field is "entries" for a create, "active" for an
-// activation.
+// activation, "entry" for a corrected rate on an active sheet.
 export function duplicateRateSheetMatches(
   error: unknown,
-  field: "entries" | "active",
+  field: "entries" | "active" | "entry",
 ): RateSheetMatch[] | null {
   const fieldError = (
     error as { data?: { data?: Record<string, { code?: string; data?: unknown }> } }
