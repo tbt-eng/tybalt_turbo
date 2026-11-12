@@ -1,164 +1,180 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/revise_purchase_order.go","sha256":"7a78ed620224d25581c6a6f06eb1ed8a04626ed7a9a8f7d5139ae997a0f5c59e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/revise_purchase_order.go","sha256":"60ce8ede216163206b2ee9c3c584e444a9b7067faad59eed988752221519f3be","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/revise_purchase_order.go
 
-## Revision keeps the purchase order number
+## Revising an active purchase order returns it to Unapproved
 
 Lines 1-5
 
-Asked as: po number changes after edit; same po number after revising; revised order new number; purchase order number lost
+Asked as: edit approved PO; PO back to unapproved; changed PO lost approval; need to approve again
 
-A revised purchase order goes back to Unapproved and keeps its po_number. Approving it again re-activates the same number. The change is saved in one transaction, so a failed revision changes nothing.
+A revision of an active purchase order (status Active) sets its status to Unapproved and clears approved, second_approval and second_approver. The purchase order keeps its po_number, so a new approval re-activates the same number. The change is saved in one transaction.
 
-## Revision request lets the creator submit new approvers
+## Revision request leaves unset fields unchanged
 
-Lines 24-31
+Lines 24-40
 
-Asked as: change approver on existing po; add new approver when editing; update approvers with new total; swap approver on purchase order
+Asked as: fields left blank; missing total becomes zero; partial update purchase order; blank field wipes value
 
-The revision request carries the new total, an optional currency, an optional approver and an optional second approver (priority_second_approver). A currency or approver that is left out keeps its current value. The creator can send new approvers with the new total because the new total may need different approvers.
+A field that the revision request omits keeps its current value. The request can send a new total, currency, approver, priority second approver, job, description, division, category or budget confirmation. The total is not optional: an omitted total is read as 0.
 
-## Revision with an unreadable request body is refused
+## Unreadable revision request body is refused
 
-Lines 38-44
+Lines 47-53
 
-Asked as: invalid request body error; revise po request failing; revision fails bad data
+Asked as: invalid request body; revision won't parse; bad json revise PO
 
-When the request body cannot be read, Turbo refuses the revision with the message 'invalid request body' (code invalid_request_body).
+When the revision request body cannot be read, Turbo refuses the revision with the message "invalid request body" (code invalid_request_body). Turbo checks the body before it looks up the purchase order.
 
-## Revising a purchase order that does not exist is refused
+## Revision is saved all together or not at all
 
-Lines 49-56
+Lines 57-57
 
-Asked as: purchase order not found; can't find po to revise; error fetching purchase order
+Asked as: revision half saved; partial changes on error; rollback PO changes
 
-When the purchase order cannot be found by its id, Turbo refuses the revision with code po_not_found. The message is 'error fetching purchase order:' followed by the lookup error.
+Turbo looks up, checks and saves a purchase order revision in one transaction. When any check fails, the purchase order keeps its previous details and its Active status.
+
+## Revision of a missing purchase order is refused
+
+Lines 58-65
+
+Asked as: purchase order not found; PO does not exist; po_not_found
+
+When the purchase order does not exist, Turbo refuses the revision with the code po_not_found.
 
 ## Only active purchase orders can be revised
 
-Lines 58-64
+Lines 67-73
 
-Asked as: cannot edit draft po; revise po not active; edit pending purchase order
+Asked as: can't edit PO status; PO not active; po_not_active
 
-Turbo refuses to revise a purchase order whose status (status) is not Active. The message is "only active purchase orders can be revised".
-
-## Revision refusal messages for each blocking condition
-
-Lines 58-121
-
-Asked as: why can't I revise this; revision refused message; revise button error; po edit blocked reason
-
-Turbo refuses a revision with these messages: 'only active purchase orders can be revised', 'only the creator can revise this purchase order', 'legacy purchase orders cannot be revised', 'this purchase order has associated expenses and cannot be revised' and 'this purchase order has child purchase orders and cannot be revised'.
+Turbo refuses to revise a purchase order whose status is not Active. The message is "only active purchase orders can be revised" (po_not_active).
 
 ## Only the creator can revise a purchase order
 
-Lines 66-72
+Lines 75-81
 
-Asked as: edit someone else's purchase order; not my po can't change; edit po I didn't create
+Asked as: someone else's PO; not my purchase order; not the creator edit
 
-Turbo refuses a revision from anyone other than the creator of the purchase order (uid). The message is "only the creator can revise this purchase order". The status check runs before this check.
+Turbo refuses a revision from anyone other than the person who created the purchase order (uid). The message is "only the creator can revise this purchase order".
 
 ## Legacy and imported purchase orders cannot be revised
 
-Lines 74-83
+Lines 83-92
 
-Asked as: old imported po edit; manual entry purchase order change; legacy po can't update
+Asked as: imported PO can't edit; legacy manual entry locked; old PO cannot change
 
 Turbo refuses to revise a purchase order that is a legacy manual entry (legacy_manual_entry) or imported (_imported). The message is "legacy purchase orders cannot be revised". These orders never went through Turbo approval, so they cannot return to it.
 
 ## Purchase order with expenses cannot be revised
 
-Lines 85-103
+Lines 94-112
 
-Asked as: po has expenses can't edit; expense attached to po blocks change; linked expenses stop revision
+Asked as: PO has expenses can't edit; expense attached to purchase order; linked expenses block change
 
-Turbo refuses to revise a purchase order when any expense uses it. The message is "this purchase order has associated expenses and cannot be revised".
+Turbo refuses to revise a purchase order if any expense uses it. The message is "this purchase order has associated expenses and cannot be revised". A purchase order with no expenses can be revised.
 
-## Purchase order with child orders cannot be revised
+## Purchase order with child purchase orders cannot be revised
 
-Lines 105-121
+Lines 114-130
 
-Asked as: child po blocks edit; sub purchase order stops revision; parent po can't change; cancelled child still blocking
+Asked as: child purchase order blocks edit; sub PO revise; parent PO can't change
 
 Turbo refuses to revise a purchase order that has a child purchase order (parent_po) whose status is not Cancelled. The message is "this purchase order has child purchase orders and cannot be revised". Cancelled children do not block a revision.
 
-## A revision must change the total or currency
+## Job change checked by RevisionJobChangeRefusal
 
-Lines 123-134
+Lines 132-141
 
-Asked as: same total nothing changed; save revision without change; revise with no changes
+Asked as: new job rejected; can't switch job on PO; job change not allowed
 
-Turbo refuses a revision when the new total equals the current total and the effective currency is unchanged. The message is "a revision must change the total or the currency". A changed total or a changed currency is enough. The currency is compared by its effective currency code, after trimming spaces from the submitted value.
+Turbo asks hooks.RevisionJobChangeRefusal whether the new job is allowed and refuses the revision with that code and message when it objects. If the request has no job, the current job is kept and checked.
 
-## Omitted currency and approvers keep their current values
+## Budget confirmation changes only with a new job
 
-Lines 123-144
+Lines 142-149
 
-Asked as: blank currency on revision; leave approver empty when revising; fields left empty revision
+Asked as: change covered within budget; budget checkbox won't change; within project budget toggle
 
-When the request leaves out the currency, the purchase order keeps its current currency. When it leaves out the approver or the priority second approver, each keeps its current value. A submitted value is trimmed of spaces before it is set. The total is always replaced by the submitted total.
+A revision cannot change the budget confirmation (covered_within_project_budget) unless the job also changes. Turbo refuses with "the budget confirmation can change only with a new job" (revision_requires_job_change). Sending the same value as the current one is accepted.
 
-## Currency change is compared by effective currency code
+## New job clears category and budget confirmation
 
-Lines 123-128
+Lines 159-166
 
-Asked as: currency change same code; switch currency no change detected; currency spelling different same
+Asked as: category reset when job changed; budget confirmation reset to false; switching job wipes category
 
-Turbo trims the submitted currency and compares its effective currency code (EffectiveCurrencyCode) with the code of the current currency. The revision counts as a currency change only when these codes differ. A different currency value with the same effective code does not count. The total is compared with the current total for exact equality.
+When a revision changes the job, Turbo clears the category unless the request sets one. It sets the budget confirmation (covered_within_project_budget) to true only when the request sends true, otherwise to false. When the job is unchanged, the category stays unless the request sets one.
 
-## Revision failure with an error message
+## Revision must change something
 
-Lines 128-134
+Lines 167-181
 
-Asked as: revision failed no notification; why did revision fail; revision error total unchanged
+Asked as: no changes saved; nothing changed revision error; same values revise PO
 
-The revision message reads 'a revision must change the total or the currency' (code total_unchanged) when the new total equals the current total and the effective currency is the same. Other errors from the approval checks and from saving are also returned to the caller. Turbo does not send a notification when the revision fails.
+Turbo refuses a revision that leaves the total, currency, job, description, division and category all the same. The message is: "a revision must change the total, currency, job, description, division or category". Turbo compares currencies by their effective currency code (EffectiveCurrencyCode).
 
-## Approver is notified only when one is set
+## Revision with a new job sets the job and budget confirmation
 
-Lines 136-204
+Lines 188-196
 
-Asked as: no notification after revise; email approver when po edited; revision email not sent
+Asked as: moving PO to another job; job not saved on purchase order; budget flag saved with job
 
-After a successful revision, Turbo sends an immediate revision approval notification only when the purchase order has an approver. The notification includes the previous approval total and the creator. A failed notification is logged and does not fail the revision. The response returns the revised purchase order.
+Only a job change makes Turbo write the job and the budget confirmation on the purchase order. Division, description, category, total and currency are always written from the request or the current values.
 
-## Revision clears approvals and sets the second approver fields
+## Revision can replace approvers
 
-Lines 137-148
+Lines 197-206
 
-Asked as: approval reset after edit; second approver removed on revise; approvals cleared when changed
+Asked as: change approver on PO; new second approver; swap approvers purchase order
 
-A revision sets the status to Unapproved. It clears the approved and second_approval timestamps and the second_approver. A new approver or second approver, if submitted, is trimmed and saved.
+The revision request can set a new approver and a new priority second approver. Turbo trims the values. Turbo always clears the earlier approval and the second approver.
 
-## Revision returns the order to Unapproved and clears approvals
+## Revision recomputes approval totals and validates approvers and division
 
-Lines 145-169
+Lines 208-219
 
-Asked as: po back to unapproved; need approval again after edit; revised order needs re-approval
+Asked as: approval totals wrong after edit; division not allocated to job; approver not valid for division
 
-A revision sets the purchase order status to Unapproved. It clears the approval (approved), the second approval (second_approval) and the second approver (second_approver), so the order needs approval again. The purchase order keeps its po_number. The change is saved in one transaction, so a failed check saves nothing.
+After the changes, Turbo recalculates the approval totals and clears any rejection fields (CleanPurchaseOrder). It requires the division to be active (EnsureActiveDivision). It then validates the purchase order (ValidatePurchaseOrder), which checks that the division is allocated to a new job, that the job and category match, and the approvers against the new division. A failure refuses the revision.
 
-## Revision re-checks approval totals, approvers and division
+## Revision requires an active division
 
-Lines 150-161
+Lines 214-216
 
-Asked as: approval totals recalculated after edit; approver policy check on revise; rejection cleared on revision
+Asked as: division inactive PO; closed division purchase order; division not active revise
 
-After a revision Turbo recomputes the approval totals and checks the approvers against the approval policy (CleanPurchaseOrder, ValidatePurchaseOrder). CleanPurchaseOrder also clears any rejection fields. Turbo refuses the revision when the division is not active (EnsureActiveDivision). The exact rules and messages come from those functions in the hooks package.
+After it recomputes the approval totals, Turbo checks that the revised purchase order's division is active. When it is not, Turbo refuses the revision with the error that EnsureActiveDivision returns for the division field.
 
-## Division must be active on revision
+## Failed saving of a revision is refused
 
-Lines 156-161
+Lines 221-227
 
-Asked as: inactive division revision; division disabled cannot edit po; division not active error
+Asked as: error updating purchase order; PO save failed; could not save revision
 
-Turbo checks that the purchase order's division is active (EnsureActiveDivision) before it saves the revision. The validation runs with the approver policy checks (ValidatePurchaseOrder) and its errors are returned to the caller.
+When Turbo cannot save the revised purchase order, it refuses the revision with the message "error updating purchase order: ..." (code error_updating_purchase_order). The purchase order stays unchanged.
+
+## Revision errors from validation are returned to the user
+
+Lines 232-247
+
+Asked as: validation error PO; approval policy failed revision; revision fields failing validation
+
+When the approval policy or division checks in a revision fail, Turbo returns that error to the requester. The purchase order does not change. A validation error comes back as "Validation error" with the failing fields.
+
+## Revision refusals show a message and code
+
+Lines 232-241
+
+Asked as: why was revision refused; revision error message; revise PO refused code
+
+Each refusal of a revision, such as not Active, not the creator or no change, returns its own message and code.
 
 ## Approver is notified of a revision
 
-Lines 197-202
+Lines 250-262
 
-Asked as: email approver about revision; approver alert after edit; notification failed but revision saved
+Asked as: approver not notified; no approval email after edit; notification after revising PO
 
-After a successful revision, if the order has an approver, Turbo sends that approver an immediate revision approval notification that includes the previous total. When the notification fails, Turbo logs the error and the revision still succeeds. An order with no approver sends no notification.
+After a revision is saved, Turbo sends an immediate approval notification to the approver when the purchase order has an approver. A failed notification is logged and does not undo the revision.
