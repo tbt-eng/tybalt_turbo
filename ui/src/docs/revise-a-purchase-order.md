@@ -1,6 +1,6 @@
 # Revise a purchase order
 
-Change the total, currency, description, division, job or category of an Active purchase order and keep its number. It needs approval again.
+Change the total, currency, description, division, job or category of an Active purchase order that has no expenses, and keep its number. It needs approval again.
 
 ```flow
 You | Make a revision | Enter the changes.
@@ -17,7 +17,27 @@ Note: Rejected? Edit and resubmit, or cancel.
 4. Select the approvers that Turbo asks for.
 5. Select **Save**.
 
-Only the person who created the purchase order can revise it. If Turbo doesn't ask for an approver, you are the approver. Approve it yourself.
+Only the purchase order's owner can revise it. If Turbo doesn't ask for an approver, you are the approver. Approve it yourself.
+
+## When you can't revise
+
+You can't revise a purchase order if:
+
+- It has expenses.
+- It has child purchase orders.
+- It shows **Manually created**.
+- It came from a PO group.
+- It has a closed job and you keep that job.
+
+With expenses, you can't change its details. Otherwise, ask payables staff to cancel it. Then create a new one.
+
+## If it has expenses
+
+To spend more, check **Type**:
+
+- **Cumulative**: Add the expense. If it goes over, select **Create Child PO**. Set its total to the full expense. One expense can't use two purchase orders.
+- **One-Time**: Ask payables staff to [convert it to Cumulative](/docs/purchase-orders#convert-a-one-time-po). Then follow **Cumulative**.
+- **Recurring**: Ask payables staff to close it after its last commit. Then create another.
 
 ## Change the job
 
@@ -28,26 +48,6 @@ Select the new job, then its division and category. For a project, confirm the b
 The division must have hours allocated to the job. The category must belong to the job.
 
 A child purchase order keeps its parent's description and category.
-
-## When you can't revise
-
-You can't revise a purchase order if:
-
-- It has expenses.
-- It has child purchase orders.
-- It shows **Manually created**.
-- It came from a PO group.
-- It has a closed job, unless you change the job. **Save** shows an error.
-
-To change other details when it has no expenses, ask payables staff to cancel it. Then create a new one.
-
-## If it has expenses
-
-Check its **Type**:
-
-- **Cumulative**: Add the expense. If it goes over, select **Create Child PO**. Set its total to the full expense. One expense can't use two purchase orders.
-- **One-Time**: Ask payables staff to [convert it to Cumulative](/docs/purchase-orders#convert-a-one-time-po). Then add the expense.
-- **Recurring**: Ask payables staff to close it after its last commit. Then create another.
 
 ## While it is under revision
 
@@ -61,7 +61,7 @@ Check its **Type**:
 2. Change the details or replace the attachment.
 3. Select **Save**.
 
-You can replace the attachment only before approval. A change clears any first approval. To go back to the old total, enter it here. It still needs approval.
+You can replace the attachment only here. A change clears any first approval. To go back to the old total, enter it here. It still needs approval.
 
 You can't cancel it now. Ask the approver to reject it. Then select **Cancel Purchase Order**.
 
@@ -71,7 +71,7 @@ You can't cancel it now. Ask the approver to reject it. Then select **Cancel Pur
 2. Open the purchase order and check the changes.
 3. Select **Approve** or **Reject**.
 
-A new total can require a second approval. After final approval, the purchase order is Active again. If the vendor has the old total, print a new copy.
+The email shows the previous values. A new total can require a second approval. After final approval, the purchase order is Active again. If the vendor has the old total, print a new copy.
 
 ## If a revision is rejected
 
