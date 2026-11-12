@@ -45,7 +45,7 @@ Expenses against the PO use its branch.
 
 You can edit or delete your PO until it has final approval. If you make a meaningful change, the approvals reset and the PO goes back for approval.
 
-After final approval, you can't delete your PO. If it has no expenses, you can [revise its total](/docs/revise-a-purchase-order).
+After final approval, you can't delete your PO. If it has no expenses, you can [revise its total, currency or job](/docs/revise-a-purchase-order).
 
 ## Spend more than the PO total
 

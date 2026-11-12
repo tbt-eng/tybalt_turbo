@@ -108,11 +108,20 @@
 
   // A non-legacy purchase order with a po_number is a revision: an Active PO
   // about to be revised, or an Unapproved revision awaiting approval. The
-  // server only lets the total, currency and approvers change, so only those show.
+  // server only lets the total, currency, approvers and job change, so only
+  // those show. The job can move to another job, but a PO without a job can't
+  // get one and a child PO keeps its parent's job. Division, category and the
+  // budget confirmation show only with a new job.
   const isRevision = $derived.by(
     () => !legacyMode && data.editing && (data.item.po_number ?? "") !== "",
   );
   const isNewRevision = $derived.by(() => isRevision && data.item.status === "Active");
+  const canReviseJob = $derived.by(
+    () => isRevision && (data.item.job ?? "") !== "" && (data.item.parent_po ?? "") === "",
+  );
+  const revisionJobChanged = $derived.by(
+    () => canReviseJob && (item.job ?? "") !== (data.item.job ?? ""),
+  );
 
   let categories = $state([] as CategoriesResponse[]);
   const syncCategoriesForJob = createJobCategoriesSync((rows) => {
@@ -470,6 +479,21 @@
   // Watch for changes to the job and fetch categories accordingly
   $effect(() => {
     syncCategoriesForJob(item.job);
+  });
+
+  // A category and a budget confirmation belong to one job. When a revision
+  // moves to another job, the creator chooses them again.
+  let revisionJobSeen: string | null = null;
+  $effect(() => {
+    const jobId = item.job ?? "";
+    if (!isRevision) return;
+    untrack(() => {
+      if (revisionJobSeen !== null && revisionJobSeen !== jobId) {
+        item.category = "";
+        item.covered_within_project_budget = false;
+      }
+      revisionJobSeen = jobId;
+    });
   });
 
   $effect(() => {
@@ -945,14 +969,22 @@
   }
 
   // Send only the fields a revision may change, so that values the editor
-  // derives for hidden fields can't reach the server.
+  // derives for hidden fields can't reach the server. The job and the fields
+  // that belong to it go only when the job changes.
   async function saveRevision(id: string) {
-    const body = {
+    const body: Record<string, unknown> = {
       total: item.total,
       currency: item.currency,
       approver: item.approver,
       priority_second_approver: item.priority_second_approver,
     };
+    if (revisionJobChanged) {
+      body.job = item.job;
+      body.division = item.division;
+      body.category = item.category ?? "";
+      body.covered_within_project_budget =
+        selectedJobIsProject && Boolean(item.covered_within_project_budget);
+    }
     try {
       if (isNewRevision) {
         await pb.send(`/api/purchase_orders/${id}/revise`, { method: "POST", body });
@@ -974,6 +1006,10 @@
       // The revision form hides most fields, so an error on one of them (a
       // closed job, say) has to show in the global error instead.
       const shownFields = ["total", "currency", "global"];
+      if (canReviseJob) shownFields.push("job");
+      if (revisionJobChanged) {
+        shownFields.push("division", "category", "covered_within_project_budget");
+      }
       if (showApproverField) shownFields.push("approver");
       if (showSecondApproverField) shownFields.push("priority_second_approver");
       const hiddenMessages = Object.entries(fieldErrors as Record<string, { message: string }>)
@@ -992,6 +1028,98 @@
     }
   }
 </script>
+
+<!-- The editor and the revision form share these fields. -->
+{#snippet divisionField()}
+  {#if $divisions.index !== null}
+    <DsAutoComplete
+      bind:value={item.division as string}
+      index={$divisions.index}
+      {errors}
+      fieldName="division"
+      uiName="Division"
+    >
+      {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
+    </DsAutoComplete>
+  {/if}
+{/snippet}
+
+{#snippet jobField()}
+  {#if kindAllowsJob && $jobs.index !== null}
+    <DsAutoComplete
+      bind:value={item.job as string}
+      index={$jobs.index}
+      {errors}
+      fieldName="job"
+      uiName="Job"
+      disabled={isChildPO}
+    >
+      {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
+    </DsAutoComplete>
+  {/if}
+{/snippet}
+
+{#snippet categoryField()}
+  {#if !legacyMode && item.job !== "" && categories.length > 0}
+    <DsSelector
+      bind:value={item.category as string}
+      items={categories}
+      {errors}
+      fieldName="category"
+      uiName="Category"
+      clear={true}
+      disabled={isChildPO}
+    >
+      {#snippet optionTemplate(item: CategoriesResponse)}
+        {item.name}
+      {/snippet}
+    </DsSelector>
+  {/if}
+{/snippet}
+
+{#snippet budgetField()}
+  {#if !legacyMode && selectedJobIsProject}
+    <div class="w-full space-y-2 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
+      <div
+        class="flex w-full flex-col gap-2"
+        class:bg-red-200={errors.covered_within_project_budget !== undefined}
+      >
+        <span class="flex w-full items-center gap-2">
+          <input
+            id="purchase-order-budget-coverage"
+            type="checkbox"
+            class="h-4 w-4"
+            name="covered_within_project_budget"
+            bind:checked={item.covered_within_project_budget}
+          />
+          <span class="inline-flex items-center gap-1">
+            <label for="purchase-order-budget-coverage">Covered within project budget</label>
+            <button
+              type="button"
+              class="inline-flex items-center text-slate-500 transition-colors hover:text-slate-700"
+              aria-label="Covered within project budget explanation"
+              aria-expanded={showBudgetCoverageHelp}
+              aria-haspopup="dialog"
+              onclick={() => {
+                showBudgetCoverageHelp = !showBudgetCoverageHelp;
+              }}
+            >
+              <Icon icon="mdi:information-outline" width="15px" />
+            </button>
+          </span>
+        </span>
+        {#if errors.covered_within_project_budget !== undefined}
+          <span class="text-red-600">{errors.covered_within_project_budget.message}</span>
+        {/if}
+      </div>
+      {#if showBudgetCoverageHelp}
+        <div class="rounded-sm border border-sky-200 bg-sky-50 p-2 text-sm text-sky-950">
+          I have verified that this expense is covered within the project budget.
+        </div>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
 
 {#if !legacyMode && !$expensesEditingEnabled}
   <DsEditingDisabledBanner
@@ -1068,17 +1196,22 @@
   {#if isNewRevision}
     <div class="w-full">
       <DSCallout tone="info">
-        Saving a new total or currency sends {item.po_number} back for approval. It keeps its number,
+        Saving a new total, currency or job sends {item.po_number} back for approval. It keeps its number,
         but no expenses can be added to it until it is approved again.
         {#snippet actions()}
-          <DSHelp doc="revise-a-purchase-order#revise-the-total" label="Help" />
+          <DSHelp doc="revise-a-purchase-order#make-a-revision" label="Help" />
         {/snippet}
       </DSCallout>
     </div>
   {:else if isRevision}
     <div class="w-full">
       <DSCallout tone="info">
-        This is a revision of {item.po_number}. Only the total, currency and approvers can change.
+        This is a revision of {item.po_number}.
+        {#if canReviseJob}
+          Only the total, currency, approvers and job can change.
+        {:else}
+          Only the total, currency and approvers can change.
+        {/if}
         {#snippet actions()}
           <DSHelp doc="revise-a-purchase-order#change-a-revision-before-approval" label="Help" />
         {/snippet}
@@ -1162,6 +1295,14 @@
           <DSField label="Description" value={item.description} />
         </DSFieldList>
       </div>
+      {#if canReviseJob}
+        {@render jobField()}
+        {#if revisionJobChanged}
+          {@render divisionField()}
+          {@render categoryField()}
+          {@render budgetField()}
+        {/if}
+      {/if}
     {:else}
       <div class="flex w-full flex-col gap-1 {errors.type !== undefined ? 'bg-red-200' : ''}">
         {#if isChildPO || (legacyMode && isLegacyLocked)}
@@ -1314,17 +1455,7 @@
         {/if}
       </span>
 
-      {#if $divisions.index !== null}
-        <DsAutoComplete
-          bind:value={item.division as string}
-          index={$divisions.index}
-          {errors}
-          fieldName="division"
-          uiName="Division"
-        >
-          {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
-        </DsAutoComplete>
-      {/if}
+      {@render divisionField()}
 
       {#if legacyMode || item.job === ""}
         <DsSelector
@@ -1341,76 +1472,9 @@
         </DsSelector>
       {/if}
 
-      {#if kindAllowsJob && $jobs.index !== null}
-        <DsAutoComplete
-          bind:value={item.job as string}
-          index={$jobs.index}
-          {errors}
-          fieldName="job"
-          uiName="Job"
-          disabled={isChildPO}
-        >
-          {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
-        </DsAutoComplete>
-      {/if}
-
-      {#if !legacyMode && item.job !== "" && categories.length > 0}
-        <DsSelector
-          bind:value={item.category as string}
-          items={categories}
-          {errors}
-          fieldName="category"
-          uiName="Category"
-          clear={true}
-          disabled={isChildPO}
-        >
-          {#snippet optionTemplate(item: CategoriesResponse)}
-            {item.name}
-          {/snippet}
-        </DsSelector>
-      {/if}
-
-      {#if !legacyMode && selectedJobIsProject}
-        <div class="w-full space-y-2 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
-          <div
-            class="flex w-full flex-col gap-2"
-            class:bg-red-200={errors.covered_within_project_budget !== undefined}
-          >
-            <span class="flex w-full items-center gap-2">
-              <input
-                id="purchase-order-budget-coverage"
-                type="checkbox"
-                class="h-4 w-4"
-                name="covered_within_project_budget"
-                bind:checked={item.covered_within_project_budget}
-              />
-              <span class="inline-flex items-center gap-1">
-                <label for="purchase-order-budget-coverage">Covered within project budget</label>
-                <button
-                  type="button"
-                  class="inline-flex items-center text-slate-500 transition-colors hover:text-slate-700"
-                  aria-label="Covered within project budget explanation"
-                  aria-expanded={showBudgetCoverageHelp}
-                  aria-haspopup="dialog"
-                  onclick={() => {
-                    showBudgetCoverageHelp = !showBudgetCoverageHelp;
-                  }}
-                >
-                  <Icon icon="mdi:information-outline" width="15px" />
-                </button>
-              </span>
-            </span>
-            {#if errors.covered_within_project_budget !== undefined}
-              <span class="text-red-600">{errors.covered_within_project_budget.message}</span>
-            {/if}
-          </div>
-          {#if showBudgetCoverageHelp}
-            <div class="rounded-sm border border-sky-200 bg-sky-50 p-2 text-sm text-sky-950">
-              I have verified that this expense is covered within the project budget.
-            </div>
-          {/if}
-        </div>
-      {/if}
+      {@render jobField()}
+      {@render categoryField()}
+      {@render budgetField()}
 
       <DsTextInput
         bind:value={item.description as string}

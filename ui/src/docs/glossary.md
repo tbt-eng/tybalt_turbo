@@ -22,12 +22,12 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
 | Rate sheet            | The hourly rates that a client pays for each role on a project. See [Rate sheets](/docs/rate-sheets).                                               |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
-| Revise                | Make a new version of a record: a new total or currency for an approved purchase order, or new rates for a rate sheet.                              |                 |
+| Revise                | Make a new version of a record: a new total, currency or job for an approved purchase order, or new rates for a rate sheet.                         |                 |
 | Role                  | The work that you do on a job. Each time entry on a job has a role, and the rate sheet sets its rate.                                               |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |
 | Subjob                | A project under a parent project. It has its parent's client. Its number is its parent's number plus a suffix, such as 25-123-01.                   |                 |
 | Time sheet            | Your time entries for one week.                                                                                                                     | timesheet       |
-| Under revision        | A purchase order with a new total that waits for approval.                                                                                          |                 |
+| Under revision        | A revised purchase order that waits for approval.                                                                                                   |                 |
 
 ## Who approves what
 

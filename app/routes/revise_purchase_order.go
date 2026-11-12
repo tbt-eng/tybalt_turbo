@@ -1,7 +1,7 @@
-// This file implements revising the total or currency of an Active purchase
-// order. The creator submits them, and the purchase order returns to Unapproved
-// in the same transaction. It keeps its po_number, so approving it again
-// re-activates the same number.
+// This file implements revising the total, currency or job of an Active
+// purchase order. The creator submits them, and the purchase order returns to
+// Unapproved in the same transaction. It keeps its po_number, so approving it
+// again re-activates the same number.
 
 package routes
 
@@ -21,13 +21,20 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-// A nil currency or approver keeps the current one. The new total may need
-// different approvers, so the client can submit them with the total.
+// A nil currency, approver, job or division keeps the current one. The new
+// total or job may need different approvers, so the client can submit them
+// with it. Division, category and covered_within_project_budget belong to the
+// job, so they can change only with a new job. A new job clears the category
+// and the budget confirmation unless the request sets them again.
 type revisePurchaseOrderRequest struct {
-	Total                  float64 `json:"total"`
-	Currency               *string `json:"currency"`
-	Approver               *string `json:"approver"`
-	PrioritySecondApprover *string `json:"priority_second_approver"`
+	Total                      float64 `json:"total"`
+	Currency                   *string `json:"currency"`
+	Approver                   *string `json:"approver"`
+	PrioritySecondApprover     *string `json:"priority_second_approver"`
+	Job                        *string `json:"job"`
+	Division                   *string `json:"division"`
+	Category                   *string `json:"category"`
+	CoveredWithinProjectBudget *bool   `json:"covered_within_project_budget"`
 }
 
 func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) error {
@@ -44,7 +51,7 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 		}
 
 		var httpResponseStatusCode int
-		var previousTotal string
+		var previousTotal, previousJob string
 		err := app.RunInTransaction(func(txApp core.App) error {
 			po, err := txApp.FindRecordById("purchase_orders", id)
 			if err != nil {
@@ -120,20 +127,55 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 				}
 			}
 
+			previousJob = strings.TrimSpace(po.GetString("job"))
+			job := previousJob
+			if req.Job != nil {
+				job = strings.TrimSpace(*req.Job)
+			}
+			if code, message := hooks.RevisionJobChangeRefusal(po, job); code != "" {
+				httpResponseStatusCode = http.StatusBadRequest
+				return &CodeError{Code: code, Message: message}
+			}
+			jobChanged := job != previousJob
+			if !jobChanged &&
+				((req.Division != nil && strings.TrimSpace(*req.Division) != po.GetString("division")) ||
+					(req.Category != nil && strings.TrimSpace(*req.Category) != po.GetString("category")) ||
+					(req.CoveredWithinProjectBudget != nil && *req.CoveredWithinProjectBudget != po.GetBool("covered_within_project_budget"))) {
+				httpResponseStatusCode = http.StatusBadRequest
+				return &CodeError{
+					Code:    "revision_requires_job_change",
+					Message: "the division, category and budget confirmation can change only with a new job",
+				}
+			}
+
 			currency := po.GetString("currency")
 			if req.Currency != nil {
 				currency = strings.TrimSpace(*req.Currency)
 			}
 			currencyChanged := utilities.EffectiveCurrencyCode(txApp, currency) != utilities.EffectiveCurrencyCode(txApp, po.GetString("currency"))
-			if req.Total == po.GetFloat("total") && !currencyChanged {
+			if req.Total == po.GetFloat("total") && !currencyChanged && !jobChanged {
 				httpResponseStatusCode = http.StatusBadRequest
 				return &CodeError{
-					Code:    "total_unchanged",
-					Message: "a revision must change the total or the currency",
+					Code:    "revision_unchanged",
+					Message: "a revision must change the total, the currency or the job",
 				}
 			}
 
 			previousTotal = hooks.PurchaseOrderApprovalTotalText(txApp, po)
+			if jobChanged {
+				// The branch follows the job in CleanPurchaseOrder. The job changed,
+				// so ValidatePurchaseOrder checks that the division is allocated to it.
+				po.Set("job", job)
+				if req.Division != nil {
+					po.Set("division", strings.TrimSpace(*req.Division))
+				}
+				category := ""
+				if req.Category != nil {
+					category = strings.TrimSpace(*req.Category)
+				}
+				po.Set("category", category)
+				po.Set("covered_within_project_budget", req.CoveredWithinProjectBudget != nil && *req.CoveredWithinProjectBudget)
+			}
 			po.Set("total", req.Total)
 			po.Set("currency", currency)
 			if req.Approver != nil {
@@ -158,6 +200,11 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 			}
 			if err := hooks.ValidatePurchaseOrder(txApp, po, false); err != nil {
 				return err
+			}
+			if jobChanged {
+				if err := hooks.ValidatePurchaseOrderCategory(txApp, po); err != nil {
+					return err
+				}
 			}
 
 			if err := txApp.Save(po); err != nil {
@@ -195,7 +242,7 @@ func createRevisePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 		}
 
 		if strings.TrimSpace(revisedPO.GetString("approver")) != "" {
-			if _, err := notifications.DispatchNotification(app, hooks.RevisionApprovalNotification(app, revisedPO, previousTotal, userId, notifications.DeliveryImmediate)); err != nil {
+			if _, err := notifications.DispatchNotification(app, hooks.RevisionApprovalNotification(app, revisedPO, previousTotal, previousJob, userId, notifications.DeliveryImmediate)); err != nil {
 				// Log the error but don't fail the request, as the PO was already revised
 				app.Logger().Error("notification not sent: error creating revision approval notification", "error", err)
 			}

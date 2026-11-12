@@ -20,6 +20,17 @@ const (
 	revisePONumber = "2024-0008"
 	reviseCreator  = "rzr98oadsp9qc11"
 	reviseApprover = "f2j5a8vk006baub"
+
+	// reviseOldJob is the job of PO 2024-0008. reviseNewJob (98-8103) is in
+	// another branch and has the PO's division (MD) allocated. reviseCategoryJob
+	// (P24-487) has MD allocated and owns category reviseNewCategory.
+	reviseOldJob      = "cjf0kt0defhq480"
+	reviseNewJob      = "jobbranchovr01"
+	reviseNewJobText  = "98-8103 Branch override job fixture"
+	reviseOldJobText  = "24-321 Clarke St Boiler Replacement"
+	reviseNewBranch   = "xeq9q81q5307f70"
+	reviseCategoryJob = "mg0sp9iyjzo4zw9"
+	reviseNewCategory = "icxl5pp58cg4f17"
 )
 
 func reviseTestTokens(t *testing.T) (creator, approver, payablesAdmin string) {
@@ -144,8 +155,16 @@ func TestRevisePurchaseOrder(t *testing.T) {
 			{name: "PO has expenses", poID: "ly8xyzpuj79upq1", body: `{"total": 5000}`, status: http.StatusBadRequest, code: "po_has_expenses"},
 			{name: "PO has child POs", poID: "xhkt5lx8cl64nj3", body: `{"total": 5000}`, asAuthor: true, setup: `DELETE FROM expenses WHERE purchase_order = 'xhkt5lx8cl64nj3'`, status: http.StatusBadRequest, code: "po_has_child_pos"},
 			{name: "PO is a legacy entry", poID: "po_export_no_exp_1", body: `{"total": 200}`, asAuthor: true, status: http.StatusBadRequest, code: "legacy_po_not_revisable"},
-			{name: "total is unchanged", poID: revisePOID, body: `{"total": 132.1}`, status: http.StatusBadRequest, code: "total_unchanged"},
-			{name: "total and currency are unchanged", poID: revisePOID, body: `{"total": 132.1, "currency": "cadcurr00000001"}`, status: http.StatusBadRequest, code: "total_unchanged"},
+			{name: "total is unchanged", poID: revisePOID, body: `{"total": 132.1}`, status: http.StatusBadRequest, code: "revision_unchanged"},
+			{name: "total and currency are unchanged", poID: revisePOID, body: `{"total": 132.1, "currency": "cadcurr00000001"}`, status: http.StatusBadRequest, code: "revision_unchanged"},
+			{name: "total and job are unchanged", poID: revisePOID, body: `{"total": 132.1, "job": "` + reviseOldJob + `"}`, status: http.StatusBadRequest, code: "revision_unchanged"},
+			{name: "job is removed", poID: revisePOID, body: `{"total": 132.1, "job": ""}`, status: http.StatusBadRequest, code: "revision_job_removal_not_allowed"},
+			{name: "job is added to a PO without one", poID: revisePOID, body: `{"total": 132.1, "job": "` + reviseNewJob + `"}`, setup: `UPDATE purchase_orders SET job = '' WHERE id = '` + revisePOID + `'`, status: http.StatusBadRequest, code: "revision_job_add_not_allowed"},
+			{name: "child PO changes its job", poID: "25046ft47x49cc2", body: `{"total": 126, "job": "` + reviseNewJob + `"}`, asAuthor: true, status: http.StatusBadRequest, code: "child_po_job_locked"},
+			{name: "division is not allocated to the new job", poID: revisePOID, body: `{"total": 132.1, "job": "u09fwwcg07y03m7", "division": "hcd86z57zjty6jo"}`, status: http.StatusBadRequest, code: `"division":{"code":"division_not_allowed"`},
+			{name: "category belongs to the old job", poID: revisePOID, body: `{"total": 132.1, "job": "` + reviseCategoryJob + `", "category": "kyed8fha9uaha27"}`, status: http.StatusBadRequest, code: `"category":{"code":"must_match_job"`},
+			{name: "division changes without a new job", poID: revisePOID, body: `{"total": 150, "division": "hcd86z57zjty6jo"}`, status: http.StatusBadRequest, code: "revision_requires_job_change"},
+			{name: "budget is confirmed without a new job", poID: revisePOID, body: `{"total": 150, "covered_within_project_budget": true}`, status: http.StatusBadRequest, code: "revision_requires_job_change"},
 			{name: "currency does not exist", poID: revisePOID, body: `{"total": 150, "currency": "nosuchcurrency0"}`, status: http.StatusBadRequest, code: `"currency":{"code":"not_found"`},
 			{name: "currency has no exchange rate", poID: revisePOID, body: `{"total": 150, "currency": "wipcurr00000001"}`, status: http.StatusBadRequest, code: `"currency":{`},
 			{name: "child PO leaves its parent's currency", poID: "25046ft47x49cc2", body: `{"total": 140, "currency": "usdcurr00000001"}`, asAuthor: true, status: http.StatusBadRequest, code: `"currency":{"code":"value_mismatch"`},
@@ -162,6 +181,7 @@ func TestRevisePurchaseOrder(t *testing.T) {
 				}
 				before := reviseTestPOField(t, app, tc.poID, "status")
 				beforeCurrency := reviseTestPOField(t, app, tc.poID, "currency")
+				beforeJob := reviseTestPOField(t, app, tc.poID, "job")
 				token := creator
 				if tc.asAuthor {
 					token = approver
@@ -175,6 +195,9 @@ func TestRevisePurchaseOrder(t *testing.T) {
 				}
 				if got := reviseTestPOField(t, app, tc.poID, "currency"); got != beforeCurrency {
 					t.Fatalf("currency = %q, want unchanged %q", got, beforeCurrency)
+				}
+				if got := reviseTestPOField(t, app, tc.poID, "job"); got != beforeJob {
+					t.Fatalf("job = %q, want unchanged %q", got, beforeJob)
 				}
 			})
 		}
@@ -602,6 +625,175 @@ func TestRevisePurchaseOrder(t *testing.T) {
 		}
 		if got := reviseTestPOField(t, app, revisePOID, "rejected"); got != "" {
 			t.Fatalf("rejected = %q after resubmitting, want it cleared", got)
+		}
+	})
+
+	t.Run("a revision can move the PO to another job", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		// The budget confirmation was given for the old job.
+		if _, err := app.DB().NewQuery(`UPDATE purchase_orders SET covered_within_project_budget = 1 WHERE id = '` + revisePOID + `'`).Execute(); err != nil {
+			t.Fatal(err)
+		}
+
+		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 132.1, "job": "`+reviseNewJob+`"}`, creator, http.StatusOK)
+		po, err := app.FindRecordById("purchase_orders", revisePOID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for field, want := range map[string]string{
+			"status":          "Unapproved",
+			"po_number":       revisePONumber,
+			"job":             reviseNewJob,
+			"branch":          reviseNewBranch,
+			"category":        "",
+			"approved":        "",
+			"second_approval": "",
+			"second_approver": "",
+		} {
+			if got := po.GetString(field); got != want {
+				t.Errorf("%s = %q, want %q", field, got, want)
+			}
+		}
+		if po.GetBool("covered_within_project_budget") {
+			t.Errorf("covered_within_project_budget kept the confirmation for the old job")
+		}
+
+		var notification struct {
+			Job         string `db:"job"`
+			PreviousJob string `db:"previous_job"`
+		}
+		if err := app.DB().NewQuery(`
+			SELECT json_extract(n.data, '$.Job') AS job, json_extract(n.data, '$.PreviousJob') AS previous_job
+			FROM notifications n JOIN notification_templates t ON t.id = n.template
+			WHERE t.code = 'po_revision_approval_required' AND json_extract(n.data, '$.POId') = {:po}
+		`).Bind(map[string]any{"po": revisePOID}).One(&notification); err != nil {
+			t.Fatal(err)
+		}
+		if notification.Job != reviseNewJobText || notification.PreviousJob != reviseOldJobText {
+			t.Fatalf("notification job = %q, previous job = %q", notification.Job, notification.PreviousJob)
+		}
+		email := app.TestMailer.LastMessage()
+		for _, want := range []string{"Job: " + reviseNewJobText, "Previous job: " + reviseOldJobText} {
+			if !strings.Contains(email.Text, want) {
+				t.Fatalf("approval email is missing %q: %s", want, email.Text)
+			}
+		}
+		if strings.Contains(email.Text, "Previous total") {
+			t.Fatalf("approval email reports a previous total that did not change: %s", email.Text)
+		}
+
+		reviseTestRequest(t, app, http.MethodPost, "/api/purchase_orders/"+revisePOID+"/approve", "", approver, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "status"); got != "Active" {
+			t.Fatalf("status after approval = %q, want Active", got)
+		}
+		if got := reviseTestPOField(t, app, revisePOID, "job"); got != reviseNewJob {
+			t.Fatalf("job after approval = %q, want %q", got, reviseNewJob)
+		}
+	})
+
+	t.Run("a new job keeps a category sent with it", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		reviseTestRequest(t, app, http.MethodPost, revisePath,
+			`{"total": 132.1, "job": "`+reviseCategoryJob+`", "category": "`+reviseNewCategory+`"}`, creator, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "category"); got != reviseNewCategory {
+			t.Fatalf("category = %q, want %q", got, reviseNewCategory)
+		}
+	})
+
+	t.Run("a new job keeps a budget confirmation sent with it", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		reviseTestRequest(t, app, http.MethodPost, revisePath,
+			`{"total": 132.1, "job": "u09fwwcg07y03m7", "covered_within_project_budget": true}`, creator, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "covered_within_project_budget"); got != "true" {
+			t.Fatalf("covered_within_project_budget = %q, want true", got)
+		}
+	})
+
+	t.Run("the job of a revision can change before approval", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		recordPath := "/api/collections/purchase_orders/records/" + revisePOID
+		revisionEmails := func() int {
+			t.Helper()
+			var result struct{ Count int }
+			if err := app.DB().NewQuery(`
+				SELECT COUNT(*) AS count FROM notifications n
+				JOIN notification_templates t ON t.id = n.template
+				WHERE t.code = 'po_revision_approval_required' AND json_extract(n.data, '$.POId') = {:po}
+			`).Bind(map[string]any{"po": revisePOID}).One(&result); err != nil {
+				t.Fatal(err)
+			}
+			return result.Count
+		}
+		reviseTestRequest(t, app, http.MethodPost, revisePath, `{"total": 150}`, creator, http.StatusOK)
+
+		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"job": "`+reviseNewJob+`"}`, creator, http.StatusOK)
+		for field, want := range map[string]string{"job": reviseNewJob, "branch": reviseNewBranch, "category": ""} {
+			if got := reviseTestPOField(t, app, revisePOID, field); got != want {
+				t.Fatalf("%s = %q, want %q", field, got, want)
+			}
+		}
+		if got := revisionEmails(); got != 2 {
+			t.Fatalf("revision emails = %d, want 2", got)
+		}
+		if email := app.TestMailer.LastMessage(); !strings.Contains(email.Text, "Previous job: "+reviseOldJobText) {
+			t.Fatalf("job change email is missing the previous job: %s", email.Text)
+		}
+
+		for _, tc := range []struct{ patch, want string }{
+			{`{"division": "hcd86z57zjty6jo"}`, `"division":{"code":"revision_field_locked"`},
+			{`{"job": ""}`, `"job":{"code":"revision_job_removal_not_allowed"`},
+			{`{"job": "u09fwwcg07y03m7", "division": "hcd86z57zjty6jo"}`, `"division":{"code":"division_not_allowed"`},
+		} {
+			if body := reviseTestRequest(t, app, http.MethodPatch, recordPath, tc.patch, creator, http.StatusBadRequest); !strings.Contains(body, tc.want) {
+				t.Fatalf("PATCH %s: want %s, got %s", tc.patch, tc.want, body)
+			}
+		}
+		if got := reviseTestPOField(t, app, revisePOID, "job"); got != reviseNewJob {
+			t.Fatalf("job = %q after refused edits, want %q", got, reviseNewJob)
+		}
+
+		reviseTestRequest(t, app, http.MethodPatch, recordPath,
+			`{"job": "`+reviseCategoryJob+`", "category": "`+reviseNewCategory+`"}`, creator, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "category"); got != reviseNewCategory {
+			t.Fatalf("category = %q, want %q", got, reviseNewCategory)
+		}
+
+		// Setting the first approval directly stands in for a stage 1 approval,
+		// as in the tests above.
+		po, err := app.FindRecordById("purchase_orders", revisePOID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		po.Set("approved", "2026-11-05 12:00:00.000Z")
+		if err := app.Save(po); err != nil {
+			t.Fatal(err)
+		}
+		before := revisionEmails()
+		reviseTestRequest(t, app, http.MethodPatch, recordPath, `{"job": "u09fwwcg07y03m7"}`, creator, http.StatusOK)
+		if got := reviseTestPOField(t, app, revisePOID, "approved"); got != "" {
+			t.Fatalf("approved = %q after a job change, want it cleared", got)
+		}
+		if got := reviseTestPOField(t, app, revisePOID, "category"); got != "" {
+			t.Fatalf("category = %q, want the old job's category cleared", got)
+		}
+		if got := revisionEmails(); got != before+1 {
+			t.Fatalf("revision emails = %d, want %d", got, before+1)
+		}
+	})
+
+	t.Run("a child PO under revision keeps its job", func(t *testing.T) {
+		app := testutils.SetupTestApp(t)
+		t.Cleanup(app.Cleanup)
+		const childPOID = "25046ft47x49cc2"
+		reviseTestRequest(t, app, http.MethodPost, "/api/purchase_orders/"+childPOID+"/revise", `{"total": 140}`, approver, http.StatusOK)
+		body := reviseTestRequest(t, app, http.MethodPatch, "/api/collections/purchase_orders/records/"+childPOID,
+			`{"job": "`+reviseNewJob+`"}`, approver, http.StatusBadRequest)
+		if !strings.Contains(body, `"job":{"code":"child_po_job_locked"`) {
+			t.Fatalf("child PO job change: %s", body)
 		}
 	})
 }

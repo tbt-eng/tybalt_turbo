@@ -4,7 +4,8 @@ import type { PageLoad } from "./$types";
 import type { PurchaseOrdersPageData } from "$lib/svelte-types";
 import { redirect } from "@sveltejs/kit";
 
-// Revising sends an Active purchase order back for approval with a new total.
+// Revising sends an Active purchase order back for approval with a new total,
+// currency or job.
 // The server checks the remaining conditions (creator, no expenses, no child
 // POs) when the revision is submitted.
 export const load: PageLoad<PurchaseOrdersPageData> = async ({ params }) => {

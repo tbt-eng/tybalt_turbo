@@ -257,7 +257,7 @@
     <div class="space-y-2 bg-neutral-100 p-4">
       {#if isRevisionPending && !isRejected}
         <DSCallout tone="info" title="Revision awaiting approval">
-          {data.po.po_number} keeps its number, but no expenses can be added to it until the revised total
+          {data.po.po_number} keeps its number, but no expenses can be added to it until the revision
           is approved. Waiting on {revisionWaitingOn.name} for {revisionWaitingOn.reason.toLowerCase()}.
         </DSCallout>
       {/if}
@@ -596,9 +596,7 @@
     <div class="flex flex-wrap gap-2">
       <POPrintButton poId={data.po.id} />
       {#if canRevise}
-        <DsActionButton action={`/pos/${data.po.id}/revise`} color="blue">
-          Revise Total
-        </DsActionButton>
+        <DsActionButton action={`/pos/${data.po.id}/revise`} color="blue">Revise</DsActionButton>
       {/if}
       <DSHelp doc="find-a-purchase-order#print-a-po" label="Help" />
     </div>

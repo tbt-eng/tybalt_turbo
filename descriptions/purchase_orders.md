@@ -193,15 +193,15 @@ Implications:
 
 ### Editability Matrix
 
-| PO State                                               | Editable by Creator?               | Notes                                                                       |
-| ------------------------------------------------------ | ---------------------------------- | --------------------------------------------------------------------------- |
-| `Unapproved`, `approved = ""`, `second_approval = ""`  | Yes                                | Draft / pending first approval                                              |
-| `Unapproved`, `approved != ""`, `second_approval = ""` | Yes                                | First-approved, pending second approval                                     |
-| `Unapproved`, `second_approval != ""`                  | No                                 | Final approval complete; update rule blocks                                 |
-| `Unapproved`, `po_number != ""`                        | Total, currency and approvers only | A revision awaiting approval or rejected; see Revision                      |
-| `Active`                                               | No                                 | Use approve/cancel/close lifecycle actions, or revise the total or currency |
-| `Cancelled`                                            | No                                 | Terminal                                                                    |
-| `Closed`                                               | No                                 | Terminal                                                                    |
+| PO State                                               | Editable by Creator?                    | Notes                                                                            |
+| ------------------------------------------------------ | --------------------------------------- | -------------------------------------------------------------------------------- |
+| `Unapproved`, `approved = ""`, `second_approval = ""`  | Yes                                     | Draft / pending first approval                                                   |
+| `Unapproved`, `approved != ""`, `second_approval = ""` | Yes                                     | First-approved, pending second approval                                          |
+| `Unapproved`, `second_approval != ""`                  | No                                      | Final approval complete; update rule blocks                                      |
+| `Unapproved`, `po_number != ""`                        | Total, currency, approvers and job only | A revision awaiting approval or rejected; see Revision                           |
+| `Active`                                               | No                                      | Use approve/cancel/close lifecycle actions, or revise the total, currency or job |
+| `Cancelled`                                            | No                                      | Terminal                                                                         |
+| `Closed`                                               | No                                      | Terminal                                                                         |
 
 ### Meaningful Edit Detection
 
@@ -403,9 +403,9 @@ Current canonical views:
 
 ## Revision
 
-Route: `POST /api/purchase_orders/:id/revise` with body `{ "total": number, "currency"?: id, "approver"?: id, "priority_second_approver"?: id }`
+Route: `POST /api/purchase_orders/:id/revise` with body `{ "total": number, "currency"?: id, "approver"?: id, "priority_second_approver"?: id, "job"?: id, "division"?: id, "category"?: id, "covered_within_project_budget"?: bool }`
 
-The creator of an `Active` PO can change its total or currency. In one transaction the PO returns to `Unapproved`, keeps its `po_number`, and goes through approval again. An approval only matters once an expense uses it, so a PO with no expenses loses nothing by being approved again.
+The creator of an `Active` PO can change its total, currency or job. In one transaction the PO returns to `Unapproved`, keeps its `po_number`, and goes through approval again. An approval only matters once an expense uses it, so a PO with no expenses loses nothing by being approved again.
 
 Conditions (otherwise HTTP 4xx and the PO is unchanged):
 
@@ -413,20 +413,23 @@ Conditions (otherwise HTTP 4xx and the PO is unchanged):
 - PO is `Active` (`po_not_active`).
 - PO is not a legacy manual entry or an imported record (`legacy_po_not_revisable`).
 - PO has no expenses (`po_has_expenses`) and no child POs that are not `Cancelled` (`po_has_child_pos`).
-- The total or the currency differs from the current one (`total_unchanged`). A blank currency means the home currency.
-- The PO passes the same cleaning and validation as an edit, including approver checks for the new amount, a foreign currency's exchange rate and a child PO matching its parent's currency. An omitted currency or approver keeps its current value.
+- The total, the currency or the job differs from the current one (`revision_unchanged`). A blank currency means the home currency.
+- A new job replaces another job. A PO without a job can't get one (`revision_job_add_not_allowed`), the job can't be removed (`revision_job_removal_not_allowed`), and a child PO keeps its parent's job (`child_po_job_locked`). `kind` can't change.
+- `division`, `category` and `covered_within_project_budget` change only with a new job (`revision_requires_job_change`).
+- The PO passes the same cleaning and validation as an edit, including approver checks for the new amount, division and job, a foreign currency's exchange rate and a child PO matching its parent's currency. An omitted currency, approver, job or division keeps its current value.
 
 On success:
 
 - `total`, `currency`, `approval_total` and `approval_total_home` reflect the new values. `approval_total_home` uses the currency's current rate.
+- With a new job, `branch` follows the job (CleanPurchaseOrder), and the division must be allocated to the new job: the job changed, so `shouldValidateJobDivisionAllocationOnRecord` runs the check. A category belongs to one job and the budget confirmation was given for one job, so a new job clears `category` and `covered_within_project_budget` unless the request sets them. A submitted category must belong to the new job (`must_match_job`). The route checks this itself, because it doesn't go through the collection API rules.
 - `status = Unapproved`; `approved`, `second_approval`, `second_approver` and the rejection fields are cleared.
-- The assigned first approver gets a `po_revision_approval_required` email, which says the PO was revised and gives the PO number, description, vendor and approval total, plus the previous approval total when it differs. Showing both totals with their currencies keeps a currency change from going unnoticed when the amount stays the same. If the email can't be created, the revision still succeeds and the error is logged.
+- The assigned first approver gets a `po_revision_approval_required` email, which says the PO was revised and gives the PO number, description, vendor, job (number and description) and approval total, plus the previous job and the previous approval total when they differ. Showing both totals with their currencies keeps a currency change from going unnoticed when the amount stays the same, and showing both jobs does the same for a job change. If the email can't be created, the revision still succeeds and the error is logged.
 
 While a revision awaits approval:
 
 - No expenses can be added, because expenses require an `Active` PO.
-- The creator can edit only `total`, `currency`, `approver` and `priority_second_approver`. The update hook rejects any other change with code `revision_field_locked`.
-- An edit that changes the total, currency or approver sends the approver the same email. So does resubmitting after a rejection, which also clears any first approval.
+- The creator can edit only `total`, `currency`, `approver`, `priority_second_approver` and `job`, and `division`, `category` and `covered_within_project_budget` together with a new `job`. The update hook rejects any other change with code `revision_field_locked`. A job change follows the same rules as on the route: job to job only, not on a child PO, the division allocated to the new job, and the category and budget confirmation cleared unless the request sends them.
+- An edit that changes the total, currency, job or approver sends the approver the same email. So does resubmitting after a rejection, which also clears any first approval. Any of these edits after a first approval clears it, as any meaningful edit does.
 - The approve route keeps the existing `po_number` when it activates the PO.
 - A grouped PO gets the single-PO second-approval email, not the group email.
 - The PO is not exported to the legacy system, which exports only non-`Unapproved` POs, so the legacy copy keeps its last approved values until the revision is approved.
@@ -435,7 +438,7 @@ While a revision awaits approval:
 
 If the revision is rejected, the creator can edit and resubmit it, or cancel it after confirming (see Cancellation). It cannot be deleted.
 
-`GET /api/purchase_orders/visible/:id` returns `revisable`, which says whether the route can accept this PO. The UI shows **Revise Total** only to the creator of a revisable PO.
+`GET /api/purchase_orders/visible/:id` returns `revisable`, which says whether the route can accept this PO. The UI shows **Revise** only to the creator of a revisable PO. The revise form shows the job picker when the PO has a job and is not a child PO, and the division, category and budget confirmation once the job changes.
 
 ## Purchase Order Types and Behaviors
 
@@ -529,7 +532,7 @@ For `One-Time` and `Recurring` POs, a small overage is allowed.
   - `expense exceeds purchase order total of $... by more than ...`
   - On a foreign-currency PO the amounts carry their currency codes, for
     example `expense exceeds purchase order total of 1,500.00 USD by more than
-    100.00 CAD (74.07 USD)`.
+100.00 CAD (74.07 USD)`.
 
 Recurring-specific date rules still apply (expense date must be within PO date and end date range).
 

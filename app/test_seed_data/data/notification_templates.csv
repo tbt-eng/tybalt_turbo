@@ -210,7 +210,9 @@ po_revision_approval_required,2026-11-05 16:00:00.000Z,Asks the approver to appr
 {{.UserName}} revised purchase order {{.PONumber}}, and you are its approver. It was approved before, and it needs approval again.
 
 Description: {{.Description}}
-Vendor: {{.VendorName}}
+Vendor: {{.VendorName}}{{with index . ""Job""}}
+Job: {{.}}{{end}}{{with index . ""PreviousJob""}}
+Previous job: {{.}}{{end}}
 Revised total: {{.Total}}{{with index . ""PreviousTotal""}}
 Previous total: {{.}}{{end}}
 
