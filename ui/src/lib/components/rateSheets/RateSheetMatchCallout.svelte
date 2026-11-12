@@ -16,6 +16,13 @@
     intro?: string;
     matches: RateSheetMatch[];
   } = $props();
+
+  // The text after a near match's link. It is built here because Svelte trims
+  // a space at the start of a block.
+  function differs(match: RateSheetMatch): string {
+    if (match.differing_roles <= 0) return "";
+    return ` in ${match.differing_roles} role${match.differing_roles === 1 ? "" : "s"}`;
+  }
 </script>
 
 <DSCallout {tone} {title}>
@@ -26,8 +33,7 @@
         {#if match.differing_roles > 0}Differs from{/if}
         <a class="link" href={resolve("/rate-sheets/[id]/details", { id: match.id })}
           >{match.name} (rev. {match.revision})</a
-        >{#if match.differing_roles > 0}
-          in {match.differing_roles} role{match.differing_roles === 1 ? "" : "s"}{/if}
+        >{differs(match)}
       </li>
     {/each}
   </ul>
