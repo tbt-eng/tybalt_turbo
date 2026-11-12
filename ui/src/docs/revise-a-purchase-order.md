@@ -23,7 +23,7 @@ Only the person who created the purchase order can revise it. If Turbo doesn't a
 
 Select the new job, then its division and category. For a project, confirm the budget again. You can't add a job to a purchase order that has none, remove its job, or change the job of a child purchase order.
 
-The division must have hours on the job. The category must belong to the job.
+The division must have hours allocated to the job. The category must belong to the job.
 
 ## When you can't revise
 
