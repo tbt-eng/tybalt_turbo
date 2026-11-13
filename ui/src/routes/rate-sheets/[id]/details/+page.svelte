@@ -7,6 +7,7 @@
   import DsToggle from "$lib/components/DSToggle.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
+  import RateSheetRollout from "$lib/components/rateSheets/RateSheetRollout.svelte";
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSTextInput from "$lib/components/DSTextInput.svelte";
@@ -394,6 +395,14 @@
         matches={activationMatches}
       />
     </div>
+  {/if}
+  <!-- Mounts when an admin activates the revision, so the move is offered then. -->
+  {#if isAdmin && rateSheet.active}
+    <RateSheetRollout
+      id={rateSheet.id}
+      revision={rateSheet.revision}
+      effectiveDate={rateSheet.effective_date}
+    />
   {/if}
 
   <!-- Entries Table -->

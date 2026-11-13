@@ -26,6 +26,17 @@ Only some staff can do this. They see **New period**.
 
 Turbo prices time from that date with the new rate sheet. Past values can change.
 
+## Move projects to a revision
+
+Only admins can do this. Active projects on older revisions get a new period.
+
+1. Open the latest revision of the rate sheet and select **Move projects**.
+2. Enter the **Starts on** date and the **Reason**.
+3. Check the projects that move and those that Turbo skips.
+4. Select **Move projects**.
+
+Time from that date uses the new rates. Earlier time keeps its price.
+
 ## Change a period
 
 1. Select **Change** on the period.

@@ -294,6 +294,64 @@ it treats `jobs.rate_sheet`:
   opening row on the target. `transferRequestMergeReferences` adds that row
   to the undo data with the job.
 
+## Revision rollout
+
+Status: implemented on branch `205` (issue 205), not yet merged.
+
+An `admin` claim holder moves every active project on an earlier revision of
+a rate sheet to its latest revision, from one date. Each moved project gets a
+dated row on the latest revision, so time before the date keeps its price and
+time from the date is repriced. An absorb never reprices time; this does,
+which is why it needs `admin` and a confirmation. The routes are in
+`app/routes/rate_sheets_rollout.go`:
+
+| Route                                                  | Does                                                        |
+| ------------------------------------------------------ | ----------------------------------------------------------- |
+| `GET /api/rate_sheets/{id}/rollout?effective_date=...` | Counts the projects that would move and those skipped       |
+| `POST /api/rate_sheets/{id}/rollout`                   | Moves them; body `{effective_date, reason, expected_count}` |
+
+Both return `{effective_date, move, closed, cancelled, later_period}`. The
+GET date defaults to the revision's `effective_date`; the POST needs one.
+
+- **Who:** an active user with the `admin` claim. `job` and
+  `rate_sheet_revise` are not needed. Anyone else gets 403.
+- **Target:** `{id}` must be the latest revision of its name, and active,
+  because a new row needs an active sheet.
+- **Projects:** projects (not proposals) whose `jobs.rate_sheet` is an earlier
+  revision of the same name. Only Active projects move. Closed and Cancelled
+  projects are skipped and counted. A project whose latest dated row starts on
+  or after the date is skipped and counted as `later_period`, because a new
+  row would not become its latest.
+- **Date and reason:** the rules of any dated row: a valid date, not in the
+  future, not before the revision's `effective_date`
+  (`hooks.CheckRateSheetPeriodDate` and `hooks.CheckRateSheetPeriodRevision`,
+  which the row hook also uses). The reason is required, up to 500
+  characters, and written on every new row with `created_by` and
+  `updated_by` set to the admin.
+- **Each project:** the same steps as a new period on the job details page
+  (`changeRateSheetHistory` and `addDatedRateSheetPeriod` in
+  `app/routes/job_rate_sheets.go`): the opening row is written if the
+  project has none, the dated row is saved through the row hooks, the whole
+  history is checked, and `hooks.SyncJobRateSheet` saves the job, so the
+  writeback sends it.
+- **All or nothing:** one transaction. If the number of projects to move is
+  not `expected_count`, the POST refuses with 409 and returns the new counts.
+- **Absorb:** refused with 409 while any rate sheet absorb is pending, since
+  undo would overwrite a moved project.
+- **Jobs editing:** refused while job editing is turned off, as the history
+  routes are.
+
+The projects are found with one query. Each moved project then takes about a
+dozen small queries and a job save; 400 projects took about 0.4 s in a test
+run. That N+1 keeps every row on the validated path.
+
+The rate sheet details page shows admins a notice with **Move projects**
+when the sheet is the active latest revision and active projects use an
+earlier one. It appears right after an admin activates a revision. The
+confirmation shows the counts for the chosen date, asks for the date
+(default the revision's effective date) and a reason, and says which time is
+repriced (`RateSheetRollout.svelte`).
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:
@@ -366,23 +424,38 @@ In `app/rate_sheet_history_absorb_test.go` and `app/rate_sheet_absorb_test.go`
   is pending; a request that becomes a job while it is pending carries the
   opening row's undo data.
 
+In `app/rate_sheet_rollout_test.go` (revision rollout):
+
+- **Rollout:** the counts for the default date and other dates; an admin
+  without `job` or `rate_sheet_revise` moves exactly the active projects,
+  with the right rows, and `jobs.rate_sheet` follows; WIP keeps the old
+  price before the date and uses the new revision after it; other projects
+  do not change; a second run moves nothing. Refused, with nothing written:
+  a user without `admin`, an earlier or inactive revision, a future date or
+  one before the revision, no reason, a wrong `expected_count` (409), and a
+  pending rate sheet absorb (409).
+
 ## Decisions (2026-11-13)
 
 - **Legacy system:** accepted. The writeback sends only the current sheet
   (`jobs.rate_sheet`). If the legacy system prices time itself, it prices
   all time with that sheet. Turbo is the record of which sheet applies from
   which date. No change is planned.
-- **Revision rollout:** to be built, not yet implemented. An `admin` claim
-  holder can deliberately move every project that uses a rate sheet to its
-  latest revision. Rules:
+- **Revision rollout:** implemented; see Revision rollout above. An `admin`
+  claim holder can deliberately move every project that uses a rate sheet to
+  its latest revision. Rules:
   - Only `admin` claim holders can do it. All other users move projects one
     at a time from the job details page, as today.
   - The app offers it when a new revision is activated, and it is also
     available later as its own action.
   - It runs only after a confirmation that shows how many projects it will
-    change.
+    change, and how many it skips and why.
   - Each moved project gets a dated row on the new revision, so earlier time
     keeps its price.
+  - The admin picks the start date. The default is the revision's effective
+    date.
+  - Only active projects move. Closed and cancelled projects are skipped, and
+    the confirmation shows the count.
 - **Invoiced periods:** deferred. The app has no record of what a client was
   invoiced, so it cannot know a project's last invoice date. Blocking a dated
   row earlier than the last invoice waits for client invoices (issues 151 and
@@ -391,8 +464,5 @@ In `app/rate_sheet_history_absorb_test.go` and `app/rate_sheet_absorb_test.go`
 
 ## Open questions
 
-- **Revision rollout details:** the start date of the new rows (the
-  revision's effective date, or a date the admin picks), and whether closed
-  and cancelled projects are moved too.
 - **Overtime:** `rate_sheet_entries.overtime_rate` is not used for pricing.
   This proposal does not change that.

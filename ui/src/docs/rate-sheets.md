@@ -70,7 +70,7 @@ A revision is a new version of an active sheet. It has the same name and the nex
 
 Activation of a revision makes the older revisions inactive. You can't activate an older revision again.
 
-Jobs keep the revision that they use.
+Jobs keep their revision. See [Move projects](/docs/rate-sheet-periods#move-projects-to-a-revision).
 
 ## Rename a rate sheet
 
