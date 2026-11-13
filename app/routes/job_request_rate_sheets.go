@@ -219,6 +219,54 @@ func deleteRequestDraft(app core.App, draft *core.Record) error {
 	return app.Delete(draft)
 }
 
+// renameProposedRates gives the request's proposed rates a new name as the job
+// is created. The job holder who creates the job keeps the rate sheet list, so
+// they can correct the requester's name before the sheet becomes active. The
+// approver approved the rates, not the name, so the approval stands. The old
+// name is kept in rate_sheet_name_changes, as for an admin's rename. An empty
+// or unchanged name does nothing. The caller checks the job claim.
+func renameProposedRates(app core.App, r *core.Record, name, renamedBy string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil
+	}
+	draft, err := hooks.RequestRateSheetDraft(app, r)
+	if err != nil {
+		return err
+	}
+	if draft == nil {
+		return workflowError("This request has no proposed rates to rename.")
+	}
+	oldName := draft.GetString("name")
+	if name == oldName {
+		return nil
+	}
+	var named int
+	if err := app.DB().NewQuery(`
+		SELECT COUNT(*) FROM rate_sheets
+		WHERE LOWER(name) = LOWER({:name}) AND id != {:own}
+	`).Bind(dbx.Params{"name": name, "own": draft.Id}).Row(&named); err != nil {
+		return err
+	}
+	if named > 0 {
+		return workflowError("Another rate sheet already has this name.")
+	}
+	draft.Set("name", name)
+	if err := app.Save(draft); err != nil {
+		return err
+	}
+	changes, err := app.FindCollectionByNameOrId("rate_sheet_name_changes")
+	if err != nil {
+		return err
+	}
+	change := core.NewRecord(changes)
+	change.Set("rate_sheet", draft.Id)
+	change.Set("old_name", oldName)
+	change.Set("new_name", name)
+	change.Set("renamed_by", renamedBy)
+	return app.Save(change)
+}
+
 // requestProposedRates adds the proposal to a request's related records, so
 // the editor and the approver see it: the draft's reason, the sheet it
 // started from, and each rate beside the source's, with changes marked.

@@ -58,6 +58,8 @@ Requests that you approved stay below your list, under **Approved By Me, Awaitin
 3. Confirm all checklist statements.
 4. Select **Create Job**. Turbo assigns the job number.
 
+For [proposed rates](proposed-rates#after-approval), you can change **Rate sheet name** first.
+
 If the request duplicates a job, enter a rejection reason and select **Reject**.
 
 ## Change a request

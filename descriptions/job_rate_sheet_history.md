@@ -478,6 +478,12 @@ other. Existing sheets are not checked or changed.
 - A request chooses a sheet or proposes rates; choosing a sheet discards the
   draft.
 - The requester names the new sheet; it is always revision 0.
+- The job holder who creates the job can change that name in the create step
+  (`rate_sheet_name` on `POST /api/job_requests/{id}/create`). Procurement
+  keeps the rate sheet list, and the approver approved the rates, not the name,
+  so the approval stands. The name must be unique in any letter case. The old
+  name is kept in `rate_sheet_name_changes`, as for an admin rename. The general
+  rename action stays with admins.
 - The draft's effective date is the save date, and becomes the activation
   date at job creation.
 - The reason may be blank while the request is a draft and is required from

@@ -405,6 +405,37 @@ func TestProposedRatesApprovedAndActivatedWithTheJob(t *testing.T) {
 	}
 }
 
+// The job holder who creates the job can rename the proposed sheet. A name that
+// another sheet has is refused, and the old name is kept as a former name.
+func TestJobCreatorCanRenameProposedRates(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
+
+	withName := func(name string) map[string]any {
+		data := requestActionData(t, app, id)
+		data["rate_sheet_name"] = name
+		return data
+	}
+	// A name in use, in any letter case, is refused and nothing is created.
+	taken := workflowRecord(t, app, "rate_sheets", standardRateSheet).GetString("name")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, withName(strings.ToUpper(taken)), http.StatusBadRequest)
+	if sheet := workflowRecord(t, app, "rate_sheets", draftID); sheet.GetBool("active") || sheet.GetString("name") != "Client Negotiated Rates" {
+		t.Fatalf("refused rename changed the draft: %#v", sheet.PublicExport())
+	}
+
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, withName("  Sepulchi MSA Rates  "), http.StatusOK)
+	sheet := workflowRecord(t, app, "rate_sheets", draftID)
+	if !sheet.GetBool("active") || sheet.GetString("name") != "Sepulchi MSA Rates" {
+		t.Fatalf("renamed sheet: %#v", sheet.PublicExport())
+	}
+	changes, err := app.FindRecordsByFilter("rate_sheet_name_changes", "rate_sheet = {:sheet}", "", 0, 0, dbx.Params{"sheet": draftID})
+	if err != nil || len(changes) != 1 || changes[0].GetString("old_name") != "Client Negotiated Rates" || changes[0].GetString("new_name") != "Sepulchi MSA Rates" {
+		t.Fatalf("name change: %v %d", err, len(changes))
+	}
+}
+
 // A returned request keeps its draft, and the creator can still change it.
 func TestRejectedRequestKeepsAnEditableDraft(t *testing.T) {
 	app := newWorkflowTestApp(t, true)
