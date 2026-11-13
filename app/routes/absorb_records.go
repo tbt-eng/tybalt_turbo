@@ -462,13 +462,26 @@ func CreateUndoAbsorbHandler(app core.App, collectionName string) func(e *core.R
 			// references that pointed to the absorbed records
 
 			for table, columns := range updatedRefs {
+				// As on absorb, a table with an _imported column is sent to
+				// the legacy system again. The writeback may have sent the
+				// record with the target's id since the absorb, and it picks
+				// records by _imported and updated, which this SQL would
+				// otherwise leave as they are.
+				importedClause := ""
+				hasImported, err := utilities.TableHasImportedColumn(txApp, table)
+				if err != nil {
+					return fmt.Errorf("checking _imported column in %s: %w", table, err)
+				}
+				if hasImported {
+					importedClause = ", _imported = false, updated = strftime('%Y-%m-%d %H:%M:%fZ', 'now')"
+				}
 				for column, updates := range columns {
 					for recordId, oldValue := range updates {
 						query := fmt.Sprintf(`
-                            UPDATE %s 
-                            SET %s = {:old_value}
+                            UPDATE %s
+                            SET %s = {:old_value}%s
                             WHERE id = {:record_id}
-                        `, table, column)
+                        `, table, column, importedClause)
 
 						_, err = txApp.NonconcurrentDB().NewQuery(query).Bind(dbx.Params{
 							"old_value": oldValue,

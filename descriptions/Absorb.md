@@ -57,6 +57,11 @@ in `app/hooks/rate_sheet_absorb.go`.
 An absorb that moves no reference still saves `updated_references`, with an
 empty map for each configured table and column, because the field is required.
 
+Absorb and undo both change references with plain SQL. In a table with an
+`_imported` column, both set `_imported = false` and a new `updated` on each
+record they change, so the writeback sends the record again: with the target's
+id after an absorb, and with the restored id after an undo.
+
 # Rate sheets
 
 Duplicate rate sheets are absorbed like the other collections (issue #191).

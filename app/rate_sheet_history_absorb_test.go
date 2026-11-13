@@ -44,7 +44,8 @@ import (
 //     History Revised rev 0, from 2025-02-01 on the standard sheet.
 //
 // history.revise@example.com is active and holds job, rate_sheet_revise and
-// absorb. No test here changes fixture data except through the API.
+// absorb. One test changes fixture data other than through the API, and
+// says so where it does.
 
 const (
 	rsHistTarget  = "rsabhisttgt0001"
@@ -231,8 +232,21 @@ func TestRateSheetAbsorbCurrentSheetWithHistory(t *testing.T) {
 		t.Fatalf("edit of another project while the absorb is pending: status %d: %s", status, body)
 	}
 
+	// Test-time change to fixture data: the moved job's updated is set to a
+	// past time, as if the absorb was done earlier and the writeback has sent
+	// the job with the target's id since. Undo must mark the job to be sent
+	// again, with the restored sheet.
+	const sentAt = "2026-01-01 00:00:00.000Z"
+	rateSheetAbsorbSQL(t, app, "UPDATE jobs SET updated = '"+sentAt+"' WHERE id = {:job}", dbx.Params{"job": histJobNow})
+
 	if status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/undo_absorb", absorbAdminEmail, nil); status != http.StatusOK {
 		t.Fatalf("undo status %d: %s", status, body)
+	}
+	if job, err = app.FindRecordById("jobs", histJobNow); err != nil {
+		t.Fatal(err)
+	}
+	if job.GetBool("_imported") || job.GetString("updated") <= sentAt {
+		t.Fatalf("undo did not mark the job for writeback: _imported %v, updated %s", job.GetBool("_imported"), job.GetString("updated"))
 	}
 	if got := periodSnapshot(t, app, histJobNow); strings.Join(got, "\n") != strings.Join(periods, "\n") {
 		t.Fatalf("undo restored the history\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(periods, "\n"))
