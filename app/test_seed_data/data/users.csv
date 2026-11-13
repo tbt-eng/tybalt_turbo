@@ -55,3 +55,4 @@ created,email,emailVisibility,id,name,password,tokenKey,updated,username,verifie
 2026-10-13 00:00:00.000Z,users.view.po.second@example.com,0,uvgposecond0001,Users View PO Second Approver,$2a$12$MFwqOVtoQBUWoy4N7BEd2u8OBvfvRadp3sN7uCzWKz1.i6t5EfDuO,tok_uvgposecond0001,2026-10-13 00:00:00.000Z,uvgposecond0001,1
 2026-10-13 00:00:00.000Z,users.view.closed.second@example.com,0,uvgclosedsec001,Users View Closed PO Second Approver,$2a$12$MFwqOVtoQBUWoy4N7BEd2u8OBvfvRadp3sN7uCzWKz1.i6t5EfDuO,tok_uvgclosedsec001,2026-10-13 00:00:00.000Z,uvgclosedsec001,1
 2026-11-02 16:00:00.000Z,superpo@test.com,0,superpouser0001,,$2a$12$MFwqOVtoQBUWoy4N7BEd2u8OBvfvRadp3sN7uCzWKz1.i6t5EfDuO,tok_superpouser0001,2026-11-02 16:00:00.000Z,superpo,1
+2026-11-12 00:00:00.000Z,absorb.revise@example.com,0,uabsorbrevise01,,$2a$12$JWde60OHnRq8ok.eG.99jOGf3b3F9UQ.pjKkcTDfHlkjHB1ZGt0Ey,AbsorbReviseFixtureTokenKey0000000000000000000001,2026-11-12 00:00:00.000Z,absorbrevise,1

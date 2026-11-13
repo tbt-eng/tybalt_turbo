@@ -131,6 +131,11 @@ func TestRenameRateSheet_Permissions(t *testing.T) {
 	}
 }
 
+// renameNotSeeded leaves out the one history row of the seed data, which
+// belongs to the rate sheet absorb fixtures (rate_sheet_name_changes.csv), so
+// that these tests count only the rows that a rename writes.
+var renameNotSeeded = dbx.Not(dbx.HashExp{"id": "rsnamechgabs001"})
+
 func TestRenameRateSheet_RenamesEveryRevisionAndWritesHistory(t *testing.T) {
 	adminToken := renameToken(t, "author@soup.com")
 
@@ -187,7 +192,7 @@ func TestRenameRateSheet_RenamesEveryRevisionAndWritesHistory(t *testing.T) {
 				t.Errorf("job rate sheet names = %v", jobNames)
 			}
 
-			changes, err := app.FindAllRecords("rate_sheet_name_changes")
+			changes, err := app.FindAllRecords("rate_sheet_name_changes", renameNotSeeded)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -211,7 +216,7 @@ func TestRenameRateSheet_RefusesBadNames(t *testing.T) {
 	adminToken := renameToken(t, "author@soup.com")
 
 	noChange := func(t testing.TB, app *tests.TestApp, res *http.Response) {
-		changes, err := app.FindAllRecords("rate_sheet_name_changes")
+		changes, err := app.FindAllRecords("rate_sheet_name_changes", renameNotSeeded)
 		if err != nil {
 			t.Fatal(err)
 		}

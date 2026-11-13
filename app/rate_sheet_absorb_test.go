@@ -17,20 +17,32 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 )
 
-// Rate sheet absorb (issue #191). The fixtures are made in each test from the
-// seeded 2025 Standard Rates sheet (c41ofep525bcacj), which has an entry for
-// every role. Seeded users:
+// Rate sheet absorb (issue #191). The fixtures are rows of the seed CSV files
+// (app/test_seed_data/data): the rate sheets below with their entries, the
+// jobs and the request that use them, one earlier name of Absorb Single
+// (rate_sheet_name_changes.csv), and the user absorb.revise@example.com.
+//
+// Rate sets, each made from the seeded 2025 Standard Rates sheet
+// (c41ofep525bcacj), which has an entry for every role:
+//   - rates A: 1000 added to each rate, so that it matches no other sheet
+//   - rates B: rates A without one role
+//   - rates C: rates A with one overtime rate 1 higher
+//   - rates G: 3000 added to each rate (the Group sheets)
+//
+// Seeded users:
 //   - author@soup.com holds admin, not absorb
 //   - book@keeper.com holds absorb, not admin or rate_sheet_revise
+//   - absorb.revise@example.com holds absorb and rate_sheet_revise, not admin
 //   - time@test.com holds rate_sheet_revise, not admin or absorb
 //
-// absorbReviseEmail is book@keeper.com after a test gives it
-// rate_sheet_revise, with grantRateSheetRevise.
+// Two tests change fixture data at test time, and each says why at the
+// change: TestRateSheetAbsorbKeepsJobWIP and
+// TestRateSheetAbsorbRequestBecomesJob.
 
 const (
 	absorbAdminEmail  = "author@soup.com"
 	absorbOnlyEmail   = "book@keeper.com"
-	absorbReviseEmail = "book@keeper.com"
+	absorbReviseEmail = "absorb.revise@example.com"
 	reviseOnlyEmail   = "time@test.com"
 
 	rsAbTarget       = "rsabtarget00001" // Absorb Target, rev 0, 2024-01-01, active, rates A
@@ -46,78 +58,11 @@ const (
 	rsAbLatest0      = "rsablatest0r001" // Absorb Latest Differs rev 0, inactive, rates A
 	rsAbLatest1      = "rsablatest1r001" // Absorb Latest Differs rev 1, active, rates C; no references
 	rsAbInactiveTgt  = "rsabinactive001" // Absorb Inactive Target, 2020-01-01, inactive, rates A
-	rsAbSingleJob    = "jobwip000000004"
-	rsAbUsedJob      = "jobwip000000003"
-	rsAbSingleReq    = "parequest000001"
+	rsAbSingleJob    = "jobabsingle0001"
+	rsAbUsedJob      = "jobabused000001"
+	rsAbSingleReq    = "parequestabs001"
 	rsAbStandardRate = "c41ofep525bcacj"
 )
-
-type rateSheetEntryFixture struct {
-	Role         string
-	Rate         float64
-	OvertimeRate float64
-}
-
-// standardEntries returns the entries of the seeded standard sheet, sorted by
-// role.
-func standardEntries(t testing.TB, app core.App) []rateSheetEntryFixture {
-	t.Helper()
-	records, err := app.FindAllRecords("rate_sheet_entries", dbx.HashExp{"rate_sheet": rsAbStandardRate})
-	if err != nil {
-		t.Fatal(err)
-	}
-	entries := []rateSheetEntryFixture{}
-	for _, r := range records {
-		entries = append(entries, rateSheetEntryFixture{r.GetString("role"), r.GetFloat("rate"), r.GetFloat("overtime_rate")})
-	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Role < entries[j].Role })
-	return entries
-}
-
-// ratesA is the standard sheet with 1000 added to each rate, so that it
-// matches no seeded sheet. ratesB lacks one role of ratesA. ratesC differs
-// from ratesA in one overtime rate.
-func absorbRateSets(t testing.TB, app core.App) (a, b, c []rateSheetEntryFixture) {
-	t.Helper()
-	for _, e := range standardEntries(t, app) {
-		a = append(a, rateSheetEntryFixture{e.Role, e.Rate + 1000, e.OvertimeRate + 1000})
-	}
-	b = append(b, a[1:]...)
-	c = append(c, a...)
-	c[0].OvertimeRate++
-	return a, b, c
-}
-
-func createRateSheetFixture(t testing.TB, app core.App, id, name string, revision int, effectiveDate string, active bool, entries []rateSheetEntryFixture) {
-	t.Helper()
-	sheets, err := app.FindCollectionByNameOrId("rate_sheets")
-	if err != nil {
-		t.Fatal(err)
-	}
-	sheet := core.NewRecord(sheets)
-	sheet.Id = id
-	sheet.Set("name", name)
-	sheet.Set("revision", revision)
-	sheet.Set("effective_date", effectiveDate)
-	sheet.Set("active", active)
-	if err := app.Save(sheet); err != nil {
-		t.Fatalf("saving rate sheet %s: %v", id, err)
-	}
-	entryCollection, err := app.FindCollectionByNameOrId("rate_sheet_entries")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, e := range entries {
-		entry := core.NewRecord(entryCollection)
-		entry.Set("rate_sheet", id)
-		entry.Set("role", e.Role)
-		entry.Set("rate", e.Rate)
-		entry.Set("overtime_rate", e.OvertimeRate)
-		if err := app.Save(entry); err != nil {
-			t.Fatalf("saving an entry of %s: %v", id, err)
-		}
-	}
-}
 
 func rateSheetAbsorbSQL(t testing.TB, app core.App, query string, params dbx.Params) {
 	t.Helper()
@@ -126,53 +71,11 @@ func rateSheetAbsorbSQL(t testing.TB, app core.App, query string, params dbx.Par
 	}
 }
 
-// newRateSheetAbsorbApp returns a seeded app with the fixtures listed in the
-// constants above.
+// newRateSheetAbsorbApp returns a seeded app. The fixtures listed in the
+// constants above are rows of the seed CSV files.
 func newRateSheetAbsorbApp(t testing.TB) *tests.TestApp {
 	t.Helper()
-	app := testutils.SetupTestApp(t)
-	a, b, c := absorbRateSets(t, app)
-	createRateSheetFixture(t, app, rsAbTarget, "Absorb Target", 0, "2024-01-01", true, a)
-	createRateSheetFixture(t, app, rsAbSingle, "Absorb Single", 0, "2024-06-01", true, a)
-	createRateSheetFixture(t, app, rsAbEarly, "Absorb Early", 0, "2023-01-01", false, a)
-	createRateSheetFixture(t, app, rsAbMissing, "Absorb Missing Role", 0, "2024-06-01", false, b)
-	createRateSheetFixture(t, app, rsAbDiffRate, "Absorb Different Rate", 0, "2024-06-01", false, c)
-	createRateSheetFixture(t, app, rsAbWhole0, "Absorb Whole", 0, "2022-01-01", false, c)
-	createRateSheetFixture(t, app, rsAbWhole1, "Absorb Whole", 1, "2022-06-01", true, a)
-	createRateSheetFixture(t, app, rsAbUsed0, "Absorb Used", 0, "2024-01-01", false, a)
-	createRateSheetFixture(t, app, rsAbUsed1, "Absorb Used", 1, "2024-02-01", true, a)
-	createRateSheetFixture(t, app, rsAbLateInactive, "Absorb Late Inactive", 0, "2025-01-01", false, a)
-	createRateSheetFixture(t, app, rsAbLatest0, "Absorb Latest Differs", 0, "2024-06-01", false, a)
-	createRateSheetFixture(t, app, rsAbLatest1, "Absorb Latest Differs", 1, "2024-07-01", true, c)
-	createRateSheetFixture(t, app, rsAbInactiveTgt, "Absorb Inactive Target", 0, "2020-01-01", false, a)
-	rateSheetAbsorbSQL(t, app, "UPDATE jobs SET rate_sheet = {:sheet} WHERE id = {:job}", dbx.Params{"sheet": rsAbSingle, "job": rsAbSingleJob})
-	rateSheetAbsorbSQL(t, app, "UPDATE jobs SET rate_sheet = {:sheet} WHERE id = {:job}", dbx.Params{"sheet": rsAbUsed0, "job": rsAbUsedJob})
-	rateSheetAbsorbSQL(t, app, "UPDATE job_requests SET rate_sheet = {:sheet} WHERE id = {:request}", dbx.Params{"sheet": rsAbSingle, "request": rsAbSingleReq})
-	return app
-}
-
-// grantRateSheetRevise gives book@keeper.com the rate_sheet_revise claim, so
-// that it holds absorb and rate_sheet_revise.
-func grantRateSheetRevise(t testing.TB, app core.App) {
-	t.Helper()
-	user, err := app.FindAuthRecordByEmail("users", absorbReviseEmail)
-	if err != nil {
-		t.Fatal(err)
-	}
-	claim, err := app.FindFirstRecordByData("claims", "name", "rate_sheet_revise")
-	if err != nil {
-		t.Fatal(err)
-	}
-	collection, err := app.FindCollectionByNameOrId("user_claims")
-	if err != nil {
-		t.Fatal(err)
-	}
-	userClaim := core.NewRecord(collection)
-	userClaim.Set("uid", user.Id)
-	userClaim.Set("cid", claim.Id)
-	if err := app.Save(userClaim); err != nil {
-		t.Fatal(err)
-	}
+	return testutils.SetupTestApp(t)
 }
 
 // absorbRequest sends a request as the user with email and returns the
@@ -383,7 +286,6 @@ func TestRateSheetAbsorbUndoRoundTrip(t *testing.T) {
 func TestRateSheetAbsorbWholeName(t *testing.T) {
 	app := newRateSheetAbsorbApp(t)
 	defer app.Cleanup()
-	grantRateSheetRevise(t, app)
 
 	before := map[string][]string{
 		rsAbWhole0: entrySnapshot(t, app, rsAbWhole0),
@@ -433,24 +335,8 @@ func TestRateSheetAbsorbCommitWritesNameHistory(t *testing.T) {
 	app := newRateSheetAbsorbApp(t)
 	defer app.Cleanup()
 
-	// The absorbed sheet was renamed before.
-	history, err := app.FindCollectionByNameOrId("rate_sheet_name_changes")
-	if err != nil {
-		t.Fatal(err)
-	}
-	admin, err := app.FindAuthRecordByEmail("users", absorbAdminEmail)
-	if err != nil {
-		t.Fatal(err)
-	}
-	earlier := core.NewRecord(history)
-	earlier.Set("rate_sheet", rsAbSingle)
-	earlier.Set("old_name", "Absorb Single Before")
-	earlier.Set("new_name", "Absorb Single")
-	earlier.Set("renamed_by", admin.Id)
-	if err := app.Save(earlier); err != nil {
-		t.Fatal(err)
-	}
-
+	// The absorbed sheet was renamed before: rate_sheet_name_changes.csv has
+	// its earlier name, Absorb Single Before.
 	if err := routes.AbsorbRecords(app, "rate_sheets", rsAbTarget, []string{rsAbSingle}); err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +359,6 @@ func TestRateSheetAbsorbCommitWritesNameHistory(t *testing.T) {
 		t.Fatalf("a refused commit wrote history: %v", names)
 	}
 
-	grantRateSheetRevise(t, app)
 	if status, body := absorbRequest(t, app, http.MethodDelete, path, absorbReviseEmail, nil); status != http.StatusNoContent {
 		t.Fatalf("commit status %d: %s", status, body)
 	}
@@ -506,22 +391,18 @@ func TestRateSheetAbsorbClaims(t *testing.T) {
 	cases := []struct {
 		name   string
 		email  string
-		grant  bool
 		status int
 	}{
-		{"admin", absorbAdminEmail, false, http.StatusOK},
-		{"absorb and rate_sheet_revise", absorbReviseEmail, true, http.StatusOK},
-		{"absorb alone", absorbOnlyEmail, false, http.StatusForbidden},
-		{"rate_sheet_revise alone", reviseOnlyEmail, false, http.StatusForbidden},
-		{"signed out", "", false, http.StatusUnauthorized},
+		{"admin", absorbAdminEmail, http.StatusOK},
+		{"absorb and rate_sheet_revise", absorbReviseEmail, http.StatusOK},
+		{"absorb alone", absorbOnlyEmail, http.StatusForbidden},
+		{"rate_sheet_revise alone", reviseOnlyEmail, http.StatusForbidden},
+		{"signed out", "", http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			app := newRateSheetAbsorbApp(t)
 			defer app.Cleanup()
-			if tc.grant {
-				grantRateSheetRevise(t, app)
-			}
 			status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/"+rsAbTarget+"/absorb", tc.email, absorbBody(rsAbSingle))
 			if status != tc.status {
 				t.Fatalf("absorb status %d; want %d: %s", status, tc.status, body)
@@ -531,11 +412,9 @@ func TestRateSheetAbsorbClaims(t *testing.T) {
 					t.Fatalf("absorb body: %s", body)
 				}
 				// Undo is refused for absorb alone and allowed for the user who
-				// absorbed. book@keeper.com holds absorb alone until granted.
-				if !tc.grant {
-					if status, _ := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/undo_absorb", absorbOnlyEmail, nil); status != http.StatusForbidden {
-						t.Fatalf("undo with absorb alone: status %d", status)
-					}
+				// absorbed.
+				if status, _ := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/undo_absorb", absorbOnlyEmail, nil); status != http.StatusForbidden {
+					t.Fatalf("undo with absorb alone: status %d", status)
 				}
 				if status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/undo_absorb", tc.email, nil); status != http.StatusOK {
 					t.Fatalf("undo status %d: %s", status, body)
@@ -631,19 +510,13 @@ func TestRateSheetAbsorbKeepsJobWIP(t *testing.T) {
 	defer app.Cleanup()
 
 	const job = "jobwip000000001"
-	// Copy the job's sheet (rsvaluation0001, a revision of a name that jobs
-	// use) to two single revision sheets with the same rates, and move the
-	// job to one of them.
-	records, err := app.FindAllRecords("rate_sheet_entries", dbx.HashExp{"rate_sheet": "rsvaluation0001"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	entries := []rateSheetEntryFixture{}
-	for _, r := range records {
-		entries = append(entries, rateSheetEntryFixture{r.GetString("role"), r.GetFloat("rate"), r.GetFloat("overtime_rate")})
-	}
-	createRateSheetFixture(t, app, "rsabwipsource01", "WIP Source", 0, "2034-01-01", false, entries)
-	createRateSheetFixture(t, app, "rsabwiptarget01", "WIP Target", 0, "2033-01-01", false, entries)
+	// WIP Source and WIP Target are seeded single revision sheets with the
+	// rates of the job's own sheet (rsvaluation0001, a revision of a name
+	// that jobs use, so it can't be absorbed itself).
+	//
+	// Test-time change to fixture data: the job is moved to WIP Source here.
+	// A seeded job on WIP Source would need its own time entries, and those
+	// would change the totals that the WIP and time sheet tests assert.
 	rateSheetAbsorbSQL(t, app, "UPDATE jobs SET rate_sheet = 'rsabwipsource01' WHERE id = {:job}", dbx.Params{"job": job})
 
 	wip := func() routes.JobWIP {
@@ -689,7 +562,14 @@ func TestRateSheetAbsorbKeepsJobWIP(t *testing.T) {
 func TestRateSheetAbsorbRequestBecomesJob(t *testing.T) {
 	app := newWorkflowTestApp(t, true)
 	const requestID = "parequest000001"
-	createRateSheetFixture(t, app, "rsabreqtarget01", "Request Target", 0, "2025-01-01", true, standardEntries(t, app))
+	// Request Target is a seeded sheet with the standard rates.
+	//
+	// Test-time change to fixture data: Request Target is activated here. The
+	// request of this workflow fixture is on the active standard sheet, and
+	// only an active target can absorb an active sheet. Request Target is
+	// inactive in the seed, because an active copy of the standard sheet
+	// would be a duplicate for every test of the duplicate check.
+	rateSheetAbsorbSQL(t, app, "UPDATE rate_sheets SET active = true WHERE id = 'rsabreqtarget01'", nil)
 
 	if err := routes.AbsorbRecords(app, "rate_sheets", "rsabreqtarget01", []string{rsAbStandardRate}); err != nil {
 		t.Fatal(err)
@@ -811,21 +691,11 @@ func TestRateSheetDuplicatesView(t *testing.T) {
 		t.Fatal("the seeded duplicate group is missing")
 	}
 
-	// A group whose earliest sheet is inactive and older than an active
-	// revision says why nothing can be absorbed.
-	app2 := testutils.SetupTestApp(t)
-	defer app2.Cleanup()
-	a, _, _ := absorbRateSets(t, app2)
-	createRateSheetFixture(t, app2, "rsabgroupold001", "Group Old", 0, "2020-01-01", false, a)
-	createRateSheetFixture(t, app2, "rsabgroupold002", "Group Old", 1, "2021-01-01", false, a)
-	createRateSheetFixture(t, app2, "rsabgroupnew001", "Group New", 0, "2022-01-01", true, a)
-	rateSheetAbsorbSQL(t, app2, "UPDATE jobs SET rate_sheet = 'rsabgroupold001' WHERE id = {:job}", dbx.Params{"job": rsAbSingleJob})
-	status, body = absorbRequest(t, app2, http.MethodGet, "/api/rate_sheets/duplicates", reviseOnlyEmail, nil)
-	if status != http.StatusOK {
-		t.Fatalf("status %d: %s", status, body)
-	}
+	// The seeded Group sheets: the earliest sheet (Group Old rev 0, which a
+	// job uses) is inactive and has a newer revision, and Group New is
+	// active. The group says why nothing can be absorbed.
 	if !strings.Contains(body, "has a newer revision") {
-		t.Fatalf("expected the group to say why it can't be absorbed: %s", body)
+		t.Fatalf("expected the Group sheets to say why they can't be absorbed: %s", body)
 	}
 }
 

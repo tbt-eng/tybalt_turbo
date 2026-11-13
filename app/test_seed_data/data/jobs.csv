@@ -95,3 +95,6 @@ _imported,alternate_manager,authorizing_document,branch,client,client_po,client_
 1,,,,pqpd90fqd5ohjcs,,,,2020-01-01 00:00:00.000Z,Adopt subjobs fixture linked elsewhere,0,adoptsubjob0006,,,,26-7710-5,0,,adoptproject001,,0,,,,0,,Active,0,2020-01-01 00:00:00.000Z,,,,,,,
 1,,,,pqpd90fqd5ohjcs,,,,2020-01-01 00:00:00.000Z,Adopt subjobs fixture with subjob,0,adoptsubjob0007,,,,26-7710-6,0,,,,0,,,,0,,Active,0,2020-01-01 00:00:00.000Z,,,,,,,
 1,,,,pqpd90fqd5ohjcs,,,,2020-01-01 00:00:00.000Z,Adopt subjobs fixture child,0,adoptsubjob0008,,,,26-7710-6-1,0,,adoptsubjob0007,,0,,,,0,,Active,0,2020-01-01 00:00:00.000Z,,,,,,,
+0,,,80875lm27v8wgi4,eldtxi3i4h00k8r,,,7lalt1egn7wi8bn,2026-11-12 00:00:00.000Z,Rate sheet absorb fixture: uses Absorb Single,0,jobabsingle0001,,87Q8GC3V+RG,wegviunlyr2jjjv,91-8911,0,,,,0,,,,0,rsabsingle00001,Closed,0,2026-11-12 00:00:00.000Z,,,,,,,
+0,,,80875lm27v8wgi4,eldtxi3i4h00k8r,,,7lalt1egn7wi8bn,2026-11-12 00:00:00.000Z,Rate sheet absorb fixture: uses Absorb Used rev 0,0,jobabused000001,,87Q8GC3V+RG,wegviunlyr2jjjv,91-8912,0,,,,0,,,,0,rsabused0r00001,Closed,0,2026-11-12 00:00:00.000Z,,,,,,,
+0,,,80875lm27v8wgi4,eldtxi3i4h00k8r,,,7lalt1egn7wi8bn,2026-11-12 00:00:00.000Z,Rate sheet absorb fixture: uses Group Old rev 0,0,jobabgroup00001,,87Q8GC3V+RG,wegviunlyr2jjjv,91-8913,0,,,,0,,,,0,rsabgroupold001,Closed,0,2026-11-12 00:00:00.000Z,,,,,,,
