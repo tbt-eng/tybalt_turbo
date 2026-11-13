@@ -106,6 +106,16 @@ The rule behind every check: an absorb never reprices time.
   writeback sends only `jobs.rate_sheet`, which did not change.
 - `jobs.rate_sheet` is the sheet of the job's latest period. The job and the
   latest period move together, and undo puts both back, so they stay equal.
+- While the action is pending, the history routes refuse (409) any change to
+  a project whose job or periods the action moved
+  (`checkPendingRateSheetAbsorb`), as a client change does during a client
+  merge. Undo writes back the saved sheet of each moved row, so a change in
+  between would be overwritten or leave `jobs.rate_sheet` unequal to the
+  latest period. A period can't be pointed at an absorbed sheet, because the
+  sheet is deleted.
+- A move can leave two neighbouring periods on the target. The history rules
+  then refuse only a pair that a change makes, so the pair does not block
+  other changes, and deleting the later period removes it.
 
 The UI: the Duplicates view (`/rate-sheets/duplicates`) lists each group of
 identical sheets from `GET /api/rate_sheets/duplicates`, marks the target (the

@@ -23,7 +23,7 @@ To keep the sheets, select **Undo** instead of **Commit**.
 
 ## What the absorb changes
 
-Jobs, their [rate sheet periods](/docs/rate-sheet-periods) and project requests move to the target. Their rates don't change.
+Jobs, their [rate sheet periods](/docs/rate-sheet-periods) and project requests move to the target. Their rates don't change. Until you commit or undo the absorb, the periods of those jobs can't change.
 
 Turbo deletes the absorbed sheets. The target shows their names after **Formerly**.
 

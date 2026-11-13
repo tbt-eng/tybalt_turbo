@@ -43,7 +43,8 @@ import (
 //   - jobabhist000003, on the standard sheet: opening period on Absorb
 //     History Revised rev 0, from 2025-02-01 on the standard sheet.
 //
-// No test here changes fixture data except through the API.
+// history.revise@example.com is active and holds job, rate_sheet_revise and
+// absorb. No test here changes fixture data except through the API.
 
 const (
 	rsHistTarget  = "rsabhisttgt0001"
@@ -56,6 +57,7 @@ const (
 	histJobRev    = "jobabhist000003"
 	histPeriodSrc = "jrsabhist01src0"
 	histPeriodCur = "jrsabhist02cur0"
+	histRevise    = "history.revise@example.com"
 )
 
 // periodSnapshot returns every field of each period of a project, in date
@@ -182,6 +184,92 @@ func TestRateSheetAbsorbMovesHistoryPeriod(t *testing.T) {
 	}
 	if committed := histWIP(t, app, histJobOld); committed != before {
 		t.Fatalf("WIP after commit = %+v; want %+v", committed, before)
+	}
+}
+
+// When the job's current sheet is absorbed, the job and its latest period move
+// together, so jobs.rate_sheet stays the sheet of the latest period. The
+// period before it is already on the target: the two neighbours then share a
+// sheet. While the absorb is pending, the project's history can't change.
+// After commit, that pair does not block other changes, and a change can't
+// make a new pair.
+func TestRateSheetAbsorbCurrentSheetWithHistory(t *testing.T) {
+	app := newRateSheetAbsorbApp(t)
+	defer app.Cleanup()
+
+	periods := periodSnapshot(t, app, histJobNow)
+	if status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/"+rsHistTarget+"/absorb", absorbAdminEmail, absorbBody(rsHistCurrent)); status != http.StatusOK {
+		t.Fatalf("absorb status %d: %s", status, body)
+	}
+	if got := fieldOf(t, app, "jobs", histJobNow, "rate_sheet"); got != rsHistTarget {
+		t.Fatalf("the job is on %s", got)
+	}
+	if got := fieldOf(t, app, "job_rate_sheets", histPeriodCur, "rate_sheet"); got != rsHistTarget {
+		t.Fatalf("the latest period is on %s", got)
+	}
+	job, err := app.FindRecordById("jobs", histJobNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job.GetBool("_imported") {
+		t.Fatal("the moved job was not marked for writeback")
+	}
+
+	// The project's history is frozen until the absorb is committed or undone.
+	newPeriod := map[string]any{"rate_sheet": rsAbStandardRate, "effective_date": "2025-06-02", "reason": "New contract"}
+	status, body := absorbRequest(t, app, http.MethodPost, "/api/jobs/"+histJobNow+"/rate_sheets", histRevise, newPeriod)
+	if status != http.StatusConflict || !strings.Contains(body, "waiting to be committed or undone") {
+		t.Fatalf("history change while the absorb is pending: status %d: %s", status, body)
+	}
+	status, body = absorbRequest(t, app, http.MethodPatch, "/api/jobs/"+histJobNow+"/rate_sheets/"+histPeriodCur, histRevise, map[string]any{"effective_date": "2024-04-02", "reason": "Wrong date"})
+	if status != http.StatusConflict {
+		t.Fatalf("period edit while the absorb is pending: status %d: %s", status, body)
+	}
+	// A project that the absorb did not move can still change.
+	status, body = absorbRequest(t, app, http.MethodPatch, "/api/jobs/"+histJobRev+"/rate_sheets/jrsabhist03std0", histRevise, map[string]any{"effective_date": "2025-02-03", "reason": "Wrong date"})
+	if status != http.StatusOK {
+		t.Fatalf("edit of another project while the absorb is pending: status %d: %s", status, body)
+	}
+
+	if status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/undo_absorb", absorbAdminEmail, nil); status != http.StatusOK {
+		t.Fatalf("undo status %d: %s", status, body)
+	}
+	if got := periodSnapshot(t, app, histJobNow); strings.Join(got, "\n") != strings.Join(periods, "\n") {
+		t.Fatalf("undo restored the history\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(periods, "\n"))
+	}
+	if got := fieldOf(t, app, "jobs", histJobNow, "rate_sheet"); got != rsHistCurrent {
+		t.Fatalf("undo left the job on %s", got)
+	}
+
+	if err := routes.AbsorbRecords(app, "rate_sheets", rsHistTarget, []string{rsHistCurrent}); err != nil {
+		t.Fatal(err)
+	}
+	commitRateSheetAbsorb(t, app)
+
+	// Both periods are on the target now. A new period is still allowed.
+	status, body = absorbRequest(t, app, http.MethodPost, "/api/jobs/"+histJobNow+"/rate_sheets", histRevise, newPeriod)
+	if status != http.StatusOK {
+		t.Fatalf("new period after the commit: status %d: %s", status, body)
+	}
+	if got := fieldOf(t, app, "jobs", histJobNow, "rate_sheet"); got != rsAbStandardRate {
+		t.Fatalf("the job is on %s; want the new period's sheet", got)
+	}
+	added, err := app.FindFirstRecordByFilter("job_rate_sheets", "job = {:job} && effective_date = '2025-06-02'", dbx.Params{"job": histJobNow})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A change that makes a new pair of neighbours on one sheet is refused.
+	status, body = absorbRequest(t, app, http.MethodPatch, "/api/jobs/"+histJobNow+"/rate_sheets/"+added.Id, histRevise, map[string]any{"rate_sheet": rsHistTarget, "reason": "Back to the target"})
+	if status != http.StatusBadRequest || !strings.Contains(body, "same_as_previous") {
+		t.Fatalf("a new pair on one sheet: status %d: %s", status, body)
+	}
+	// The later period of the pair can be deleted.
+	status, body = absorbRequest(t, app, http.MethodDelete, "/api/jobs/"+histJobNow+"/rate_sheets/"+histPeriodCur, histRevise, nil)
+	if status != http.StatusOK {
+		t.Fatalf("delete of the later period of the pair: status %d: %s", status, body)
+	}
+	if n := len(periodSnapshot(t, app, histJobNow)); n != 2 {
+		t.Fatalf("the history has %d periods; want 2", n)
 	}
 }
 

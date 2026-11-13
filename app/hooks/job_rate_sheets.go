@@ -80,10 +80,36 @@ func EnsureOpeningRateSheetRow(app core.App, ctx context.Context, job *core.Reco
 	return app.SaveWithContext(WithProjectWorkflowMutation(ctx, ProjectWorkflowMutationRateSheet), row)
 }
 
+// JobRateSheetSamePairs returns the neighbouring rows of a project's history
+// that use the same sheet, as "earlier id|later id". A history change never
+// makes such a pair, but a rate sheet absorb can: it moves a period from an
+// absorbed sheet to the target, and the period next to it may already be on
+// the target. The rates are identical, so pricing does not change.
+func JobRateSheetSamePairs(app core.App, jobID string) (map[string]bool, error) {
+	rows, err := JobRateSheetRows(app, jobID)
+	if err != nil {
+		return nil, err
+	}
+	return sameSheetPairs(rows), nil
+}
+
+func sameSheetPairs(rows []*core.Record) map[string]bool {
+	pairs := map[string]bool{}
+	for i := 1; i < len(rows); i++ {
+		if rows[i].GetString("rate_sheet") == rows[i-1].GetString("rate_sheet") {
+			pairs[rows[i-1].Id+"|"+rows[i].Id] = true
+		}
+	}
+	return pairs
+}
+
 // ValidateJobRateSheetHistory checks the rules that depend on a project's whole
 // history, after a change to it. The unique indexes already allow only one
-// opening row and one row per date.
-func ValidateJobRateSheetHistory(app core.App, jobID string) error {
+// opening row and one row per date. existing holds the pairs of neighbouring
+// rows on the same sheet from before the change (JobRateSheetSamePairs). Only
+// a pair that the change makes is refused, so a pair that an absorb left does
+// not block unrelated changes.
+func ValidateJobRateSheetHistory(app core.App, jobID string, existing map[string]bool) error {
 	rows, err := JobRateSheetRows(app, jobID)
 	if err != nil {
 		return err
@@ -95,8 +121,8 @@ func ValidateJobRateSheetHistory(app core.App, jobID string) error {
 		return rateSheetError(http.StatusBadRequest, "effective_date", "opening_row_required",
 			"The rate sheet history must keep its opening row.")
 	}
-	for i := 1; i < len(rows); i++ {
-		if rows[i].GetString("rate_sheet") == rows[i-1].GetString("rate_sheet") {
+	for pair := range sameSheetPairs(rows) {
+		if !existing[pair] {
 			return rateSheetError(http.StatusBadRequest, "rate_sheet", "same_as_previous",
 				"Two neighbouring periods would use the same rate sheet. Delete the later one instead.")
 		}

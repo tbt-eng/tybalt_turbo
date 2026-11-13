@@ -216,10 +216,17 @@ func changeJobRateSheets(app core.App, e *core.RequestEvent, change func(tx core
 		if !canJob {
 			return rateSheetRouteError(http.StatusForbidden, "", "", "An active user with the job claim is required.")
 		}
+		if err := checkPendingRateSheetAbsorb(tx, job); err != nil {
+			return err
+		}
+		existing, err := hooks.JobRateSheetSamePairs(tx, job.Id)
+		if err != nil {
+			return err
+		}
 		if err := change(tx, job, canRevise); err != nil {
 			return err
 		}
-		if err := hooks.ValidateJobRateSheetHistory(tx, job.Id); err != nil {
+		if err := hooks.ValidateJobRateSheetHistory(tx, job.Id, existing); err != nil {
 			return err
 		}
 		return hooks.SyncJobRateSheet(tx, e.Request.Context(), job)
@@ -236,6 +243,40 @@ func changeJobRateSheets(app core.App, e *core.RequestEvent, change func(tx core
 		return writeRateSheetError(e, err)
 	}
 	return e.JSON(http.StatusOK, map[string]any{"periods": periods})
+}
+
+// checkPendingRateSheetAbsorb refuses a change to a project's history while a
+// rate sheet absorb that moved the project's rate sheet or one of its periods
+// can still be undone. Undo writes back the saved sheet of each moved job and
+// period, so a change made in between would be overwritten, or would leave
+// jobs.rate_sheet unequal to the latest period. As for a client change
+// (checkPendingClientMerges), the user commits or undoes the absorb first. A
+// period can't be pointed at an absorbed sheet, because absorb deletes it.
+func checkPendingRateSheetAbsorb(tx core.App, job *core.Record) error {
+	actions, err := tx.FindAllRecords("absorb_actions", dbx.HashExp{"collection_name": "rate_sheets"})
+	if err != nil || len(actions) == 0 {
+		return err
+	}
+	rows, err := hooks.JobRateSheetRows(tx, job.Id)
+	if err != nil {
+		return err
+	}
+	for _, action := range actions {
+		var updates map[string]map[string]map[string]string
+		if err := action.UnmarshalJSONField("updated_references", &updates); err != nil {
+			return err
+		}
+		_, tracked := updates["jobs"]["rate_sheet"][job.Id]
+		for _, row := range rows {
+			if _, ok := updates["job_rate_sheets"]["rate_sheet"][row.Id]; ok {
+				tracked = true
+			}
+		}
+		if tracked {
+			return rateSheetRouteError(http.StatusConflict, "", "", "A rate sheet absorb that moved this project's rate sheet is waiting to be committed or undone. Finish it before changing the rate sheet history.")
+		}
+	}
+	return nil
 }
 
 func requireRevise(revise bool) error {

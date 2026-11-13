@@ -102,7 +102,9 @@ Indexes:
   and rejecting it keeps the history readable. The rule is checked after
   every create, edit, and delete. Deleting a dated row, or changing its date,
   must not leave its neighbours on the same sheet: if it would, the change is
-  refused, and the user deletes the later duplicate instead.
+  refused, and the user deletes the later duplicate instead. Only a pair that
+  the change makes is refused. A rate sheet absorb can leave a pair (see
+  Rate sheet absorb below), and that pair does not block other changes.
 - The opening row cannot be deleted. Changing its sheet replaces today's
   "change the job's rate sheet" and restates all time up to the first dated row.
 - Proposals have no rows. `cleanJob` already clears their rate sheet.
@@ -279,7 +281,15 @@ it treats `jobs.rate_sheet`:
   the revision-date rule. A moved row can be on an inactive target, as a row
   keeps a sheet that is deactivated.
 - After a move, two neighbouring rows can be on the target. Pricing reads
-  each row's date range and does not care.
+  each row's date range and does not care. The history routes refuse only a
+  pair that the change makes (`JobRateSheetSamePairs` before the change,
+  `ValidateJobRateSheetHistory` after it), and deleting the later row removes
+  the pair.
+- While the absorb is pending, the history routes refuse with 409 a change
+  to a project whose job or rows it moved (`checkPendingRateSheetAbsorb` in
+  `app/routes/job_rate_sheets.go`). Undo would otherwise overwrite the change
+  or leave `jobs.rate_sheet` unequal to the latest row. An absorbed sheet is
+  deleted, so no row can be pointed at it.
 - A project request that becomes a job while the absorb is pending gets its
   opening row on the target. `transferRequestMergeReferences` adds that row
   to the undo data with the job.
@@ -350,8 +360,11 @@ In `app/rate_sheet_history_absorb_test.go` and `app/rate_sheet_absorb_test.go`
   undo and after commit; undo restores every field of the history; the
   job's current sheet and latest row move together; a name with revisions
   is refused when only a row uses one of them, with the reason in the
-  Duplicates view and the candidates; a request that becomes a job while
-  the absorb is pending carries the opening row's undo data.
+  Duplicates view and the candidates; a pair of neighbouring rows left by an
+  absorb does not block a new row, and a change that makes a pair is still
+  refused; history changes to a moved project are refused while the absorb
+  is pending; a request that becomes a job while it is pending carries the
+  opening row's undo data.
 
 ## Open questions
 

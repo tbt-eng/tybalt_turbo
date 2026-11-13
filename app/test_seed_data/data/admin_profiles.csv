@@ -47,3 +47,4 @@ _imported,active,allow_personal_reimbursement,created,default_branch,default_cha
 0,1,0,2024-07-31 17:19:12.919Z,80875lm27v8wgi4,50,invoiceadmin001,Doer of things,legacy_f2j5a8vk006baub,+1 (807) 251-5555,0,2024-01-07,50,50,9801,2023-12-21,1,no,0,invoicejob00001,0,2026-02-11 00:00:00.000Z,40
 0,0,1,2025-09-03 16:51:01.207Z,80875lm27v8wgi4,50,invoiceadmin002,,,,0,2025-01-01,0,0,9802,,0,no,0,invoicetime0001,0,2025-09-03 16:51:01.207Z,40
 0,1,1,2026-11-02 16:00:00.000Z,80875lm27v8wgi4,50,superpoadmin001,,,,0,2025-01-01,0,0,900168,,0,no,0,superpouser0001,0,2026-11-02 16:00:00.000Z,40
+0,1,0,2026-11-13 00:00:00.000Z,80875lm27v8wgi4,999,aphistrevise001,Doer of things,legacy_histrevise,,0,2024-01-07,50,50,990301,2023-12-21,1,no,0,uhistrevise0001,0,2026-11-13 00:00:00.000Z,40
