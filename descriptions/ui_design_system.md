@@ -197,7 +197,7 @@ Help shows the conversation in an Ask tab beside a Docs tab, with `DSTabBar`. A 
 
 #### `DSLargeInput`
 
-A large one-line input with an icon, for the main thing to type on a page. `DSInstantSearch` uses it for the search bar and `DSChat` uses it for the next question. It takes a `label`, an `icon`, a bindable `value`, and `actions` for buttons inside the box. A `suggestion` is an example that types itself into the empty box in place of the placeholder; Tab, or the **Tab** button, fills it in. The home page uses it for the Help question box.
+A large one-line input with an icon, for the main thing to type on a page. `DSInstantSearch` uses it for the search bar and `DSChat` uses it for the next question. It takes a `label`, an `icon`, a bindable `value`, and `actions` for buttons inside the box. A `suggestion` is an example that types itself into the empty box in place of the placeholder; Tab fills it in. The home page uses it for the Help question box.
 
 #### `DSNotifyDot`
 

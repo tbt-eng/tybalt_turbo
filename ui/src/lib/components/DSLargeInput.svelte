@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
   import type { Snippet } from "svelte";
-  import DSActionButton from "./DSActionButton.svelte";
 
   // A large one-line input with an icon, for the main thing to type on a page,
   // such as a search or a question.
@@ -34,8 +33,7 @@
     // Buttons at the right end, inside the box.
     actions?: Snippet;
     // An example of what to type. It types itself into the empty box, in place
-    // of the placeholder, a moment after the box shows. Tab, or the button at
-    // the right, puts it in the box.
+    // of the placeholder, a moment after the box shows. Tab puts it in the box.
     suggestion?: string;
   } = $props();
 
@@ -46,7 +44,6 @@
   let typed = $state(0);
   let focused = $state(false);
   const hint = $derived(suggestion && value === "" ? suggestion.slice(0, typed) : "");
-  const hintComplete = $derived(hint !== "" && hint === suggestion);
 
   $effect(() => {
     const text = suggestion;
@@ -123,10 +120,5 @@
       </div>
     {/if}
   </div>
-  {#if hintComplete}
-    <DSActionButton variant="plain" icon="mdi:keyboard-tab" title="Use this example" action={fill}
-      >Tab</DSActionButton
-    >
-  {/if}
   {@render actions?.()}
 </div>

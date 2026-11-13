@@ -72,7 +72,8 @@ await runBrowserHarness(
 
     const box = page.getByRole("textbox", { name: "Ask Help a question" });
     const hint = page.locator("[aria-hidden='true'] > span.truncate");
-    const useButton = page.getByRole("button", { name: "Tab" });
+    // The example is complete when it ends with its question mark.
+    const typedOut = page.locator("[aria-hidden='true'] > span.truncate", { hasText: /\?$/ });
     const whatsNew = page.getByRole("link", { name: "What's New" });
     const welcome = page.getByText("Use the navigation menu to get started");
     const shot = async (name) => {
@@ -99,7 +100,7 @@ await runBrowserHarness(
     // The example types itself, one character after another, to a question.
     await hint.waitFor();
     const early = await hint.textContent();
-    await useButton.waitFor();
+    await typedOut.waitFor();
     const question = await hint.textContent();
     assert.ok(early.length < question.length && question.startsWith(early), "it types");
     assert.match(question, /^(How|When|What) .+\?$/);
@@ -108,7 +109,6 @@ await runBrowserHarness(
     // Text from the person hides the example. An empty box shows it again.
     await box.fill("x");
     assert.equal(await hint.count(), 0);
-    assert.equal(await useButton.count(), 0);
     await box.fill("");
     assert.equal(await hint.textContent(), question);
 
@@ -124,10 +124,8 @@ await runBrowserHarness(
     assert.equal(await whatsNew.evaluate((link) => link === document.activeElement), true);
     assert.equal(warmed, 1);
 
-    // The button does the same, for a phone.
-    await box.fill("");
-    await useButton.click();
-    assert.equal(await box.inputValue(), question);
+    // The box has no button: the example is used with Tab only.
+    assert.equal(await page.getByRole("button", { name: "Tab" }).count(), 0);
 
     // Enter asks in Help, on the Ask tab. The question is not in the URL.
     await box.press("Enter");
@@ -142,7 +140,7 @@ await runBrowserHarness(
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(origin);
     await box.waitFor();
-    await useButton.waitFor({ timeout: 1000 });
+    await typedOut.waitFor({ timeout: 1000 });
     await page.emulateMedia({ reducedMotion: "no-preference" });
 
     // With the chat off, the home page has its line about the menu and no box.
@@ -155,7 +153,7 @@ await runBrowserHarness(
 
     assert.deepEqual(errors, []);
     console.log(
-      "Home Help checks passed: typed example, Tab and button to use it, Enter to ask in Help, warm on focus, less motion and the off switch.",
+      "Home Help checks passed: typed example, Tab to use it, Enter to ask in Help, warm on focus, less motion and the off switch.",
     );
   },
   { app: true },
