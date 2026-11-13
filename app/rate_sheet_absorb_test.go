@@ -155,8 +155,8 @@ func TestRateSheetAbsorbRules(t *testing.T) {
 		{"a missing role is a difference", rsAbTarget, []string{rsAbMissing}, "rates are not identical", nil},
 		{"a different rate is a difference", rsAbTarget, []string{rsAbDiffRate}, "rates are not identical", nil},
 		{"the target's date can't be later than an absorbed sheet's", rsAbTarget, []string{rsAbEarly}, "effective date, 2024-01-01, is later than this sheet's, 2023-01-01", nil},
-		{"no revision of a name that a job uses: the used one", rsAbTarget, []string{rsAbUsed0}, "a job, a job's rate sheet period or a project request uses one of them", nil},
-		{"no revision of a name that a job uses: an unused one", rsAbTarget, []string{rsAbUsed1}, "a job, a job's rate sheet period or a project request uses one of them", nil},
+		{"no revision of a name that a job uses: the used one", rsAbTarget, []string{rsAbUsed0}, "a job or project request uses one of them", nil},
+		{"no revision of a name that a job uses: an unused one", rsAbTarget, []string{rsAbUsed1}, "a job or project request uses one of them", nil},
 		{"the latest revision must match", rsAbTarget, []string{rsAbLatest0}, "latest revision's rates are not identical", nil},
 		{"an inactive target can't absorb an active sheet", rsAbInactiveTgt, []string{rsAbSingle}, "inactive target can't absorb an active sheet", nil},
 		{"an inactive target can't absorb a name with an active revision", rsAbInactiveTgt, []string{rsAbWhole0}, "inactive target can't absorb an active sheet", nil},
@@ -688,8 +688,8 @@ func TestRateSheetDuplicatesView(t *testing.T) {
 			rsAbTarget:       "inactive target",
 			rsAbSingle:       "inactive target",
 			rsAbWhole1:       "inactive target",
-			rsAbUsed0:        "a job, a job's rate sheet period or a project request uses",
-			rsAbUsed1:        "a job, a job's rate sheet period or a project request uses",
+			rsAbUsed0:        "a job or project request uses",
+			rsAbUsed1:        "a job or project request uses",
 			rsAbLatest0:      "latest revision's rates",
 		}
 		for _, sheet := range group.Sheets[1:] {

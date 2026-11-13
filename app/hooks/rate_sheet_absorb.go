@@ -71,7 +71,7 @@ const (
 	rateSheetReasonTargetNoRates = "The target has no rates."
 	rateSheetReasonRates         = "Its rates are not identical to the target's."
 	rateSheetReasonLatestRates   = "Its latest revision's rates are not identical to the target's."
-	rateSheetReasonNameInUse     = "Its name has revisions, and a job, a job's rate sheet period or a project request uses one of them."
+	rateSheetReasonNameInUse     = "Its name has revisions, and a job or project request uses one of them."
 	rateSheetReasonInactive      = "An inactive target can't absorb an active sheet."
 )
 

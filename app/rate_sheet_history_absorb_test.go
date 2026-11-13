@@ -280,7 +280,7 @@ func TestRateSheetAbsorbNameUsedByHistory(t *testing.T) {
 	app := newRateSheetAbsorbApp(t)
 	defer app.Cleanup()
 
-	const reason = "a job's rate sheet period or a project request uses one of them"
+	const reason = "a job or project request uses one of them"
 	for _, id := range []string{rsHistRev0, rsHistRev1} {
 		err := routes.AbsorbRecords(app, "rate_sheets", rsHistTarget, []string{id})
 		var refused *absorb.RefusedError
