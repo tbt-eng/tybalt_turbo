@@ -41,3 +41,5 @@ created,created_by,effective_date,id,job,rate_sheet,reason,updated,updated_by
 2026-11-13 00:00:00.000Z,,2024-04-01,jrsabhist02cur0,jobabhist000002,rsabhistcur0001,Fixture: client accepted Absorb History Current,2026-11-13 00:00:00.000Z,
 2026-11-13 00:00:00.000Z,,,jrsabhist03open,jobabhist000003,rsabhistrev0r01,,2026-11-13 00:00:00.000Z,
 2026-11-13 00:00:00.000Z,,2025-02-01,jrsabhist03std0,jobabhist000003,c41ofep525bcacj,Fixture: moved to the standard rates,2026-11-13 00:00:00.000Z,
+2026-11-13 00:00:00.000Z,,,jrspricehopen01,jobpricehist001,rsvaluation0001,,2026-11-13 00:00:00.000Z,
+2026-11-13 00:00:00.000Z,,2025-06-03,jrspricehstd001,jobpricehist001,c41ofep525bcacj,Fixture: new rates from 2025-06-03,2026-11-13 00:00:00.000Z,

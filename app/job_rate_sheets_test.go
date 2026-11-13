@@ -8,7 +8,6 @@ import (
 	"tybalt/internal/testutils"
 
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 )
 
@@ -18,29 +17,12 @@ import (
 //   - u09fwwcg07y03m7: project with no rate sheet
 //   - test_rs_alt_actv: active sheet, effective 2025-01-01
 //   - author@soup.com (f2j5a8vk006baub): active, job claim, no rate_sheet_revise
-//   - m3kzmuowqlzuic0: the rate_sheet_revise claim
-
-const rateSheetReviseClaim = "m3kzmuowqlzuic0"
-
-func grantRateSheetRevise(tb testing.TB, app *tests.TestApp) {
-	tb.Helper()
-	_, err := app.DB().NewQuery(`INSERT INTO user_claims (id, uid, cid, created, updated, _imported)
-		VALUES ('ucrevisetest001', 'f2j5a8vk006baub', {:cid}, '2026-10-19 00:00:00.000Z', '2026-10-19 00:00:00.000Z', 0)`).
-		Bind(dbx.Params{"cid": rateSheetReviseClaim}).Execute()
-	if err != nil {
-		tb.Fatal(err)
-	}
-}
-
-func insertRateSheetRow(tb testing.TB, app *tests.TestApp, id, job, sheet, date string) {
-	tb.Helper()
-	_, err := app.DB().NewQuery(`INSERT INTO job_rate_sheets (id, job, rate_sheet, effective_date, reason, created_by, updated_by, created, updated)
-		VALUES ({:id}, {:job}, {:sheet}, {:date}, 'fixture', '', '', '2026-10-19 00:00:00.000Z', '2026-10-19 00:00:00.000Z')`).
-		Bind(dbx.Params{"id": id, "job": job, "sheet": sheet, "date": date}).Execute()
-	if err != nil {
-		tb.Fatal(err)
-	}
-}
+//   - history.revise@example.com: active, job and rate_sheet_revise claims
+//   - jobabhist000001: project with three periods; the middle one
+//     (jrsabhist01src0) is between two periods on c41ofep525bcacj
+//
+// All are rows of the seed CSV files. No test here changes fixture data
+// except through the API.
 
 func jobRateSheet(tb testing.TB, app *tests.TestApp, job string) string {
 	tb.Helper()
@@ -66,6 +48,11 @@ func TestJobRateSheetHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	headers := map[string]string{"Authorization": token}
+	reviseToken, err := testutils.GenerateRecordToken("users", "history.revise@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviseHeaders := map[string]string{"Authorization": reviseToken}
 	future := "2999-01-01"
 
 	scenarios := []tests.ApiScenario{
@@ -93,8 +80,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Method:          http.MethodPost,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets",
 			Body:            strings.NewReader(`{"rate_sheet":"test_rs_alt_actv","effective_date":"2026-01-02","reason":"Client accepted new rates"}`),
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusOK,
 			ExpectedContent: []string{`"starts":"2026-01-02"`, `"through":"2026-01-01"`},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -112,8 +98,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Method:          http.MethodPost,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets",
 			Body:            strings.NewReader(`{"rate_sheet":"c41ofep525bcacj","effective_date":"2026-01-02","reason":"No change"}`),
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{"same_as_previous"},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -123,8 +108,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Method:          http.MethodPost,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets",
 			Body:            strings.NewReader(`{"rate_sheet":"test_rs_alt_actv","effective_date":"` + future + `","reason":"Later rates"}`),
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{`"future"`},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -134,8 +118,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Method:          http.MethodPost,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets",
 			Body:            strings.NewReader(`{"rate_sheet":"test_rs_alt_actv","effective_date":"2024-12-31","reason":"Backdated"}`),
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{"before_revision"},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -145,8 +128,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Method:          http.MethodPost,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets",
 			Body:            strings.NewReader(`{"rate_sheet":"test_rs_alt_actv","effective_date":"2026-01-02","reason":"  "}`),
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{`"reason"`},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -155,8 +137,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Name:            "the opening period cannot be deleted",
 			Method:          http.MethodDelete,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets/opening",
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{"opening period cannot be deleted"},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -166,8 +147,7 @@ func TestJobRateSheetHistory(t *testing.T) {
 			Method:          http.MethodPatch,
 			URL:             "/api/jobs/test_job_w_rs/rate_sheets/opening",
 			Body:            strings.NewReader(`{"rate_sheet":"test_rs_alt_actv","reason":"Wrong sheet chosen at setup"}`),
-			Headers:         headers,
-			BeforeTestFunc:  func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) { grantRateSheetRevise(tb, app) },
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusOK,
 			ExpectedContent: []string{`"id":"test_rs_alt_actv"`},
 			TestAppFactory:  testutils.SetupTestApp,
@@ -178,20 +158,15 @@ func TestJobRateSheetHistory(t *testing.T) {
 			},
 		},
 		{
-			Name:    "deleting a period that would leave neighbours on one sheet is refused",
-			Method:  http.MethodDelete,
-			URL:     "/api/jobs/test_job_w_rs/rate_sheets/rsperiodmid0001",
-			Headers: headers,
-			BeforeTestFunc: func(tb testing.TB, app *tests.TestApp, _ *core.ServeEvent) {
-				grantRateSheetRevise(tb, app)
-				insertRateSheetRow(tb, app, "rsperiodmid0001", "test_job_w_rs", "test_rs_alt_actv", "2026-01-01")
-				insertRateSheetRow(tb, app, "rsperiodlate001", "test_job_w_rs", "c41ofep525bcacj", "2026-02-01")
-			},
+			Name:            "deleting a period that would leave neighbours on one sheet is refused",
+			Method:          http.MethodDelete,
+			URL:             "/api/jobs/jobabhist000001/rate_sheets/jrsabhist01src0",
+			Headers:         reviseHeaders,
 			ExpectedStatus:  http.StatusBadRequest,
 			ExpectedContent: []string{"same_as_previous"},
 			TestAppFactory:  testutils.SetupTestApp,
 			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-				if n := rateSheetRowCount(tb, app, "test_job_w_rs"); n != 3 {
+				if n := rateSheetRowCount(tb, app, "jobabhist000001"); n != 3 {
 					tb.Errorf("rows = %d; want 3 after the refused delete", n)
 				}
 			},

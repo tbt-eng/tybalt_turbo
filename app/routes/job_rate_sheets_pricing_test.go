@@ -2,7 +2,6 @@ package routes
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"tybalt/hooks"
@@ -11,52 +10,6 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
-
-// copyTimeEntry inserts a copy of a time entry on another date. It writes the
-// row directly, since pricing reads the table and the time entry hooks would
-// check unrelated rules.
-func copyTimeEntry(t *testing.T, app core.App, sourceID, newID, date string) {
-	t.Helper()
-	var cols []struct {
-		Name string `db:"name"`
-	}
-	if err := app.DB().NewQuery("SELECT name FROM pragma_table_info('time_entries')").All(&cols); err != nil {
-		t.Fatal(err)
-	}
-	names := []string{}
-	values := []string{}
-	for _, c := range cols {
-		names = append(names, "["+c.Name+"]")
-		switch c.Name {
-		case "id":
-			values = append(values, "{:id}")
-		case "date":
-			values = append(values, "{:date}")
-		default:
-			values = append(values, "["+c.Name+"]")
-		}
-	}
-	q := "INSERT INTO time_entries (" + strings.Join(names, ", ") + ") SELECT " + strings.Join(values, ", ") + " FROM time_entries WHERE id = {:source}"
-	if _, err := app.DB().NewQuery(q).Bind(dbx.Params{"id": newID, "date": date, "source": sourceID}).Execute(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func addRateSheetRow(t *testing.T, app core.App, job, sheet, date string) {
-	t.Helper()
-	collection, err := app.FindCollectionByNameOrId("job_rate_sheets")
-	if err != nil {
-		t.Fatal(err)
-	}
-	row := core.NewRecord(collection)
-	row.Set("job", job)
-	row.Set("rate_sheet", sheet)
-	row.Set("effective_date", date)
-	ctx := hooks.WithProjectWorkflowMutation(context.Background(), hooks.ProjectWorkflowMutationRateSheet)
-	if err := app.SaveWithContext(ctx, row); err != nil {
-		t.Fatalf("add %s from %q: %v", sheet, date, err)
-	}
-}
 
 type pricedEntry struct {
 	Date      string   `db:"date"`
@@ -86,55 +39,63 @@ func pricedEntries(t *testing.T, app core.App, job string) map[string]pricedEntr
 // sheet in effect on its date, and that a project with no history uses its
 // jobs.rate_sheet for all time.
 //
-// Fixtures: jobwipreason001 is on the inactive sheet rsvaluation0001, which
-// rates role 0l1llckilwz1mqz at 100 and has no rate for 2bd6pxxof7p649x.
-// c41ofep525bcacj (active, effective 2025-01-07) rates them at 160 and 90.
+// Fixtures, all rows of the seed CSV files (app/test_seed_data/data):
+//   - rsvaluation0001: inactive sheet that rates role 0l1llckilwz1mqz at 100
+//     and has no rate for 2bd6pxxof7p649x.
+//   - c41ofep525bcacj: active, effective 2025-01-07, rates them at 160 and 90.
+//   - jobpricenohist1: on rsvaluation0001, with no rows in job_rate_sheets, as
+//     for an imported project.
+//   - jobpricehist001: on c41ofep525bcacj. Its opening period is on
+//     rsvaluation0001, and c41ofep525bcacj applies from 2025-06-03.
+//   - Each project has one entry for 0l1llckilwz1mqz on 2025-06-02, and one
+//     for each role on 2025-06-03.
+//
+// The only write is the opening row that the test asks the hook to make,
+// which is the behaviour under test.
 func TestPricingFollowsRateSheetHistory(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 	hooks.AddHooks(app)
 
-	const job = "jobwipreason001"
+	const noHistory, withHistory = "jobpricenohist1", "jobpricehist001"
 	const admin, field = "2bd6pxxof7p649x", "0l1llckilwz1mqz"
-	var source struct {
-		ID string `db:"id"`
-	}
-	if err := app.DB().NewQuery("SELECT id FROM time_entries WHERE job = {:job} AND role = {:role} AND date = '2026-01-02'").
-		Bind(dbx.Params{"job": job, "role": field}).One(&source); err != nil {
-		t.Fatal(err)
-	}
-	copyTimeEntry(t, app, source.ID, "tecopyearly0001", "2026-01-01")
 
-	// No history, as for an imported project: every entry uses
-	// jobs.rate_sheet. The migration gave this fixture an opening row.
-	if _, err := app.DB().NewQuery("DELETE FROM job_rate_sheets WHERE job = {:job}").Bind(dbx.Params{"job": job}).Execute(); err != nil {
-		t.Fatal(err)
+	// No history: every entry uses jobs.rate_sheet.
+	checkNoHistory := func(when string) {
+		t.Helper()
+		priced := pricedEntries(t, app, noHistory)
+		for _, date := range []string{"2025-06-02", "2025-06-03"} {
+			if got := priced[date+" "+field]; got.RateSheet != "rsvaluation0001" || got.SheetRate == nil || *got.SheetRate != 100 {
+				t.Fatalf("%s, %s entry = %+v; want rsvaluation0001 at 100", when, date, got)
+			}
+		}
+		if got := priced["2025-06-03 "+admin]; got.RateSheet != "rsvaluation0001" || got.SheetRate != nil {
+			t.Fatalf("%s, the admin role should have no sheet rate on rsvaluation0001, got %+v", when, got)
+		}
 	}
-	before := pricedEntries(t, app, job)
-	if got := before["2026-01-01 "+field]; got.RateSheet != "rsvaluation0001" || got.SheetRate == nil || *got.SheetRate != 100 {
-		t.Fatalf("without history, 2026-01-01 entry = %+v; want rsvaluation0001 at 100", got)
-	}
-	if got := before["2026-01-02 "+admin]; got.SheetRate != nil {
-		t.Fatalf("without history, admin role should have no sheet rate, got %+v", got)
-	}
+	checkNoHistory("without history")
 
-	// The opening row keeps the inactive sheet; c41ofep525bcacj applies from
-	// 2026-01-02.
-	if err := hooks.EnsureOpeningRateSheetRow(app, context.Background(), mustFindJob(t, app, job), ""); err != nil {
+	// The opening row keeps the inactive sheet, and pricing does not change.
+	if err := hooks.EnsureOpeningRateSheetRow(app, context.Background(), mustFindJob(t, app, noHistory), ""); err != nil {
 		t.Fatalf("opening row on an inactive sheet: %v", err)
 	}
-	addRateSheetRow(t, app, job, "c41ofep525bcacj", "2026-01-02")
+	if n, err := app.CountRecords("job_rate_sheets", dbx.HashExp{"job": noHistory}); err != nil || n != 1 {
+		t.Fatalf("opening rows = %d (%v); want 1", n, err)
+	}
+	checkNoHistory("with only an opening row")
 
-	after := pricedEntries(t, app, job)
+	// With history: the opening period prices 2025-06-02, and
+	// c41ofep525bcacj prices 2025-06-03.
+	priced := pricedEntries(t, app, withHistory)
 	for key, want := range map[string]struct {
 		sheet string
 		rate  float64
 	}{
-		"2026-01-01 " + field: {"rsvaluation0001", 100},
-		"2026-01-02 " + field: {"c41ofep525bcacj", 160},
-		"2026-01-02 " + admin: {"c41ofep525bcacj", 90},
+		"2025-06-02 " + field: {"rsvaluation0001", 100},
+		"2025-06-03 " + field: {"c41ofep525bcacj", 160},
+		"2025-06-03 " + admin: {"c41ofep525bcacj", 90},
 	} {
-		got := after[key]
+		got := priced[key]
 		if got.RateSheet != want.sheet || got.SheetRate == nil || *got.SheetRate != want.rate {
 			t.Errorf("%s = %+v; want %s at %v", key, got, want.sheet, want.rate)
 		}
