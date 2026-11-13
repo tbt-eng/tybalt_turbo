@@ -116,7 +116,7 @@
         });
         mount(RequestList, {
           target: document.getElementById("app"),
-          props: { data: { queue: "mine", items: [] } },
+          props: { data: { queue: "mine", items: [], approvedItems: [] } },
         });
       } else if (query.has("editor")) {
         globalStore.set({
