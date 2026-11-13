@@ -1,6 +1,6 @@
 # Job rate sheet history
 
-Status: Implemented on the `rate_sheet_history` branch, not yet merged
+Status: Implemented and deployed (merged to `main` on 2026-11-13)
 Last updated: 2026-11-13
 
 ## Behaviour before this change
