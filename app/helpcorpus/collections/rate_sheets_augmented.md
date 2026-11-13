@@ -27,9 +27,13 @@ SELECT
   rs.active AS active,
   rs.created AS created,
   rs.updated AS updated,
-  COUNT(j.id) AS job_count
+  COUNT(u.job) AS job_count
 FROM rate_sheets rs
-LEFT JOIN jobs j ON j.rate_sheet = rs.id
+LEFT JOIN (
+  SELECT j.rate_sheet AS rate_sheet, j.id AS job FROM jobs j WHERE j.rate_sheet != ''
+  UNION
+  SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
+) u ON u.rate_sheet = rs.id
 GROUP BY rs.id, rs.name, rs.effective_date, rs.revision, rs.active, rs.created, rs.updated
 ```
 

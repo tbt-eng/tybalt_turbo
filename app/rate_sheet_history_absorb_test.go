@@ -384,3 +384,28 @@ func TestRateSheetAbsorbNameUsedByHistory(t *testing.T) {
 		}
 	}
 }
+
+// The Rate Sheets list (rate_sheets_augmented) counts a job that uses a sheet
+// now or in any period of its history, once, as the Duplicates view does.
+func TestRateSheetListCountsHistoryJobs(t *testing.T) {
+	app := newRateSheetAbsorbApp(t)
+	defer app.Cleanup()
+
+	for id, want := range map[string]int{
+		rsHistSource:  1, // only the 2024-04-01 period of jobabhist000001
+		rsHistCurrent: 1, // jobabhist000002: its current sheet and its latest period
+		rsHistTarget:  1, // only the opening period of jobabhist000002
+		rsHistRev0:    1, // only the opening period of jobabhist000003
+		rsHistRev1:    0,
+	} {
+		var row struct {
+			JobCount int `db:"job_count"`
+		}
+		if err := app.DB().NewQuery("SELECT job_count FROM rate_sheets_augmented WHERE id = {:id}").Bind(dbx.Params{"id": id}).One(&row); err != nil {
+			t.Fatal(err)
+		}
+		if row.JobCount != want {
+			t.Errorf("%s job_count = %d; want %d", id, row.JobCount, want)
+		}
+	}
+}
