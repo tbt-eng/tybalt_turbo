@@ -9,6 +9,8 @@
     type ProfilesResponse,
   } from "$lib/pocketbase-types";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
+  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import { authStore } from "$lib/stores/auth";
   import DSAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import { divisions } from "$lib/stores/divisions";
@@ -85,6 +87,11 @@
 </script>
 
 <form class="flex w-full flex-col gap-2 p-2">
+  <DSPageHeader title="Profile">
+    {#snippet actions()}
+      <DSHelp doc="profile#change-your-profile" label="Help" />
+    {/snippet}
+  </DSPageHeader>
   <DsTextInput
     bind:value={item.given_name as string}
     {errors}

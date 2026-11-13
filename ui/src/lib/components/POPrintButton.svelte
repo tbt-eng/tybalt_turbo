@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { resolve } from "$app/paths";
   import { fetchVisiblePO, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
   import {
@@ -103,7 +104,10 @@
   oncancel={closeOptions}
 >
   <form onsubmit={proceed} novalidate>
-    <h2 id="po-print-title" class="mb-4 text-xl font-bold">Print options</h2>
+    <div class="mb-4 flex items-center gap-2">
+      <h2 id="po-print-title" class="min-w-0 flex-1 text-xl font-bold">Print options</h2>
+      <DSHelp doc="find-a-purchase-order#print-a-po" label="Help" />
+    </div>
     {#if loading}
       <p role="status">Loading purchase order…</p>
     {:else if loadError}

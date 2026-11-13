@@ -1,6 +1,7 @@
 <script lang="ts">
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { globalStore } from "$lib/stores/global";
 
   let { data } = $props();
@@ -69,6 +70,7 @@
         title="Edit"
         color="blue"
       />
+      <div class="ml-auto"><DSHelp doc="admin-profiles#who-can-change-what" label="Help" /></div>
     </div>
 
     <section class="grid grid-cols-1 gap-2 md:grid-cols-2">

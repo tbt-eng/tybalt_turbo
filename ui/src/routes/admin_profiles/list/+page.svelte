@@ -5,6 +5,7 @@
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSToggle from "$lib/components/DSToggle.svelte";
+  import DSHelp from "$lib/components/DSHelp.svelte";
   import { pb } from "$lib/pocketbase";
   import { globalStore } from "$lib/stores/global";
   import Icon from "@iconify/svelte";
@@ -24,7 +25,9 @@
     { id: "inactive", label: "Inactive" },
   ];
   const filteredItems = $derived(
-    items.filter((item) => (activeStatus === "active" ? item.active !== false : item.active === false)),
+    items.filter((item) =>
+      activeStatus === "active" ? item.active !== false : item.active === false,
+    ),
   );
   const isAdmin = $derived($globalStore.claims.includes("admin"));
   const hasHrClaim = $derived($globalStore.claims.includes("hr"));
@@ -94,6 +97,7 @@
           <Icon icon="mdi:edit-outline" class="text-base" /> PO Approvers
         </a>
       {/if}
+      <DSHelp doc="admin-profiles#find-an-admin-profile" label="Help" />
     </div>
   {/snippet}
 
