@@ -380,7 +380,17 @@ func ValidateProjectRequestData(app core.App, request *core.Record) error {
 		return workflowError("First Nations agreement answer is required")
 	}
 	job.Set("fn_agreement", request.GetString("fn_agreement_answer") == "Yes")
-	if err := validateRateSheetIsActive(app, job, nil); err != nil {
+	// Proposed rates are a draft until job creation activates them, so check
+	// the draft instead of requiring an active sheet.
+	draft, err := RequestRateSheetDraft(app, request)
+	if err != nil {
+		return err
+	}
+	if draft != nil {
+		if err := ValidateRequestRateSheetDraft(app, draft); err != nil {
+			return err
+		}
+	} else if err := validateRateSheetIsActive(app, job, nil); err != nil {
 		return err
 	}
 	branch, err := app.FindRecordById("branches", job.GetString("branch"))

@@ -352,6 +352,144 @@ confirmation shows the counts for the chosen date, asks for the date
 (default the revision's effective date) and a reason, and says which time is
 repriced (`RateSheetRollout.svelte`).
 
+## Proposed rates
+
+Status: implemented on branch `187` (issue 187), not yet merged.
+
+A project request can propose new rates instead of choosing an active sheet.
+The request approver approves them with the request, and the sheet becomes
+active in the transaction that creates the job. The decisions of 2026-11-13
+in issue 187 are binding: the request approver approves (no new claim, no
+second sign-off), sheets made outside a request need no approval, Turbo makes
+the duplicate check, the reason is required and kept, and the request form
+says that the sheet is fixed for the life of the project and must match the
+contract. New rates on an existing project (issue 200) and renaming are out of
+scope.
+
+### Data model
+
+Migration `1794610269_proposed_rate_sheets.go` adds three fields to
+`rate_sheets`:
+
+| Field      | Type                                 | Notes                                                                                     |
+| ---------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `request`  | relation to `job_requests`, optional | Set while the sheet is a draft of that request. Cleared when job creation activates it.   |
+| `reason`   | text, max 500                        | Why the client needs the rates. Kept after the request is gone.                           |
+| `based_on` | relation to `rate_sheets`, optional  | The active sheet the requester started from; the approver compares with it. Kept as well. |
+
+A sheet with `request` set is a **draft**. A draft is always inactive and
+revision 0. The request's `rate_sheet` points at its draft, so job creation
+copies it to the job like any other sheet. A request has at most one draft.
+
+The migration also:
+
+- adds `request = ""` to the `rate_sheets` list and view rules, and
+  `rate_sheet.request = ""` to those of `rate_sheet_entries`, so the API lists
+  no draft and no draft rate;
+- refuses `request`, `based_on` and `reason` in the `rate_sheets` create rule,
+  and a draft as the sheet in the `rate_sheet_entries` create rule, so the
+  collection API cannot make or change a draft;
+- leaves drafts out of the `rate_sheets_augmented` view (the Rate Sheets list).
+
+The test fixtures add one draft: request `rsdraftreq00001` (by
+`time@test.com`) owns sheet `rsdraftsheet001`, the 2025 Standard Rates with the
+Principal at 260. `rate_sheets_import_baseline.csv` has the same row without
+the new columns, as for the other test sheets.
+
+### Request routes
+
+`PATCH /api/job_requests/{id}` (and `POST /api/job_requests`) take an optional
+`proposed_rates` object: `{name, reason, based_on, entries: [{role, rate,
+overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
+
+- Only the creator, while the request is editable (Draft, Recalled,
+  Rejected), as for every request edit. A change bumps the request version
+  and clears approval like any edit, so a review page goes stale.
+- Entries follow the new-sheet rules (`validateRateSheetEntryInputs`, shared
+  with `POST /api/rate_sheets`): each role once, a whole rate of at least 1,
+  an overtime rate of at least 1. `based_on` must be an active sheet that is
+  not a draft; a saved draft may keep a source that has since been
+  deactivated. The name may not equal any other sheet's name in any letter
+  case, as for a rename.
+- Turbo refuses rates identical to an active sheet with 409
+  `duplicate_rate_sheet` under `proposed_rates`, listing the matches
+  (`hooks.CompareWithActiveRateSheets`, the same check as for a new sheet).
+  The request form names the sheet and offers **Use** that sheet.
+- A save may not both choose a sheet and propose rates. Choosing another
+  sheet, or none, deletes the request's draft.
+- A request cannot choose another request's draft.
+- The reason may be blank in a draft save. Submission, approval and job
+  creation require a reason, a rate for every role, and no identical active
+  sheet (`hooks.ValidateRequestRateSheetDraft`, called from
+  `hooks.ValidateProjectRequestData` in place of the active-sheet check).
+
+The request detail (`requestRelated`) adds `rate_sheet_proposed`,
+`rate_sheet_source`, and for each rate `role_id`, `source_rate`,
+`source_overtime_rate` and `changed`. These are part of the review token. The
+request options leave drafts out.
+
+### Approval
+
+The request approver approves the rates as part of the request. No claim and
+no second sign-off are added. For a request with proposed rates, the detail
+route replaces the text of the approval checklist question
+`rate_sheet_correct` with "The proposed rates are approved for this client."
+The key and the stored checklist version stay the same, so no new checklist
+version is needed and approvals of other requests are unaffected. The
+creation checklist keeps its text.
+
+### Job creation
+
+`createJobFromRequest` first calls `hooks.ActivateRequestRateSheet`: it checks
+the draft again, clears `request`, sets `effective_date` to the creation date
+(UTC), and activates the sheet with `hooks.ActivateRateSheet`, which the
+activate route now uses too (duplicate check, deactivate other revisions,
+save). The job is then saved with the active sheet, and the `jobs` hook writes
+its opening `job_rate_sheets` row as for any new project. A failure rolls
+everything back; the request and its draft stay as they were.
+
+### Returned and deleted requests
+
+Recall and rejection do not touch the draft, so the creator can edit it. A
+model hook on `job_requests` delete (`addRateSheetDraftHooks`) deletes the
+request's drafts after the request on every path (creator delete, admin
+delete of an abandoned request, any other delete). Job creation clears
+`request` before deleting the request, so the activated sheet stays.
+
+### Everything else refuses a draft
+
+- `POST /api/rate_sheets/{id}/activate`, `PUT /api/rate_sheet_entries/{id}`
+  and `POST /api/rate_sheets/{id}/rename` return `rate_sheet_draft`.
+- `POST /api/rate_sheets` refuses a revision of a draft's name.
+- Jobs and history rows need an active sheet, so neither accepts a draft.
+- Rate sheet absorb leaves drafts out of its data, so a draft is neither a
+  source, a target nor a duplicate. `rate_sheets.based_on` is a moved
+  reference of a rate sheet absorb.
+
+### Direct creation
+
+Unchanged. `job` holders create sheets and activate them without approval.
+Activation already refused a sheet whose rates match an active sheet of
+another name (issue 189); proposed sheets, once active, are compared like any
+other. Existing sheets are not checked or changed.
+
+### Choices the issue left open
+
+- A request chooses a sheet or proposes rates; choosing a sheet discards the
+  draft.
+- The requester names the new sheet; it is always revision 0.
+- The draft's effective date is the save date, and becomes the activation
+  date at job creation.
+- The reason may be blank while the request is a draft and is required from
+  submission. It is at most 500 characters.
+- The proposal is checked for duplicates on every save and again at
+  submission, approval and creation.
+- The approval statement is replaced by text in code, not by a new checklist
+  version, and only in the approval checklist.
+- The requester's rates are compared with the source sheet's per role; a role
+  the source lacks counts as changed.
+- Near matches are not shown to the requester or the approver.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:

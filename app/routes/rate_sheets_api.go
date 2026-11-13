@@ -41,6 +41,11 @@ func createActivateRateSheetHandler(app core.App) func(e *core.RequestEvent) err
 			return e.Error(http.StatusNotFound, "rate sheet not found", err)
 		}
 
+		// A request's proposed rates are activated when the job is created.
+		if hooks.IsRateSheetDraft(record) {
+			return e.JSON(http.StatusBadRequest, hooks.RateSheetDraftError("active"))
+		}
+
 		// Check if already active
 		if record.GetBool("active") {
 			return e.JSON(http.StatusOK, map[string]any{
@@ -76,29 +81,7 @@ func createActivateRateSheetHandler(app core.App) func(e *core.RequestEvent) err
 		// one in a single transaction, so that two identical sheets can't both
 		// pass the check and be activated at the same time.
 		err = app.RunInTransaction(func(txApp core.App) error {
-			// Entries can be added between create and activate, so compare the
-			// stored entries with the other active sheets. Revisions of this
-			// sheet are excluded by name.
-			entries, err := hooks.LoadRateSheetEntryValues(txApp, id)
-			if err != nil {
-				return err
-			}
-			comparison, err := hooks.CompareWithActiveRateSheets(txApp, entries, name)
-			if err != nil {
-				return err
-			}
-			if len(comparison.Exact) > 0 {
-				return hooks.DuplicateRateSheetError("active", comparison.Exact)
-			}
-
-			// Deactivate other revisions with same name BEFORE activating this
-			// one, so there are never two active revisions.
-			if err := hooks.DeactivateOtherRevisions(txApp, name, id); err != nil {
-				return err
-			}
-
-			record.Set("active", true)
-			return txApp.Save(record)
+			return hooks.ActivateRateSheet(txApp, record)
 		})
 		if err != nil {
 			var hookErr *errs.HookError
@@ -225,6 +208,10 @@ func createUpdateRateSheetEntryHandler(app core.App) func(e *core.RequestEvent) 
 			if err != nil {
 				return err
 			}
+			// The requester changes proposed rates through the request.
+			if hooks.IsRateSheetDraft(sheet) {
+				return hooks.RateSheetDraftError("entry")
+			}
 			if sheet.GetBool("active") {
 				entries, err := hooks.LoadRateSheetEntryValues(txApp, sheet.Id)
 				if err != nil {
@@ -345,6 +332,35 @@ func prefixEntryErrors(index int, errs validation.Errors) validation.Errors {
 	return prefixed
 }
 
+// validateRateSheetEntryInputs adds an error to validationErrors for each
+// invalid entry of a new sheet or of a request's proposed rates: at least one
+// entry, each role once, a whole rate of at least 1 and an overtime rate of at
+// least 1. prefix goes before each key, such as "proposed_rates.".
+func validateRateSheetEntryInputs(entries []CreateRateSheetEntry, prefix string, validationErrors validation.Errors) {
+	if len(entries) == 0 {
+		setValidationError(validationErrors, prefix+"entries", validation.NewError("value_required", "at least one entry is required"))
+	}
+	seenRoles := map[string]bool{}
+	for i, entry := range entries {
+		entryPrefix := fmt.Sprintf("%sentries.%d.", prefix, i)
+		if entry.Role == "" {
+			setValidationError(validationErrors, entryPrefix+"role", validation.NewError("value_required", "entry role is required"))
+		} else if seenRoles[entry.Role] {
+			setValidationError(validationErrors, entryPrefix+"role", validation.NewError("validation_not_unique", "entry role must be unique"))
+		} else {
+			seenRoles[entry.Role] = true
+		}
+		if entry.Rate < 1 {
+			setValidationError(validationErrors, entryPrefix+"rate", validation.NewError("validation_negative_number", "entry rate must be at least 1"))
+		} else if entry.Rate != math.Floor(entry.Rate) {
+			setValidationError(validationErrors, entryPrefix+"rate", validation.NewError("validation_not_whole_number", "entry rate must be a whole number"))
+		}
+		if entry.OvertimeRate < 1 {
+			setValidationError(validationErrors, entryPrefix+"overtime_rate", validation.NewError("validation_negative_number", "entry overtime_rate must be at least 1"))
+		}
+	}
+}
+
 // createRateSheetHandler creates a handler that atomically creates a rate sheet
 // and all its entries in a single transaction. This prevents partial-save states
 // where the rate sheet exists but some entries are missing.
@@ -409,31 +425,7 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			setValidationError(validationErrors, "revision", validation.NewError("validation_negative_number", "revision must be 0 or greater"))
 		}
 
-		// Validate entries
-		if len(req.Entries) == 0 {
-			setValidationError(validationErrors, "entries", validation.NewError("value_required", "at least one entry is required"))
-		}
-
-		// Validate each entry
-		seenRoles := map[string]bool{}
-		for i, entry := range req.Entries {
-			entryPrefix := fmt.Sprintf("entries.%d.", i)
-			if entry.Role == "" {
-				setValidationError(validationErrors, entryPrefix+"role", validation.NewError("value_required", "entry role is required"))
-			} else if seenRoles[entry.Role] {
-				setValidationError(validationErrors, entryPrefix+"role", validation.NewError("validation_not_unique", "entry role must be unique"))
-			} else {
-				seenRoles[entry.Role] = true
-			}
-			if entry.Rate < 1 {
-				setValidationError(validationErrors, entryPrefix+"rate", validation.NewError("validation_negative_number", "entry rate must be at least 1"))
-			} else if entry.Rate != math.Floor(entry.Rate) {
-				setValidationError(validationErrors, entryPrefix+"rate", validation.NewError("validation_not_whole_number", "entry rate must be a whole number"))
-			}
-			if entry.OvertimeRate < 1 {
-				setValidationError(validationErrors, entryPrefix+"overtime_rate", validation.NewError("validation_negative_number", "entry overtime_rate must be at least 1"))
-			}
-		}
+		validateRateSheetEntryInputs(req.Entries, "", validationErrors)
 
 		if len(validationErrors) > 0 {
 			return apis.NewBadRequestError("Validation error", validationErrors)
@@ -480,6 +472,16 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 					message: "a rate sheet with this name and revision already exists",
 					data:    rateSheetUniqueValidationErrors(),
 				}
+			}
+
+			// A request's proposed rates have no revisions until the job is
+			// created and they become an ordinary sheet.
+			drafts, err := txApp.CountRecords("rate_sheets", dbx.HashExp{"name": req.Name}, dbx.Not(dbx.HashExp{"request": ""}))
+			if err != nil {
+				return err
+			}
+			if drafts > 0 {
+				return hooks.RateSheetDraftError("name")
 			}
 
 			// Block a sheet whose rates are identical to another active sheet.
