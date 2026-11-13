@@ -3682,8 +3682,7 @@
         ]
       },
       "x-groups": [
-        "test-full",
-        "import-baseline"
+        "test-full"
       ]
     },
     {
