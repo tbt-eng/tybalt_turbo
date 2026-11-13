@@ -1,60 +1,52 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/helpcorpus/collections/rate_sheet_entries.md","sha256":"4e42f6ee61ebc58d85a69aa6fc8771c3919436472add9de066be01b16c7c40ee","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/helpcorpus/collections/rate_sheet_entries.md","sha256":"f2af76734bb0b87c326f7719f038b981b7038686b2c51f584c76204b54e28a42","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/helpcorpus/collections/rate_sheet_entries.md
 
-## Who can list rate sheet entries
+## Who can list or view rate sheet entries
 
-Lines 7-11
+Lines 9-17
 
-Asked as: who can see rate sheet entries; list rate entries access; can I browse rates; who may read rate lines
+Asked as: cannot see rate entries; rate sheet entries hidden; why can't I view rates; missing rates in list
 
-Any signed-in person can list rate sheet entries (rate_sheet_entries). Anyone who is not signed in cannot.
+Any signed-in person can list and view a rate sheet entry (rate_sheet_entries), but only when its rate sheet does not belong to a project request (rate_sheet.request is empty). Entries of a rate sheet that belongs to a project request are hidden from the API for list and view.
 
-## Who can view one rate sheet entry
+## Who can create a rate sheet entry
 
-Lines 13-17
+Lines 21-26
 
-Asked as: open a single rate entry; view one rate line; who can see a rate; rate entry details access
+Asked as: add a rate; create rate entry; who can add rates; requester adding rate
 
-Any signed-in person can view a single rate sheet entry (rate_sheet_entries). Anyone who is not signed in cannot.
+Only procurement (the job claim) can create a rate sheet entry through the API. The rate sheet in the request must not belong to a project request (rate_sheet.request must be empty). A requester changes a draft through the project request instead.
 
-## Only procurement can create rate sheet entries
+## Nobody can update or delete rate sheet entries through the API
 
-Lines 19-24
+Lines 28-34
 
-Asked as: add a new rate entry; cannot create rate; why can't I add rate; need job claim for rates
+Asked as: edit a rate; change rate after saving; delete rate entry; fix wrong rate
 
-A signed-in person can create a rate sheet entry (rate_sheet_entries) only if they hold the job claim (user_claims_via_uid.cid.name = 'job'). Staff without that claim cannot create one.
+A rate sheet entry (rate_sheet_entries) has no update rule and no delete rule. Nobody can update or delete one through the API, except a PocketBase superuser. Turbo's own server code can still do both. A new rate needs a new revision of the rate sheet.
 
-## Nobody can update rate sheet entries through the API
+## Rate and overtime rate minimums on an entry
 
-Lines 26-28
+Lines 40-44
 
-Asked as: edit a rate entry; change rate via api; rate not saving update; can't modify my rates
+Asked as: rate must be whole number; overtime rate decimals; rate validation error; minimum rate value
 
-Nobody can update a rate sheet entry (rate_sheet_entries) through the API, because there is no update rule. Only a PocketBase superuser or Turbo's own server code can change one.
+Every rate sheet entry needs a role, a rate sheet, a rate and an overtime rate. The rate must be a whole number of at least 1 (min 1, onlyInt). The overtime rate must be at least 1 and can have decimals.
 
-## Nobody can delete rate sheet entries through the API
+## Deleting a rate sheet deletes its entries
 
-Lines 30-40
+Lines 42-42
 
-Asked as: remove a rate entry; delete rate line; rate entry will not delete; get rid of a rate
+Asked as: rate sheet removed rates gone; deleting sheet removes rates; rates vanish with sheet; what happens when sheet deleted
 
-Nobody can delete a rate sheet entry (rate_sheet_entries) through the API, because there is no delete rule. Only a PocketBase superuser or Turbo's own code can delete one. Deleting its rate sheet (rate_sheets) also deletes its entries (cascadeDelete).
+The rate sheet field of an entry is a cascade-delete relation. When a rate sheet is deleted, Turbo deletes all of its entries.
 
-## Rate and overtime rate minimums
+## One entry per role in a rate sheet
 
-Lines 38-42
+Lines 50-52
 
-Asked as: rate must be whole number; overtime rate decimals; rate value rejected; minimum rate amount
+Asked as: duplicate role on rate sheet; role already has rate; two rates same role; rate for role rejected
 
-Each entry needs a role, a rate sheet, a rate and an overtime rate. The rate (rate) must be a whole number of at least 1. The overtime rate (overtime_rate) must be at least 1 and may have decimals.
-
-## Each role appears once per rate sheet
-
-Lines 46-50
-
-Asked as: duplicate role on rate sheet; same role twice; role already has rate; rate sheet role conflict
-
-A rate sheet cannot have two entries for the same role. A unique index on role and rate sheet (role, rate_sheet) rejects a second entry.
+A rate sheet can have only one entry for each role. A unique index on role and rate sheet rejects a second entry with the same pair.

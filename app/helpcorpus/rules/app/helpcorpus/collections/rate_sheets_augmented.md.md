@@ -1,44 +1,60 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/helpcorpus/collections/rate_sheets_augmented.md","sha256":"94ba6bc4bd190b3a75c7e1aaa324ce8eaaf71018bf026d239f2057db8863b16f","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/helpcorpus/collections/rate_sheets_augmented.md","sha256":"5ef7d9ed7b71b485090ddb8a17aad44e7051699862bf01bd651f6e6f63f2f147","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/helpcorpus/collections/rate_sheets_augmented.md
 
-## Augmented rate sheets cannot be created, changed or deleted through the API
+## Nobody can create, update or delete through the rate sheets view
 
-Lines 5-17
+Lines 5-5
 
-Asked as: cannot edit rate sheet; can't change augmented rate sheet; read only rate sheets; api create rate sheet fails; delete rate sheet not allowed
+Asked as: cannot edit rate sheet; rate sheets read only; can't update rate sheet api; delete rate sheet view
 
-The rate_sheets_augmented view has no create, update or delete rules. Nobody can create, update or delete its records through the API, because it is a read-only view. Turbo's own server code is not limited by these rules.
+The rate sheets view (rate_sheets_augmented) has no create, update or delete rules, so nobody can do these actions on it through the API. It is a saved query that Turbo reads and never writes.
 
-## Any signed-in person can list augmented rate sheets
+## Who can list rate sheets with job counts
 
 Lines 7-11
 
-Asked as: list rate sheets not showing; see all rate sheets; rate sheets list signed in; anonymous rate sheet access; who can view rate sheets
+Asked as: list rate sheets; who can see rate sheets; rate sheet list access; signed out rate sheets refused
 
-Any signed-in person can list records in the rate_sheets_augmented view (list rule: @request.auth.id != ""). Anyone who is not signed in cannot.
+Any signed-in person can list the records of the rate sheets view (rate_sheets_augmented). A request with no signed-in person is refused.
 
-## Any signed-in person can view one augmented rate sheet
+## Who can view one rate sheet with its job count
 
 Lines 13-17
 
-Asked as: open single rate sheet; view one rate sheet; rate sheet details not loading; can't see rate sheet record; rate sheet access denied
+Asked as: view one rate sheet; open a rate sheet; single rate sheet access; rate sheet details permission
 
-Any signed-in person can view one record in the rate_sheets_augmented view (view rule: @request.auth.id != ""). Anyone who is not signed in cannot.
+Any signed-in person can view one record of the rate sheets view (rate_sheets_augmented). A request with no signed-in person is refused.
 
-## Job count counts jobs that use a rate sheet now or in the past
+## Rate sheet fields shown in the view and their patterns
+
+Lines 22-52
+
+Asked as: rate sheet date format; effective date format; rate sheet id characters; rate sheet fields shown
+
+Each record shows the rate sheet's name, effective date, revision, active flag, created and updated times, and job_count. The effective_date must be text in the form YYYY-MM-DD, and the id must contain only lowercase letters and digits.
+
+## Job count counts each job once, from current and past rate sheet use
 
 Lines 30-36
 
-Asked as: job count wrong; how many jobs use rate sheet; rate sheet usage count; jobs using old rate sheet; past jobs rate sheet count
+Asked as: job count wrong; jobs counted twice rate sheet; how job count works; rate sheet job total
 
-For each rate sheet, job_count counts the distinct jobs that use it. A job counts if its current rate sheet (jobs.rate_sheet) is this sheet, or if job_rate_sheets has a row for this sheet and that job. The UNION removes duplicate pairs, so a job in both places counts once per rate sheet.
+job_count is the number of distinct jobs that use the rate sheet now (the job's rate_sheet field) or used it before (the job_rate_sheets rows, the rate sheet periods). The same job counts once, even if it appears in both places. A job with no rate sheet set is not counted from the jobs table.
 
-## Rate sheets with no jobs show a job count of zero
+## Rate sheets used by no job still appear with a count of 0
 
-Lines 30-37
+Lines 30-36
 
-Asked as: rate sheet zero jobs; unused rate sheet count; job count shows 0; rate sheet missing from list; empty rate sheet job count
+Asked as: unused rate sheet missing; rate sheet zero jobs; rate sheet no jobs showing; empty rate sheet not listed
 
-The view uses a LEFT JOIN, so a rate sheet that no job uses still appears, with job_count 0. Jobs whose current rate sheet is empty are left out of the count.
+The view joins jobs to rate sheets with a LEFT JOIN, so a rate sheet that no job uses still appears, and its job_count is 0.
+
+## Rate sheets view leaves out rate sheets that belong to a project request
+
+Lines 37-37
+
+Asked as: project request rate sheet missing; proposed rates not showing; rate sheet hidden from view; rate sheet attached to request
+
+The view lists only rate sheets whose request field (rs.request) is empty or not set. A rate sheet that is attached to a project request (for example proposed rates) does not appear in it.

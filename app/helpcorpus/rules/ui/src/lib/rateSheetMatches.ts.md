@@ -1,28 +1,36 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/rateSheetMatches.ts","sha256":"63021466b6ad964bc241d2fd2186bbbf2e31c80cd1731f0aad62467aa1239427","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/rateSheetMatches.ts","sha256":"97dc813f6a81210084cfb709baba4f59622e47293f25e1ff244a1445400bea81","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/rateSheetMatches.ts
 
-## Rate sheet comparison separates exact and near matches
+## Exact and near rate sheet matches are told apart by differing roles
 
 Lines 5-17
 
-Asked as: exact vs near match; rate sheet comparison results; differing roles; similar rate sheets list; what does near match mean
+Asked as: exact match vs near match; rate sheet almost identical; differing roles count; what does differing_roles mean; 0 differing roles
 
-A rate sheet comparison (POST /api/rate_sheets/compare) returns two lists of active sheets: exact matches and near matches. An exact match has differing_roles of 0. A near match is any other sheet that is returned, and it carries its number of differing roles.
+A rate sheet comparison separates exact matches from near matches. Each match gives the number of roles that differ (differing_roles), which is 0 for an exact match.
 
-## Duplicate rate sheet error is recognised on create, activation or rate correction
+## Duplicate rate sheet error returns the matching active sheets
 
-Lines 19-30
+Lines 19-33
 
-Asked as: can't save rate sheet; rate sheet save blocked; duplicate rate error; activation blocked same rates; rates already exist
+Asked as: duplicate rate sheet error; rate sheet already exists; which sheets have the same rates; matching active sheets; save failed same rates
 
-The Turbo UI treats a save or an activation as blocked when the error has the code duplicate_rate_sheet. The code must be on the field "entries" for a create, "active" for an activation, or "entry" for a corrected rate on an active sheet. This means an active rate sheet already has the same rates. Any other error gives no matches (null).
+When a save or activation fails with the error code duplicate_rate_sheet, an active rate sheet already has the same rates. Turbo then shows the matching sheets from the error: id, name, revision, effective date and number of differing roles (differing_roles). Any other error does not give matches.
 
-## Blocked duplicate rate sheet lists matching active sheets, or an empty list
+## Duplicate rate sheet check covers four actions
 
-Lines 31-32
+Lines 19-31
 
-Asked as: which active sheets clash; blocked by existing sheet; matching sheets list empty; rate sheet conflict details; same rates as another sheet
+Asked as: cannot activate rate sheet; blocked because rates already used; project request rates duplicate; correcting rate on active sheet blocked; new rate sheet rejected same rates
 
-When the duplicate_rate_sheet error is found, the UI takes the list of matching active sheets from the error's data (matches). Each match has an id, name, revision, effective date and a count of differing roles (differing_roles, 0 for an exact match). If the error has no valid list of matches, the UI uses an empty list and does not return null.
+Turbo can block four actions because an active rate sheet has the same rates. These are creating a rate sheet (field entries), activating one (active), correcting a rate on an active sheet (entry), and the proposed rates of a project request (proposed_rates). The error is read only from the field that matches the action.
+
+## Duplicate error without a match list shows no sheets
+
+Lines 32-33
+
+Asked as: blocked duplicate but no sheet named; duplicate error no list; activation blocked without matches; empty match list rate sheet; duplicate with no sheet shown
+
+If the duplicate_rate_sheet error has no list of matches, or the matches are not a list, Turbo treats the match list as empty. The save or activation is still recognized as blocked as a duplicate, but no sheets are named.
