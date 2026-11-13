@@ -45,7 +45,7 @@
   <p class="text-sm text-neutral-600">
     {changedCount === 0
       ? "No rate differs from the source sheet."
-      : `${changedCount} role${changedCount === 1 ? "" : "s"} differ from ${sourceName || "the source sheet"}.`}
+      : `${changedCount} ${changedCount === 1 ? "role differs" : "roles differ"} from ${sourceName || "the source sheet"}.`}
   </p>
   <div class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
