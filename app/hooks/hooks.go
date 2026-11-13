@@ -405,6 +405,7 @@ func AddHooks(app core.App) {
 	AddClientSetupHooks(app)
 	// hooks for jobs model
 	AddProjectWorkflowHooks(app)
+	AddJobRateSheetHooks(app)
 	app.OnRecordCreateRequest("jobs").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ProcessJob(app, e); err != nil {
 			return AnnotateHookError(app, e, err)

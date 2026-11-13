@@ -15,15 +15,18 @@ type WIPMissingRateRole struct {
 }
 
 type WIPMissingRateSheet struct {
-	ID       string `db:"rate_sheet_id" json:"id"`
-	Name     string `db:"rate_sheet_name" json:"name"`
-	Revision int    `db:"rate_sheet_revision" json:"revision"`
+	ID       string               `json:"id"`
+	Name     string               `json:"name"`
+	Revision int                  `json:"revision"`
+	Roles    []WIPMissingRateRole `json:"roles"`
 }
 
+// WIPMissingRates lists, for each rate sheet that priced the job's time, the
+// roles it has no rate for. A role can be priced in one period of the job's
+// rate sheet history and not in the next.
 type WIPMissingRates struct {
-	AsOf      string               `json:"as_of"`
-	RateSheet *WIPMissingRateSheet `json:"rate_sheet"`
-	Roles     []WIPMissingRateRole `json:"roles"`
+	AsOf       string                `json:"as_of"`
+	RateSheets []WIPMissingRateSheet `json:"rate_sheets"`
 }
 
 func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent) error {
@@ -36,6 +39,10 @@ func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent)
 		if _, err := time.Parse("2006-01-02", asOf); err != nil || asOf > today {
 			return e.BadRequestError("as_of must be a valid date no later than today", nil)
 		}
+		jobID := e.Request.PathValue("id")
+		if _, err := app.FindRecordById("jobs", jobID); err != nil {
+			return e.NotFoundError("Job not found", nil)
+		}
 		var rows []struct {
 			RateSheetID       string  `db:"rate_sheet_id"`
 			RateSheetName     string  `db:"rate_sheet_name"`
@@ -44,40 +51,39 @@ func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent)
 			RoleName          string  `db:"role_name"`
 			Hours             float64 `db:"hours"`
 		}
-		// Use the same pricing rules and date limit as WIP. The left joins retain
-		// jobs with no sheet or no missing rates, without a separate job lookup.
+		// Use the same pricing rules and date limit as WIP. Each entry carries
+		// the sheet of the period its date falls in.
 		err := app.DB().NewQuery(singleJobScopeQuery + jobPricedTimeEntriesQuery + `
-			SELECT COALESCE(rs.id, '') AS rate_sheet_id,
-				COALESCE(rs.name, '') AS rate_sheet_name,
-				COALESCE(rs.revision, 0) AS rate_sheet_revision,
-				COALESCE(p.role, '') AS role_id,
-				COALESCE(NULLIF(r.name, ''), p.role, '') AS role_name,
-				COALESCE(SUM(p.hours), 0) AS hours
-			FROM selected_jobs j
-			LEFT JOIN rate_sheets rs ON rs.id = j.rate_sheet
-			LEFT JOIN priced_entries p ON p.job = j.id
-				AND COALESCE(j.rate_sheet, '') != ''
-				AND COALESCE(p.role, '') != '' AND p.sheet_rate IS NULL
+			SELECT rs.id AS rate_sheet_id, rs.name AS rate_sheet_name,
+				rs.revision AS rate_sheet_revision,
+				p.role AS role_id,
+				COALESCE(NULLIF(r.name, ''), p.role) AS role_name,
+				SUM(p.hours) AS hours
+			FROM priced_entries p
+			JOIN rate_sheets rs ON rs.id = p.rate_sheet
 			LEFT JOIN rate_roles r ON r.id = p.role
-			GROUP BY j.id, rs.id, p.role
-			ORDER BY role_name, role_id
+			WHERE COALESCE(p.role, '') != '' AND p.sheet_rate IS NULL
+			GROUP BY rs.id, p.role
+			HAVING SUM(p.hours) != 0
+			ORDER BY rs.name, rs.revision, role_name, role_id
 		`).Bind(dbx.Params{
-			"job_id": e.Request.PathValue("id"), "start_date": "", "end_date": asOf,
+			"job_id": jobID, "start_date": "", "end_date": asOf,
 		}).All(&rows)
 		if err != nil {
 			return e.InternalServerError("Failed to load missing rates", err)
 		}
-		if len(rows) == 0 {
-			return e.NotFoundError("Job not found", nil)
-		}
-		result := WIPMissingRates{AsOf: asOf, Roles: []WIPMissingRateRole{}}
-		if rows[0].RateSheetID != "" {
-			result.RateSheet = &WIPMissingRateSheet{ID: rows[0].RateSheetID, Name: rows[0].RateSheetName, Revision: rows[0].RateSheetRevision}
-		}
+		result := WIPMissingRates{AsOf: asOf, RateSheets: []WIPMissingRateSheet{}}
 		for _, row := range rows {
-			if row.RoleID != "" && row.Hours != 0 {
-				result.Roles = append(result.Roles, WIPMissingRateRole{ID: row.RoleID, Name: row.RoleName, Hours: row.Hours})
+			n := len(result.RateSheets)
+			if n == 0 || result.RateSheets[n-1].ID != row.RateSheetID {
+				result.RateSheets = append(result.RateSheets, WIPMissingRateSheet{
+					ID: row.RateSheetID, Name: row.RateSheetName, Revision: row.RateSheetRevision,
+					Roles: []WIPMissingRateRole{},
+				})
+				n++
 			}
+			result.RateSheets[n-1].Roles = append(result.RateSheets[n-1].Roles,
+				WIPMissingRateRole{ID: row.RoleID, Name: row.RoleName, Hours: row.Hours})
 		}
 		return e.JSON(http.StatusOK, result)
 	}

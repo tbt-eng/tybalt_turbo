@@ -8,7 +8,7 @@
 <DSHelp title="How time values are calculated">
   {#if rateSheet?.id}
     <p>
-      Rate sheet: <a
+      Current rate sheet: <a
         class="text-blue-600 hover:underline"
         href={resolve("/rate-sheets/[id]/details", { id: rateSheet.id })}
         >{rateSheet.name} (rev. {rateSheet.revision})</a
@@ -16,8 +16,9 @@
     </p>
   {/if}
   <p>
-    Each entry uses the regular rate for its role from the job's assigned sheet. If no job rate
-    matches, a staff default charge-out rate greater than zero is used.
+    Each entry uses the regular rate for its role from the rate sheet in effect on its date, as set
+    in the job's rate sheet history. If no job rate matches, a staff default charge-out rate greater
+    than zero is used.
   </p>
   <p>
     Estimated amounts include staff defaults. Partial amounts exclude hours that cannot be
@@ -35,5 +36,7 @@
     Click column headings to sort and table values to filter. The total follows the visible rows;
     the CSV always includes the full date range and all pricing details.
   </p>
-  <p>Changes to the assigned sheet, job rates, or staff defaults recalculate past values.</p>
+  <p>
+    Changes to the rate sheet history, a sheet's rates, or staff defaults recalculate past values.
+  </p>
 </DSHelp>

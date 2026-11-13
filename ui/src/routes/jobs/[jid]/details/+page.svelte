@@ -6,6 +6,8 @@
   import ClientNotesSection from "$lib/components/ClientNotesSection.svelte";
   import JobHeader from "$lib/components/jobs/JobHeader.svelte";
   import JobSummary from "$lib/components/jobs/JobSummary.svelte";
+  import RateSheetHistory from "$lib/components/jobs/RateSheetHistory.svelte";
+  import { invalidateAll } from "$app/navigation";
   import JobValueProposal from "$lib/components/jobs/JobValueProposal.svelte";
   import JobValueStatus from "$lib/components/jobs/JobValueStatus.svelte";
   import { JobValue, valueBlockers } from "$lib/jobValue.svelte";
@@ -234,6 +236,9 @@
     <JobHeader job={data.job} />
     {#if jobValue}<JobValueStatus value={jobValue} />{/if}
     <JobSummary job={data.job} {jobValue} />
+    {#if !data.job.number?.startsWith("P")}
+      <RateSheetHistory jobId={data.job.id} onchanged={invalidateAll} />
+    {/if}
   {/key}
 
   <ClientNotesSection

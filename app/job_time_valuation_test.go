@@ -161,18 +161,18 @@ func TestJobTimeValuation(t *testing.T) {
 					}
 					for i, want := range expected {
 						row := rows[i]
-						sheetName := "Summary valuation fixture"
-						var revision any = float64(0)
+						// The label lists the sheets that priced the row's entries.
+						sheets := "Summary valuation fixture (rev. 0)"
 						if tc.job == "jobvaluation002" {
-							sheetName, revision = "", nil
+							sheets = ""
 						} else if tc.job == "jobvaluation003" {
-							revision = float64(1)
+							sheets = "Summary valuation fixture (rev. 1)"
 						}
 						for field, value := range map[string]any{
 							key: want.key, "hours": want.hours, "value": want.value,
 							"unpriced_hours": want.unpriced, "total": tc.total, "total_unpriced_hours": tc.unpriced,
 							"estimated_hours": want.estimated, "total_estimated_hours": tc.estimated,
-							"rate_sheet_name": sheetName, "rate_sheet_revision": revision,
+							"rate_sheets": sheets,
 						} {
 							if row[field] != value {
 								tb.Errorf("row %d: %s = %v, want %v", i, field, row[field], value)

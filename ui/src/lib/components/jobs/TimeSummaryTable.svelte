@@ -40,9 +40,7 @@
   const visibleRows = $derived(visibleSummaryRows(rows, kind, filters, sortColumn, sortDirection));
   const totals = $derived(summaryTotals(visibleRows));
   const allTotals = $derived(summaryTotals(rows));
-  const noRateSheet = $derived(
-    rows.length > 0 ? rows[0].rate_sheet_revision === null : !rateSheet?.id,
-  );
+  const noRateSheet = $derived(!rateSheet?.id);
   const totalLabel = $derived(
     `${filters.length ? "Visible " : ""}${totals.unpriced_hours > 0 ? "known total" : "total"}`,
   );

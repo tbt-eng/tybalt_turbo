@@ -18,8 +18,9 @@ export type TimeSummaryRow = {
   total_estimated_hours: number;
   unpriced_hours: number;
   total_unpriced_hours: number;
-  rate_sheet_name: string;
-  rate_sheet_revision: number | null;
+  // The sheets that priced the row's entries, joined by "; ". A job's rate
+  // sheet history can price different dates with different sheets.
+  rate_sheets: string;
   value_status: string;
   total_status: string;
 };

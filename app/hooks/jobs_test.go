@@ -293,84 +293,41 @@ func TestValidateRateSheetIsActive_ChangeToInactiveRejected(t *testing.T) {
 	}
 }
 
-// TestValidateRateSheetIsActive_ChangeRequiresClaim verifies that changing
-// an existing project's rate_sheet requires the rate_sheet_revise claim.
+// TestValidateRateSheetIsActive_ChangeUsesHistory verifies that a job save
+// cannot change an existing project's rate_sheet, with or without the
+// rate_sheet_revise claim. The rate sheet history is the only way to change it.
 //
 // Test data in test_pb_data/data.db:
 //   - jobs: "test_job_w_rs" (98-8001, project with rate_sheet c41ofep525bcacj)
 //   - rate_sheets: "test_rs_alt_actv" (Test Alternative Active Rate Sheet)
 //   - users: "dkv192wxprcqmho" (francesco@mac.com, no rate_sheet_revise claim)
-func TestValidateRateSheetIsActive_ChangeRequiresClaim(t *testing.T) {
-	app := testseed.NewSeededTestApp(t)
-	defer app.Cleanup()
-
-	// Get the test job with rate_sheet set
-	job, err := app.FindRecordById("jobs", "test_job_w_rs")
-	if err != nil {
-		t.Fatalf("failed to find test job: %v", err)
-	}
-
-	// Verify it has a rate_sheet
-	if job.GetString("rate_sheet") == "" {
-		t.Fatal("test expects job with rate_sheet set")
-	}
-
-	// Get a user without the rate_sheet_revise claim
-	userWithoutClaim, err := app.FindRecordById("users", "dkv192wxprcqmho") // francesco@mac.com
-	if err != nil {
-		t.Fatalf("failed to find user: %v", err)
-	}
-
-	// Try to change rate_sheet without the claim - should fail
-	job.Set("rate_sheet", "test_rs_alt_actv")
-	err = validateRateSheetIsActive(app, job, userWithoutClaim)
-	if err == nil {
-		t.Error("expected error when changing rate_sheet without claim, got nil")
-	}
-
-	hookErr, ok := err.(*errs.HookError)
-	if !ok {
-		t.Fatalf("expected HookError, got %T", err)
-	}
-	if hookErr.Status != 403 {
-		t.Errorf("expected status 403, got %d", hookErr.Status)
-	}
-}
-
-// TestValidateRateSheetIsActive_ChangeAllowedWithClaim verifies that changing
-// an existing project's rate_sheet succeeds with the rate_sheet_revise claim.
-//
-// Test data in test_pb_data/data.db:
-//   - jobs: "test_job_w_rs" (98-8001, project with rate_sheet c41ofep525bcacj)
-//   - rate_sheets: "test_rs_alt_actv" (Test Alternative Active Rate Sheet)
-//   - user_claims: "test_uc_rs_revise" (links time@test.com to rate_sheet_revise)
 //   - users: "rzr98oadsp9qc11" (time@test.com, has rate_sheet_revise claim)
-func TestValidateRateSheetIsActive_ChangeAllowedWithClaim(t *testing.T) {
+func TestValidateRateSheetIsActive_ChangeUsesHistory(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	// Get the test job with rate_sheet set
-	job, err := app.FindRecordById("jobs", "test_job_w_rs")
-	if err != nil {
-		t.Fatalf("failed to find test job: %v", err)
-	}
+	for _, uid := range []string{"dkv192wxprcqmho", "rzr98oadsp9qc11"} {
+		job, err := app.FindRecordById("jobs", "test_job_w_rs")
+		if err != nil {
+			t.Fatalf("failed to find test job: %v", err)
+		}
+		if job.GetString("rate_sheet") == "" {
+			t.Fatal("test expects job with rate_sheet set")
+		}
+		user, err := app.FindRecordById("users", uid)
+		if err != nil {
+			t.Fatalf("failed to find user: %v", err)
+		}
 
-	// Verify it has a rate_sheet
-	if job.GetString("rate_sheet") == "" {
-		t.Fatal("test expects job with rate_sheet set")
-	}
-
-	// Get the user with the rate_sheet_revise claim
-	userWithClaim, err := app.FindRecordById("users", "rzr98oadsp9qc11") // time@test.com
-	if err != nil {
-		t.Fatalf("failed to find user: %v", err)
-	}
-
-	// Change rate_sheet with the claim - should succeed
-	job.Set("rate_sheet", "test_rs_alt_actv")
-	err = validateRateSheetIsActive(app, job, userWithClaim)
-	if err != nil {
-		t.Errorf("expected no error when changing rate_sheet with claim, got: %v", err)
+		job.Set("rate_sheet", "test_rs_alt_actv")
+		err = validateRateSheetIsActive(app, job, user)
+		hookErr, ok := err.(*errs.HookError)
+		if !ok {
+			t.Fatalf("user %s: expected HookError, got %T (%v)", uid, err, err)
+		}
+		if hookErr.Data["rate_sheet"].Code != "use_rate_sheet_history" {
+			t.Errorf("user %s: expected code use_rate_sheet_history, got %q", uid, hookErr.Data["rate_sheet"].Code)
+		}
 	}
 }
 

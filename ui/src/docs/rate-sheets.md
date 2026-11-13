@@ -1,10 +1,10 @@
 # Rate sheets
 
-A rate sheet lists the hourly rate and the overtime rate that a client pays for each role. Every project uses one rate sheet. Proposals don't use one.
+A rate sheet lists the hourly rate and the overtime rate that a client pays for each role. A project uses one rate sheet at a time. Proposals don't use one.
 
 ## How Turbo uses a rate sheet
 
-Each time entry on a job has a role. Turbo multiplies the hours by the rate for that role on the job's rate sheet. WIP and the job summaries show the result.
+Each time entry on a job has a role. Turbo multiplies the hours by the rate for that role on the rate sheet for the entry's date. WIP and the job summaries show the result.
 
 If the sheet has no rate for the role, Turbo uses the person's default charge out rate.
 
@@ -14,7 +14,7 @@ If the sheet has no rate for the role, Turbo uses the person's default charge ou
 2. Select a sheet in **Rate Sheet**. Turbo lists only active sheets.
 3. Save your changes.
 
-A project must have a rate sheet, and keeps it for its whole life. Choose the sheet with the rates in the client's contract. Most staff can't change it later. A change reprices all past time on the job.
+A project must have a rate sheet. Choose the sheet with the rates in the client's contract. Most staff can't change it later. To change it, see [Rate sheet periods](/docs/rate-sheet-periods).
 
 ## Find a rate sheet
 
@@ -89,7 +89,7 @@ This fixes errors, such as typing errors. To change rates, [revise the sheet](/d
 2. Change the **Rate** or the **Overtime Rate** of a role.
 3. Select **Save** on that row.
 
-The change reprices all past time on the sheet's jobs. Turbo won't save rates that match another active sheet.
+The change reprices all past time on the sheet. Turbo won't save rates that match another active sheet.
 
 ## Your role on a time entry
 
