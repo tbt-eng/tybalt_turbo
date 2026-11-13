@@ -417,6 +417,9 @@ statement belongs to `creation`, not `approval`. These are the seven questions o
 
 On October 13, 2026, `rate_sheet_correct` was added so the approver confirms
 the rate sheet the requester selected. Version 1 had the other six questions.
+When a request proposes new rates (issue 187), the approval checklist shows
+this question as "The proposed rates are approved for this client." The key
+and version do not change. See Proposed rates in `job_rate_sheet_history.md`.
 Approval and creation each require their scope's current version and a Boolean
 `true` for each of its questions; a page that sends an earlier version must be
 reloaded. A new version of one scope does not affect pages open on the other. Job

@@ -12,6 +12,8 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 
+	"tybalt/errs"
+	"tybalt/hooks"
 	"tybalt/utilities"
 )
 
@@ -65,6 +67,10 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 			if err != nil {
 				return err
 			}
+			// The requester names proposed rates in the request.
+			if hooks.IsRateSheetDraft(sheet) {
+				return hooks.RateSheetDraftError("name")
+			}
 			oldName = sheet.GetString("name")
 			if newName == oldName {
 				return validation.Errors{
@@ -107,6 +113,10 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 			return txApp.Save(change)
 		})
 		if err != nil {
+			var hookErr *errs.HookError
+			if errors.As(err, &hookErr) {
+				return e.JSON(hookErr.Status, hookErr)
+			}
 			if errors.Is(err, errRateSheetNameInUse) {
 				return apis.NewApiError(http.StatusConflict, "another rate sheet already has this name", validation.Errors{
 					"name": validation.NewError("validation_not_unique", "another rate sheet already has this name"),

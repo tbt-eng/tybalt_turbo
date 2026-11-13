@@ -33,6 +33,9 @@ type requestWrite struct {
 	Request     map[string]any        `json:"request"`
 	Allocations []JobAllocationUpdate `json:"allocations"`
 	Version     int                   `json:"version"`
+	// ProposedRates replaces the choice of an active rate sheet with new
+	// rates that the request owns as a draft (job_request_rate_sheets.go).
+	ProposedRates *proposedRatesWrite `json:"proposed_rates"`
 }
 type workflowAction struct {
 	Version          int            `json:"version"`
@@ -447,6 +450,33 @@ func requestSaveHandler(app core.App) func(*core.RequestEvent) error {
 			if err = validateRequestDraft(tx, r); err != nil {
 				return err
 			}
+			// The request either chooses an active sheet or proposes new
+			// rates. Choosing a sheet drops a draft the request had.
+			own, err := requestDraft(tx, r)
+			if err != nil {
+				return err
+			}
+			_, choosesSheet := input.Request["rate_sheet"]
+			var plan *proposedRatesPlan
+			var dropDraft *core.Record
+			if input.ProposedRates != nil {
+				if chosen := r.GetString("rate_sheet"); choosesSheet && chosen != "" && (own == nil || chosen != own.Id) {
+					return workflowError("Choose a rate sheet or propose new rates, not both.")
+				}
+				if plan, err = prepareProposedRates(tx, r, own, *input.ProposedRates); err != nil {
+					return err
+				}
+				if own != nil {
+					r.Set("rate_sheet", own.Id)
+				}
+			} else if choosesSheet {
+				if err = checkChosenRateSheet(tx, r.GetString("rate_sheet"), own); err != nil {
+					return err
+				}
+				if own != nil && r.GetString("rate_sheet") != own.Id {
+					dropDraft = own
+				}
+			}
 			old, err := requestAllocations(tx, r.Id)
 			if err != nil {
 				return err
@@ -461,7 +491,7 @@ func requestSaveHandler(app core.App) func(*core.RequestEvent) error {
 					return err
 				}
 			}
-			changed := allocationChanged
+			changed := allocationChanged || (plan != nil && plan.changed)
 			for key, value := range before {
 				if !reflect.DeepEqual(value, r.Get(key)) {
 					changed = true
@@ -473,10 +503,24 @@ func requestSaveHandler(app core.App) func(*core.RequestEvent) error {
 			}
 			if creating {
 				err = tx.SaveWithContext(workflowContext(e.Request.Context()), r)
+				// The draft refers to the request, so it is saved second.
+				if err == nil && plan != nil {
+					if err = saveProposedRates(tx, r, plan); err == nil {
+						err = tx.SaveWithContext(workflowContext(e.Request.Context()), r)
+					}
+				}
 			} else {
+				if plan != nil {
+					if err = saveProposedRates(tx, r, plan); err != nil {
+						return err
+					}
+				}
 				err = markRequestEdited(tx, e.Request.Context(), r)
 			}
 			if err != nil {
+				return err
+			}
+			if err = deleteRequestDraft(tx, dropDraft); err != nil {
 				return err
 			}
 			if allocationChanged {
@@ -777,6 +821,11 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 	}
 }
 func createJobFromRequest(app core.App, e *core.RequestEvent, r, a *core.Record) (string, error) {
+	// Approved proposed rates become an active sheet in this transaction, so
+	// the job can use it and gets its opening rate sheet period on it.
+	if err := hooks.ActivateRequestRateSheet(app, r); err != nil {
+		return "", err
+	}
 	c, err := app.FindCollectionByNameOrId("jobs")
 	if err != nil {
 		return "", err

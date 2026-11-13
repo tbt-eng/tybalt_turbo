@@ -46,6 +46,9 @@ func init() {
 			{Table: "jobs", Column: "rate_sheet"},
 			{Table: "job_rate_sheets", Column: "rate_sheet"},
 			{Table: "job_requests", Column: "rate_sheet"},
+			// The sheet that proposed rates started from. The target has the
+			// same rates, so the comparison the approver sees is unchanged.
+			{Table: "rate_sheets", Column: "based_on"},
 		},
 		// rate_sheet_name_changes also relates to rate_sheets. Its rows move
 		// to the target on commit (commitRateSheetAbsorb), not on absorb.
@@ -115,6 +118,8 @@ func loadRateSheetAbsorbData(app core.App) (*rateSheetAbsorbData, error) {
 			)) AS job_count,
 			(SELECT COUNT(*) FROM job_requests r WHERE r.rate_sheet = rs.id) AS request_count
 		FROM rate_sheets rs
+		-- A request's proposed rates are neither absorbed nor a target.
+		WHERE COALESCE(rs.request, '') = ''
 	`).All(&rows)
 	if err != nil {
 		return nil, err

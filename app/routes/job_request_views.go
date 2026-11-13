@@ -75,8 +75,11 @@ func requestRelated(app core.App, r *core.Record) (map[string]any, error) {
 			if err != nil {
 				return nil, err
 			}
-			rates = append(rates, map[string]any{"id": entry.Id, "role": role.GetString("name"), "role_name": role.GetString("name"), "rate": entry.GetFloat("rate"), "overtime_rate": entry.GetFloat("overtime_rate"), "updated": entry.Get("updated")})
+			rates = append(rates, map[string]any{"id": entry.Id, "role": role.GetString("name"), "role_id": role.Id, "role_name": role.GetString("name"), "rate": entry.GetFloat("rate"), "overtime_rate": entry.GetFloat("overtime_rate"), "updated": entry.Get("updated")})
 		}
+	}
+	if err := requestProposedRates(app, r, result, rates); err != nil {
+		return nil, err
 	}
 	result["rate_sheet_entries"] = rates
 	return result, nil
@@ -190,6 +193,14 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 		checklistVersion, checklistQuestions, err := utilities.CurrentRequestChecklist(tx, requestChecklistScope(r))
 		if err != nil {
 			return err
+		}
+		// The approver of proposed rates approves the rates themselves.
+		if proposed, _ := related["rate_sheet_proposed"].(bool); proposed && requestChecklistScope(r) == utilities.RequestChecklistScopeApproval {
+			for i := range checklistQuestions {
+				if checklistQuestions[i].Key == requestRateSheetChecklistKey {
+					checklistQuestions[i].Text = proposedRatesChecklistText
+				}
+			}
 		}
 		attachment := recordPublic(a)
 		if a != nil {
@@ -308,7 +319,14 @@ func requestOptionsHandler(app core.App) func(*core.RequestEvent) error {
 		}
 		result := map[string]any{}
 		for key, col := range map[string]string{"clients": "clients", "contacts": "client_contacts", "invoicing_profiles": "client_invoicing_information", "branches": "branches", "rate_sheets": "rate_sheets", "divisions": "divisions"} {
-			rows, err := app.FindAllRecords(col)
+			var rows []*core.Record
+			var err error
+			if col == "rate_sheets" {
+				// A request's proposed rates are listed nowhere.
+				rows, err = app.FindAllRecords(col, dbx.HashExp{"request": ""})
+			} else {
+				rows, err = app.FindAllRecords(col)
+			}
 			if err != nil {
 				return err
 			}
