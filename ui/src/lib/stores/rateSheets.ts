@@ -41,5 +41,5 @@ export const rateSheets = createCollectionStore<RateSheetResponse>(
   },
   "rate_sheets",
   fetchAllRateSheets,
-  false, // no absorb subscription needed
+  true, // refresh after a rate sheet absorb or its undo
 );

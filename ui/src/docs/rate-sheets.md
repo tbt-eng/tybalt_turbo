@@ -21,7 +21,7 @@ A project must have a rate sheet, and keeps it for its whole life. Choose the sh
 1. Select **Rate Sheets** under **Business**.
 2. Select the name of a sheet.
 
-The list shows the revision, the effective date, the number of jobs and **Active** or **Inactive**. To share the rates, select **Print** or **Download CSV**.
+The list shows the revision, the effective date, the number of jobs and **Active** or **Inactive**. To share the rates, select **Print** or **Download CSV**. To combine identical sheets, [absorb them](/docs/rate-sheet-absorb).
 
 ## Create a rate sheet
 

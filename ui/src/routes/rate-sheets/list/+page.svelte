@@ -13,6 +13,12 @@
 {#if $rateSheets.items.length > 0 || $rateSheets.initialized}
   <DsList items={$rateSheets.items} search={true} inListHeader="Rate Sheets">
     {#snippet searchBarExtra()}
+      <DsActionButton
+        action="/rate-sheets/duplicates"
+        icon="mdi:content-duplicate"
+        title="Sheets with identical rates"
+        color="blue">Duplicates</DsActionButton
+      >
       <DSHelp doc="rate-sheets#find-a-rate-sheet" label="Help" />
     {/snippet}
 

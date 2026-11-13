@@ -9,7 +9,11 @@
   // Helper: check if actions are disabled for a given absorb item
   function isAbsorbActionDisabled(item: AbsorbActionsResponse): boolean {
     const cn = item.collection_name;
-    if ((cn === "clients" || cn === "client_contacts") && !$jobsEditingEnabled) return true;
+    if (
+      (cn === "clients" || cn === "client_contacts" || cn === "rate_sheets") &&
+      !$jobsEditingEnabled
+    )
+      return true;
     if (cn === "vendors" && !$expensesEditingEnabled) return true;
     return false;
   }
@@ -100,6 +104,7 @@
     if (name === "client_contacts") return "Client Contacts";
     if (name === "clients") return "Clients";
     if (name === "vendors") return "Vendors";
+    if (name === "rate_sheets") return "Rate Sheets";
     return name;
   }
 

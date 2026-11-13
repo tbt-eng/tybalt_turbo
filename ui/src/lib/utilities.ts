@@ -947,6 +947,8 @@ export async function getAbsorbRedirectUrl(
       finalClientId = contact.client;
     }
     return `/clients/${finalClientId}/details#contacts`;
+  } else if (collectionName === "rate_sheets") {
+    return "/rate-sheets/duplicates";
   } else {
     // For other collections, redirect to the list page
     return `/${collectionName}/list`;

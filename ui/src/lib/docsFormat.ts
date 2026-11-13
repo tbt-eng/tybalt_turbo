@@ -164,6 +164,7 @@ const childDocPages: Record<string, { parent: string; label: string }> = {
   "child-purchase-orders": { parent: "purchase-orders", label: "Child POs" },
   "commit-expenses": { parent: "expenses", label: "Review and commit" },
   "admin-profiles": { parent: "profile", label: "Admin profiles" },
+  "rate-sheet-absorb": { parent: "rate-sheets", label: "Duplicates" },
 };
 
 // Help lists pages in the order of docPageOrder. A child page follows its

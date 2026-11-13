@@ -4,6 +4,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 
 | Word                  | Meaning                                                                                                                                             | Don't use       |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Absorb                | Combine duplicate records into one record, the target. Turbo moves what used them to the target, then deletes them.                                 | merge           |
 | Admin profile         | The record that Turbo keeps about you: your payroll ID, default branch and time off balances. See [Admin profiles](/docs/admin-profiles).           | staff profile   |
 | Approver              | A person who approves a time sheet, expense, purchase order, project request or project value change. See **Who approves what**.                    |                 |
 | Authorization PDF     | The signed PDF that authorizes a project or a value change. It must legally bind the company and the client.                                        |                 |

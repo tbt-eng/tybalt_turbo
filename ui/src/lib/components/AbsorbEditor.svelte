@@ -31,7 +31,7 @@
   } = $props();
 
   // Collections that affect jobs when absorbed
-  const collectionsAffectingJobs = ["clients", "client_contacts"];
+  const collectionsAffectingJobs = ["clients", "client_contacts", "rate_sheets"];
 
   // Derived: absorb is disabled if this collection affects jobs and job editing is disabled,
   // or if this is a vendor absorb and expenses editing is disabled
