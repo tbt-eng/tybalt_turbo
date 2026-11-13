@@ -1,52 +1,52 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/helpcorpus/collections/absorb_actions.md","sha256":"02d8bc3e65e268f4f4504c2f10e3947e23945a93d5ac8b9591eeeeafb1c275a4","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/helpcorpus/collections/absorb_actions.md","sha256":"35e6e16bcdeea9b6dd373bbc0dc086b5a8fb79874a32bb0269c9fc5c25070bf9","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/helpcorpus/collections/absorb_actions.md
 
-## Who can list and view absorb action records
+## Who can list or view absorb action records
 
 Lines 7-17
 
-Asked as: cannot see absorb records; who can view absorb actions; absorb list access denied; need absorb permission to view
+Asked as: who can see absorb records; list absorb actions; can't view absorb action; rate sheets records visible
 
-Only a person who holds the absorb claim can list absorb_actions records and view a single one through the API. The filter checks that one of the signed-in person's claims is named 'absorb'.
+Staff with the absorb claim can list and view any absorb action record (absorb_actions). Staff with the admin claim can list and view only the records whose collection_name is 'rate_sheets'. Everyone else gets no records.
 
 ## Nobody can create absorb action records through the API
 
 Lines 19-21
 
-Asked as: cannot create absorb action; add absorb record via API; api create absorb fails; new absorb action not saved
+Asked as: create absorb action api; add absorb record via api; post absorb action; api says forbidden to create absorb
 
-The create rule for absorb_actions is empty, so nobody can create a record through the API, except a PocketBase superuser. Turbo's own server code can still create records.
+Nobody can create an absorb action record (absorb_actions) through the API, except a PocketBase superuser. Turbo's own server code can still create them.
 
 ## Nobody can update absorb action records through the API
 
 Lines 23-25
 
-Asked as: cannot edit absorb action; update absorb record api; absorb record change refused; modify absorb action not allowed
+Asked as: edit absorb action; update absorb record api; change absorb action record; api refuses absorb update
 
-The update rule for absorb_actions is empty, so nobody can update a record through the API, except a PocketBase superuser. Turbo's own server code can still update records.
+Nobody can update an absorb action record (absorb_actions) through the API, except a PocketBase superuser. Turbo's own server code can still update them.
 
-## Only the absorb claim can delete absorb action records
+## Who can delete absorb action records
 
 Lines 27-31
 
-Asked as: cannot delete absorb record; remove absorb action api; absorb deletion not permitted; who can erase absorb entries
+Asked as: delete absorb action; remove absorb record; who can delete absorb records; can't delete absorb action
 
-Only a person who holds the absorb claim can delete an absorb_actions record through the API. The filter checks that one of the signed-in person's claims is named 'absorb'.
+Staff with the absorb claim can delete any absorb action record (absorb_actions). Staff with the admin claim can delete only the records whose collection_name is 'rate_sheets'. Everyone else cannot delete.
 
-## Absorb action field requirements and size limits
+## Absorb action record fields and size limits
 
-Lines 35-43
+Lines 33-43
 
-Asked as: absorb record validation error; absorbed records too large; required fields absorb action; absorb json size limit
+Asked as: absorb record required fields; absorb action too large; absorbed_records size limit; updated_references maximum bytes
 
-Each absorb_actions record requires collection_name, target_id, absorbed_records (absorbed records) and updated_references (updated references). The two JSON fields (absorbed_records, updated_references) hold at most 2,000,000 in size each. The id is 15 characters of lowercase letters and digits.
+Each absorb action record requires collection_name, target_id, absorbed_records and updated_references. The two JSON fields (absorbed_records, updated_references) each hold at most 2,000,000 bytes (maxSize 2000000).
 
-## Only one absorb action record per collection name
+## Only one absorb action record for each collection
 
-Lines 47-49
+Lines 45-49
 
-Asked as: duplicate absorb collection name; same collection absorbed twice; absorb record already exists; unique collection name error
+Asked as: duplicate absorb record collection; second absorb action same collection; unique collection_name absorb; absorb record already exists
 
-A unique index on collection_name means two absorb_actions records cannot have the same collection_name.
+A unique index on collection_name allows only one absorb action record (absorb_actions) for each collection. A second record for the same collection is refused.

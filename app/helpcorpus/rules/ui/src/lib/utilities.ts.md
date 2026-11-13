@@ -1,388 +1,244 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/utilities.ts","sha256":"473a0d86687ed9fa06253c540de7598baf8c4690cdd37a97fab2a918e37c401b","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/utilities.ts","sha256":"7d0aa6dac1539f77513751ef2971725255653cd75c879f91f86416fc3e12e033","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/utilities.ts
 
-## Save errors show field messages first
+## Save error message choice
 
-Lines 24-30
+Lines 21-30
 
-Asked as: save failed, which error shows; form not saving error message; why save error wrong text; save error field message
+Asked as: save failed which error shows; field messages on save; error message after saving; what message appears when save fails
 
-A failed save shows the field messages joined by spaces. Otherwise it shows the overall message, then the error text, then the fallback text.
+When a save fails, Turbo shows the field messages joined together if the server gave any. Otherwise it shows the overall message, then the error text, then a fallback message.
 
-## Payroll opening dates fall every 14 days from 2025-03-02
+## Payroll opening dates must be a Sunday on a 14-day cycle
 
-Lines 44-48
+Lines 44-135
 
-Asked as: payroll date rejected; wrong payroll opening day; payroll date not accepted; which dates are payroll
+Asked as: payroll date rejected; payroll opening date not accepted; which days can payroll start; payroll cycle every two weeks
 
-A valid payroll opening date is a real calendar date (YYYY-MM-DD) that falls on a Sunday. It must also be a whole number of 14-day intervals from 2025-03-02 (PAYROLL_OPENING_DATE_EPOCH). An empty value counts as valid.
+Turbo accepts a payroll opening date only if it is a real date in YYYY-MM-DD form that falls on a Sunday. It must also be a whole multiple of 14 days from the epoch Sunday 2025-03-02 (PAYROLL_OPENING_DATE_EPOCH). An empty value is accepted. Dates before the epoch count too, if they are a multiple of 14 days away.
 
-## Date inputs start at 2024-06-01
+## Earliest date allowed in date inputs
 
 Lines 44-44
 
-Asked as: earliest date picker; can't pick old date; date before 2024 blocked; oldest selectable date
+Asked as: earliest date in calendar; date picker cannot go back; how far back can I pick a date; date input minimum
 
-The earliest date that date inputs allow is 2024-06-01 (DATE_INPUT_MIN).
-
-## Job label ignores blank parts and trims spaces
-
-Lines 60-63
-
-Asked as: job label extra spaces; blank part in job name; job name spacing; empty part job label
-
-When Turbo builds a job label, it trims spaces from the number, id, client and description (cleanLabelPart). A part that is missing or only spaces counts as empty and is left out of the label.
+Date inputs use 2024-06-01 as their minimum date (DATE_INPUT_MIN).
 
 ## Job label format
 
 Lines 65-84
 
-Asked as: job name format; how job label looks; job number client description; job title missing client
+Asked as: job name looks wrong; job label missing number; how job names are shown; job title format
 
-A job label shows the number (or the id if there is no number), then the client, then the description, as "number - client: description". Missing parts are left out. With no parts it is empty.
+A job label reads "number - client: description". It leaves out whichever parts are missing. The job's id replaces the number when the number is empty. When number and id are both empty, the label uses the description, then the client.
 
-## Date pickers can look ahead a set number of months
-
-Lines 108-115
-
-Asked as: how far ahead date picker; future date limit; date picker max months; can't choose later date
-
-The date input maximum is today's date moved forward by the given number of months (dateInputMaxMonthsAhead). The result is a YYYY-MM-DD date.
-
-## Year-start date limit counts back from 1 January
-
-Lines 117-122
-
-Asked as: earliest date this year; how far back can I date; year start date limit; backdate limit days
-
-The minimum date for some date inputs is 1 January of the current year minus the given number of days (currentYearStartMinusDays). Turbo returns it as YYYY-MM-DD.
-
-## Payroll opening date validation checks format, Sunday and 14-day cycle
-
-Lines 124-135
-
-Asked as: payroll date invalid; why payroll date not Sunday; payroll cycle check; payroll opening wrong format
-
-isValidPayrollOpeningDate accepts an empty value. It rejects anything not in YYYY-MM-DD format or not a real date, and any date that is not a Sunday. It then accepts only dates whose distance from 2025-03-02 is a multiple of 14 days.
-
-## Listing payroll opening dates in a date range
+## Listing payroll opening dates between two dates
 
 Lines 137-158
 
-Asked as: list of payroll dates; payroll dates between; upcoming payroll opening dates; payroll schedule range
+Asked as: list payroll dates in range; payroll dates between two days; show all pay periods between; upcoming payroll dates range
 
-payrollOpeningDatesInRange returns every opening date from min to max, stepping 14 days from 2025-03-02. Both min and max are included when they are opening dates. It returns an empty list when min is after max.
+Turbo lists the payroll opening dates from the 14-day cycle that fall between a minimum and a maximum date, and both ends are included. It returns nothing when the minimum is after the maximum.
 
-## Tally stops on a time entry with no expand data
+## Time entry tally by time type
 
-Lines 242-245
+Lines 228-277
 
-Asked as: tally alert expand missing; time entry missing data; tally skipped entry error; expand field error timesheet
+Asked as: timesheet hours totals; how hours are counted; why hours not added to job; non-work hours total
 
-If a time entry has no expand data, the tally shows the alert "Error: expand field is missing from time entry record." and skips that entry.
+Turbo tallies time entries by time type code. Types R and RT count as work hours: entries with no job go to hours, entries with a job go to jobHours and to that job's tally. Both add to the total and add meals hours. OR and OW entries only record their dates. OTO entries become payout requests and RB entries become bank entries. Every other type adds its hours to a non-work tally for that type and to the non-work total.
 
-## Time sheet tally: work hours split by job or no job
+## Tally warns when a time entry lacks expanded data
 
-Lines 246-261
+Lines 241-245
 
-Asked as: timesheet hours split; work hours total wrong; hours with and without job; timesheet totals by job
+Asked as: expand field missing alert; time entry alert missing data; entry left out of tally; timesheet entry error message
 
-For time entries of type R or RT, hours with no job add to the work hours (hours). Hours with a job add to the job hours (jobHours) and to that job's total by job number. Both also add to the work total, and meals hours are summed. The entry's division code and name are recorded.
+If a time entry has no expand data, Turbo shows the alert "Error: expand field is missing from time entry record." and leaves that entry out of the tally.
 
-## Tally: regular entries record their division
+## Division tally records divisions of work entries
 
 Lines 248-251
 
-Asked as: division shown on entry; regular entry division tally; which division recorded; training entry division
+Asked as: divisions summary missing entry; division totals on timesheet; which entries show division; division list for work hours
 
-For regular (R) and regular-with-training (RT) time entries, the tally records the entry's division code with the division name when the entry has a division.
+Work entries (types R and RT) that have a division add that division's code and name to the divisions tally. Other time types do not.
 
-## Tally: job hours are counted per job number
-
-Lines 252-259
-
-Asked as: hours per job number; job hours total missing; regular hours by job; hours not added to job
-
-A regular entry that has a job adds its hours to the job hours and to that job's total, keyed by job number. An entry with no job adds its hours to the plain hours.
-
-## Time sheet tally: other time types
-
-Lines 262-273
-
-Asked as: off rotation totals; off week hours counted; payout and bank hours; non work hours tally
-
-OR entry dates go to off-rotation dates and OW entry dates go to off-week dates. OTO entries are payout requests and RB entries are bank entries. Any other time type adds its hours to the non-work tally for that type and to the non-work total.
-
-## Tally: dated off-rotation, off-week, payout and bank entries
-
-Lines 262-272
-
-Asked as: off rotation dates list; off week dates; payout requests list; bank entries not in totals
-
-In the time sheet tally, an off-rotation (OR) entry adds its date to the off-rotation dates. An off-week (OW) entry adds its date to the off-week dates. A payout request (OTO) entry goes to the payout requests list. A bank (RB) entry goes to the bank entries list. None of these entries adds hours to the work or non-work totals.
-
-## Date parts shown without a year by default
+## Short dates drop the year unless asked
 
 Lines 279-299
 
-Asked as: date shows without year; short date format; why no year on date; month and day only
+Asked as: date shows without year; short date format; why year hidden on date; month and day only
 
-A short date shows the month name and day, such as Mar 5. The year is added only when requested.
+Turbo shows a short date as month abbreviation and day, such as "Mar 2". It adds the year only when the year is requested.
 
-## Date and time display falls back to the raw text
+## Date-time display falls back to raw value
 
 Lines 301-312
 
-Asked as: date time display blank; invalid date shows raw; date time formatting wrong; empty date shows nothing
+Asked as: date and time shows wrong; timestamp displayed raw; blank date time; time shown oddly
 
-A date-time shows as a short date followed by the time. An empty value shows as blank, and a value that is not a valid date shows unchanged.
+Turbo shows a date-time as a short date plus the local time. An empty value shows as blank, and a value that is not a valid date shows unchanged.
 
-## Optional text is trimmed and missing text shows blank
+## Optional text is trimmed and blank when missing
 
 Lines 314-317
 
-Asked as: extra spaces in text; blank text shows null; optional field trimmed; empty value displays nothing
+Asked as: extra spaces in text; optional field shows dash; empty note displays nothing; stray spaces removed
 
-Turbo trims spaces from optional text before it displays it (trimmedOrEmpty). A missing value (null or undefined) displays as an empty string.
+Turbo trims leading and trailing spaces from optional text before it displays the text (trimmedOrEmpty). A missing or null value shows as an empty string.
 
-## Expense attachment link uses the expenses attachment route
-
-Lines 329-331
-
-Asked as: expense receipt link; attachment url expense; link to expense file; expense attachment address
-
-The link to an expense's attachment points to the server route /api/expenses/attachment/ followed by the expense id (expenseAttachmentHref). The expense id is URL-encoded in the link.
-
-## Expense attachment opens with a file type fallback
+## Expense attachment opens in a new tab
 
 Lines 333-377
 
-Asked as: receipt opens new tab; attachment file type wrong; pdf opens as download; expense file opening issue
+Asked as: receipt will not open; attachment blank tab; expense file opens empty; receipt download new tab
 
-An expense attachment opens in a new tab. If the server gives no type or application/octet-stream, the type comes from the file extension: pdf, png, jpg or jpeg. Other extensions stay octet-stream. If the fetch fails the tab closes and no message shows.
+Turbo fetches an expense attachment with the user's login and opens it in a new tab. When the server's content type is missing or generic, Turbo picks the type from the file extension: .pdf, .png, .jpg or .jpeg, otherwise a generic binary. If the fetch fails, Turbo closes the blank tab and shows no message.
 
-## Unknown PDF/image types default to a generic file type
-
-Lines 333-339
-
-Asked as: attachment wrong file type; receipt generic file; unknown file extension attachment; file opens as octet stream
-
-When Turbo opens an expense attachment, it takes the file type from the server's Content-Type. If that is missing or application/octet-stream, it guesses from the file name: .pdf, .png, .jpg or .jpeg. Any other extension is opened as application/octet-stream.
-
-## Expense attachment failure closes the opened tab
-
-Lines 341-377
-
-Asked as: blank tab after attachment; attachment tab closes; receipt fails no message; attachment did not load
-
-Turbo opens a blank tab first, then fetches the attachment. If the fetch fails, it closes the tab and shows no message to the user.
-
-## Expense attachment link expires after 60 seconds
-
-Lines 372-372
-
-Asked as: attachment link expired; receipt link stops working; temporary link timeout; attachment link 60 seconds
-
-The temporary link to the opened expense attachment is revoked after 60 seconds.
-
-## Short dollar and number display uses k, M, G suffixes
-
-Lines 424-553
-
-Asked as: short number with k; dollar amount abbreviated; numbers shown as M; display large amounts short
-
-formatDollars and formatNumber abbreviate numbers with k, M, G, T, P and E and at most 1 decimal, with trailing zeros removed. Values below 1 show as 0 (negatives too). formatPercent shows 2 decimals with %. Non-number values are returned unchanged.
-
-## Short number display drops trailing zeros
+## Dollar amounts are abbreviated in short form
 
 Lines 424-449
 
-Asked as: trailing zeros in numbers; percent two decimals; negative shows zero; short dollar display
+Asked as: big amount shortened; k or M in amount; amount shows as thousands; large number abbreviation
 
-Short dollar, percent and number displays pass non-number values through unchanged. Dollars show as $ plus one decimal with a k, M, G, T, P or E suffix, with trailing zeros removed. Values below 1, including negatives, show as 0. Percent shows two decimals with %.
+Short dollar and number displays abbreviate large values with k, M, G, T, P or E and keep one decimal. They drop trailing zeros, so 1500 shows as $1.5k. Values below 1, including negatives, show as "0" with the "$" sign.
 
-## Default currency formatting treats missing values as zero
+## Currency formatting defaults to CAD
 
 Lines 451-478
 
-Asked as: missing amount shows zero; currency format en-CA; amount blank shows 0.00; default currency display
+Asked as: amount shows CAD by default; currency code missing; amount displays as zero; unknown currency display
 
-A missing or non-numeric amount is shown as $0.00. Amounts show with two decimals in the en-CA format. The default currency is CAD.
+Turbo formats amounts as currency with 2 decimals. An empty currency code becomes CAD, and a code is trimmed and upper-cased. An empty, missing or non-numeric amount shows "$0.00". When the currency code is not recognised, Turbo shows the code followed by the amount, such as "XYZ 12.00".
 
-## Currency defaults to CAD and falls back to a plain format
-
-Lines 455-478
-
-Asked as: unknown currency code; currency code blank; CAD default currency; currency shown as code
-
-A blank currency code is treated as CAD, and codes are trimmed and upper-cased. Amounts show with 2 decimals. A missing or non-numeric amount shows "$0.00". If the currency code is not recognised, the amount shows as "CODE 0.00".
-
-## Currency equivalent text shows CAD amount, rate and date
+## Currency equivalent line shows CAD amount, rate and date
 
 Lines 480-498
 
-Asked as: CAD equivalent text; exchange rate shown; as of rate date; conversion rate display
+Asked as: exchange rate line; foreign amount equivalent; rate and as of date; CAD equivalent text
 
-The equivalent text starts with the CAD amount. It adds "rate" with 4 decimals only when the rate is above 0. It adds "as of" with the first 10 characters of the rate date when a date exists. It is empty when the amount is missing.
+The foreign-currency equivalent shows the CAD amount. It adds "rate" with 4 decimals only when the rate is above 0, and adds "as of" with the first 10 characters of the rate date when a date exists. It is blank when the amount is missing.
 
-## Indicative CAD amount is source times rate, or 0
+## Indicative CAD amount calculation
 
 Lines 500-519
 
-Asked as: CAD amount calculation; converted amount zero; indicative amount wrong; rate times amount
+Asked as: converted CAD amount wrong; how CAD total is worked out; indicative amount zero; exchange conversion calculation
 
-The indicative CAD amount is the source amount times the rate, rounded to 2 decimals. It is 0 when the amount or rate is missing, or when the rate is 0 or negative.
+Turbo calculates the indicative CAD amount as the source amount times the rate, rounded to cents. It gives 0 when the amount or rate is missing, or when the rate is 0 or negative.
 
-## Settlement tolerance is plus or minus 20 percent
+## Settlement tolerance is 20% either way
 
 Lines 521-539
 
-Asked as: settlement range expense; 20 percent tolerance; foreign expense range; allowed variance settlement
+Asked as: settlement range limits; how far can settled amount differ; 80 to 120 percent; allowed variance foreign expense
 
-The settlement range for a foreign-currency expense is the indicative CAD total minus and plus 20 percent by default (toleranceRatio 0.2), rounded to 2 decimals. If the total is missing or 0 or less, the range is 0 to 0.
+The settlement range for a foreign-currency expense runs from 80% to 120% of the indicative CAD total, rounded to cents. The ratio is 0.2 by default. When the total is missing or 0 or less, both bounds are 0.
 
-## Category lists load only when a job is chosen
+## Percent display uses two decimals
 
-Lines 556-604
+Lines 541-546
 
-Asked as: categories not loading; no categories for job; categories after job change; job category list empty
+Asked as: percentage decimals; percent sign format; how percent is shown; rate shown with decimals
 
-Categories load for the chosen job, sorted by name. An empty job gives no categories. When the job changes, a late response for an older job is ignored. Clearing the job does not clear the categories already shown.
+Turbo shows percentages with 2 decimals and a % sign.
 
-## Category sync keeps old categories when the job is cleared
+## Categories load for a job, sorted by name
 
-Lines 592-604
+Lines 555-604
 
-Asked as: categories stay after clearing job; old categories still shown; clear job categories; category list not clearing
+Asked as: categories not showing; job category list empty; category dropdown order; categories disappeared after changing job
 
-When the job is emptied, the category list is not cleared. Only the latest job's response is applied, and older responses are ignored.
+Turbo loads categories for the chosen job, sorted by name. With no job it loads none. An editor ignores a late response if the job has changed since. An empty job does not clear categories already shown.
 
-## Client contacts load by client, sorted by surname then given name
+## Client contacts sorted by surname then given name
 
-Lines 607-622
+Lines 606-622
 
-Asked as: client contacts missing; contacts sorted by name; no contacts for client; client contact list
+Asked as: client contacts order; contact list sorted wrong; contacts missing for client; who appears first in contacts
 
-Contacts load for the chosen client, sorted by surname then given name. An empty client gives none.
+Turbo loads a client's contacts sorted by surname, then given name. It loads none when there is no client.
 
-## Contact name display order and fallbacks
+## Contact display name
 
-Lines 625-632
+Lines 624-632
 
-Asked as: contact name order; contact shows email; name missing on contact; surname given name display
+Asked as: contact name shows email; name order in picker; contact shows only first name; how contact names appear
 
-A contact shows as "Surname, Given". If one is missing, the other shows alone. If both are missing, the email shows, then the id.
+Pickers show a contact as "Surname, Given". With one name only, they show that name. With neither, they show the email, then the id.
 
-## Invoicing profile label and duplicate marker
+## Invoicing profile labels
 
-Lines 635-656
+Lines 634-656
 
-Asked as: invoicing profile name; duplicate invoice profile; invoice recipient label; profile shows created date
+Asked as: invoicing profile name; two profiles look same; invoice recipient label; profile shows no name
 
-An invoicing profile shows its name, or else its recipient contact's name, or else "Invoice recipient". Instructions follow after " — ". If another profile of the client reads the same, "(created date time)" is added.
+An invoicing profile is labelled by its name. Without a name, it uses the recipient contact's name, or "Invoice recipient". The invoicing instructions follow after " — ". When two profiles in a client's list would read the same, Turbo adds "(created date time)" to tell them apart.
 
-## CSV download quoting and empty cases
+## CSV export quoting and empty downloads
 
-Lines 658-686
+Lines 658-698
 
-Asked as: csv quotes wrong; csv empty download; csv download not working; csv template header
+Asked as: CSV file opens wrong; export file empty; quotes in exported data; download gives no file
 
-CSV cells are wrapped in double quotes and inner quotes are doubled. Null values become empty. No file downloads when there are no rows or no headers. The header-only template download does not need rows.
+CSV exports wrap every value in quotes and double any quotes inside. They leave null values blank. Turbo downloads nothing when there are no rows or no columns. The columns come from the first row when none are given. A template download has a header row only.
 
-## CSV download with no rows does nothing
+## CSV downloads from a report link fail quietly
 
-Lines 658-681
+Lines 699-747
 
-Asked as: csv download nothing happens; no csv file; csv headers missing; export csv blank rows
+Asked as: report download does nothing; CSV from report fails; no file when exporting report; download error no message
 
-Downloading CSV rows does nothing when there are no rows or no headers. Without given headers, the first row's keys become the headers. Every value is quoted and inner quotes are doubled, and missing values are blank.
+A CSV download from a server endpoint (downloadCSV) sends the user's login token when the user is logged in. If the server answers with an error, Turbo shows no message to the user and downloads no file. The error goes only to the browser console.
 
-## CSV template has only a header row
+## Zip download fetches the file in two steps and reports errors to the caller
 
-Lines 684-686
+Lines 749-808
 
-Asked as: csv template only headers; blank csv template; download header row only; template file empty
+Asked as: zip download failed; bulk files not downloading; zip file error; download of attachments fails
 
-The CSV template download contains only the quoted header row followed by a newline.
+A zip download (downloadZip) first asks the endpoint for a file URL, then fetches the file from the files API. The second request carries no login token. If either step fails, or the endpoint gives no valid URL, Turbo downloads nothing and passes the error to the screen that started the download.
 
-## CSV and zip downloads fail silently or rethrow
+## Default division fills an empty division once
 
-Lines 700-808
+Lines 810-851
 
-Asked as: zip download failed; csv download error silent; zip file error message; download fails no message
+Asked as: division filled automatically; default division wrong; division keeps changing; amendment picks wrong division
 
-A failed CSV download is only logged and the user sees no message. A failed zip download is rethrown to the caller. The zip is fetched in two steps: first the file URL, then the file.
+On a new record (not an edit), Turbo fills an empty division with the user's default division from their profile. It does this once per record. For a record about another person, such as a time amendment, it uses that person's profile default division instead. It never overwrites a division already set.
 
-## Default division applies once to a new record
-
-Lines 814-851
-
-Asked as: default division new record; division filled automatically; profile division on new record; division not changing on edit
-
-A new record with no division gets the user's profile default division once. It is not applied when editing or when a division is already set. When a subject user is given (time amendments), the default division of that user's profile is used, fetched once per user.
-
-## Default division with a chosen person is applied from their profile
-
-Lines 819-842
-
-Asked as: division from chosen person; time amendment default division; person default division filled; division for selected user
-
-When a person is chosen (such as on a time amendment), Turbo fills an empty division with that person's profile default division (default_division). It does this once per person for the record. It does not overwrite a division that is already set. It does nothing when editing.
-
-## Default role applies once to a new record
+## Default role fills an empty role once
 
 Lines 853-863
 
-Asked as: default role new record; role filled automatically; profile role on new record; role not changing on edit
+Asked as: role auto filled; default role wrong; role changed on new record; role not sticking
 
-A new record with no role gets the user's profile default role once. It is not applied when editing.
+On a new record (not an edit), Turbo fills an empty role with the user's default role from their profile. It does this once per record. It never overwrites a role already set.
 
-## Live lists treat a not-found response as a removed record
+## Live lists add, update and remove records
 
-Lines 877-878
+Lines 867-925
 
-Asked as: live list record missing; list shows 404; record gone from list; updated record disappeared
+Asked as: list not refreshing; new item not showing; item disappeared from list; record vanished after update
 
-When a live list reloads a changed record and the server answers 404 (not found), Turbo treats the record as gone (isNotFoundError). A 404 on a new record skips it silently. A 404 on an updated record removes it from the list.
-
-## Live lists drop records that no longer match
-
-Lines 880-925
-
-Asked as: live list record removed; list not matching filter; record no longer visible; deleted record still listed
-
-In live lists, an updated record that no longer passes the page's visibility check is removed. So is one that can no longer be found. A created record that fails the check is not added. Deleted records are removed.
-
-## Live list adds new records only if visible
-
-Lines 885-899
-
-Asked as: new record not appearing; live list adds record; created record missing from list; record added to top
-
-For a live list, a new record is added at the top only if it passes the page's visibility check and its augmented record loads. A record that fails to load, or is not found, is skipped.
-
-## Live list removes updated records that vanish
-
-Lines 900-921
-
-Asked as: updated record vanished; record removed after edit; live list record disappears; edited item gone from list
-
-An updated record is removed from a live list when it no longer passes the visibility check or its augmented record is not found. A deleted record is always removed.
+Lists update live. A new record is added at the top only if it passes the page's visibility check. An updated record that no longer passes is removed, and one that cannot be found is removed too. A deleted record is removed.
 
 ## Purchase order active date
 
 Lines 927-934
 
-Asked as: purchase order active date; PO active date; second approval date shown; PO date wrong
+Asked as: PO active date wrong; purchase order start date; when PO becomes active; second approval date shown
 
-A purchase order's active date is the first 10 characters of its second approval date if it has one. Otherwise it is the first 10 characters of its approval date.
+A purchase order's active date is the date of its second approval when it has one. Otherwise it is the date it was approved. Only the first 10 characters are used.
 
-## Redirect after merging records
+## Where Turbo goes after an absorb
 
-Lines 937-953
+Lines 936-956
 
-Asked as: after merging contacts; redirect after merge; where merge takes me; merged client contacts page
+Asked as: where after absorb; redirected after merge; page after absorbing contact; absorb sends me to
 
-After merging client contacts, Turbo goes to that client's details page, contacts section. The client comes from the given client or the target contact. After merging other record types, it goes to that collection's list page.
+After an absorb, Turbo goes to the client's details page at the contacts section for client contacts. It looks up the client from the target contact when none is given. Rate sheets go to /rate-sheets/duplicates. Other records go to their list page.
