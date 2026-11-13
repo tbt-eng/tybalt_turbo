@@ -7,20 +7,22 @@
 ## Who can list the records (list rule): rate_sheet_entries
 
 ```
-@request.auth.id != ""
+@request.auth.id != "" && rate_sheet.request = ""
 ```
 
 ## Who can view one record (view rule): rate_sheet_entries
 
 ```
-@request.auth.id != ""
+@request.auth.id != "" && rate_sheet.request = ""
 ```
 
 ## Who can create a record (create rule): rate_sheet_entries
 
 ```
 @request.auth.id != "" &&
-@request.auth.user_claims_via_uid.cid.name ?= 'job'
+@request.auth.user_claims_via_uid.cid.name ?= 'job' &&
+// The requester changes a draft through the project request.
+@request.body.rate_sheet.request = ""
 ```
 
 ## Who can update a record (update rule): rate_sheet_entries
