@@ -55,15 +55,36 @@ func init() {
 		}
 
 		// Each project with a rate sheet gets an opening row on its current
-		// sheet, so pricing is unchanged by the migration.
-		_, err = app.DB().NewQuery(`
-			INSERT INTO job_rate_sheets (id, job, rate_sheet, effective_date, reason, created_by, updated_by, created, updated)
-			SELECT substr(lower(hex(randomblob(8))), 1, 15), j.id, j.rate_sheet, '', '', '', '',
-				strftime('%Y-%m-%d %H:%M:%fZ', 'now'), strftime('%Y-%m-%d %H:%M:%fZ', 'now')
+		// sheet, so pricing is unchanged by the migration. The ids come from
+		// PocketBase, so they have the same form as every other record id
+		// (15 characters from a-z and 0-9).
+		var projects []struct {
+			Id        string `db:"id"`
+			RateSheet string `db:"rate_sheet"`
+		}
+		if err := app.DB().NewQuery(`
+			SELECT j.id, j.rate_sheet
 			FROM jobs j
 			WHERE j.number NOT LIKE 'P%' AND COALESCE(j.rate_sheet, '') != ''
-		`).Execute()
-		return err
+			ORDER BY j.id
+		`).All(&projects); err != nil {
+			return err
+		}
+		insert := app.DB().NewQuery(`
+			INSERT INTO job_rate_sheets (id, job, rate_sheet, effective_date, reason, created_by, updated_by, created, updated)
+			VALUES ({:id}, {:job}, {:rate_sheet}, '', '', '', '',
+				strftime('%Y-%m-%d %H:%M:%fZ', 'now'), strftime('%Y-%m-%d %H:%M:%fZ', 'now'))
+		`)
+		for _, project := range projects {
+			if _, err := insert.Bind(dbx.Params{
+				"id":         core.GenerateDefaultRandomId(),
+				"job":        project.Id,
+				"rate_sheet": project.RateSheet,
+			}).Execute(); err != nil {
+				return err
+			}
+		}
+		return nil
 	}, func(app core.App) error {
 		c, err := app.FindCollectionByNameOrId("job_rate_sheets")
 		if err != nil {
