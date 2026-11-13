@@ -121,6 +121,19 @@ All user docs live in `ui/src/docs/`. A change that alters what a user sees or d
 
 ---
 
+## Test fixtures
+
+Test data lives in the CSV files under `app/test_seed_data/data/`, not in test code. The same rules are in `Agents.md`.
+
+- Use the CSV fixtures for tests whenever possible. Update `datapackage.json` if necessary.
+- Don't seed new data within the test code.
+- Never do a new testseed dump. Surgically update the CSV files to provide the required data.
+- Favour new rows for new tests (append-only) over editing existing rows in place.
+- If a test must modify fixture data at test time, document it clearly in the test.
+- When you brief a subagent that writes tests, give it these rules.
+
+---
+
 ## Model API cost
 
 Every call to a model API costs money per token. Any new or changed model integration, on any provider, must be designed around prompt caching and token count. `app/helpchat/` is the reference.
