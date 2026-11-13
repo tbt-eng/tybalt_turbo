@@ -366,17 +366,33 @@ In `app/rate_sheet_history_absorb_test.go` and `app/rate_sheet_absorb_test.go`
   is pending; a request that becomes a job while it is pending carries the
   opening row's undo data.
 
+## Decisions (2026-11-13)
+
+- **Legacy system:** accepted. The writeback sends only the current sheet
+  (`jobs.rate_sheet`). If the legacy system prices time itself, it prices
+  all time with that sheet. Turbo is the record of which sheet applies from
+  which date. No change is planned.
+- **Revision rollout:** to be built, not yet implemented. An `admin` claim
+  holder can deliberately move every project that uses a rate sheet to its
+  latest revision. Rules:
+  - Only `admin` claim holders can do it. All other users move projects one
+    at a time from the job details page, as today.
+  - The app offers it when a new revision is activated, and it is also
+    available later as its own action.
+  - It runs only after a confirmation that shows how many projects it will
+    change.
+  - Each moved project gets a dated row on the new revision, so earlier time
+    keeps its price.
+- **Invoiced periods:** deferred. The app has no record of what a client was
+  invoiced, so it cannot know a project's last invoice date. Blocking a dated
+  row earlier than the last invoice waits for client invoices (issues 151 and
+  152, `WIP_invoiced_amount_tracking.md`). Until then, the warning and the
+  required reason are the only safeguards.
+
 ## Open questions
 
-- **Invoiced periods:** when invoiced amounts are tracked
-  (`WIP_invoiced_amount_tracking.md`), should a dated row earlier than the last
-  invoice be blocked? For now, the warning and the required reason are the
-  only safeguards.
-- **Legacy system:** the writeback sends only the current sheet. If the legacy
-  system prices time itself, it will price all time with that sheet. Is that
-  acceptable while both systems run?
-- **Revision rollout:** when a new revision is activated, should the app offer
-  to add a dated row to every project on the previous revision, effective from
-  the revision's date? Today each project has to be moved by hand.
+- **Revision rollout details:** the start date of the new rows (the
+  revision's effective date, or a date the admin picks), and whether closed
+  and cancelled projects are moved too.
 - **Overtime:** `rate_sheet_entries.overtime_rate` is not used for pricing.
   This proposal does not change that.
