@@ -173,11 +173,8 @@ func validateJobRateSheetRow(app core.App, row *core.Record) error {
 		}
 	}
 	if date != "" {
-		if _, err := time.Parse("2006-01-02", date); err != nil {
-			return rateSheetError(http.StatusBadRequest, "effective_date", "invalid", "Enter a valid date.")
-		}
-		if date > RateSheetToday() {
-			return rateSheetError(http.StatusBadRequest, "effective_date", "future", "The start date cannot be in the future.")
+		if err := CheckRateSheetPeriodDate(date); err != nil {
+			return err
 		}
 	}
 
@@ -196,9 +193,29 @@ func validateJobRateSheetRow(app core.App, row *core.Record) error {
 	if sheetChanged && !fromJob && !sheet.GetBool("active") {
 		return rateSheetError(http.StatusBadRequest, "rate_sheet", "rate_sheet_not_active", "The selected rate sheet is not active.")
 	}
-	// A revision cannot apply before it took effect. The opening period covers
-	// all earlier time, so it is exempt.
-	if date != "" && date < sheet.GetString("effective_date") {
+	// The opening period covers all earlier time, so it is exempt.
+	if date != "" {
+		return CheckRateSheetPeriodRevision(sheet, date)
+	}
+	return nil
+}
+
+// CheckRateSheetPeriodDate checks the start date of a dated period: a valid
+// date that is not in the future.
+func CheckRateSheetPeriodDate(date string) error {
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return rateSheetError(http.StatusBadRequest, "effective_date", "invalid", "Enter a valid date.")
+	}
+	if date > RateSheetToday() {
+		return rateSheetError(http.StatusBadRequest, "effective_date", "future", "The start date cannot be in the future.")
+	}
+	return nil
+}
+
+// CheckRateSheetPeriodRevision refuses a dated period that starts before its
+// rate sheet revision took effect.
+func CheckRateSheetPeriodRevision(sheet *core.Record, date string) error {
+	if date < sheet.GetString("effective_date") {
 		return rateSheetError(http.StatusBadRequest, "effective_date", "before_revision",
 			"The start date is before "+sheet.GetString("name")+" took effect on "+sheet.GetString("effective_date")+".")
 	}

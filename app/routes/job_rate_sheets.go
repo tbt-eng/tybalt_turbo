@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -219,17 +220,9 @@ func changeJobRateSheets(app core.App, e *core.RequestEvent, change func(tx core
 		if err := checkPendingRateSheetAbsorb(tx, job); err != nil {
 			return err
 		}
-		existing, err := hooks.JobRateSheetSamePairs(tx, job.Id)
-		if err != nil {
-			return err
-		}
-		if err := change(tx, job, canRevise); err != nil {
-			return err
-		}
-		if err := hooks.ValidateJobRateSheetHistory(tx, job.Id, existing); err != nil {
-			return err
-		}
-		return hooks.SyncJobRateSheet(tx, e.Request.Context(), job)
+		return changeRateSheetHistory(tx, e.Request.Context(), job, func() error {
+			return change(tx, job, canRevise)
+		})
 	})
 	if err != nil {
 		return writeRateSheetError(e, err)
@@ -243,6 +236,23 @@ func changeJobRateSheets(app core.App, e *core.RequestEvent, change func(tx core
 		return writeRateSheetError(e, err)
 	}
 	return e.JSON(http.StatusOK, map[string]any{"periods": periods})
+}
+
+// changeRateSheetHistory makes one change to a project's history inside the
+// caller's transaction, checks the whole history after it, and sets
+// jobs.rate_sheet to the latest period.
+func changeRateSheetHistory(tx core.App, ctx context.Context, job *core.Record, change func() error) error {
+	existing, err := hooks.JobRateSheetSamePairs(tx, job.Id)
+	if err != nil {
+		return err
+	}
+	if err := change(); err != nil {
+		return err
+	}
+	if err := hooks.ValidateJobRateSheetHistory(tx, job.Id, existing); err != nil {
+		return err
+	}
+	return hooks.SyncJobRateSheet(tx, ctx, job)
 }
 
 // checkPendingRateSheetAbsorb refuses a change to a project's history while a
@@ -329,17 +339,7 @@ func createAddJobRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 			date = strings.TrimSpace(*req.EffectiveDate)
 		}
 		return changeJobRateSheets(app, e, func(tx core.App, job *core.Record, revise bool) error {
-			ctx := hooks.WithProjectWorkflowMutation(e.Request.Context(), hooks.ProjectWorkflowMutationRateSheet)
-			collection, err := tx.FindCollectionByNameOrId("job_rate_sheets")
-			if err != nil {
-				return err
-			}
-			row := core.NewRecord(collection)
-			row.Set("job", job.Id)
-			row.Set("rate_sheet", *req.RateSheet)
-			row.Set("created_by", e.Auth.Id)
-			row.Set("updated_by", e.Auth.Id)
-
+			ctx := e.Request.Context()
 			if date == "" {
 				if job.GetString("rate_sheet") != "" {
 					return rateSheetRouteError(http.StatusBadRequest, "effective_date", "required", "Enter the date the new rate sheet starts.")
@@ -347,9 +347,7 @@ func createAddJobRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 				if utf8.RuneCountInString(req.Reason) > rateSheetReasonMaxLength {
 					return checkRateSheetReason(req.Reason)
 				}
-				row.Set("effective_date", "")
-				row.Set("reason", req.Reason)
-				return tx.SaveWithContext(ctx, row)
+				return saveNewRateSheetPeriod(tx, ctx, job, *req.RateSheet, "", req.Reason, e.Auth.Id)
 			}
 
 			if err := requireRevise(revise); err != nil {
@@ -361,17 +359,39 @@ func createAddJobRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 			if err := checkRateSheetReason(req.Reason); err != nil {
 				return err
 			}
-			if err := hooks.EnsureOpeningRateSheetRow(tx, e.Request.Context(), job, ""); err != nil {
-				return err
-			}
-			if err := checkDateFree(tx, job.Id, date, ""); err != nil {
-				return err
-			}
-			row.Set("effective_date", date)
-			row.Set("reason", req.Reason)
-			return tx.SaveWithContext(ctx, row)
+			return addDatedRateSheetPeriod(tx, ctx, job, *req.RateSheet, date, req.Reason, e.Auth.Id)
 		})
 	}
+}
+
+// addDatedRateSheetPeriod starts a new period on a project that has a rate
+// sheet. A project whose history has not been written yet gets its opening
+// row first.
+func addDatedRateSheetPeriod(tx core.App, ctx context.Context, job *core.Record, sheet, date, reason, actor string) error {
+	if err := hooks.EnsureOpeningRateSheetRow(tx, ctx, job, ""); err != nil {
+		return err
+	}
+	if err := checkDateFree(tx, job.Id, date, ""); err != nil {
+		return err
+	}
+	return saveNewRateSheetPeriod(tx, ctx, job, sheet, date, reason, actor)
+}
+
+// saveNewRateSheetPeriod saves a new row of a project's history. The row
+// hooks check it.
+func saveNewRateSheetPeriod(tx core.App, ctx context.Context, job *core.Record, sheet, date, reason, actor string) error {
+	collection, err := tx.FindCollectionByNameOrId("job_rate_sheets")
+	if err != nil {
+		return err
+	}
+	row := core.NewRecord(collection)
+	row.Set("job", job.Id)
+	row.Set("rate_sheet", sheet)
+	row.Set("effective_date", date)
+	row.Set("reason", reason)
+	row.Set("created_by", actor)
+	row.Set("updated_by", actor)
+	return tx.SaveWithContext(hooks.WithProjectWorkflowMutation(ctx, hooks.ProjectWorkflowMutationRateSheet), row)
 }
 
 // findRateSheetPeriod finds a period of the project, creating the opening row
