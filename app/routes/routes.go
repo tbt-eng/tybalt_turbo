@@ -384,6 +384,11 @@ func AddRoutes(app core.App) {
 		rateSheetsGroup.POST("/{id}/deactivate", createDeactivateRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/rename", createRenameRateSheetHandler(app))
 		rateSheetsGroup.GET("/{id}/former_names", createGetRateSheetFormerNamesHandler(app))
+		// Absorb of duplicate rate sheets (admin, or absorb with rate_sheet_revise)
+		rateSheetsGroup.GET("/duplicates", createGetRateSheetDuplicatesHandler(app))
+		rateSheetsGroup.GET("/{id}/absorb_candidates", createGetRateSheetAbsorbCandidatesHandler(app))
+		rateSheetsGroup.POST("/{id}/absorb", CreateAbsorbRecordsHandler(app, "rate_sheets"))
+		rateSheetsGroup.POST("/undo_absorb", CreateUndoAbsorbHandler(app, "rate_sheets"))
 
 		// Claims management (detail endpoint requires admin claim)
 		claimsGroup := se.Router.Group("/api/claims")

@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 
 	"tybalt/errs"
 
@@ -88,6 +89,34 @@ func toRateCents(rate float64, overtime float64) rateCents {
 	}
 }
 
+// rateCentsByRole maps each role of entries to its rates in cents.
+func rateCentsByRole(entries []RateSheetEntryValues) map[string]rateCents {
+	byRole := make(map[string]rateCents, len(entries))
+	for _, entry := range entries {
+		byRole[entry.Role] = toRateCents(entry.Rate, entry.OvertimeRate)
+	}
+	return byRole
+}
+
+// RateSheetRatesKey returns a key that two sets of entries share exactly when
+// they are identical in the sense of CompareWithActiveRateSheets: the same set
+// of roles, and the same rate and overtime rate in cents for each role. It
+// compares sheets of any state, active or inactive. It is "" for no entries.
+func RateSheetRatesKey(entries []RateSheetEntryValues) string {
+	byRole := rateCentsByRole(entries)
+	roles := make([]string, 0, len(byRole))
+	for role := range byRole {
+		roles = append(roles, role)
+	}
+	sort.Strings(roles)
+	var key strings.Builder
+	for _, role := range roles {
+		cents := byRole[role]
+		fmt.Fprintf(&key, "%s:%d:%d;", role, cents.rate, cents.overtime)
+	}
+	return key.String()
+}
+
 // CompareWithActiveRateSheets compares entries with every active rate sheet
 // except those named excludeName, so that a revision is never compared with
 // its own earlier revisions. Two sheets are identical when they have the same
@@ -96,10 +125,7 @@ func toRateCents(rate float64, overtime float64) rateCents {
 func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, excludeName string) (RateSheetComparison, error) {
 	result := RateSheetComparison{Exact: []RateSheetMatch{}, Near: []RateSheetMatch{}}
 
-	wanted := make(map[string]rateCents, len(entries))
-	for _, entry := range entries {
-		wanted[entry.Role] = toRateCents(entry.Rate, entry.OvertimeRate)
-	}
+	wanted := rateCentsByRole(entries)
 
 	rows := []rateSheetEntryRow{}
 	err := app.DB().NewQuery(`
