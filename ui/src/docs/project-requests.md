@@ -1,6 +1,6 @@
 # Project requests
 
-Every new project and subjob starts as a request. An approver checks it, then procurement creates the job.
+Every new project and subjob starts as a request. An approver checks it, then procurement creates the job. A request can [propose new rates](/docs/proposed-rates).
 
 ```flow
 You | Create the request | Start from a proposal if one exists. Enter the details, division hours and approver.

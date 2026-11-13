@@ -22,12 +22,13 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Project Authorization | The agreement that Turbo prints for signatures. You can use it as the authorization PDF, or use another document.                                   | PA              |
 | Project Request       | A request to create a project or a subjob. Proposals don't need one.                                                                                | job request     |
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |
+| Proposed rates        | New rates in a project request. See [Proposed rates](/docs/proposed-rates).                                                                         |                 |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
-| Rate sheet            | The hourly rates that a client pays for each role on a project. A project uses one at a time. See [Rate sheets](/docs/rate-sheets).                 |                 |
+| Rate sheet            | The hourly rates that a client pays for each role. A project uses one at a time. See [Rate sheets](/docs/rate-sheets).                              |                 |
 | Rate sheet period     | The dates in which a project uses one rate sheet. See [Rate sheet periods](/docs/rate-sheet-periods).                                               |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
 | Revise                | Make a new version of a record: new details for an approved purchase order, or new rates for a rate sheet.                                          |                 |
-| Role                  | The work that you do on a job. Each time entry on a job has a role, and the rate sheet sets its rate.                                               |                 |
+| Role                  | The work that you do on a job. The rate sheet sets the rate of each role.                                                                           |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |
 | Subjob                | A project under a parent project. It has its parent's client. Its number is its parent's number plus a suffix, such as 25-123-01.                   |                 |
 | Time sheet            | Your time entries for one week.                                                                                                                     | timesheet       |

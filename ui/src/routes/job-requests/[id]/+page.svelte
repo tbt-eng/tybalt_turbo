@@ -7,6 +7,7 @@
   import { globalStore } from "$lib/stores/global";
   import { jobRequestsEnabled } from "$lib/stores/appConfig";
   import RequestEditor from "$lib/components/jobs/RequestEditor.svelte";
+  import ProposedRatesReview from "$lib/components/rateSheets/ProposedRatesReview.svelte";
   import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { clientLabel } from "$lib/clientWorkspace";
@@ -177,6 +178,7 @@
         {request}
         allocations={detail.allocations}
         options={data.options}
+        {related}
         bind:dirty
         onsaved={refresh}
       />{/key}
@@ -205,8 +207,9 @@
           : "Fee basis not provided"}
       </p>
       <p>
-        Rate sheet: {related.rate_sheet?.name || "Not provided"} · Revision {related.rate_sheet
-          ?.revision ?? "Not provided"}
+        Rate sheet: {related.rate_sheet?.name || "Not provided"} · {related.rate_sheet_proposed
+          ? "Proposed rates"
+          : `Revision ${related.rate_sheet?.revision ?? "Not provided"}`}
       </p>
       <p>First Nations agreement: {request.fn_agreement_answer || "Not answered"}</p>
       <p>Intended project status: {request.project_status}</p>
@@ -245,6 +248,7 @@
             .join(" — ") || "Unknown division"}: {allocation.hours} h
         </p>{/each}
     </section>
+    {#if related.rate_sheet_proposed}<ProposedRatesReview {related} />{/if}
   {/if}
   <section class="space-y-3 rounded border p-4">
     <div class="flex flex-wrap items-center justify-between gap-2">

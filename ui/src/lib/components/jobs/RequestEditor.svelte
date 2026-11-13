@@ -21,6 +21,14 @@
   import { rateSheets } from "$lib/stores/rateSheets";
   import { formatJobLabel } from "$lib/utilities";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
+  import ProposedRatesEditor, {
+    type ProposedRates,
+    emptyProposedRates,
+    proposedRatesPayload,
+  } from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
+  import type { ProposedRate } from "$lib/components/rateSheets/RateSheetRatesTable.svelte";
+  import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
+  import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
   import { canCreateInvoicingProfile, clientLabel } from "$lib/clientWorkspace";
   import {
     type ClientWorkflowTarget,
@@ -32,12 +40,15 @@
     request,
     allocations: initialAllocations = [],
     options,
+    related = {},
     dirty = $bindable(false),
     onsaved,
   }: {
     request: WorkflowRecord;
     allocations?: WorkflowRecord[];
     options: WorkflowRecord;
+    // The request detail's related records, which hold proposed rates.
+    related?: WorkflowRecord;
     dirty?: boolean;
     onsaved?: () => Promise<void>;
   } = $props();
@@ -50,9 +61,44 @@
       item: WorkflowRecord;
       allocations: WorkflowRecord[];
       fee: string;
+      rateMode?: string;
+      proposal?: ProposedRates;
       saved: string;
     }>(`request:${request.id || "new"}`, pb.authStore.record?.id || ""),
   );
+  // The request either chooses an active rate sheet or proposes new rates.
+  const rateModeOptions = [
+    { id: "choose", label: "Choose a sheet" },
+    { id: "propose", label: "Propose new rates" },
+  ];
+  let rateMode = $state(
+    untrack(() => restored?.rateMode ?? (related.rate_sheet_proposed ? "propose" : "choose")),
+  );
+  let proposal = $state<ProposedRates>(
+    untrack(
+      () =>
+        restored?.proposal ??
+        (related.rate_sheet_proposed
+          ? {
+              name: related.rate_sheet?.name ?? "",
+              reason: related.rate_sheet?.reason ?? "",
+              based_on: related.rate_sheet?.based_on ?? "",
+              rows: (related.rate_sheet_entries ?? [])
+                .map((entry: WorkflowRecord) => ({
+                  role: entry.role_id,
+                  roleName: entry.role_name,
+                  rate: entry.rate,
+                  overtime_rate: entry.overtime_rate,
+                  source_rate: entry.source_rate,
+                  source_overtime_rate: entry.source_overtime_rate,
+                }))
+                .sort((a: ProposedRate, b: ProposedRate) => a.roleName.localeCompare(b.roleName)),
+            }
+          : emptyProposedRates()),
+    ),
+  );
+  // Active sheets with the same rates, from the last save that Turbo refused.
+  let rateMatches = $state<RateSheetMatch[] | null>(null);
   let item = $state<WorkflowRecord>(
     untrack(() => ({
       project_award_date: "",
@@ -75,7 +121,8 @@
         (request.time_and_materials_set ? (request.time_and_materials ? "tm" : "fixed") : ""),
     ),
   );
-  let saved = $state(untrack(() => restored?.saved || JSON.stringify({ item, allocations, fee })));
+  const snapshot = () => JSON.stringify({ item, allocations, fee, rateMode, proposal });
+  let saved = $state(untrack(() => restored?.saved || snapshot()));
   let openingClient = false;
   let saving = $state(false),
     error = $state("");
@@ -162,8 +209,24 @@
     return "";
   });
   $effect(() => {
-    dirty = JSON.stringify({ item, allocations, fee }) !== saved;
+    dirty = snapshot() !== saved;
   });
+  // The request's draft is not in the Rate Sheet list, so choosing a sheet
+  // starts from an empty choice.
+  function setRateMode(mode: string) {
+    if (mode === rateMode) return;
+    rateMode = mode;
+    rateMatches = null;
+    if (mode === "choose" && related.rate_sheet_proposed && item.rate_sheet === request.rate_sheet)
+      item.rate_sheet = "";
+  }
+  // Choose the active sheet that has the proposed rates instead.
+  function useMatchingSheet(id: string) {
+    rateMode = "choose";
+    item.rate_sheet = id;
+    rateMatches = null;
+    save();
+  }
   $effect(() => {
     const value = item.project_value;
     let current = true;
@@ -201,7 +264,7 @@
       const href = keepClientWorkflowDraft(
         `request:${request.id || "new"}`,
         pb.authStore.record?.id || "",
-        $state.snapshot({ item, allocations, fee, saved }),
+        $state.snapshot({ item, allocations, fee, rateMode, proposal, saved }),
         item.client,
         item.contact || "",
         target,
@@ -226,6 +289,8 @@
     if (saving) return false;
     saving = true;
     error = "";
+    rateMatches = null;
+    const proposing = rateMode === "propose";
     const fields = [
       "description",
       "notes",
@@ -246,7 +311,8 @@
       "client_reference_number",
       "fn_agreement_answer",
       "invoicing_information",
-      "rate_sheet",
+      // Proposed rates replace the choice of a sheet.
+      ...(proposing ? [] : ["rate_sheet"]),
       "approver",
     ];
     const payload = Object.fromEntries(
@@ -258,9 +324,14 @@
     try {
       const result = await pb.send(item.id ? `/api/job_requests/${item.id}` : "/api/job_requests", {
         method: item.id ? "PATCH" : "POST",
-        body: { version: item.version, request: payload, allocations },
+        body: {
+          version: item.version,
+          request: payload,
+          allocations,
+          ...(proposing ? { proposed_rates: proposedRatesPayload(proposal) } : {}),
+        },
       });
-      saved = JSON.stringify({ item, allocations, fee });
+      saved = snapshot();
       dirty = false;
       clearClientWorkflowDraft();
       if (!item.id) await goto(`/job-requests/${result.request?.id ?? result.id}`);
@@ -268,7 +339,9 @@
       else await invalidateAll();
       return true;
     } catch (e) {
-      error = workflowError(e);
+      rateMatches = duplicateRateSheetMatches(e, "proposed_rates");
+      // The callout beside the rates names the matching sheet.
+      if (!rateMatches?.length) error = workflowError(e);
       return false;
     } finally {
       saving = false;
@@ -426,7 +499,17 @@
       fieldName="client_reference_number"
       uiName="Client Reference Number"
     />
-    {#if $rateSheets.index !== null}
+    <div class="flex w-full items-center gap-2">
+      <span id="request-rate-mode">Rates</span>
+      <DSToggle
+        bind:value={() => rateMode, setRateMode}
+        options={rateModeOptions}
+        ariaLabelledBy="request-rate-mode"
+      />
+    </div>
+    {#if rateMode === "propose"}
+      <ProposedRatesEditor bind:proposal />
+    {:else if $rateSheets.index !== null}
       <DsAutoComplete
         bind:value={item.rate_sheet}
         index={$rateSheets.index}
@@ -441,6 +524,24 @@
         {/snippet}
       </DsAutoComplete>
     {/if}
+    {#if rateMatches?.length}
+      {@const match = rateMatches[0]}
+      <RateSheetMatchCallout
+        tone="danger"
+        title="Not saved"
+        intro="An active sheet has these rates. Use that sheet, or change a rate."
+        matches={rateMatches}
+      >
+        {#snippet actions()}
+          <DSActionButton action={() => useMatchingSheet(match.id)}>Use {match.name}</DSActionButton
+          >
+        {/snippet}
+      </RateSheetMatchCallout>
+    {/if}
+    <DSCallout tone="info"
+      >The rate sheet stays with the project for its whole life. It must match the client's
+      contract.</DSCallout
+    >
     {#if $jobs.index !== null}
       <DsAutoComplete
         bind:value={item.proposal}

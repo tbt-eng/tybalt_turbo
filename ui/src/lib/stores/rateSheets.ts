@@ -30,14 +30,23 @@ export const rateSheets = createCollectionStore<RateSheetResponse>(
       index: s.index?.add(record) || s.index,
     }));
   },
-  // onUpdate handler - refetch from augmented view
+  // onUpdate handler - refetch from augmented view. A request's proposed
+  // rates are hidden until job creation activates them, so their first
+  // event is an update of a sheet the store does not have yet.
   async (item) => {
     const record = await pb.collection("rate_sheets_augmented").getOne<RateSheetResponse>(item.id);
-    rateSheets.update((state) => ({
-      ...state,
-      items: state.items.map((i) => (i.id === item.id ? record : i)),
-      index: state.index?.replace(record) || state.index,
-    }));
+    rateSheets.update((state) => {
+      const known = state.items.some((i) => i.id === item.id);
+      if (!known) {
+        state.index?.add(record);
+        return { ...state, items: [...state.items, record] };
+      }
+      return {
+        ...state,
+        items: state.items.map((i) => (i.id === item.id ? record : i)),
+        index: state.index?.replace(record) || state.index,
+      };
+    });
   },
   "rate_sheets",
   fetchAllRateSheets,

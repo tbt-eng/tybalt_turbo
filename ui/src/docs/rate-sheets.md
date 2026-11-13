@@ -14,7 +14,7 @@ If the sheet has no rate for the role, Turbo uses the person's default charge ou
 2. Select a sheet in **Rate Sheet**. Turbo lists only active sheets.
 3. Save your changes.
 
-A project must have a rate sheet. Choose the sheet with the rates in the client's contract. Most staff can't change it later. To change it, see [Rate sheet periods](/docs/rate-sheet-periods).
+A project must have a rate sheet. Choose the sheet with the rates in the client's contract. Most staff can't change it later. If no sheet matches, [propose new rates](/docs/proposed-rates).
 
 ## Find a rate sheet
 
