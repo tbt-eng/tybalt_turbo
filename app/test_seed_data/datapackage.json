@@ -2367,6 +2367,11 @@
             "x-sqlite-type": "BOOLEAN"
           },
           {
+            "name": "based_on",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
             "name": "created",
             "type": "string",
             "x-sqlite-type": "TEXT"
@@ -2383,6 +2388,16 @@
           },
           {
             "name": "name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "request",
             "type": "string",
             "x-sqlite-type": "TEXT"
           },

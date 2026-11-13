@@ -1,53 +1,54 @@
-active,created,effective_date,id,name,revision,updated
-1,2026-01-21 22:29:10.359Z,2025-01-07,c41ofep525bcacj,2025 Standard Rates,0,2026-01-21 22:29:10.359Z
-0,2026-03-09 00:00:00.000Z,2025-01-01,rs_complete_all_001,Complete Hook Sheet,0,2026-03-09 00:00:00.000Z
-1,2026-03-09 00:00:00.000Z,2025-01-01,rs_deactivate_r0,Test Deactivate Others,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-02-01,rs_deactivate_r1,Test Deactivate Others,1,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-06-15,rs_effinvalid_r0,Test Invalid Effective Date,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-01-15,rs_effvalid_r0,Test Effective Date Validation,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-01-01,rs_hook_inactive_001,Hook Inactive Rate Sheet,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-01-01,rs_newercheck_r0,Test Newer Revision Check,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-01-01,rs_newerexists_r0,Test Newer Revision Exists,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-02-01,rs_newerexists_r1,Test Newer Revision Exists,1,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-01-01,rs_partial_001,Partial Hook Sheet,0,2026-03-09 00:00:00.000Z
-1,2026-03-09 00:00:00.000Z,2025-01-01,rs_sheeta_r0,Sheet A,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2025-02-01,rs_sheeta_r1,Sheet A,1,2026-03-09 00:00:00.000Z
-1,2026-03-09 00:00:00.000Z,2025-01-01,rs_sheetb_r0,Sheet B,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2026-03-01,rsdupbase0001,Duplicate Test Sheet,0,2026-03-09 00:00:00.000Z
-0,2026-03-09 00:00:00.000Z,2026-01-01,rsrevbase0001,Revise Test Sheet,0,2026-03-09 00:00:00.000Z
-0,2025-01-01 00:00:00,2025-01-01,test_empty_sheet,Empty Test Rate Sheet,1,2025-01-01 00:00:00
-1,,2025-01-01,test_rs_alt_actv,Test Alternative Active Rate Sheet,0,
-0,2026-09-21 12:00:00.000Z,2034-01-01,rsvaluation0001,Summary valuation fixture,0,2026-09-21 12:00:00.000Z
-1,2026-09-21 12:00:00.000Z,2034-01-02,rsvaluation0002,Summary valuation fixture,1,2026-09-21 12:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2026-01-01,rs_dupact_001,Duplicate Activation Sheet,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2026-01-01,rs_revact_r0,Revision Activation Sheet,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2026-06-01,rs_revact_r1,Revision Activation Sheet,1,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2024-01-01,rsabtarget00001,Absorb Target,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2024-06-01,rsabsingle00001,Absorb Single,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2023-01-01,rsabearly000001,Absorb Early,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2024-06-01,rsabmissing0001,Absorb Missing Role,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2024-06-01,rsabdiffrate001,Absorb Different Rate,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2022-01-01,rsabwhole0r0001,Absorb Whole,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2022-06-01,rsabwhole0r1001,Absorb Whole,1,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2024-01-01,rsabused0r00001,Absorb Used,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2024-02-01,rsabused0r10001,Absorb Used,1,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2025-01-01,rsablateinact01,Absorb Late Inactive,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2024-06-01,rsablatest0r001,Absorb Latest Differs,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2024-07-01,rsablatest1r001,Absorb Latest Differs,1,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2020-01-01,rsabinactive001,Absorb Inactive Target,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2034-01-01,rsabwipsource01,WIP Source,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2033-01-01,rsabwiptarget01,WIP Target,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2025-01-01,rsabreqtarget01,Request Target,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2020-01-01,rsabgroupold001,Group Old,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2021-01-01,rsabgroupold002,Group Old,1,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2022-01-01,rsabgroupnew001,Group New,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2026-01-01,rsentrybase0001,Entry Correction Base,0,2026-11-12 00:00:00.000Z
-1,2026-11-12 00:00:00.000Z,2026-01-01,rsentryactive01,Entry Correction Active,0,2026-11-12 00:00:00.000Z
-0,2026-11-12 00:00:00.000Z,2026-01-01,rsentryinact001,Entry Correction Inactive,0,2026-11-12 00:00:00.000Z
-1,2026-11-13 00:00:00.000Z,2024-01-01,rsabhisttgt0001,Absorb History Target,0,2026-11-13 00:00:00.000Z
-1,2026-11-13 00:00:00.000Z,2024-03-01,rsabhistsrc0001,Absorb History Source,0,2026-11-13 00:00:00.000Z
-1,2026-11-13 00:00:00.000Z,2024-03-01,rsabhistcur0001,Absorb History Current,0,2026-11-13 00:00:00.000Z
-0,2026-11-13 00:00:00.000Z,2024-02-01,rsabhistrev0r01,Absorb History Revised,0,2026-11-13 00:00:00.000Z
-1,2026-11-13 00:00:00.000Z,2024-05-01,rsabhistrev1r01,Absorb History Revised,1,2026-11-13 00:00:00.000Z
-0,2026-11-13 00:00:00.000Z,2024-01-01,rsrollout0r0001,Rollout Rates,0,2026-11-13 00:00:00.000Z
-1,2026-11-13 00:00:00.000Z,2025-03-01,rsrollout1r0001,Rollout Rates,1,2026-11-13 00:00:00.000Z
+active,based_on,created,effective_date,id,name,reason,request,revision,updated
+1,,2026-01-21 22:29:10.359Z,2025-01-07,c41ofep525bcacj,2025 Standard Rates,,,0,2026-01-21 22:29:10.359Z
+0,,2026-03-09 00:00:00.000Z,2025-01-01,rs_complete_all_001,Complete Hook Sheet,,,0,2026-03-09 00:00:00.000Z
+1,,2026-03-09 00:00:00.000Z,2025-01-01,rs_deactivate_r0,Test Deactivate Others,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-02-01,rs_deactivate_r1,Test Deactivate Others,,,1,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-06-15,rs_effinvalid_r0,Test Invalid Effective Date,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-01-15,rs_effvalid_r0,Test Effective Date Validation,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-01-01,rs_hook_inactive_001,Hook Inactive Rate Sheet,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-01-01,rs_newercheck_r0,Test Newer Revision Check,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-01-01,rs_newerexists_r0,Test Newer Revision Exists,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-02-01,rs_newerexists_r1,Test Newer Revision Exists,,,1,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-01-01,rs_partial_001,Partial Hook Sheet,,,0,2026-03-09 00:00:00.000Z
+1,,2026-03-09 00:00:00.000Z,2025-01-01,rs_sheeta_r0,Sheet A,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2025-02-01,rs_sheeta_r1,Sheet A,,,1,2026-03-09 00:00:00.000Z
+1,,2026-03-09 00:00:00.000Z,2025-01-01,rs_sheetb_r0,Sheet B,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2026-03-01,rsdupbase0001,Duplicate Test Sheet,,,0,2026-03-09 00:00:00.000Z
+0,,2026-03-09 00:00:00.000Z,2026-01-01,rsrevbase0001,Revise Test Sheet,,,0,2026-03-09 00:00:00.000Z
+0,,2025-01-01 00:00:00,2025-01-01,test_empty_sheet,Empty Test Rate Sheet,,,1,2025-01-01 00:00:00
+1,,,2025-01-01,test_rs_alt_actv,Test Alternative Active Rate Sheet,,,0,
+0,,2026-09-21 12:00:00.000Z,2034-01-01,rsvaluation0001,Summary valuation fixture,,,0,2026-09-21 12:00:00.000Z
+1,,2026-09-21 12:00:00.000Z,2034-01-02,rsvaluation0002,Summary valuation fixture,,,1,2026-09-21 12:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2026-01-01,rs_dupact_001,Duplicate Activation Sheet,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2026-01-01,rs_revact_r0,Revision Activation Sheet,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2026-06-01,rs_revact_r1,Revision Activation Sheet,,,1,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2024-01-01,rsabtarget00001,Absorb Target,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2024-06-01,rsabsingle00001,Absorb Single,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2023-01-01,rsabearly000001,Absorb Early,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2024-06-01,rsabmissing0001,Absorb Missing Role,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2024-06-01,rsabdiffrate001,Absorb Different Rate,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2022-01-01,rsabwhole0r0001,Absorb Whole,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2022-06-01,rsabwhole0r1001,Absorb Whole,,,1,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2024-01-01,rsabused0r00001,Absorb Used,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2024-02-01,rsabused0r10001,Absorb Used,,,1,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2025-01-01,rsablateinact01,Absorb Late Inactive,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2024-06-01,rsablatest0r001,Absorb Latest Differs,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2024-07-01,rsablatest1r001,Absorb Latest Differs,,,1,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2020-01-01,rsabinactive001,Absorb Inactive Target,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2034-01-01,rsabwipsource01,WIP Source,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2033-01-01,rsabwiptarget01,WIP Target,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2025-01-01,rsabreqtarget01,Request Target,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2020-01-01,rsabgroupold001,Group Old,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2021-01-01,rsabgroupold002,Group Old,,,1,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2022-01-01,rsabgroupnew001,Group New,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2026-01-01,rsentrybase0001,Entry Correction Base,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-12 00:00:00.000Z,2026-01-01,rsentryactive01,Entry Correction Active,,,0,2026-11-12 00:00:00.000Z
+0,,2026-11-12 00:00:00.000Z,2026-01-01,rsentryinact001,Entry Correction Inactive,,,0,2026-11-12 00:00:00.000Z
+1,,2026-11-13 00:00:00.000Z,2024-01-01,rsabhisttgt0001,Absorb History Target,,,0,2026-11-13 00:00:00.000Z
+1,,2026-11-13 00:00:00.000Z,2024-03-01,rsabhistsrc0001,Absorb History Source,,,0,2026-11-13 00:00:00.000Z
+1,,2026-11-13 00:00:00.000Z,2024-03-01,rsabhistcur0001,Absorb History Current,,,0,2026-11-13 00:00:00.000Z
+0,,2026-11-13 00:00:00.000Z,2024-02-01,rsabhistrev0r01,Absorb History Revised,,,0,2026-11-13 00:00:00.000Z
+1,,2026-11-13 00:00:00.000Z,2024-05-01,rsabhistrev1r01,Absorb History Revised,,,1,2026-11-13 00:00:00.000Z
+0,,2026-11-13 00:00:00.000Z,2024-01-01,rsrollout0r0001,Rollout Rates,,,0,2026-11-13 00:00:00.000Z
+1,,2026-11-13 00:00:00.000Z,2025-03-01,rsrollout1r0001,Rollout Rates,,,1,2026-11-13 00:00:00.000Z
+0,c41ofep525bcacj,2026-11-13 00:00:00.000Z,2026-11-13,rsdraftsheet001,Proposed Fixture Rates,"Client master services agreement, schedule B",rsdraftreq00001,0,2026-11-13 00:00:00.000Z
