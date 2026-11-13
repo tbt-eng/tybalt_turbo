@@ -1,124 +1,124 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/job_rate_sheets.go","sha256":"a191272dbd1286492e70529806f896656b9d4766ab8433b25ae7a3a5f4c5ae0c","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/job_rate_sheets.go","sha256":"ae944fd397fa9e45fd3ecf12df2924741b32e1ee0dbbbec813c3f40d28e93b9d","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/job_rate_sheets.go
 
-## Opening period skips the active rate sheet check
+## Rate sheet history errors show a message on the field
 
-Lines 26-29
+Lines 31-37
 
-Asked as: inactive rate sheet opening period; deactivated sheet copied to period; opening period rate sheet not active; why opening period ignores active check
+Asked as: error message on field; rate sheet history error; which field has the error; refused history change message
 
-An opening period copied from the project's current rate sheet (rateSheetFromJobKey) does not need the sheet to be active, because the sheet may have been deactivated since it was set.
+When Turbo refuses a rate sheet history change, it shows the message and ties it to the field concerned, such as the start date (effective_date), the rate sheet (rate_sheet) or the project (job). Only the refusal for using the wrong action has no field.
 
-## Rate sheet history is ordered with the opening row first
+## Latest start date allowed for a rate sheet period is today in UTC
+
+Lines 39-43
+
+Asked as: start date tomorrow; date in the future; wrong date near midnight; UTC date versus local date
+
+Turbo takes today's date from the UTC clock (RateSheetToday) for the rate sheet history. A period's start date cannot be later than that date. Near midnight, the UTC date can differ from the local date.
+
+## Rate sheet history is ordered with the opening period first
 
 Lines 45-56
 
-Asked as: rate sheet history order; opening row sorts first; history periods wrong order; empty start date at top
+Asked as: order of rate sheet periods; history list sorting; which period is latest; opening period shown first
 
-A project's rate sheet history lists its periods by start date (effective_date). The opening period has an empty start date and sorts first. The opening period covers all time before the first dated period.
+Turbo lists a project's rate sheet history (job_rate_sheets) sorted by start date (effective_date). The opening period has an empty start date, so it sorts first. The latest period is the one with the last start date.
 
-## Opening rate sheet period is created for projects without history
+## Opening row is backfilled for projects without history
 
 Lines 58-81
 
-Asked as: missing opening period; project has no history rows; no first rate sheet period; rate sheet history empty; create opening period automatically
+Asked as: missing opening row; project has no history; imported project no history; backfill rate sheet history
 
-When a project has a rate sheet but no history rows, Turbo creates an opening period with an empty start date and the project's current rate sheet. Turbo creates no opening period for a proposal or for a project with no rate sheet. The actor is recorded as creator and updater.
-
-## History must keep its opening period
-
-Lines 94-97
-
-Asked as: cannot remove opening row; earliest period has start date; must keep opening row; history lost its first period
-
-After a change, if the earliest period of a project has a start date, Turbo refuses with "The rate sheet history must keep its opening row."
+Turbo creates an opening row for a project that has a rate sheet but no history, such as an imported or older project. Nothing is created if the project is a proposal, has no rate sheet, or already has history rows.
 
 ## Neighbouring periods cannot use the same rate sheet
 
-Lines 98-103
+Lines 88-129
 
-Asked as: same rate sheet twice in a row; duplicate neighbouring rate sheets; consecutive periods same sheet; two periods same sheet refused
+Asked as: same rate sheet twice; two periods same sheet; neighbouring periods identical sheet; delete the later period
 
-After a change, if two neighbouring periods use the same rate sheet, Turbo refuses with "Two neighbouring periods would use the same rate sheet. Delete the later one instead."
+Turbo refuses a history change that leaves two neighbouring periods on the same rate sheet: 'Two neighbouring periods would use the same rate sheet. Delete the later one instead.' Pairs that already existed before the change, for example after a rate sheet absorb, do not block it.
 
-## Project's rate sheet follows the latest history period
+## History must keep its opening row
 
-Lines 107-127
+Lines 117-123
 
-Asked as: project rate sheet not updating; job rate sheet follows latest period; project sheet wrong after history change; jobs rate sheet out of sync
+Asked as: opening row missing; earliest period has date; cannot remove first row; history lost its opening row
 
-Turbo sets the project's rate sheet (jobs.rate_sheet) to the sheet of the latest period. It saves the project only when the sheet differs. It marks the project as no longer imported and skips validation of other fields.
+After a change, if a project has history rows, the earliest must have no start date. Otherwise Turbo refuses with 'The rate sheet history must keep its opening row.'
 
-## Rate sheet period needs an existing non-proposal project
+## Project rate sheet follows the latest period
 
-Lines 131-137
+Lines 133-152
 
-Asked as: cannot add rate sheet to proposal; project not found rate sheet; rate sheet period for proposal; period missing project error
+Asked as: project rate sheet not updating; jobs rate sheet out of date; project sheet follows history; imported flag cleared
 
-Turbo refuses a rate sheet period for a missing project with "The project was not found." It refuses a period for a proposal with "Proposals do not have rate sheets."
+Turbo sets the project's rate sheet (jobs.rate_sheet) to the sheet of its latest history row. It saves the project only if the sheet differs. It skips validation of other fields, and marks an imported project as no longer imported (MarkImportedFalseIfChanged).
+
+## Proposals cannot have rate sheet periods
+
+Lines 157-163
+
+Asked as: rate sheet on proposal; proposal rate sheet period; proposal has no rate sheet; project not found error
+
+Turbo refuses a rate sheet period for a proposal with 'Proposals do not have rate sheets.' If the project is not found, it says 'The project was not found.' Turbo also creates no opening row for a proposal.
 
 ## Rate sheet period cannot move to another project
 
-Lines 139-143
+Lines 165-169
 
-Asked as: move period to other project; change project of rate sheet period; reassign rate sheet period; wrong project on period
+Asked as: move period to other project; change project of period; reassign rate sheet period; period switched project
 
-When a person edits a period, changing its project is refused with "A rate sheet period cannot move to another project."
+When a person edits an existing rate sheet period, Turbo refuses a change of its project with 'A rate sheet period cannot move to another project.'
 
-## Opening period cannot gain a date and dated periods cannot lose theirs
+## Opening period keeps no start date; others keep one
 
-Lines 144-147
+Lines 170-173
 
-Asked as: cannot add date to opening period; clear start date refused; remove start date from period; opening period date error
+Asked as: opening period has start date; remove start date from period; no start date error; opening period date
 
-When a person edits a period, Turbo refuses adding a start date to the opening period or clearing the start date of another period. The message is "The opening period has no start date, and other periods must keep one."
+Turbo refuses an edit that gives the opening period a start date, or removes the start date from another period. The message is 'The opening period has no start date, and other periods must keep one.'
 
-## Period start date must be valid and not in the future
+## Start date must be a valid date not in the future
 
-Lines 149-156
+Lines 175-182
 
-Asked as: invalid start date; future start date refused; date in the future rate sheet; start date tomorrow not allowed; bad date on period
+Asked as: invalid date entered; start date not accepted; future start date refused; date format wrong
 
-A period start date must be a valid date, else Turbo says "Enter a valid date." It cannot be after today's UTC date, else Turbo says "The start date cannot be in the future." Today itself is allowed.
+A period's start date (effective_date) must be a valid YYYY-MM-DD date, or Turbo says 'Enter a valid date.' A date after today in UTC is refused with 'The start date cannot be in the future.' Today itself is allowed. An empty date (opening row) skips both checks.
 
-## Rate sheet checks run only when sheet or date changes
+## Newly chosen rate sheet must be active
 
-Lines 158-162
+Lines 184-198
 
-Asked as: edit period without changing sheet; saving period checks again; why rate sheet checks on edit; rate sheet validation on small edit
+Asked as: inactive rate sheet chosen; cannot pick deactivated sheet; rate sheet unavailable; sheet not active error
 
-On an edit that changes neither the rate sheet nor the start date, Turbo skips the rate sheet existence, active and start date checks. A new period always gets them.
-
-## Rate sheet must exist and be active when newly chosen
-
-Lines 163-172
-
-Asked as: rate sheet not found; inactive rate sheet chosen; cannot pick deactivated sheet; selected sheet not active; sheet disappeared from period
-
-Turbo refuses a period whose rate sheet is not found with "The rate sheet was not found." A newly chosen sheet must be active, else Turbo says "The selected rate sheet is not active." A period keeps its sheet after the sheet is deactivated.
+When a period is created or its rate sheet changes, the chosen rate sheet must be active. Otherwise Turbo says 'The selected rate sheet is not active.' A period that keeps its sheet is not checked, so it stays valid after the sheet is deactivated. An opening row copied from the project's rate sheet also skips the check. A missing rate sheet gives 'The rate sheet was not found.'
 
 ## Period cannot start before the rate sheet took effect
 
-Lines 173-178
+Lines 186-204
 
-Asked as: start date before rate sheet effective; period earlier than sheet effective date; rate sheet took effect later; start date too early for sheet
+Asked as: start date before sheet; period earlier than rate sheet; date before rate sheet took effect; rate sheet effective date clash
 
-For a dated period, if the start date is before the rate sheet's own effective date, Turbo refuses with "The start date is before <sheet name> took effect on <date>." A start date equal to the effective date passes. The opening period is exempt.
+A dated period cannot start before its rate sheet's effective date. Turbo refuses with 'The start date is before <sheet name> took effect on <date>.' The same date is allowed. The opening period has no date and is exempt. Turbo skips this check when neither the sheet nor the date changed.
 
-## Rate sheet periods change only through history actions
+## Rate sheet history rows only change through history actions
 
-Lines 184-199
+Lines 212-225
 
-Asked as: cannot edit rate sheet period directly; rate sheet period edit refused; use history actions instead; delete rate sheet period error
+Asked as: cannot edit history table; direct database write refused; change history row directly; use history actions instead
 
-Creating, updating or deleting a rate sheet period outside the rate sheet history actions is refused with "use the rate sheet history actions". Row validation runs on create and update, not on delete.
+Turbo refuses to create, update or delete a project's rate sheet history row (job_rate_sheets) unless the change comes from the rate sheet history actions. Any other write is refused with 'use the rate sheet history actions'.
 
-## Opening period is written when a project first gets a rate sheet
+## Opening row is created with a project's first rate sheet
 
-Lines 201-213
+Lines 227-237
 
-Asked as: new project rate sheet opening period; first rate sheet on project; project saved with rate sheet first time; opening period created on save
+Asked as: new project first rate sheet; opening row on project create; project given rate sheet; first history row created
 
-When a project is created, or saved after having no rate sheet, Turbo creates its opening period after the job save, in the same transaction. The user who set the sheet is the actor.
+When a project is created with a rate sheet, or a project with no rate sheet is given one, Turbo creates the opening history row with no start date. It uses the project's sheet and records the acting user. This runs in the same save.
