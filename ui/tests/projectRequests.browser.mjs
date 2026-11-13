@@ -316,8 +316,15 @@ await runBrowserHarness(
     const value = page.getByLabel("Project value (CAD, before tax)");
     await value.fill("1.25");
     assert.equal(await value.evaluate((input) => input.validity.stepMismatch), true);
+    // The approver list is empty until the value is a whole dollar amount, and
+    // the form says so.
+    const approverHint = page.getByText(
+      "Enter the project value in whole dollars to list approvers.",
+    );
+    await approverHint.waitFor();
     await value.fill("120000");
     assert.equal(await value.evaluate((input) => input.checkValidity()), true);
+    await approverHint.waitFor({ state: "detached" });
     // Long lists are searched, not scrolled: nothing lists until a person types.
     await page.getByRole("button", { name: "Clear", exact: true }).first().click();
     assert.equal(await page.getByText("Other Client", { exact: true }).count(), 0);

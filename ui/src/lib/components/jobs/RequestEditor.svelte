@@ -80,6 +80,7 @@
   let saving = $state(false),
     error = $state("");
   let approvers = $state<WorkflowRecord[]>([]),
+    approversLoaded = $state(false),
     approverError = $state("");
   const contacts = $derived(
     (options.contacts || []).filter((record: WorkflowRecord) => record.client === item.client),
@@ -151,6 +152,15 @@
       row.id;
     return row.invoicing_instructions ? `${name} — ${row.invoicing_instructions}` : name;
   }
+  // The approver list depends on the project value, so say why it is empty.
+  const approverHint = $derived.by(() => {
+    const value = item.project_value;
+    if (!(Number.isInteger(value) && value > 0))
+      return "Enter the project value in whole dollars to list approvers.";
+    if (approversLoaded && approvers.length === 0)
+      return "No approver has a limit that covers this project value.";
+    return "";
+  });
   $effect(() => {
     dirty = JSON.stringify({ item, allocations, fee }) !== saved;
   });
@@ -158,6 +168,7 @@
     const value = item.project_value;
     let current = true;
     approvers = [];
+    approversLoaded = false;
     if (Number.isInteger(value) && value > 0) {
       pb.send(`/api/project_authorization/approvers?value=${value}`, {
         method: "GET",
@@ -166,6 +177,7 @@
         .then((response) => {
           if (current) {
             approvers = response.items;
+            approversLoaded = true;
             approverError = "";
           }
         })
@@ -524,6 +536,7 @@
       errors={noFieldErrors}
       fieldName="approver"
       uiName="Selected approver"
+      helperText={approverHint}
     >
       {#snippet optionTemplate(row)}{row.name}{/snippet}
     </DsSelector>

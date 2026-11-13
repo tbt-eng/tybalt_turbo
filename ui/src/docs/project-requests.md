@@ -28,7 +28,7 @@ If a proposal exists, [start from the proposal](/docs/project-requests#start-fro
 
 1. Select the plus button beside **Project Requests**. For a subjob, open the parent project and select the **Create Subjob Request** button.
 2. Enter the details and division hours.
-3. Select an invoicing profile and an approver. The approver's limit must cover the full project value.
+3. Select an invoicing profile and an approver. The list shows approvers whose limit covers the project value.
 4. Select **Save request**.
 
 ## Upload and submit
