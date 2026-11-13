@@ -49,3 +49,5 @@ active,created,effective_date,id,name,revision,updated
 1,2026-11-13 00:00:00.000Z,2024-03-01,rsabhistcur0001,Absorb History Current,0,2026-11-13 00:00:00.000Z
 0,2026-11-13 00:00:00.000Z,2024-02-01,rsabhistrev0r01,Absorb History Revised,0,2026-11-13 00:00:00.000Z
 1,2026-11-13 00:00:00.000Z,2024-05-01,rsabhistrev1r01,Absorb History Revised,1,2026-11-13 00:00:00.000Z
+0,2026-11-13 00:00:00.000Z,2024-01-01,rsrollout0r0001,Rollout Rates,0,2026-11-13 00:00:00.000Z
+1,2026-11-13 00:00:00.000Z,2025-03-01,rsrollout1r0001,Rollout Rates,1,2026-11-13 00:00:00.000Z
