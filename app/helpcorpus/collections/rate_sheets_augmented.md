@@ -34,6 +34,7 @@ LEFT JOIN (
   UNION
   SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
 ) u ON u.rate_sheet = rs.id
+WHERE COALESCE(rs.request, '') = ''
 GROUP BY rs.id, rs.name, rs.effective_date, rs.revision, rs.active, rs.created, rs.updated
 ```
 

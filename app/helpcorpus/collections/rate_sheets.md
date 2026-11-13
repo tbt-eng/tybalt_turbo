@@ -7,19 +7,23 @@
 ## Who can list the records (list rule): rate_sheets
 
 ```
-@request.auth.id != ""
+@request.auth.id != "" && request = ""
 ```
 
 ## Who can view one record (view rule): rate_sheets
 
 ```
-@request.auth.id != ""
+@request.auth.id != "" && request = ""
 ```
 
 ## Who can create a record (create rule): rate_sheets
 
 ```
-@request.auth.id != "" && (
+@request.auth.id != "" &&
+// A draft is made only through a project request.
+@request.body.request:isset = false &&
+@request.body.based_on:isset = false &&
+@request.body.reason:isset = false && (
   @request.auth.user_claims_via_uid.cid.name ?= 'rate_sheet_revise' ||
   @request.auth.user_claims_via_uid.cid.name ?= 'admin' ||
   (@request.auth.user_claims_via_uid.cid.name ?= 'job' && @request.body.revision = 0)
@@ -45,9 +49,13 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `active` | bool |  |
 | `created` | autodate | onCreate |
 | `updated` | autodate | onCreate; onUpdate |
+| `request` | relation | maxSelect 1; to `job_requests` |
+| `reason` | text | max 500 |
+| `based_on` | relation | maxSelect 1; to `rate_sheets` |
 
 ## Indexes: rate_sheets
 
 A unique index means that two records can't have the same values in its fields.
 
 - `CREATE UNIQUE INDEX `idx_dHsmkOUme0` ON `rate_sheets` ( `name`, `revision` )`
+- `CREATE INDEX `idx_rate_sheets_request` ON `rate_sheets` (`request`)`
