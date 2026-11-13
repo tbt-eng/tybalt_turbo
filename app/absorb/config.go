@@ -2,7 +2,14 @@
 // This is a separate package to avoid import cycles between routes and hooks.
 package absorb
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+
+	"github.com/pocketbase/pocketbase/core"
+
+	"tybalt/utilities"
+)
 
 // Config defines the complete configuration for absorbing a collection.
 // All absorb-related relationships are defined here in one place.
@@ -22,7 +29,56 @@ type Config struct {
 	// This prevents data inconsistencies where undoing a parent absorb would try to
 	// restore references to records that were deleted by a committed child absorb.
 	DependsOn string
+
+	// The fields below are optional. A collection that leaves them unset
+	// behaves as before: the absorb claim allows absorb, undo and commit, any
+	// record can absorb any other, and only the absorbed records are deleted.
+
+	// ClaimSets replaces the absorb claim check for absorb, undo and commit.
+	// A user passes when they hold every claim of at least one set. The
+	// absorb_actions collection rules still apply to commit and to the list.
+	ClaimSets [][]string
+
+	// OwnedRows are child rows that belong to an absorbed record, such as the
+	// entries of a rate sheet. Column is the child's relation to the absorbed
+	// record. Absorb uses plain SQL, so a cascadeDelete does not run: the rows
+	// are saved in the action with their record, deleted with it and restored
+	// on undo. They are not moved to the target.
+	OwnedRows []RefConfig
+
+	// Prepare checks a request inside the absorb transaction, before anything
+	// changes, and returns the ids to absorb. It may add ids, for example the
+	// other revisions of a rate sheet. A *RefusedError tells the user why the
+	// absorb is refused.
+	Prepare func(app core.App, target *core.Record, ids []string) ([]string, error)
+
+	// OnCommit runs in the commit transaction, before the action is deleted.
+	// auth is the user who commits.
+	OnCommit func(app core.App, action *core.Record, auth *core.Record) error
+
+	// ChangesJobs marks a collection whose absorb moves references in jobs, so
+	// the absorb is refused while job editing is turned off.
+	ChangesJobs bool
 }
+
+// RefusedError is a rule that refuses an absorb. Message is for the user.
+type RefusedError struct {
+	Message string
+}
+
+func (e *RefusedError) Error() string {
+	return e.Message
+}
+
+// Refused returns a *RefusedError with a formatted message.
+func Refused(format string, args ...any) error {
+	return &RefusedError{Message: fmt.Sprintf(format, args...)}
+}
+
+// OwnedRowsKey is the key under which an absorbed record keeps its owned
+// rows in absorbed_records, as map[table][]row. A field name can't contain
+// "@", so the key never collides with a field.
+const OwnedRowsKey = "@owned_rows"
 
 type RefConfig struct {
 	Table  string
@@ -50,6 +106,7 @@ var Configs = map[string]Config{
 			{"job_requests", "job_owner"},
 			{"client_invoicing_information", "client"},
 		},
+		ChangesJobs: true,
 		// clients has no parent - it's at the top of the hierarchy
 	},
 	"client_contacts": {
@@ -62,6 +119,7 @@ var Configs = map[string]Config{
 			Collection: "clients",
 			Field:      "client",
 		},
+		ChangesJobs: true,
 		// client_contacts depends on clients for absorb ordering:
 		// - Can't commit client_contacts while clients absorb exists
 		// - Can't undo clients while client_contacts absorb exists
@@ -74,6 +132,65 @@ var Configs = map[string]Config{
 		},
 		// vendors is independent - no parent dependency
 	},
+	// rate_sheets is added by Register in the hooks package
+	// (hooks/rate_sheet_absorb.go), because its Prepare and OnCommit use the
+	// rate sheet comparison there, and hooks imports this package.
+}
+
+// Register adds a collection to Configs. Call it from an init function only.
+func Register(collectionName string, config Config) {
+	if _, exists := Configs[collectionName]; exists {
+		panic(fmt.Sprintf("absorb config for %s is already registered", collectionName))
+	}
+	Configs[collectionName] = config
+}
+
+// RequiredClaimSets returns the claim sets that allow a user to absorb, undo
+// and commit in a collection. A collection without ClaimSets, or one that is
+// not configured, needs the absorb claim.
+func RequiredClaimSets(collectionName string) [][]string {
+	if config, ok := Configs[collectionName]; ok && len(config.ClaimSets) > 0 {
+		return config.ClaimSets
+	}
+	return [][]string{{"absorb"}}
+}
+
+// HasRequiredClaims reports whether auth may absorb, undo and commit in the
+// collection, by RequiredClaimSets.
+func HasRequiredClaims(app core.App, auth *core.Record, collectionName string) (bool, error) {
+	for _, set := range RequiredClaimSets(collectionName) {
+		hasAll := true
+		for _, claim := range set {
+			has, err := utilities.HasClaim(app, auth, claim)
+			if err != nil {
+				return false, err
+			}
+			if !has {
+				hasAll = false
+				break
+			}
+		}
+		if hasAll {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// CollectionsReferencing returns, sorted, the collections whose absorb moves
+// references in table.
+func CollectionsReferencing(table string) []string {
+	names := []string{}
+	for name, config := range Configs {
+		for _, ref := range config.RefConfigs {
+			if ref.Table == table {
+				names = append(names, name)
+				break
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // GetConfig returns the absorb configuration for a collection.

@@ -677,7 +677,39 @@ func AddHooks(app core.App) {
 			}
 		}
 
-		return e.Next()
+		config := absorb.Configs[collectionName]
+
+		// A collection with its own claim sets needs them to commit too. The
+		// collection rule has already required the absorb claim.
+		if len(config.ClaimSets) > 0 {
+			allowed, err := absorb.HasRequiredClaims(e.App, e.Auth, collectionName)
+			if err != nil {
+				return AnnotateHookError(e.App, e, &errs.HookError{
+					Status:  http.StatusInternalServerError,
+					Message: "failed to check claims",
+				})
+			}
+			if !allowed {
+				return AnnotateHookError(e.App, e, &errs.HookError{
+					Status:  http.StatusForbidden,
+					Message: fmt.Sprintf("you do not have permission to commit a %s absorb", collectionName),
+				})
+			}
+		}
+
+		if config.OnCommit == nil {
+			return e.Next()
+		}
+
+		// Run the commit step and the delete in one transaction, so that a
+		// failed delete leaves nothing behind.
+		return e.App.RunInTransaction(func(txApp core.App) error {
+			if err := config.OnCommit(txApp, e.Record, e.Auth); err != nil {
+				return AnnotateHookError(txApp, e, err)
+			}
+			e.App = txApp
+			return e.Next()
+		})
 	})
 
 	// Hook for time_sheet_reviewers: when a new reviewer is added, send notification

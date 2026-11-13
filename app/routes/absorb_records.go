@@ -56,9 +56,10 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 			}
 		}
 
-		// Check if user has the absorb claim
+		// Check if user has the absorb claim, or the claims that the
+		// collection's config asks for instead
 		authRecord := e.Auth
-		hasAbsorbClaim, err := utilities.HasClaim(app, authRecord, "absorb")
+		hasAbsorbClaim, err := absorb.HasRequiredClaims(app, authRecord, collectionName)
 		if err != nil {
 			return apis.NewBadRequestError("Failed to check user claims", err)
 		}
@@ -67,7 +68,7 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 		}
 
 		// Check if job editing is enabled for collections that modify jobs
-		if collectionName == "clients" || collectionName == "client_contacts" {
+		if absorb.Configs[collectionName].ChangesJobs {
 			enabled, err := utilities.IsJobsEditingEnabled(app)
 			if err != nil {
 				return apis.NewApiError(http.StatusInternalServerError, "Failed to check config", err)
@@ -131,6 +132,11 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 
 		err = AbsorbRecords(app, collectionName, targetId, request.IdsToAbsorb)
 		if err != nil {
+			// A rule of the collection's config refused the absorb.
+			var refused *absorb.RefusedError
+			if errors.As(err, &refused) {
+				return apis.NewBadRequestError(refused.Message, nil)
+			}
 			// Customize the error response as needed
 			return apis.NewApiError(http.StatusInternalServerError, "Failed to absorb records", err)
 		}
@@ -143,16 +149,33 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 
 func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAbsorb []string) error {
 	// Get reference configs based on collection name
-	refConfigs, _, err := absorb.GetRefConfigs(collectionName)
+	config, err := absorb.GetConfig(collectionName)
 	if err != nil {
 		return fmt.Errorf("error getting reference configs: %w", err)
 	}
+	refConfigs := config.RefConfigs
 
 	// Create reference tracker
 	refTracker := newReferenceTracker()
 
 	// Absorb the records in a transaction
 	err = app.RunInTransaction(func(txApp core.App) error {
+		// The collection's own rules check the request first, and may add
+		// ids, so that they see the data that this transaction changes.
+		if config.Prepare != nil {
+			target, err := txApp.FindRecordById(collectionName, targetID)
+			if err != nil {
+				return fmt.Errorf("finding target record: %w", err)
+			}
+			idsToAbsorb, err = config.Prepare(txApp, target, idsToAbsorb)
+			if err != nil {
+				return err
+			}
+			if len(idsToAbsorb) == 0 {
+				return absorb.Refused("there is nothing to absorb")
+			}
+		}
+
 		// First create the temp table to validate IDs
 		_, err = txApp.DB().NewQuery(`
 			CREATE TEMPORARY TABLE ids_to_absorb (old_id TEXT NOT NULL)
@@ -186,8 +209,8 @@ func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAb
 			return fmt.Errorf("there is an existing absorb action for collection %s that must be undone or deleted first", collectionName)
 		}
 
-		// Serialize the records to be absorbed
-		absorbedRecords, err := serializeRecords(txApp, collectionName, idsToAbsorb)
+		// Serialize the records to be absorbed, with the rows they own
+		absorbedRecords, err := serializeRecords(txApp, collectionName, idsToAbsorb, config.OwnedRows)
 		if err != nil {
 			return fmt.Errorf("error serializing records: %w", err)
 		}
@@ -256,6 +279,18 @@ func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAb
 			return err
 		}
 
+		// absorb_actions requires updated_references, and {} is blank. An
+		// absorb that moves no reference, such as a rate sheet name that
+		// nothing uses, records each table and column with no rows instead.
+		if len(refTracker.updates) == 0 {
+			for _, ref := range refConfigs {
+				if refTracker.updates[ref.Table] == nil {
+					refTracker.updates[ref.Table] = make(map[string]map[string]string)
+				}
+				refTracker.updates[ref.Table][ref.Column] = make(map[string]string)
+			}
+		}
+
 		// Update the absorb action with the reference updates
 		updatedRefs, err := refTracker.serialize()
 		if err != nil {
@@ -264,6 +299,22 @@ func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAb
 
 		if err := recordAbsorbAction(txApp, collectionName, targetID, absorbedRecords, updatedRefs); err != nil {
 			return fmt.Errorf("error recording absorb action: %w", err)
+		}
+
+		// Delete the rows that the absorbed records own. Plain SQL does not
+		// run a cascadeDelete, and the rows are saved in the action.
+		for _, owned := range config.OwnedRows {
+			_, err = txApp.NonconcurrentDB().NewQuery(fmt.Sprintf(`
+				DELETE FROM %[1]s
+				WHERE EXISTS (
+					SELECT 1
+					FROM ids_to_absorb
+					WHERE ids_to_absorb.old_id = %[1]s.%[2]s
+				)
+			`, owned.Table, owned.Column)).Execute()
+			if err != nil {
+				return fmt.Errorf("deleting rows owned by absorbed records in %s: %w", owned.Table, err)
+			}
 		}
 
 		// Delete absorbed records
@@ -317,10 +368,11 @@ func CreateUndoAbsorbHandler(app core.App, collectionName string) func(e *core.R
 		}
 
 		// Step 1: Permission Check
-		// Verify that the user has the 'absorb' claim, which is required for both
-		// absorbing and undoing absorb operations
+		// Verify that the user has the 'absorb' claim, or the claims that the
+		// collection's config asks for instead. The same claims allow both
+		// absorbing and undoing absorb operations.
 		authRecord := e.Auth
-		hasAbsorbClaim, err := utilities.HasClaim(app, authRecord, "absorb")
+		hasAbsorbClaim, err := absorb.HasRequiredClaims(app, authRecord, collectionName)
 		if err != nil {
 			return apis.NewBadRequestError("Failed to check user claims", err)
 		}
@@ -386,6 +438,8 @@ func CreateUndoAbsorbHandler(app core.App, collectionName string) func(e *core.R
 			}
 
 			for _, recordData := range absorbedRecords {
+				ownedRows := recordData[absorb.OwnedRowsKey]
+				delete(recordData, absorb.OwnedRowsKey)
 				record := core.NewRecord(collection)
 				for field, value := range recordData {
 					record.Set(field, value)
@@ -395,6 +449,11 @@ func CreateUndoAbsorbHandler(app core.App, collectionName string) func(e *core.R
 				// added after the record was originally created/imported)
 				if err := txApp.SaveNoValidate(record); err != nil {
 					return fmt.Errorf("error recreating record: %w", err)
+				}
+				// Recreate the rows that the record owned, after the record
+				// so that their relation to it is valid.
+				if err := restoreOwnedRows(txApp, ownedRows); err != nil {
+					return err
 				}
 			}
 
@@ -495,12 +554,12 @@ func recordAbsorbAction(app core.App, collectionName string, targetId string, ab
 	return nil
 }
 
-// serializeRecords fetches and serializes records to be absorbed
-func serializeRecords(app core.App, collectionName string, ids []string) ([]byte, error) {
+// serializeRecords fetches and serializes records to be absorbed. The rows
+// that each record owns go under absorb.OwnedRowsKey, by table.
+func serializeRecords(app core.App, collectionName string, ids []string, ownedRows []absorb.RefConfig) ([]byte, error) {
 	var records []map[string]interface{}
 
-	collection, err := app.FindCollectionByNameOrId(collectionName)
-	if err != nil {
+	if _, err := app.FindCollectionByNameOrId(collectionName); err != nil {
 		return nil, fmt.Errorf("error finding collection: %w", err)
 	}
 
@@ -510,13 +569,22 @@ func serializeRecords(app core.App, collectionName string, ids []string) ([]byte
 			return nil, fmt.Errorf("error fetching record %s: %w", id, err)
 		}
 
-		recordData := make(map[string]interface{})
-		// Include original record id
-		recordData["id"] = record.Id
+		recordData := recordFields(record)
 
-		// Then include all schema fields
-		for _, field := range collection.Fields {
-			recordData[field.GetName()] = record.Get(field.GetName())
+		if len(ownedRows) > 0 {
+			owned := map[string][]map[string]interface{}{}
+			for _, ref := range ownedRows {
+				children, err := app.FindAllRecords(ref.Table, dbx.HashExp{ref.Column: record.Id})
+				if err != nil {
+					return nil, fmt.Errorf("error fetching %s of record %s: %w", ref.Table, id, err)
+				}
+				rows := []map[string]interface{}{}
+				for _, child := range children {
+					rows = append(rows, recordFields(child))
+				}
+				owned[ref.Table] = rows
+			}
+			recordData[absorb.OwnedRowsKey] = owned
 		}
 		records = append(records, recordData)
 	}
@@ -527,6 +595,64 @@ func serializeRecords(app core.App, collectionName string, ids []string) ([]byte
 	}
 
 	return serialized, nil
+}
+
+func stringsToAny(values []string) []any {
+	result := make([]any, len(values))
+	for i, value := range values {
+		result[i] = value
+	}
+	return result
+}
+
+// recordFields returns a record's id and the values of all its schema fields.
+func recordFields(record *core.Record) map[string]interface{} {
+	recordData := make(map[string]interface{})
+	// Include original record id
+	recordData["id"] = record.Id
+
+	// Then include all schema fields
+	for _, field := range record.Collection().Fields {
+		recordData[field.GetName()] = record.Get(field.GetName())
+	}
+	return recordData
+}
+
+// restoreOwnedRows recreates the rows saved under absorb.OwnedRowsKey of one
+// absorbed record. saved is that value as it was read back from JSON.
+func restoreOwnedRows(app core.App, saved interface{}) error {
+	if saved == nil {
+		return nil
+	}
+	tables, ok := saved.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("owned rows have an unexpected format")
+	}
+	for table, rawRows := range tables {
+		rows, ok := rawRows.([]interface{})
+		if !ok {
+			return fmt.Errorf("owned rows of %s have an unexpected format", table)
+		}
+		collection, err := app.FindCollectionByNameOrId(table)
+		if err != nil {
+			return fmt.Errorf("error finding collection %s: %w", table, err)
+		}
+		for _, rawRow := range rows {
+			row, ok := rawRow.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("an owned row of %s has an unexpected format", table)
+			}
+			child := core.NewRecord(collection)
+			for field, value := range row {
+				child.Set(field, value)
+			}
+			// As for the absorbed record, the row may predate current rules.
+			if err := app.SaveNoValidate(child); err != nil {
+				return fmt.Errorf("error recreating %s row: %w", table, err)
+			}
+		}
+	}
+	return nil
 }
 
 // broadcastAbsorbCompletedEvent broadcasts a single custom realtime event indicating
@@ -597,16 +723,20 @@ func (rt *referenceTracker) serialize() ([]byte, error) {
 // validateMergedClientReferences checks the final state of every job, request,
 // contact and invoicing profile that a merge or undo rewrote. Their client
 // relations must still agree, including references created after the original
-// merge. Undo skips records that were deleted since the merge.
+// merge. Undo skips records that were deleted since the merge. A record whose
+// rewritten columns are not client relations, such as a job moved to another
+// rate sheet, keeps its client relations, so they are not checked again.
 func validateMergedClientReferences(app core.App, updates map[string]map[string]map[string]string, skipDeleted bool) error {
+	clientColumns := map[string]bool{"client": true, "job_owner": true, "contact": true}
 	for _, table := range []string{"jobs", "job_requests", "client_contacts", "client_invoicing_information"} {
+		// ids[id] is true when a client relation of the record was rewritten.
 		ids := map[string]bool{}
-		for _, changes := range updates[table] {
+		for column, changes := range updates[table] {
 			for id := range changes {
-				ids[id] = true
+				ids[id] = ids[id] || clientColumns[column]
 			}
 		}
-		for id := range ids {
+		for id, clientChanged := range ids {
 			record, err := app.FindRecordById(table, id)
 			if skipDeleted && errors.Is(err, sql.ErrNoRows) {
 				continue
@@ -614,10 +744,12 @@ func validateMergedClientReferences(app core.App, updates map[string]map[string]
 			if err != nil {
 				return err
 			}
-			if err := utilities.ValidateClientReferences(app, record); err != nil {
-				return fmt.Errorf("merge would leave %s %s linked to another client: %w", table, id, err)
+			if clientChanged {
+				if err := utilities.ValidateClientReferences(app, record); err != nil {
+					return fmt.Errorf("merge would leave %s %s linked to another client: %w", table, id, err)
+				}
 			}
-			if table == "client_invoicing_information" {
+			if clientChanged && table == "client_invoicing_information" {
 				if err := utilities.ValidateBillingName(app, record); err != nil {
 					return fmt.Errorf("merge would leave invoicing profile %s billing a client alias that does not exist: %w", id, err)
 				}
@@ -637,7 +769,9 @@ func validateMergedClientReferences(app core.App, updates map[string]map[string]
 // the request. note is the client note made from the request's notes, if any.
 // The caller uses the same transaction as job creation.
 func transferRequestMergeReferences(app core.App, request, job, note *core.Record) error {
-	actions, err := app.FindRecordsByFilter("absorb_actions", "collection_name='clients' || collection_name='client_contacts'", "", 0, 0)
+	// Every collection whose absorb moves request references: clients,
+	// client contacts and rate sheets.
+	actions, err := app.FindAllRecords("absorb_actions", dbx.In("collection_name", stringsToAny(absorb.CollectionsReferencing("job_requests"))...))
 	if err != nil {
 		return err
 	}
