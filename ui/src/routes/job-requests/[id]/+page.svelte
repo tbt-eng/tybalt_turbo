@@ -2,6 +2,7 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DSActionButton from "$lib/components/DSActionButton.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSTextInput from "$lib/components/DSTextInput.svelte";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
@@ -20,7 +21,9 @@
     // Notes may be internal, so the printout leaves them out unless chosen.
     printNotes = $state(false);
   let checklist = $state<Record<string, boolean>>({}),
-    rejectionReason = $state("");
+    rejectionReason = $state(""),
+    // Procurement can correct the name of proposed rates as they create the job.
+    rateSheetName = $state("");
   let editor: RequestEditor | undefined = $state();
   const detail = $derived(data.detail),
     request = $derived(detail.request),
@@ -45,6 +48,9 @@
     request.version;
     checklist = emptyChecklist(detail.checklist.questions);
   });
+  $effect(() => {
+    rateSheetName = related.rate_sheet_proposed ? (related.rate_sheet?.name ?? "") : "";
+  });
   async function refresh() {
     await Promise.all([invalidateAll(), globalStore.refreshAttentionCounts()]);
   }
@@ -66,6 +72,9 @@
             checklist_version: detail.checklist.version,
             checklist_answers: checklist,
             rejection_reason: rejectionReason,
+            ...(name === "create" && related.rate_sheet_proposed
+              ? { rate_sheet_name: rateSheetName }
+              : {}),
           },
         },
       );
@@ -330,8 +339,16 @@
           >
         </div>{/if}
       {#if permission.can_create}<div class="space-y-3">
-          {@render checklistAnswers()}<button
-            disabled={busy || !allChecked}
+          {@render checklistAnswers()}
+          {#if related.rate_sheet_proposed}
+            <DSTextInput
+              bind:value={rateSheetName}
+              errors={{}}
+              fieldName="rate_sheet_name"
+              uiName="Rate sheet name"
+            />
+          {/if}<button
+            disabled={busy || !allChecked || (related.rate_sheet_proposed && !rateSheetName.trim())}
             class="rounded bg-green-700 px-4 py-2 text-white disabled:opacity-40"
             onclick={() => action("create")}>Create Job</button
           >

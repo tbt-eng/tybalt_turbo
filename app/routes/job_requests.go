@@ -44,6 +44,9 @@ type workflowAction struct {
 	ChecklistVersion int            `json:"checklist_version"`
 	ChecklistAnswers map[string]any `json:"checklist_answers"`
 	RejectionReason  string         `json:"rejection_reason"`
+	// RateSheetName lets the job creator rename proposed rates as the job is
+	// created (renameProposedRates). Empty keeps the requester's name.
+	RateSheetName string `json:"rate_sheet_name"`
 }
 
 func registerJobRequestRoutes(se *core.ServeEvent, app core.App) {
@@ -779,6 +782,9 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 					return workflowError("The saved checklist is invalid.")
 				}
 				a.Set("creation_checklist_version", input.ChecklistVersion)
+				if err = renameProposedRates(tx, r, input.RateSheetName, e.Auth.Id); err != nil {
+					return err
+				}
 				id, err := createJobFromRequest(tx, e, r, a)
 				if err != nil {
 					return err

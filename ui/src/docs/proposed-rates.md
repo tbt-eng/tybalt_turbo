@@ -31,6 +31,6 @@ In the checklist, the approver confirms that the client accepts the proposed rat
 
 ## After approval
 
-Procurement creates the job. Turbo then activates the new sheet, and the job uses it. Other projects can then use it too.
+Procurement creates the job and can change the name of the new sheet first. Turbo then activates the sheet, and the job uses it. Other projects can then use it too.
 
 Until then, no **Rate Sheet** list shows the sheet. A rejected request keeps its proposed rates. If you delete the request, Turbo deletes them.
