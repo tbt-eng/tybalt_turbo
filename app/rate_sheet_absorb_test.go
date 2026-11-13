@@ -462,12 +462,12 @@ func TestRateSheetAbsorbCommitWritesNameHistory(t *testing.T) {
 	path := "/api/collections/absorb_actions/records/" + action.Id
 
 	// absorb alone passes the collection rule and is refused by the claim
-	// check. The admin without absorb is refused by the collection rule.
+	// check. The admin without absorb can see the rate sheet action.
 	if status, body := absorbRequest(t, app, http.MethodDelete, path, absorbOnlyEmail, nil); status != http.StatusForbidden {
 		t.Fatalf("commit with absorb only: status %d: %s", status, body)
 	}
-	if status, _ := absorbRequest(t, app, http.MethodDelete, path, absorbAdminEmail, nil); status != http.StatusNotFound {
-		t.Fatalf("commit by an admin without absorb: status %d; want the collection rule's 404", status)
+	if status, body := absorbRequest(t, app, http.MethodGet, path, absorbAdminEmail, nil); status != http.StatusOK {
+		t.Fatalf("view by an admin without absorb: status %d: %s", status, body)
 	}
 	if names, _ := routes.RateSheetFormerNames(app, "Absorb Target"); len(names) != 0 {
 		t.Fatalf("a refused commit wrote history: %v", names)
@@ -551,6 +551,67 @@ func TestRateSheetAbsorbClaims(t *testing.T) {
 	defer app.Cleanup()
 	if status, body := absorbRequest(t, app, http.MethodPost, "/api/clients/lb0fnenkeyitsny/absorb", absorbAdminEmail, absorbBody("eldtxi3i4h00k8r")); status != http.StatusForbidden {
 		t.Fatalf("client absorb by an admin without absorb: status %d: %s", status, body)
+	}
+}
+
+// An admin without the absorb claim can see and commit a rate sheet action.
+// The collection rule still hides the actions of the other collections from
+// that admin, and refuses to commit them.
+func TestRateSheetAbsorbAdminWithoutAbsorbClaim(t *testing.T) {
+	app := newRateSheetAbsorbApp(t)
+	defer app.Cleanup()
+
+	const listPath = "/api/collections/absorb_actions/records"
+	countActions := func(email string) int {
+		t.Helper()
+		status, body := absorbRequest(t, app, http.MethodGet, listPath, email, nil)
+		if status != http.StatusOK {
+			t.Fatalf("list as %s: status %d: %s", email, status, body)
+		}
+		var page struct {
+			Items []map[string]any `json:"items"`
+		}
+		if err := json.Unmarshal([]byte(body), &page); err != nil {
+			t.Fatal(err)
+		}
+		return len(page.Items)
+	}
+
+	// A client action, made by an absorb holder, is hidden from the admin.
+	if status, body := absorbRequest(t, app, http.MethodPost, "/api/clients/lb0fnenkeyitsny/absorb", absorbOnlyEmail, absorbBody("eldtxi3i4h00k8r")); status != http.StatusOK {
+		t.Fatalf("client absorb: status %d: %s", status, body)
+	}
+	clientAction, err := app.FindFirstRecordByData("absorb_actions", "collection_name", "clients")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientPath := listPath + "/" + clientAction.Id
+	if n := countActions(absorbAdminEmail); n != 0 {
+		t.Fatalf("the admin sees %d actions; want none before a rate sheet absorb", n)
+	}
+	if status, _ := absorbRequest(t, app, http.MethodGet, clientPath, absorbAdminEmail, nil); status != http.StatusNotFound {
+		t.Fatalf("view of a client action by the admin: status %d; want 404", status)
+	}
+	if status, _ := absorbRequest(t, app, http.MethodDelete, clientPath, absorbAdminEmail, nil); status != http.StatusNotFound {
+		t.Fatalf("commit of a client action by the admin: status %d; want 404", status)
+	}
+
+	// The admin absorbs a rate sheet, sees only that action and commits it.
+	if status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/"+rsAbTarget+"/absorb", absorbAdminEmail, absorbBody(rsAbSingle)); status != http.StatusOK {
+		t.Fatalf("absorb status %d: %s", status, body)
+	}
+	if n := countActions(absorbAdminEmail); n != 1 {
+		t.Fatalf("the admin sees %d actions; want only the rate sheet action", n)
+	}
+	if n := countActions(absorbOnlyEmail); n != 2 {
+		t.Fatalf("the absorb holder sees %d actions; want both", n)
+	}
+	path := listPath + "/" + rateSheetAction(t, app).Id
+	if status, body := absorbRequest(t, app, http.MethodDelete, path, absorbAdminEmail, nil); status != http.StatusNoContent {
+		t.Fatalf("commit by the admin: status %d: %s", status, body)
+	}
+	if _, err := app.FindRecordById("absorb_actions", clientAction.Id); err != nil {
+		t.Fatalf("the client action is gone: %v", err)
 	}
 }
 

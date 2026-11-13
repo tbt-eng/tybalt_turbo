@@ -7,13 +7,13 @@
 ## Who can list the records (list rule): absorb_actions
 
 ```
-@request.auth.user_claims_via_uid.cid.name ?= 'absorb'
+@request.auth.user_claims_via_uid.cid.name ?= 'absorb' || (collection_name = 'rate_sheets' && @request.auth.user_claims_via_uid.cid.name ?= 'admin')
 ```
 
 ## Who can view one record (view rule): absorb_actions
 
 ```
-@request.auth.user_claims_via_uid.cid.name ?= 'absorb'
+@request.auth.user_claims_via_uid.cid.name ?= 'absorb' || (collection_name = 'rate_sheets' && @request.auth.user_claims_via_uid.cid.name ?= 'admin')
 ```
 
 ## Who can create a record (create rule): absorb_actions
@@ -27,7 +27,7 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 ## Who can delete a record (delete rule): absorb_actions
 
 ```
-@request.auth.user_claims_via_uid.cid.name ?= 'absorb'
+@request.auth.user_claims_via_uid.cid.name ?= 'absorb' || (collection_name = 'rate_sheets' && @request.auth.user_claims_via_uid.cid.name ?= 'admin')
 ```
 
 ## Fields: absorb_actions

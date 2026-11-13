@@ -37,7 +37,10 @@ leaves them unset behaves as clients, client contacts and vendors always have.
 
 - `ClaimSets` replaces the `absorb` claim check for absorb, undo and commit. A
   user passes with every claim of one set. The `absorb_actions` collection
-  rules still require `absorb` to list and commit.
+  rules require `absorb` to list, view and commit an action. They also admit
+  an `admin` to rate sheet actions only, and the delete hook then checks the
+  claim sets. A new collection whose claim sets admit a user without `absorb`
+  needs the same change to those rules.
 - `OwnedRows` are child rows of an absorbed record. They are saved in
   `absorbed_records` under the key `@owned_rows`, deleted with the record and
   recreated on undo. Absorb uses plain SQL, so a `cascadeDelete` never runs.

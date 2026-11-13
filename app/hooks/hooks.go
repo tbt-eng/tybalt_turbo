@@ -679,8 +679,10 @@ func AddHooks(app core.App) {
 
 		config := absorb.Configs[collectionName]
 
-		// A collection with its own claim sets needs them to commit too. The
-		// collection rule has already required the absorb claim.
+		// A collection with its own claim sets needs them to commit. The
+		// collection rule admits an absorb holder to every action, and an
+		// admin to rate sheet actions only, so the other collections still
+		// need the absorb claim.
 		if len(config.ClaimSets) > 0 {
 			allowed, err := absorb.HasRequiredClaims(e.App, e.Auth, collectionName)
 			if err != nil {
