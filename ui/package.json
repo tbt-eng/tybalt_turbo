@@ -18,6 +18,7 @@
     "test:time-summary-browser": "node tests/timeSummary.browser.mjs",
     "test:docs": "node --test --experimental-strip-types tests/docs.test.ts tests/docsSearch.test.ts tests/helpChat.test.ts tests/deployGroups.test.ts tests/helpChatStatus.test.ts",
     "test:help-chat-browser": "node tests/helpChat.browser.mjs",
+    "test:home-help-browser": "node tests/homeHelp.browser.mjs",
     "test:app-config-browser": "node tests/appConfig.browser.mjs",
     "test:docs-search-browser": "node tests/docsSearch.browser.mjs",
     "test:docs-browser": "node tests/docsHelp.browser.mjs",

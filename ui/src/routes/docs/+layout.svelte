@@ -101,8 +101,9 @@
   // This column scrolls by itself, so a new page needs to start at the top.
   let content: HTMLDivElement | undefined = $state();
   afterNavigate(({ to }) => {
-    // A page that the user opens shows in the Docs tab.
-    helpChat.show(false);
+    // A page that the user opens shows in the Docs tab. A question from the
+    // home page arrives at #ask, and its conversation shows.
+    helpChat.show(to?.url.hash === "#ask");
     if (content && !to?.url.hash) content.scrollTop = 0;
   });
 </script>

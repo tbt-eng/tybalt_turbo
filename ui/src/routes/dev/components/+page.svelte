@@ -480,6 +480,7 @@
 
     <DSSection title="DSLargeInput">
       <DSLargeInput label="Search or ask" />
+      <DSLargeInput label="Ask a question" suggestion="How do I submit a time sheet?" />
     </DSSection>
 
     <DSSection title="DSChat">
