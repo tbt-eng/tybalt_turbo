@@ -1,7 +1,7 @@
 # Job rate sheet history
 
 Status: Implemented on the `rate_sheet_history` branch, not yet merged
-Last updated: 2026-10-19
+Last updated: 2026-11-13
 
 ## Behaviour before this change
 
@@ -257,6 +257,33 @@ role rate. A role can be priced in one period and not in the next.
 - A project with no rate sheet shows Set rate sheet to `job` holders.
 - The forms warn which time will be repriced before a change is saved.
 
+## Rate sheet absorb
+
+Duplicate rate sheets can be absorbed (see the Rate sheets section of
+`Absorb.md`). An absorb never reprices time, so it treats the history as
+it treats `jobs.rate_sheet`:
+
+- `job_rate_sheets.rate_sheet` is a moved reference. Absorb points every
+  row on an absorbed sheet at the target, and undo writes back the saved
+  sheet of each row. The rows are changed by SQL, so their `updated` and
+  `updated_by` stay as they were and the row hooks do not run.
+- A row is a use of its sheet. A sheet that only an old row uses counts as
+  used, so a rate sheet name with revisions is not absorbed while any row is
+  on one of them.
+- The job and its latest row move together, so `jobs.rate_sheet` stays equal
+  to the latest row. A job whose only moved reference is an older row is not
+  saved, and its `_imported` and `updated` don't change: the writeback sends
+  only `jobs.rate_sheet`.
+- A dated row is on or after its sheet's effective date, and the target's
+  date is not later than the absorbed sheet's, so a moved row still meets
+  the revision-date rule. A moved row can be on an inactive target, as a row
+  keeps a sheet that is deactivated.
+- After a move, two neighbouring rows can be on the target. Pricing reads
+  each row's date range and does not care.
+- A project request that becomes a job while the absorb is pending gets its
+  opening row on the target. `transferRequestMergeReferences` adds that row
+  to the undo data with the job.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:
@@ -314,6 +341,17 @@ In `app/job_rate_sheets_test.go` (routes), `app/routes/job_rate_sheets_pricing_t
   `job` claim; changing an existing opening row's sheet without
   `rate_sheet_revise` is refused.
 - **Migration:** WIP values are identical before and after the backfill.
+
+In `app/rate_sheet_history_absorb_test.go` and `app/rate_sheet_absorb_test.go`
+(rate sheet absorb):
+
+- **Absorb:** a sheet that only an older row uses is absorbed, its row
+  moves, the job is not touched, and WIP is the same before, after, after
+  undo and after commit; undo restores every field of the history; the
+  job's current sheet and latest row move together; a name with revisions
+  is refused when only a row uses one of them, with the reason in the
+  Duplicates view and the candidates; a request that becomes a job while
+  the absorb is pending carries the opening row's undo data.
 
 ## Open questions
 

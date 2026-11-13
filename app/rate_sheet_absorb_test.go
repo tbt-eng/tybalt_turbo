@@ -155,8 +155,8 @@ func TestRateSheetAbsorbRules(t *testing.T) {
 		{"a missing role is a difference", rsAbTarget, []string{rsAbMissing}, "rates are not identical", nil},
 		{"a different rate is a difference", rsAbTarget, []string{rsAbDiffRate}, "rates are not identical", nil},
 		{"the target's date can't be later than an absorbed sheet's", rsAbTarget, []string{rsAbEarly}, "effective date, 2024-01-01, is later than this sheet's, 2023-01-01", nil},
-		{"no revision of a name that a job uses: the used one", rsAbTarget, []string{rsAbUsed0}, "a job or project request uses one of them", nil},
-		{"no revision of a name that a job uses: an unused one", rsAbTarget, []string{rsAbUsed1}, "a job or project request uses one of them", nil},
+		{"no revision of a name that a job uses: the used one", rsAbTarget, []string{rsAbUsed0}, "a job, a job's rate sheet period or a project request uses one of them", nil},
+		{"no revision of a name that a job uses: an unused one", rsAbTarget, []string{rsAbUsed1}, "a job, a job's rate sheet period or a project request uses one of them", nil},
 		{"the latest revision must match", rsAbTarget, []string{rsAbLatest0}, "latest revision's rates are not identical", nil},
 		{"an inactive target can't absorb an active sheet", rsAbInactiveTgt, []string{rsAbSingle}, "inactive target can't absorb an active sheet", nil},
 		{"an inactive target can't absorb a name with an active revision", rsAbInactiveTgt, []string{rsAbWhole0}, "inactive target can't absorb an active sheet", nil},
@@ -514,10 +514,21 @@ func TestRateSheetAbsorbKeepsJobWIP(t *testing.T) {
 	// rates of the job's own sheet (rsvaluation0001, a revision of a name
 	// that jobs use, so it can't be absorbed itself).
 	//
-	// Test-time change to fixture data: the job is moved to WIP Source here.
-	// A seeded job on WIP Source would need its own time entries, and those
-	// would change the totals that the WIP and time sheet tests assert.
+	// Test-time change to fixture data: the job is moved to WIP Source here,
+	// with its opening rate sheet period (job_rate_sheets.csv), which is what
+	// prices its time. A seeded job on WIP Source would need its own time
+	// entries, and those would change the totals that the WIP and time sheet
+	// tests assert.
 	rateSheetAbsorbSQL(t, app, "UPDATE jobs SET rate_sheet = 'rsabwipsource01' WHERE id = {:job}", dbx.Params{"job": job})
+	rateSheetAbsorbSQL(t, app, "UPDATE job_rate_sheets SET rate_sheet = 'rsabwipsource01' WHERE job = {:job}", dbx.Params{"job": job})
+	periodSheet := func() string {
+		t.Helper()
+		row, err := app.FindFirstRecordByData("job_rate_sheets", "job", job)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return row.GetString("rate_sheet")
+	}
 
 	wip := func() routes.JobWIP {
 		t.Helper()
@@ -543,6 +554,9 @@ func TestRateSheetAbsorbKeepsJobWIP(t *testing.T) {
 	if got := fieldOf(t, app, "jobs", job, "rate_sheet"); got != "rsabwiptarget01" {
 		t.Fatalf("the job is on %s", got)
 	}
+	if got := periodSheet(); got != "rsabwiptarget01" {
+		t.Fatalf("the job's period is on %s", got)
+	}
 	if after := wip(); after != before {
 		t.Fatalf("WIP after absorb = %+v; want %+v", after, before)
 	}
@@ -551,6 +565,9 @@ func TestRateSheetAbsorbKeepsJobWIP(t *testing.T) {
 	}
 	if got := fieldOf(t, app, "jobs", job, "rate_sheet"); got != "rsabwipsource01" {
 		t.Fatalf("undo left the job on %s", got)
+	}
+	if got := periodSheet(); got != "rsabwipsource01" {
+		t.Fatalf("undo left the job's period on %s", got)
 	}
 	if undone := wip(); undone != before {
 		t.Fatalf("WIP after undo = %+v; want %+v", undone, before)
@@ -594,12 +611,27 @@ func TestRateSheetAbsorbRequestBecomesJob(t *testing.T) {
 	if _, tracked := updates["job_requests"]["rate_sheet"][requestID]; tracked {
 		t.Fatal("the deleted request is still in the undo data")
 	}
+	// The new project's opening period was written on the target with the
+	// job, so its undo data moves too.
+	opening, err := app.FindFirstRecordByFilter("job_rate_sheets", "job = {:job} && effective_date = ''", dbx.Params{"job": jobID})
+	if err != nil {
+		t.Fatalf("the new job has no opening period: %v", err)
+	}
+	if opening.GetString("rate_sheet") != "rsabreqtarget01" {
+		t.Fatalf("the opening period is on %s", opening.GetString("rate_sheet"))
+	}
+	if updates["job_rate_sheets"]["rate_sheet"][opening.Id] != rsAbStandardRate {
+		t.Fatal("the pending undo data does not cover the new job's opening period")
+	}
 
 	if status, body := absorbRequest(t, app, http.MethodPost, "/api/rate_sheets/undo_absorb", absorbAdminEmail, nil); status != http.StatusOK {
 		t.Fatalf("undo status %d: %s", status, body)
 	}
 	if got := fieldOf(t, app, "jobs", jobID, "rate_sheet"); got != rsAbStandardRate {
 		t.Fatalf("undo left the new job on %s", got)
+	}
+	if got := fieldOf(t, app, "job_rate_sheets", opening.Id, "rate_sheet"); got != rsAbStandardRate {
+		t.Fatalf("undo left the new job's opening period on %s", got)
 	}
 }
 
@@ -656,8 +688,8 @@ func TestRateSheetDuplicatesView(t *testing.T) {
 			rsAbTarget:       "inactive target",
 			rsAbSingle:       "inactive target",
 			rsAbWhole1:       "inactive target",
-			rsAbUsed0:        "a job or project request uses",
-			rsAbUsed1:        "a job or project request uses",
+			rsAbUsed0:        "a job, a job's rate sheet period or a project request uses",
+			rsAbUsed1:        "a job, a job's rate sheet period or a project request uses",
 			rsAbLatest0:      "latest revision's rates",
 		}
 		for _, sheet := range group.Sheets[1:] {

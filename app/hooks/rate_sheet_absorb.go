@@ -11,18 +11,25 @@ import (
 )
 
 // Absorbing rate sheets (issue #191). The rule behind every check here: an
-// absorb never reprices time. The jobs and project requests of an absorbed
-// sheet move to the target, so the two sheets must have identical rates.
+// absorb never reprices time. The jobs, project rate sheet periods
+// (job_rate_sheets) and project requests of an absorbed sheet move to the
+// target, so the two sheets must have identical rates.
+//
+// A job uses a sheet when jobs.rate_sheet is the sheet, or when any period of
+// its rate sheet history is on the sheet. Time is priced from the history, so
+// a sheet that only an old period uses still prices that period's time.
 //
 // Which sheets can be absorbed is decided on the name, never on the one
 // revision that the user selects:
 //   - A sheet that is the only revision of its name can be absorbed when its
 //     rates are identical to the target's. The target's effective date must
-//     not be later than the sheet's, because its jobs move.
-//   - A name with revisions can be absorbed only when no job and no project
-//     request uses any of its revisions. Then every revision is absorbed
-//     together, and only the latest revision must match the target. Nothing
-//     moves, so the date rule does not apply.
+//     not be later than the sheet's, because its jobs and periods move. A
+//     dated period starts on or after its sheet's effective date, so it then
+//     also starts on or after the target's.
+//   - A name with revisions can be absorbed only when no job, no period and
+//     no project request uses any of its revisions. Then every revision is
+//     absorbed together, and only the latest revision must match the target.
+//     Nothing moves, so the date rule does not apply.
 //   - Otherwise no revision of the name can be absorbed.
 //
 // Any revision of any sheet can be the target. An inactive target can't absorb
@@ -31,8 +38,13 @@ import (
 
 func init() {
 	absorb.Register("rate_sheets", absorb.Config{
+		// The periods move with the jobs, so jobs.rate_sheet stays equal to
+		// the sheet of each job's latest period. job_rate_sheets has no
+		// _imported column, so a job whose only moved reference is an older
+		// period is not touched: the jobs writeback sends only jobs.rate_sheet.
 		RefConfigs: []absorb.RefConfig{
 			{Table: "jobs", Column: "rate_sheet"},
+			{Table: "job_rate_sheets", Column: "rate_sheet"},
 			{Table: "job_requests", Column: "rate_sheet"},
 		},
 		// rate_sheet_name_changes also relates to rate_sheets. Its rows move
@@ -59,7 +71,7 @@ const (
 	rateSheetReasonTargetNoRates = "The target has no rates."
 	rateSheetReasonRates         = "Its rates are not identical to the target's."
 	rateSheetReasonLatestRates   = "Its latest revision's rates are not identical to the target's."
-	rateSheetReasonNameInUse     = "Its name has revisions, and a job or project request uses one of them."
+	rateSheetReasonNameInUse     = "Its name has revisions, and a job, a job's rate sheet period or a project request uses one of them."
 	rateSheetReasonInactive      = "An inactive target can't absorb an active sheet."
 )
 
@@ -70,8 +82,10 @@ type RateSheetAbsorbSheet struct {
 	Revision      int    `json:"revision" db:"revision"`
 	EffectiveDate string `json:"effective_date" db:"effective_date"`
 	Active        bool   `json:"active" db:"active"`
-	JobCount      int    `json:"job_count" db:"job_count"`
-	RequestCount  int    `json:"request_count" db:"request_count"`
+	// JobCount is the number of jobs that use the sheet: as jobs.rate_sheet,
+	// or in any period of their rate sheet history.
+	JobCount     int `json:"job_count" db:"job_count"`
+	RequestCount int `json:"request_count" db:"request_count"`
 	// Revisions is the number of revisions of the sheet's name.
 	Revisions int `json:"revisions" db:"-"`
 	ratesKey  string
@@ -94,7 +108,11 @@ func loadRateSheetAbsorbData(app core.App) (*rateSheetAbsorbData, error) {
 			rs.revision AS revision,
 			rs.effective_date AS effective_date,
 			rs.active AS active,
-			(SELECT COUNT(*) FROM jobs j WHERE j.rate_sheet = rs.id) AS job_count,
+			(SELECT COUNT(*) FROM (
+				SELECT j.id FROM jobs j WHERE j.rate_sheet = rs.id
+				UNION
+				SELECT h.job FROM job_rate_sheets h WHERE h.rate_sheet = rs.id
+			)) AS job_count,
 			(SELECT COUNT(*) FROM job_requests r WHERE r.rate_sheet = rs.id) AS request_count
 		FROM rate_sheets rs
 	`).All(&rows)

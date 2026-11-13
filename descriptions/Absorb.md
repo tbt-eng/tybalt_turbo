@@ -64,32 +64,48 @@ The rule behind every check: an absorb never reprices time.
 
 - Claims: `admin`, or both `absorb` and `rate_sheet_revise`. `absorb` alone is
   refused for absorb, undo and commit.
-- References: `jobs.rate_sheet` and `job_requests.rate_sheet`. The entries
-  (`rate_sheet_entries`) are owned rows.
+- References: `jobs.rate_sheet`, `job_rate_sheets.rate_sheet` (the periods
+  of a project's rate sheet history, which price its time) and
+  `job_requests.rate_sheet`. The entries (`rate_sheet_entries`) are owned
+  rows.
+- Use: a job uses a sheet when `jobs.rate_sheet` is the sheet or any of its
+  periods is on it, so a sheet that only an old period uses is in use.
+  `job_count` in the Duplicates view and the candidates counts those jobs
+  once each.
 - Rates: the target and the absorbed sheet must have the same set of roles,
   with the same rate and overtime rate in cents. A missing role is a
   difference. A sheet without entries is never a duplicate.
 - Names: the test is on the name, not on the selected revision. A sheet that
   is the only revision of its name can be absorbed. A name with revisions can
-  be absorbed only when no job and no project request uses any of its
-  revisions; then every revision and its entries are absorbed in one action,
+  be absorbed only when no job, no period and no project request uses any of
+  its revisions; then every revision and its entries are absorbed in one action,
   and only the latest revision must match the target. Otherwise no revision
   of the name can be absorbed. A revision of the target's own name can't be
   absorbed.
 - Effective date: the target's date can't be later than the date of a single
   revision sheet that it absorbs. The rule does not apply to a name with
-  revisions, because nothing moves.
+  revisions, because nothing moves. A dated period starts on or after its
+  sheet's effective date, so after a move it also starts on or after the
+  target's, as the history rules require. The opening period has no date.
 - Target: any revision of any sheet with identical rates. An inactive target
-  can absorb only inactive sheets.
+  can absorb only inactive sheets. A moved period may then be on an inactive
+  sheet, as a period keeps its sheet when the sheet is deactivated.
 - Commit writes one `rate_sheet_name_changes` row for each absorbed name, with
   the target as its anchor and the committing user as `renamed_by`, so the
   target shows "Formerly ...". The history rows of the absorbed sheets move to
   the target on commit too. Nothing is written on absorb.
 - A request that becomes a job while the action is pending moves its pending
   undo data to the job (`transferRequestMergeReferences`), as for clients.
+  The job's opening period, written on the target with the job, is added to
+  the undo data too, so undo moves both back.
 - Moved jobs get `_imported = false` and a new `updated`, so the jobs
   writeback sends them with the target's id, and its rate sheet and entries
-  queries include the target sheet.
+  queries include the target sheet. `job_rate_sheets` has no `_imported`
+  column, so a moved period changes neither its own `updated` nor its job.
+  A job whose only moved reference is an older period is not sent again: the
+  writeback sends only `jobs.rate_sheet`, which did not change.
+- `jobs.rate_sheet` is the sheet of the job's latest period. The job and the
+  latest period move together, and undo puts both back, so they stay equal.
 
 The UI: the Duplicates view (`/rate-sheets/duplicates`) lists each group of
 identical sheets from `GET /api/rate_sheets/duplicates`, marks the target (the

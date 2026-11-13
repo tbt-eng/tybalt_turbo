@@ -795,6 +795,18 @@ func transferRequestMergeReferences(app core.App, request, job, note *core.Recor
 				if field == "client" && note != nil && note.GetString("client") == action.GetString("target_id") {
 					tracker.trackUpdate("client_notes", "client", note.Id, oldValue)
 				}
+				// The new project's opening rate sheet period was written on
+				// the job's sheet, so undo must move it back with the job and
+				// keep jobs.rate_sheet equal to the latest period.
+				if field == "rate_sheet" {
+					rows, err := app.FindAllRecords("job_rate_sheets", dbx.HashExp{"job": job.Id, "rate_sheet": action.GetString("target_id")})
+					if err != nil {
+						return err
+					}
+					for _, row := range rows {
+						tracker.trackUpdate("job_rate_sheets", "rate_sheet", row.Id, oldValue)
+					}
+				}
 			}
 			delete(records, request.Id)
 			changed = true
