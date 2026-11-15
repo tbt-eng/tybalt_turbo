@@ -2,6 +2,43 @@
 
 This page is for people who already know Turbo and want a high-level view of recent changes. For details, or to learn how to use Turbo, see the [other Help pages](/docs/start-here).
 
+## November 8 to 14, 2026 (to d558cf5c)
+
+### Help
+
+- You can now ask Help a question in plain words. It answers from Turbo's docs and code, and it knows your own limits and settings. Type the question in the Help search bar and select **Ask Help**, or use the box on the home page. (v0.3.176, v0.3.178, v0.3.198)
+- The Help search bar shows matching sections as you type. Help has new pages on reviewing time, finding and printing POs, child POs, committing expenses, profiles and rate sheets. More screens have a **Help** button. (v0.3.176, v0.3.187, v0.3.189, v0.3.190, v0.3.193, v0.3.194, v0.3.197)
+
+### Time
+
+- Approvers can select **Share with another manager** on **Pending My Approval**, **Approved By Me** and a time sheet's details. (v0.3.176)
+- On **Pending My Approval**, **Approved By Me** and **Shared with Me**, a **Rejected** time sheet shows who rejected it, when and why. (v0.3.176)
+
+### Purchase orders
+
+- **Revise** replaces **Revise Total**. It can also change the description, division, category or job of your Active PO. You can't revise a PO that a PO group created. (v0.3.188, v0.3.189)
+- Payables staff can't convert a One-Time PO to Cumulative if its expenses are more than its total. (v0.3.184)
+- On a PO in another currency, Turbo converts the fixed overspend amount from Canadian dollars to the PO's currency. (v0.3.176)
+
+### Expenses
+
+- The expense **Tracking** week page and the expense form show the currency of each amount. (v0.3.176)
+- All payables staff can open an expense from **Settlement** with **View**. (v0.3.176)
+- Turbo no longer counts an edited expense twice against the total of a Cumulative PO. (v0.3.176)
+
+### Project requests
+
+- You can delete your own project request while it is Draft, Recalled or Rejected. Select **Delete request**. (v0.3.172)
+- On **Approvals**, approvers see the requests that they approved until procurement creates the job. (v0.3.175)
+
+### Rate sheets
+
+- A project can now have a rate sheet for each period. Turbo prices each time entry by the rate sheet in effect on its date. Procurement staff with revision access can select **New period** in the job's **Rate sheets** section. (v0.3.197)
+- Admins can select **Move projects** to move active projects on older revisions to the latest revision. Earlier time keeps its price. (v0.3.199)
+- Turbo won't save a rate sheet with the same rates as another active sheet. While you edit, it lists active sheets with almost the same rates. (v0.3.191, v0.3.192)
+- **Duplicates** on **Rate Sheets** groups sheets with the same rates. Admins, and staff with both absorb access and revision access, can absorb them into one sheet. (v0.3.194)
+- Admins can **Rename** a rate sheet. All of its revisions get the new name. (v0.3.191)
+
 ## November 1 to 7, 2026 (to 47c7396e)
 
 - Every new project and subjob now starts as a project request. An approver checks it, then procurement creates the job. (v0.3.125)
@@ -74,7 +111,3 @@ This page is for people who already know Turbo and want a high-level view of rec
 - The PO page now shows the approval stage, kind, branch and approvers. (v0.3.100)
 - Staff with KPI access can compare hours across branches in **Staff Branch Hours**. (v0.3.101)
 - On a PO that needs two approvals, the first approver's limit can be below the total. (v0.3.103)
-
-## August 16 to 22, 2026 (to 0fb6d579)
-
-- You can now enter negative hours on a time amendment. (v0.3.99)
