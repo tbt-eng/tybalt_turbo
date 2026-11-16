@@ -1,460 +1,340 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_requests.go","sha256":"8e17c63a4a723bb9012e15207a8e66af6c5bd8e505ff92d84cdd5491dd609db3","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_requests.go","sha256":"38a4f2777aa7a6cf96c4ceda623caa65f512b3e83c273bfae24148fc209822f1","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_requests.go
 
-## Creator can rename proposed rates when the job is created
+## Abandoned requests are removed after the abandonment period
 
-Lines 47-49
+Lines 27-27
 
-Asked as: rename rate sheet; rate sheet name lost; proposed rates wrong name; name my rates when creating job
+Asked as: old draft deleted; request gone after weeks; stale request removed automatically; unused request disappeared
 
-A job creator can send a rate sheet name (rate_sheet_name) when creating the job from a request. Turbo then renames the proposed rates to it (renameProposedRates). An empty name keeps the name the requester gave.
+A project request counts as abandoned when its last edit (last_edited) is the abandonment limit or older. The limit is JOB_REQUEST_ABANDONMENT_DAYS days. A request edited exactly that long ago counts as abandoned.
 
-## Project request and attachment routes need a signed-in user
+## Request fields editable only from a fixed list
 
-Lines 53-55
+Lines 30-30
 
-Asked as: cannot open job requests; not logged in attachments; sign in to see requests; attachments page access denied
+Asked as: can't change this field; field won't save; field locked on request; why won't it let me edit
 
-Every project request route (/api/job_requests), the authorization approvers list and every job attachment route (/api/job_attachments) require a signed-in user (users auth). A person who is not signed in cannot use them.
+A save with any field outside the allowed business fields is refused with 'Field is not editable: <field>'.
 
-## Request actions are limited to five
+## Only active staff can act on project requests
 
-Lines 65-67
+Lines 102-114
 
-Asked as: which request actions exist; can't find request button; submit recall reject buttons; request action limits
+Asked as: can't act on request; not active staff; inactive account cannot approve; request button not working
 
-The request routes allow submit, recall, reject, approve and create. Each is a POST on a single request.
+Turbo refuses any request action from a user who is not an active staff member. The message is "An active staff member is required." A user who is not signed in sees "Sign in to continue."
 
-## Attachment routes: approve and reject actions exist
+## Claim check also requires an active staff member
 
-Lines 70-79
+Lines 102-127
 
-Asked as: approve attachment PDF; reject authorization attachment; attachment approve button missing; attachment versus request approval
+Asked as: claim check fails on request; missing permission to act; sign in message on request
 
-Job attachments (the authorization PDF record) have their own approve and reject actions. Both are separate from the project request's own approve and reject actions. Other rules describe the attachment's checks.
+When Turbo checks a claim for a project request action, it first requires an active staff member and refuses with 'An active staff member is required.' A signed-in person without the claim gets 'The <claim> claim is required.' A request without sign-in gets 'Sign in to continue.'
 
-## Action errors show a message to the person
+## Missing claim refusal names the claim
 
-Lines 82-93
+Lines 115-127
 
-Asked as: error message not showing; why did my save fail; vague error on request; what does that error mean
+Asked as: claim required error; don't have permission; missing permission message
 
-Workflow errors are returned with their message. Field validation errors return the message "Check the request fields."
-
-## Only active staff can use project requests
-
-Lines 99-111
-
-Asked as: not active staff error; cannot submit request as contractor; inactive account request blocked; sign in to continue message
-
-Turbo refuses a project request action from a person who is not active staff. It shows "An active staff member is required." A person who is not signed in sees "Sign in to continue."
-
-## Claim required messages
-
-Lines 112-124
-
-Asked as: claim required message; missing time claim; need job claim to create; why do I lack permission
-
-When an action needs a claim that the person lacks, Turbo shows "The <claim> claim is required." Saving a new request needs the time claim. Creating a job from a request needs the job claim.
+When a person lacks a required claim, Turbo refuses with 'The <claim> claim is required.' Turbo checks that the person is active before it checks the claim.
 
 ## Project requests can be turned off
 
-Lines 125-134
+Lines 128-137
 
-Asked as: project requests disabled; cannot save request turned off; request feature switched off; requests not required right now
+Asked as: project requests turned off; can't save request at all; request feature disabled
 
-When project requests are not required (utilities.IsJobRequestApprovalRequired is false), Turbo refuses to save, submit, recall, reject, approve or create a project request. It shows "Project requests are disabled." Deleting a request does not run this check.
+When project requests are not required (IsJobRequestApprovalRequired is false), Turbo refuses to save, submit, recall, reject, approve or create a request. The message is "Project requests are disabled."
 
-## Abandoned request after set days without edits
+## Abandoned request definition
 
-Lines 135-137
+Lines 138-140
 
-Asked as: request abandoned after no edits; old draft request expired; how long until request abandoned; stale draft days limit
+Asked as: request is too old; how old before abandoned; last edited too long ago
 
-A project request is abandoned when its last edit is not newer than JOB_REQUEST_ABANDONMENT_DAYS days ago. A request edited exactly that long ago counts as abandoned.
+A request is abandoned when its last edit is at least JOB_REQUEST_ABANDONMENT_DAYS days old. A request edited exactly that many days ago counts as abandoned.
 
 ## Who can view a project request
 
-Lines 138-169
+Lines 141-172
 
-Asked as: cannot see request; who can view request; request hidden from me; view someone else's request
+Asked as: who can see request; can't open request; request hidden from me; view someone else's request
 
-The creator can view their request. Anyone with the job claim can view any request. The selected approver with the project authorization claim can view the request. An admin can view only an abandoned request. Anyone else sees "You cannot view this request."
+The creator of a request can view it. Anyone with the job claim can view any request. A project authorization approver can view requests that name them as approver. An admin can view only abandoned requests. Anyone else sees "You cannot view this request."
 
-## Request not found
+## Missing request gives not found message
 
-Lines 156-160
+Lines 159-172
 
-Asked as: request missing or gone; project request not found; wrong request id link; deleted request cannot open
+Asked as: request not found; can't find my request; request missing; blank request page
 
-When the request id does not exist, Turbo shows "Project request not found."
+Opening a request that does not exist gives 'Project request not found.' A request the person may not view gives 'You cannot view this request.'
 
-## Who can edit a project request and when
+## Only the creator edits, and only in some states
 
-Lines 170-185
+Lines 173-188
 
-Asked as: cannot edit request; request locked for editing; why can't I change request; edit button greyed out
+Asked as: can't edit request; edit button locked; only creator edits; why can't I change request
 
-Only the creator can edit a request, and Turbo shows "Only the creator can edit this request." to others. The request must be Draft, Recalled or Rejected. In any other status Turbo shows "Recall this request before editing it."
+Only the creator can edit a request, and only when its status is Draft, Recalled or Rejected. Others see "Only the creator can edit this request." In any other status the creator sees "Recall this request before editing it."
 
 ## Stale request version is refused
 
-Lines 197-204
+Lines 200-207
 
-Asked as: request changed reload; someone else edited request; version mismatch on save; conflicting edits request
+Asked as: someone changed request; request out of date; conflict saving request; reload request changed
 
-When the version a person sends differs from the saved version, Turbo refuses with "This request changed. Reload it before continuing." This applies to saving and to every action.
+Turbo compares the version the user sends with the request's saved version (version). If they differ, the action is refused with "This request changed. Reload it before continuing."
 
-## Editing a request resets approval and rejection
+## Editing a request clears approval and issues no token
 
-Lines 205-242
+Lines 208-245
 
-Asked as: edit clears approval; changing request resets approval; rejected request back to draft; editing wipes attachment approval
+Asked as: edit resets approval; approval gone after edit; pdf back to pending; editing removes approval
 
-Each business edit adds 1 to the request version, updates its last edited time and clears its submission token. A Rejected request goes back to Draft and its rejection details are cleared. The authorization attachment's approval is cleared and its status returns to Pending.
+Each business edit of a request raises its version by 1 and sets last edited to now. It clears the submission token and any rejection. A Rejected request returns to Draft. It also resets the attached authorization PDF to Pending, clears its approval, copies the new project value to it, and raises its version.
 
-## Project value must be a whole dollar amount
+## Editing a request bumps version and clears approvals
 
-Lines 243-258
+Lines 222-245
 
-Asked as: project value decimal error; cents in project value; value too large; whole dollars only value
+Asked as: editing clears approval; rejected goes back to draft; approval reset after change
 
-The project value on a request must be a whole, non-negative number of CAD dollars, no larger than 9007199254740991. Otherwise Turbo shows "Project value must be a whole CAD dollar amount."
+A real edit raises the version by 1 and sets last edited to now. It clears the submission token and any rejection, and turns a Rejected request back into a Draft. It also resets the attachment's approval to Pending and copies the project value to it.
 
-## Only listed fields are editable on a request
+## Project value must be a whole non-negative amount
 
-Lines 247-254
+Lines 246-261
 
-Asked as: field not editable; cannot change this field; which request fields editable; read only request field
+Asked as: project value decimal; cents in project value; negative project amount; value not whole dollars
 
-Turbo accepts only the request's business fields. Any other field is refused with "Field is not editable: <field>".
+A saved project value must be a whole number of CAD dollars. It must be 0 or more, finite, and at most 9007199254740991. Otherwise the message is "Project value must be a whole CAD dollar amount."
 
-## Request notes length
+## Only listed fields can be edited
 
-Lines 259-270
+Lines 250-258
 
-Asked as: notes too short; notes length limit; request notes character count; notes not text error
+Asked as: can't save that field; field not allowed; field not editable
 
-Turbo trims the notes of a request. The notes must be blank or 10 to 1000 characters long. Otherwise Turbo shows "Notes must be 10 to 1000 characters, or blank." Notes that are not text show "Notes must be text."
+A request save accepts only the business fields (requestBusinessFields). Any other field is refused with "Field is not editable: " followed by the field name.
+
+## Request notes length limit
+
+Lines 262-273
+
+Asked as: notes too short; note length error; notes character limit; client note text size
+
+Notes are trimmed. They must be text, and must be blank or 10 to 1000 characters. Otherwise the message is "Notes must be 10 to 1000 characters, or blank." The limit applies because the notes become a client note when the job is created.
 
 ## Fee basis must be chosen
 
-Lines 271-276
+Lines 274-279
 
-Asked as: fee basis missing; time and materials choice; select fee basis; cannot submit without fee basis
+Asked as: fee basis not chosen; time and materials choice; pick hourly or fixed fee
 
-Setting time and materials on a request requires true or false, or Turbo shows "Select a fee basis." The request counts as having a fee basis only after this choice. Submitting without it shows the same message.
+The time and materials value must be true or false, otherwise the message is "Select a fee basis." Setting it marks the fee basis as chosen (time_and_materials_set). Submission needs this mark.
+
+## Draft checks on project status, approver, parent and proposal
+
+Lines 287-326
+
+Asked as: project status error on draft; approver limit too low draft; parent or proposal wrong
+
+A saved request's project status must be Active or Closed. If an approver is set, their project limit must cover the project value (ProjectAuthorizationLimit). A parent must be a top-level project (number like 25-123) with the request's client. A proposal must be a P-number job for the same client, with status In Progress, Submitted or Awarded.
 
 ## Project status must be Active or Closed
 
-Lines 285-287
+Lines 288-290
 
-Asked as: project status options; status must be active closed; project status error saving
+Asked as: project status wrong; status must be active; can't save project status
 
-Saving a request requires project status Active or Closed. Otherwise Turbo shows "Select Active or Closed for the project status."
+A request saves only when its project status is Active or Closed. Otherwise Turbo says 'Select Active or Closed for the project status.'
 
-## Approver's project limit checked on save
+## Chosen approver must have enough project limit
 
-Lines 291-295
+Lines 294-298
 
-Asked as: approver limit too low; approver authorization limit; approver cannot cover value; approver spending limit exceeded
+Asked as: approver limit too small; approver can't cover value; approver limit check
 
-When a request has an approver, saving or submitting checks that the approver's project authorization limit covers the project value (utilities.ProjectAuthorizationLimit). Creating a job skips this check.
+When a request has an approver, Turbo checks the approver's project authorization limit against the project value (ProjectAuthorizationLimit). Approve and submit run this check. Creation skips it.
 
-## Parent project rules for a subjob
+## Parent project rules for a subjob request
 
-Lines 296-307
+Lines 299-310
 
-Asked as: parent project invalid; subjob client mismatch; top level project parent; job number format parent
+Asked as: parent project error; subjob parent invalid; wrong parent client; top level project needed
 
-A parent must be an existing job whose number looks like 25-123 or 25-1234, a top-level project. Otherwise Turbo shows "Select a valid parent project." or "Only a top-level project can be a parent." The request's client must match the parent's client, or Turbo shows "The subjob must use the parent project's client."
+A parent must exist ('Select a valid parent project.'), must have a top-level number like 25-123 ('Only a top-level project can be a parent.'), and must have the request's client ('The subjob must use the parent project's client.').
 
 ## Linked proposal rules
 
-Lines 308-321
+Lines 311-350
 
-Asked as: linked proposal invalid; proposal wrong client; proposal status not allowed; choose proposal for client
+Asked as: proposal not valid; linked proposal status; proposal must be awarded; proposal client mismatch
 
-A linked proposal must be a job whose number starts with P and that has the same client. Its status must be In Progress, Submitted or Awarded. Otherwise Turbo shows "Select a proposal for this client." or "Select an In Progress, Submitted, or Awarded proposal."
+A linked proposal must exist, have a number starting with P and belong to the request's client ('Select a proposal for this client.'). Its status must be In Progress, Submitted or Awarded. Submission needs it Awarded: 'Set the linked proposal to Awarded before continuing.'
 
-## Required fields before submit or approval
+## Submission requires a complete request
 
-Lines 324-338
+Lines 327-350
 
-Asked as: required field missing submit; cannot submit incomplete request; project value must be positive; what fields to fill in
+Asked as: can't submit request; submit fails required fields; approve incomplete request; missing info before submit
 
-A complete request needs description, location, client, contact, manager, branch, rate sheet, award date, invoicing information, approver and the fn agreement answer. A missing one shows "Required field: <field>". The project value must be above zero, or Turbo shows "Project value must be positive."
+Submit and approve need every required field: description, location, client, contact, manager, branch, rate sheet, award date, invoicing information, approver and fn_agreement_answer. Otherwise the message is "Required field: " and the field name. They also need a chosen fee basis and a positive project value. A linked proposal must be Awarded, or the message is "Set the linked proposal to Awarded before continuing."
 
-## Linked proposal must be Awarded to continue
+## Required fields before submitting a request
 
-Lines 339-347
+Lines 331-338
 
-Asked as: proposal not awarded yet; linked proposal blocks submit; set proposal awarded; cannot continue with proposal
+Asked as: required field missing; what fields to fill in; fields needed before submitting
 
-A request with a linked proposal can be submitted, approved or used to create a job only when the proposal is Awarded. Otherwise Turbo shows "Set the linked proposal to Awarded before continuing."
+A request needs description, location, client, contact, manager, branch, rate sheet, award date, invoicing information, approver and fn agreement answer, or Turbo says 'Required field: <field>'. A fee basis must be chosen: 'Select a fee basis.'
 
-## Allocation hours rules
+## Allocation hours must be whole and in active divisions
 
-Lines 354-404
+Lines 361-407
 
-Asked as: division allocation hours; allocation decimal hours; invalid division on request; inactive division selected
+Asked as: allocation hours fraction; division not active; invalid division on request; allocations missing
 
-Division allocation hours on a request must be whole numbers, or Turbo shows "Allocation hours must be whole numbers." Each division must exist and be active, or Turbo shows "Select a valid division." or "Select an active division." A complete request must have allocations.
+Allocation hours must be whole numbers. A division must exist ('Select a valid division.') and be active ('Select an active division.'). A complete request needs allocations.
 
-## Authorization PDF required
+## Authorization PDF is required
 
-Lines 368-378
+Lines 371-381
 
-Asked as: missing authorization PDF; upload authorization document; no PDF attached request; cannot submit without pdf
+Asked as: no authorization pdf; upload pdf error; need attachment to submit
 
-A complete request needs an uploaded authorization PDF with its hash. Otherwise Turbo shows "Upload an authorization PDF."
+A request must have an uploaded authorization PDF with a document hash before it is submitted, approved or created. Otherwise the message is "Upload an authorization PDF."
 
-## Unreadable save body is refused
+## Allocation rules for requests
 
-Lines 407-410
+Lines 383-407
 
-Asked as: invalid request data; save request failed body; request save gives bad data
+Asked as: allocation error; division hours invalid; draft without allocations
 
-When Turbo cannot read the body of a request to create or edit a project request, it refuses with 'Invalid request data.' No change is made.
+Division hours must be whole numbers, finite, and each division must exist and be active. Messages include "Allocation hours must be whole numbers.", "Select a valid division." and "Select an active division." A completed request needs allocations, but a draft save may leave them out.
 
-## Only users with the time claim can start a project request
+## Creating a request needs the time claim and starts as a draft
 
-Lines 418-422
+Lines 421-435
 
-Asked as: cannot start new request; new request time claim; no permission to create request; project requests turned off creating
+Asked as: who can create request; new request status; need time claim to create
 
-Creating a new project request requires the time claim. A person without it gets the message "The time claim is required." Turbo also refuses it when project requests are disabled.
+Only a user with the time claim can create a request. The new request has status Draft, project status Active and version 1.
 
-## New request defaults
+## Choose a rate sheet or propose rates, not both
 
-Lines 419-432
+Lines 459-485
 
-Asked as: default request status; new request starting values; what does new request start as
+Asked as: rate sheet and proposed rates; both rate sheet and custom rates; rates conflict
 
-A new request starts as a Draft with project status Active and version 1. Its creator is the person who saves it.
+When a save includes proposed rates and also picks a different rate sheet, Turbo refuses it with "Choose a rate sheet or propose new rates, not both." When a user picks another sheet, the request's own draft rates are dropped. Proposed rates make the request's rate sheet the draft.
 
-## Editing someone else's request: view check comes before edit check
+## Unchanged save does nothing
 
-Lines 433-444
+Lines 500-509
 
-Asked as: edit someone else's request; check order saving request; view then edit then version
+Asked as: save did nothing; no change saved; request not updated when unchanged
 
-When a person saves changes to an existing request, Turbo first checks that they can view it. Then it checks that they can edit it. Last it checks that the version they sent matches the saved one.
-
-## Rate sheet or proposed rates, not both
-
-Lines 456-482
-
-Asked as: rate sheet and proposed rates; both rate sheet and new rates; choose one rate option
-
-A request can choose an active rate sheet or propose new rates, but not both. Choosing another rate sheet drops the request's draft proposed rates. Otherwise Turbo shows "Choose a rate sheet or propose new rates, not both."
-
-## Proposed rates select the request's own draft sheet
-
-Lines 465-474
-
-Asked as: proposed rates draft sheet; rate sheet conflicts proposed; choose rate sheet not both
-
-When a request has proposed rates and a draft, Turbo sets the request's rate sheet (rate_sheet) to that draft. Turbo gives the message "Choose a rate sheet or propose new rates, not both." when the request also chooses a different sheet.
-
-## Chosen rate sheet replaces a draft of proposed rates
-
-Lines 475-482
-
-Asked as: chosen rate sheet deletes draft; draft rates disappeared; switching rate sheet removes draft
-
-When a request chooses an active rate sheet other than its own proposed-rates draft, Turbo deletes the draft after saving. The check on the chosen sheet runs first (checkChosenRateSheet).
-
-## Allocations are replaced as a whole when they change
-
-Lines 483-496
-
-Asked as: allocations not saving; allocations replaced changed; old allocations removed; saved allocations stay same
-
-When the allocations sent differ from the saved ones, Turbo deletes the old request allocations and saves the new ones. When no allocations are sent, the saved ones stay unchanged.
-
-## Saving with no changes does nothing
-
-Lines 497-506
-
-Asked as: save with no changes; version unchanged saving; nothing changed on save
-
-Saving an existing request with no changes to its fields, allocations or proposed rates does not change the request or its version.
-
-## Saving a new request with proposed rates saves it twice
-
-Lines 507-514
-
-Asked as: new request saved twice; proposed rates new request save; why request saved two times
-
-When a new request has proposed rates, Turbo saves the request first, then the proposed-rates draft, and then saves the request again so that it refers to the draft.
-
-## Editing an existing request counts as an edit
-
-Lines 515-522
-
-Asked as: editing counts as edit; edit clears submission token; edit clears rejection
-
-Saving a changed existing request goes through the edit step (markRequestEdited). It raises the version and the last-edited time, and it clears the submission token and any rejection.
-
-## Request checklist depends on request status
-
-Lines 559-565
-
-Asked as: checklist for awaiting creation; which checklist applies; approval checklist status
-
-A request in the status Awaiting creation uses the creation checklist. In any other status the approval checklist applies.
+When an existing request is saved with no change to its fields, allocations or proposed rates, Turbo does not save it. Its version and last edited date stay the same.
 
 ## Who can reject a request
 
-Lines 567-585
+Lines 570-588
 
-Asked as: who can reject request; cannot reject request; job holder reject rights; only approver can reject
+Asked as: who can reject request; job holder reject; approver reject request; reject not allowed
 
-The selected approver with the project authorization claim can reject while the request is Awaiting approval or Awaiting creation. A job holder can reject only once it is Awaiting creation. Anyone else sees "Only the selected approver, or a job holder once the request is approved, can reject this request."
+The selected approver (project_authorization claim) can reject while the request is Awaiting approval or Awaiting creation. A job holder (job claim) can reject only once it is Awaiting creation. Others see "Only the selected approver, or a job holder once the request is approved, can reject this request."
+
+## Who can reject a request and the reason needed
+
+Lines 570-715
+
+Asked as: rejection reason required; enter reason to reject; reject needs reason
+
+The selected approver (project_authorization claim) can reject while the request is Awaiting approval or Awaiting creation. A job holder can reject only when Awaiting creation. Others get 'Only the selected approver, or a job holder once the request is approved, can reject this request.' A reason is required: 'Enter a rejection reason.' Rejection records who and when and clears the token.
 
 ## Checklist must be fully confirmed
 
-Lines 587-614
+Lines 590-617
 
-Asked as: checklist not confirmed; confirm checklist questions; outdated checklist message; no checklist saved
+Asked as: checklist not confirmed; checklist changed reload; unanswered checklist questions; no checklist saved
 
-Approval and creation need the current checklist version, with every question answered true and no extra answers. A missing checklist shows "No <scope> checklist is saved." An unsupported version is refused, and an outdated one shows "The checklist changed. Reload the request and review it again." An unconfirmed question shows "Confirm: <question>".
+Approve and create need every question of the current checklist (approval or creation) answered true. The checklist version sent must match the current one, or the message is "The checklist changed. Reload the request and review it again." No saved checklist gives "No <scope> checklist is saved." The wrong number of answers is refused. An unconfirmed question gives "Confirm: " and its key.
 
-## Unreadable action body is refused
+## Submit a request
 
-Lines 617-620
+Lines 644-671
 
-Asked as: invalid action data; action request body unreadable; submit approve fails bad data
+Asked as: submit my request; send request for approval; edit rejected before submit
 
-When Turbo cannot read the body of a submit, recall, reject, approve or create action on a project request, it refuses with 'Invalid action data.'
+Submit needs the time claim and an editable request, and the creator is the only one who can edit. A Rejected request must be edited first, with the message "Edit the rejected request before submission." A successful submit sets status to Awaiting approval, records the submission time, issues a new submission token and clears earlier approvals.
 
-## Every request action checks the feature and visibility first
+## Recall a request
 
-Lines 624-633
+Lines 672-715
 
-Asked as: action fails feature check; cannot act on request; action blocked visibility
+Asked as: recall my request; take back submission; withdraw request
 
-Before submit, recall, reject, approve or create, Turbo checks that project requests are enabled and that the person can view the request. It then checks that the version sent matches the saved version. A failure on any of these stops the action.
-
-## Request detail fields cannot be changed by a stale page
-
-Lines 629-633
-
-Asked as: stale page action failed; old page approve request; request changed before approving
-
-A save or an action based on an old version of a request is refused with "This request changed. Reload it before continuing." This applies to every submit, recall, reject, approve and create action, which compare the version sent with the saved version.
-
-## Submitting a project request
-
-Lines 641-665
-
-Asked as: how to submit request; submit button not working; send request for approval; submitting resets attachment
-
-Submitting needs the time claim, and only the creator can submit an editable request. A Rejected request shows "Edit the rejected request before submission." Submitting sets the status to Awaiting approval, records the submit time and issues a new submission token. It resets the attachment's approval.
-
-## Rejected request needs editing before resubmission
-
-Lines 648-650
-
-Asked as: cannot submit rejected request; resubmit rejected request; rejected request resubmission
-
-Submitting a request in the Rejected status is refused with "Edit the rejected request before submission." Editing a rejected request returns it to Draft.
-
-## Recall a submitted request
-
-Lines 666-706
-
-Asked as: withdraw submitted request; take back request; recall request for changes; undo submit
-
-Only the creator can recall a request, and only when it is Awaiting approval or Awaiting creation. Otherwise Turbo shows "This action requires a submitted or approved request." or "Only the creator can recall this request." Recall sets the status to Recalled, clears the submission token and the attachment's approval.
-
-## Recall and reject only apply to submitted or approved requests
-
-Lines 667-669
-
-Asked as: recall reject not allowed; request status not submitted; action needs submitted request
-
-Recall and reject work only when the request is Awaiting approval or Awaiting creation. Otherwise Turbo says "This action requires a submitted or approved request." Both actions end the submission by clearing its token.
+Only the creator can recall, with the message "Only the creator can recall this request." The request must be Awaiting approval or Awaiting creation, or the message is "This action requires a submitted or approved request." Recall sets status to Recalled, clears the submission token and approvals.
 
 ## Rejection needs a reason
 
-Lines 686-706
+Lines 690-715
 
-Asked as: reject without reason; rejection reason required; send request back with reason
+Asked as: reject reason blank; reject without reason; rejection note required
 
-Rejecting needs a reason that is not blank. Otherwise Turbo shows "Enter a rejection reason." Rejection sets the status to Rejected, records who and when, clears the submission token and marks the attachment Rejected.
+Reject needs a non-blank reason, or the message is "Enter a rejection reason." The request and its attachment become Rejected with the rejector, time and reason recorded. The submission token and approvals are cleared.
 
-## Approving a project request
+## Approve a request
 
-Lines 707-719
+Lines 716-764
 
-Asked as: approve button not working; who can approve request; no submission token approve; only approver approves
+Asked as: approve request button; approver sign off; no submission token
 
-Only the selected approver can approve, and only a submitted request that is Awaiting approval and not rejected. Turbo shows "Only a submitted request can be approved." or "Only the selected approver can approve this request." A request without a submission token shows "This request has no submission token. Recall and submit it again."
+Only the selected approver can approve, and only a submitted request (status Awaiting approval, not rejected). The request must have a submission token, or the message is "This request has no submission token. Recall and submit it again." The approver's project limit must cover the value. Approval moves the request to Awaiting creation and records the limit as the approved maximum value.
 
-## Approval checks and result
+## Approval must match what the approver reviewed
 
-Lines 720-746
+Lines 740-746
 
-Asked as: approval fails review changed; reviewed data changed; approval result status; approval limit check approve
+Asked as: reviewed data changed; pdf changed after review; review token mismatch
 
-Approval needs the approver's project limit to cover the value and a checklist. The review token and document hash must match the current request, or Turbo shows "The reviewed data changed. Reload and review it again." Approval marks the attachment Approved with the limit, version and checklist version, and sets the request to Awaiting creation.
+Approve checks that the review token and document hash from the approver's page match the current data and PDF. If they differ, the message is "The reviewed data changed. Reload and review it again."
 
-## Creating a job from an approved request
+## Create a job from an approved request
 
-Lines 747-766
+Lines 765-821
 
-Asked as: create job from request; request not awaiting creation; create job button fails; job creation no token
+Asked as: create job from request; job creation stale approval; approval incomplete
 
-Creating needs the job claim and a request that is Awaiting creation, or Turbo shows "This request is not awaiting creation." A missing submission token shows "This request has no submission token. Recall and submit it again." Authority is not rechecked at creation.
+Only a user with the job claim can create the job, and only when the request is Awaiting creation. The approval must still match: same version, project value and review token, approver and approval limit at least the value. Otherwise the message is "The approval is stale. Recall the request for a new approval." or "The saved approval is incomplete. Recall the request for a new approval." The approver's authority limit is not rechecked at creation.
 
-## Stale or incomplete approval blocks creation
+## What job creation does with the request
 
-Lines 767-783
+Lines 850-922
 
-Asked as: approval stale creation blocked; saved approval incomplete; cannot create job approval; checklist invalid creating job
+Asked as: what happens to request when job created; request deleted after job; job from request fields
 
-Creation is refused with "The approval is stale. Recall the request for a new approval." when the approval, its version, value or review token no longer match. It is refused with "The saved approval is incomplete. Recall the request for a new approval." when the approver, approved time or approval limit fails. The limit must cover the project value. It shows "The saved checklist is invalid." when the approval checklist version does not exist.
+Creation builds a job from the request's business fields, without the approver. The job status is the project status, and the authorizing document is PA. The job's fn_agreement is true when the answer is Yes. Allocations and the authorization PDF move to the job, with approval sequence 1. Then Turbo deletes the request.
 
-## What job creation copies and sets
+## Request notes become the job's first client note
 
-Lines 784-856
+Lines 924-945
 
-Asked as: what copies to job; job fields from request; FN agreement on job; authorizing document PA
+Asked as: request notes client note; notes copied to job; notes after job created
 
-Creating a job copies the request's business fields except the approver. The job status is the request's project status. The job's FN agreement is true only when the answer is Yes, and its authorizing document is PA. The creator's name, request dates and the creating person are recorded. Approved proposed rates become an active rate sheet, which the creator can rename.
+On job creation, non-blank request notes become a client note on the job and client. The note keeps the request creator as author. Blank notes make no note.
 
-## Rejection notice marks a withdrawn approval
+## Who can delete a request
 
-Lines 810-816
+Lines 946-993
 
-Asked as: approval withdrawn notice; rejection notice approver; notice when approver rejects
+Asked as: delete my request; can't delete request; remove abandoned request; admin delete request
 
-When the selected approver rejects a request that is Awaiting creation, the notice is marked as an approval withdrawn. A job holder's rejection is not.
-
-## Job creation moves allocations, attachment and notes
-
-Lines 860-900
-
-Asked as: allocations move to job; attachment moves to job; request deleted after job created; first approval sequence
-
-Creating a job moves the request's division allocations to the job and deletes them from the request. The authorization attachment moves to the job as its first approval, with sequence 1. Non-blank notes become the job's first client note, by the request creator. The request is then deleted.
-
-## Request notes become a client note on the new job
-
-Lines 903-924
-
-Asked as: notes become client note; request notes missing on job; client note from request
-
-When Turbo creates a job from a request, it makes the request's notes the job's first client note, with the request's creator as the author. Blank notes make no note.
-
-## Deleting a project request
-
-Lines 925-966
-
-Asked as: delete project request; cannot delete request; only abandoned requests delete; remove old request
-
-The creator can delete a request they can still edit. Anyone else needs the admin claim, and the request must be abandoned. Otherwise Turbo shows "Only abandoned requests can be deleted." Deleting also removes its attachment and allocations.
+A creator can delete a request that they can still edit (Draft, Recalled or Rejected). Otherwise only an admin can delete it, and only when it is abandoned. A non-abandoned request gives "Only abandoned requests can be deleted." Deleting also removes its attachment and allocations.

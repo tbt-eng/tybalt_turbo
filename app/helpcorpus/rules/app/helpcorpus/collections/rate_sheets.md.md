@@ -1,52 +1,68 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/helpcorpus/collections/rate_sheets.md","sha256":"4624a1c3d9c7634b3f6f372dafb30899eb6e0033fdc4811147b6140e819b35dc","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/helpcorpus/collections/rate_sheets.md","sha256":"087e230634f2b30207bd84d607de3389720c5d3e61910b7066abbb7405d2a2a5","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/helpcorpus/collections/rate_sheets.md
 
-## Who can list or view rate sheets
+## Who can list rate sheets
 
-Lines 9-17
+Lines 7-11
 
-Asked as: list rate sheets; view rate sheet API; who can see rate sheets; rate sheet not showing
+Asked as: list rate sheets; see all rate sheets; who can see rate sheets; rate sheet index access
 
-A signed-in person can list rate sheets and view one rate sheet through the API. The request must not carry a `request` value (the filter `request = ""`). Someone who is not signed in cannot list or view them.
+Any signed-in person can list rate sheets through the API. The request must be a normal request (request = ""). People who are not signed in cannot list them.
 
-## Who can create a rate sheet directly
+## Who can view one rate sheet
 
-Lines 22-30
+Lines 13-17
 
-Asked as: create rate sheet permission; procurement create rate sheet; which claim creates rate sheets; revision 0 only procurement
+Asked as: open one rate sheet; view a single rate sheet; rate sheet detail access; can't open rate sheet
 
-A signed-in person can create a rate sheet only if they hold one of three claims. The claims are rate sheet revise (`rate_sheet_revise`), admin (`admin`), or procurement (the job claim). A procurement person can create one only when the body sets `revision` to 0. A person with the rate sheet revise or admin claim can set any revision.
+Any signed-in person can view a single rate sheet through the API. The request must be a normal request (request = ""). People who are not signed in cannot view it.
 
-## Direct creation cannot set request, based on or reason
+## Who can create a rate sheet and which fields are blocked
 
-Lines 23-26
+Lines 19-33
 
-Asked as: create rate sheet with reason; rate sheet based on another; cannot send request field; make a draft directly
+Asked as: who can make a rate sheet; create new rate sheet permission; procurement add rate sheet; can't create rate sheet; reviser claim for rates
 
-A create request must not send `request`, `based_on` or `reason`. A rate sheet draft is made only through a project request. So nobody can create a draft, a revision based on another sheet, or a sheet with a reason through this direct route.
+A signed-in person can create a rate sheet only if they hold one of three claims: a rate sheet reviser (the rate_sheet_revise claim), an admin (the admin claim), or procurement (the job claim). Procurement can create one only when revision is 0. A reviser or an admin can create one with any revision.
 
-## Nobody can update or delete a rate sheet through the API
+## Created rate sheet cannot set project request fields
 
-Lines 35-39
+Lines 22-28
 
-Asked as: edit rate sheet API; delete rate sheet; update rate sheet forbidden; change rate sheet after saving
+Asked as: set approved flag on rate sheet; rate sheet created already approved; fill approver when creating; hand-enter rate sheet approval
 
-The API has no update rule and no delete rule for rate sheets. Nobody can update or delete a rate sheet there, except a PocketBase superuser. Turbo's own server code can still do both.
+A create request must not send request, based_on, reason, rates_approver or rates_approved. Turbo makes and approves a draft rate sheet only through a project request. Nobody can set these fields when creating a rate sheet through the API, whatever their claim.
+
+## Nobody can update a rate sheet through the API
+
+Lines 35-37
+
+Asked as: edit saved rate sheet; change rates after saving; rate sheet won't update; modify existing rate sheet
+
+The update rule is empty, so nobody can update a rate sheet through the API, except a PocketBase superuser. Turbo's own server code can still change one.
+
+## Nobody can delete a rate sheet through the API
+
+Lines 39-41
+
+Asked as: remove a rate sheet; rate sheet won't delete; get rid of old rate sheet; erase rate sheet
+
+The delete rule is empty, so nobody can delete a rate sheet through the API, except a PocketBase superuser. Turbo's own server code can still delete one.
 
 ## Rate sheet field limits
 
-Lines 45-54
+Lines 47-56
 
-Asked as: rate sheet required fields; effective date format; reason too long; revision must be number
+Asked as: rate sheet date format; rate sheet effective date error; rate sheet reason too long; revision must be number
 
-A rate sheet needs an effective date (`effective_date`) in the form YYYY-MM-DD and a name. The revision (`revision`) must be a whole number. The reason (`reason`) holds at most 500 characters. The request links to one project request, and the based-on sheet (`based_on`) links to one rate sheet.
+The effective date (effective_date) is required and must look like YYYY-MM-DD. The name is required. The revision (revision) must be a whole number. The reason (reason) has a maximum of 500 characters.
 
-## Name and revision must be unique together
+## Rate sheet name and revision must be unique together
 
-Lines 60-60
+Lines 64-64
 
-Asked as: duplicate rate sheet name; same revision number error; rate sheet already exists; new revision number taken
+Asked as: duplicate rate sheet name; same rate sheet twice; rate sheet already exists; new revision number clash
 
-Two rate sheets cannot have the same name and revision number together (a unique index on `name` and `revision`). A new revision of a name needs a revision number that no sheet of that name has.
+Two rate sheets cannot have the same name and revision (unique index on name and revision). A new revision of a name needs a different revision number.

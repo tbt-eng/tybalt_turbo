@@ -1,172 +1,172 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_request_views.go","sha256":"0dd10f2e770e5dc38f55718be9e609d1bb5ac7b4ffc8b47369a86a19780e45e3","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_request_views.go","sha256":"e723e970f6bbf2901027b3a9a14693605aa9248dfd95e25689af2426dc3b3c62","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_request_views.go
 
-## Request detail loads linked records for each field that is set
+## Project request page shows the people and records it relates to
 
 Lines 27-42
 
-Asked as: request detail missing client; details page won't load; linked record not found; job owner not showing; rate sheet entries empty
+Asked as: project request page missing data; request fails to load; related client or contact not showing; person details on request
 
-A project request's detail shows the full record behind each of these fields when the field is set: client, job owner (job_owner), contact, manager, alternate manager, creator, approver, branch, rate sheet, parent job, proposal and invoicing profile (invoicing_information). Turbo skips a field that is empty. The detail also always carries a rate sheet entries list (rate_sheet_entries), which is empty when the request has no rate sheet. If a linked record cannot be found, the detail fails to load.
+For a project request, Turbo loads the related client, job owner, contact, manager, alternate manager, creator, approver, branch, rate sheet, parent job, proposal and invoicing profile (invoicing_information). A person field (manager, alternate manager, creator, approver) shows the person's workflow details instead of the raw user record. If any of these records is missing, the whole request fails.
 
-## Bill-to name and billing contact
+## Related records show the billing name from the invoicing profile
 
 Lines 43-65
 
-Asked as: bill to name wrong; who gets billed; billing contact on request; invoice name on request
+Asked as: bill to name wrong; billing name alias; invoicing contact missing; billing contact on request
 
-The request page shows the bill-to name chosen by the client's invoicing profile (official name or alias, via BillingName). The billing contact is the contact on the invoicing profile.
+The request's related data includes bill_to_name, which comes from utilities.BillingName using the client and the invoicing profile. The profile chooses the official name or an alias. The invoicing profile's contact is added as billing_contact.
 
-## Rate sheet entries listed highest rate first
+## Rate sheet entries list highest rate first
 
-Lines 66-84
+Lines 66-85
 
-Asked as: rates listed in wrong order; rate sheet sort order; highest rate first; rate sheet entries order
+Asked as: rate sheet order; rates listed in wrong order; proposed rates not showing; overtime rate on request
 
-A request's rate sheet entries are listed from the highest rate down, with role, rate and overtime rate. Proposed rates are added by requestProposedRates, a function in another file.
+A request's rate sheet entries are listed with the highest rate first, with the role name, rate and overtime rate. Turbo then adds the request's proposed rates through requestProposedRates.
 
-## Person name and phone come from the profile, with fallbacks
-
-Lines 87-96
-
-Asked as: wrong name for approver; manager phone number missing; name shows as username; person phone blank
-
-Turbo shows each person on a project request (manager, approver, creator and others) with their name, email and phone. When the person has a profile, the name is the profile's given name and surname joined and trimmed, and the phone is the profile's phone. When the person has no profile, the name is the user account's name and the phone is empty.
-
-## Review token ties approval to one submission
+## Review token ties the review page to one submission
 
 Lines 98-143
 
-Asked as: resubmitted request same approval; recalled request approval token; approve fails empty token; why approval rejected after recall; submission token error
+Asked as: review checklist no longer matches; checked checklist invalid after recall; review token mismatch; resubmit breaks approval checklist
 
-The review token (a SHA-256 digest) covers the request's version, submission token, business fields, related records without approver and creator, division hours, whether each division is active, and the attachment's document hash. A recalled and resubmitted request therefore gets a new token even if the data and PDF are unchanged. A draft can have an empty submission token for viewing, but approve and create must reject an empty one.
+Turbo computes a review token (SHA-256 digest) from the request's version, its submission token, its business fields, related records, division hours and the attached document hash. Turbo leaves out the approver and creator. A recall and resubmit gives a new submission token, so an old checked checklist no longer matches. An empty submission token is fine for viewing or printing a draft, but approve and create must reject it.
 
-## Request detail shows what the viewer may do
+## Project request detail shows the permissions of the viewer
 
-Lines 144-216
+Lines 147-208
 
-Asked as: no buttons on request; can't see actions; approval turned off buttons; request page no permissions
+Asked as: which buttons can I see; why no approve button; what actions can I take; request detail permissions
 
-The project request detail page returns permission flags with the request. Every flag except the admin-delete case is false when project request approval is switched off (IsJobRequestApprovalRequired).
+The project request detail page tells the viewer which actions they can take: edit, submit, recall, reject, approve, create and delete. Every action except delete by an admin needs project request approval to be switched on (IsJobRequestApprovalRequired). Turbo loads the request with loadVisibleRequest, so only a person who can see it gets the detail.
 
-## Who can create the job from a request
+## Only procurement can create a job from an approved request
 
-Lines 178-209
+Lines 178-201
 
-Asked as: create job button missing; can't create job; procurement cannot create job; job creation not allowed
+Asked as: create job from request; cannot make job; turn approved request into job; who can create job
 
-A person with the procurement claim (the job claim) can create the job (can_create) only when the request status is Awaiting creation.
+A person with the job claim (procurement) can create the job from a project request whose status is Awaiting creation (can_create).
 
 ## Who can delete a project request
 
-Lines 182-209
+Lines 182-201
 
-Asked as: delete draft request; remove project request; delete abandoned request admin; can't delete request
+Asked as: delete project request; cannot delete request; remove abandoned request; admin delete request
 
-The creator can delete an editable request (Draft, Recalled or Rejected) while approval is enabled. An admin (the admin claim) can also delete an abandoned request (abandonedRequest), even when approval is switched off. can_reject comes from canRejectRequest, a function in another file.
+The creator can delete a request they can edit (Draft, Recalled or Rejected) while approval is switched on. An admin (the admin claim) can delete an abandoned request (abandonedRequest) even when approval is off.
 
-## Who can edit, submit or recall a project request
+## Only the creator can edit a draft, recalled or rejected request
 
-Lines 190-209
+Lines 190-201
 
-Asked as: edit request button; submit project request; recall request; can't recall request; rejected request submit
+Asked as: edit someone else's request; cannot edit request; change draft request; cannot submit rejected request
 
-Only the creator can edit a request in Draft, Recalled or Rejected status (can_edit). The creator can submit it (can_submit) except when it is Rejected. The creator can recall it (can_recall) only when its status is Awaiting approval or Awaiting creation.
+A person can edit a project request only when they created it and its status is Draft, Recalled or Rejected. They can submit it from those states too, except a Rejected request: it can be edited but not submitted from the detail page (can_submit).
 
-## Who can approve a project request
+## Only the creator can recall a submitted request
 
-Lines 192-209
+Lines 191-201
 
-Asked as: approve button missing; can't approve request; approve over my limit; approver authorization limit
+Asked as: withdraw submitted request; take back request; cancel my submission; no recall button
 
-A person can approve (can_approve) only when the request is Awaiting approval, they are its selected approver, and their project authorization limit covers the request's project value (ProjectAuthorizationLimit returns no error).
+The creator of a project request can recall it while its status is Awaiting approval or Awaiting creation (can_recall). Nobody else gets the recall action.
 
-## Proposed rates checklist wording for approvers
+## Approve needs the chosen approver whose project limit covers the value
 
-Lines 197-204
+Lines 191-201
 
-Asked as: proposed rates question wording; rate sheet checklist text; approve proposed rates; proposed rates checklist
+Asked as: cannot approve request; approve button missing; approval limit too low; not the approver
 
-When a request has proposed rates and its checklist is the approval checklist, the rate sheet question shows the proposedRatesChecklistText wording. The approver then approves the rates themselves.
+A person can approve a project request only when its status is Awaiting approval, they are the selected approver, and their project authorization limit covers the project value (ProjectAuthorizationLimit returns no error). If the limit does not cover the value, Turbo does not offer approval.
 
-## Request list queues and required claims
+## Request queues and who can open them
 
-Lines 217-258
+Lines 209-251
 
-Asked as: request queue unknown; my requests list; creation queue empty; approval queue missing; abandoned tab not showing; all requests tab
+Asked as: request queue empty; missing approval queue; which list shows my requests; cannot open queue
 
-The project request list has these queues. "mine" (the default) shows the person's own requests. "creation" needs the job claim and shows requests awaiting creation, and it also needs approval to be enabled. "approval" needs the project authorization claim and shows requests assigned to the person with status Awaiting approval. "approved" needs the same claim and shows requests the person approved that are Awaiting creation. "abandoned" needs the admin claim. "all" needs the job claim. Any other queue gives "Unknown request queue."
-
-## Request queues need an active user
-
-Lines 217-222
-
-Asked as: inactive user cannot see requests; queues error not active; user not active error; request list inactive account
-
-Every queue and the options list check that the person is active (workflowActive) first. The error comes from that function in another file.
+Every queue requires an active user (workflowActive). The creation queue needs approval to be switched on and the job claim (procurement). The approval and approved queues need the project authorization claim and show only requests where the person is the approver, with status Awaiting approval or Awaiting creation. The abandoned queue needs the admin claim. The all queue needs the job claim. The mine queue, which is the default, shows the requests the person created.
 
 ## Abandoned queue cutoff
 
-Lines 243-248
+Lines 235-240
 
-Asked as: abandoned requests days; how old is abandoned; JOB_REQUEST_ABANDONMENT_DAYS; requests considered abandoned
+Asked as: abandoned requests cutoff; old requests not listed; how long before abandoned; stale requests list
 
-The abandoned queue lists requests whose last edit is on or before JOB_REQUEST_ABANDONMENT_DAYS days ago. The comparison includes the cutoff moment.
+The abandoned queue lists requests whose last_edited is on or before JOB_REQUEST_ABANDONMENT_DAYS days ago. A request edited exactly at the cutoff is included.
+
+## Unknown queue is refused
+
+Lines 248-249
+
+Asked as: invalid queue name; queue not found error; wrong list name; unrecognised request list
+
+A request list with any other queue name is refused with the message "Unknown request queue."
 
 ## Request list paging and order
 
-Lines 260-303
+Lines 258-287
 
-Asked as: requests per page; list page size; request list sort order; newest requests first; page 2 of requests
+Asked as: request list order; requests per page; page size wrong; client name missing in list
 
-The list defaults to page 1 and 50 per page. A page below 1 becomes 1. A perPage below 1 or above 100 becomes 50. Requests sort by newest submitted, then newest created, then id. Each row shows the client name.
+The request list is sorted by newest submitted first, then newest created. The page size is 50 by default. A perPage below 1 or above 100 falls back to 50, and a page below 1 becomes page 1. Each row shows the client name.
 
-## Who can load project request form options
+## Request options need a project-related claim
 
-Lines 304-319
+Lines 296-311
 
-Asked as: cannot use project requests; no access to request form; request form options denied
+Asked as: cannot use project requests; no access to project request options; project request dropdowns empty; project options blocked
 
-Only a person with the time, job, project authorization or admin claim can load the request form options. Others get "You cannot use project requests."
+Staff can load the options for a project request (clients, contacts, invoicing profiles, branches, rate sheets, divisions, active users, proposals, parent projects) only with the time, job, project authorization or admin claim. Anyone else gets "You cannot use project requests."
 
-## Request form options: rate sheets, people, proposals, parents
+## Options leave out request rate sheets and inactive users
 
-Lines 320-371
+Lines 313-341
 
-Asked as: proposal missing from dropdown; parent project list; rate sheet not in dropdown; users missing from request form; subjob parent dropdown
+Asked as: rate sheet dropdown missing; inactive user not in list; user picker empty; old rate sheets showing
 
-The options leave out rate sheets that belong to a request's proposed rates. They list only active users. Proposals are jobs whose number starts with P and whose status is In Progress, Submitted or Awarded. Parent projects are jobs whose number matches the pattern two digits, a hyphen, then three or four digits, such as 25-123. Subjobs and other numbers are not listed as parents.
+The rate sheet options leave out the proposed rate sheets that belong to a request. The user options list only active users.
 
-## Authorization approvers list by project value
+## Proposal and parent options
 
-Lines 380-408
+Lines 346-363
 
-Asked as: who can approve dollar value; approver list empty; whole-dollar project value; authorization limit approvers
+Asked as: parent project not listed; proposal not in dropdown; subjob as parent; which proposals appear
 
-The approvers list needs a positive whole-dollar value, or Turbo says "Enter a positive whole-dollar project value." It lists holders of the project authorization claim whose limit covers that value (ProjectAuthorizationLimit), each with the maximum value. Holders whose limit does not cover the value are left out.
+Proposals in the options start with P and have status In Progress, Submitted or Awarded. Parent project options are jobs whose number matches the pattern of two digits, a hyphen, then three or four digits, such as 25-123. Subjobs and other numbers are not offered as parents.
 
-## Possible duplicate jobs for a request
+## Approver lookup by project value
 
-Lines 410-485
+Lines 372-401
 
-Asked as: possible duplicate job; duplicate check; same job twice; matching jobs found
+Asked as: who can approve this amount; approver list empty; find approver for value; approver limit lookup
 
-The duplicates check lists existing jobs, except proposals (numbers starting with P), that match the request. Matches are the same client, proposal, parent, location, client PO or client reference, or a description that contains the other or is contained by it, ignoring case and spaces. It also notes when the job is the request's parent. Empty values never match.
+The approver lookup needs a positive whole-dollar value. Otherwise Turbo says "Enter a positive whole-dollar project value." It lists the holders of the project authorization claim whose limit covers that value, each with the max_value limit. Holders whose limit does not cover it are left out.
 
-## Pending requests in duplicates check need job claim
+## Duplicate check on a request
 
-Lines 445-466
+Lines 402-461
 
-Asked as: duplicate requests hidden; can't see pending duplicates; other requests match
+Asked as: possible duplicate job; duplicate warning; same project already exists; check for duplicates
 
-Other project requests that look like duplicates are listed only to a person with the job claim. The request itself is excluded.
+The duplicate check compares a request with existing jobs. Proposals are skipped. It also compares the request with other pending project requests, but only for staff with the job claim (procurement).
 
-## Menu badge counts for project workflow
+## Duplicate reasons
 
-Lines 487-531
+Lines 462-477
 
-Asked as: menu count missing; badge number not showing; awaiting approval count; project notification count
+Asked as: why flagged as duplicate; duplicate match reason; parent project warning; same description flagged
 
-When approval is enabled, a person with the job claim sees a count of requests awaiting creation. A person with the project authorization claim sees a count of requests awaiting their approval, and a count of pending project value approvals assigned to them. Without the claim, or for an inactive user, no counts are added.
+A job or request counts as a duplicate when it has the same client, proposal, parent, location, client PO or client reference (an empty value never matches). It also counts when one description, trimmed and case-insensitive, contains the other. It is flagged "Parent project" when it is the request's parent.
+
+## Menu badges for project workflow
+
+Lines 479-522
+
+Asked as: menu count wrong; badge number missing; pending approvals count; no notification count
+
+Badge counts appear only for an active user. Procurement see the count of requests in the creation queue when approval is on. Holders of the project authorization claim see the count of requests awaiting their approval when approval is on. They also see the count of pending value-change approvals assigned to them, even when approval is off.
