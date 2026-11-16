@@ -25,12 +25,14 @@ Turbo won't save rates that match an active sheet. It names that sheet. Select *
 
 ## Approve proposed rates
 
-The approver sees each rate beside the rate of the sheet that the requester started from. Changed roles show **Changed**.
+The approver sees each rate beside the rate of the starting sheet. Changed roles show **Changed**.
 
-In the checklist, the approver confirms that the client accepts the proposed rates.
+Below the rates, the approver selects **I approve the creation of this new rate sheet and its rates**. Approval needs it. Turbo keeps the approver's name and the date.
+
+After a recall or a rejection, the approver must approve the rates again.
 
 ## After approval
 
-Procurement creates the job and can change the name of the new sheet first. Turbo then activates the sheet, and the job uses it. Other projects can then use it too.
+Procurement sees who approved the rates. They create the job and can rename the new sheet first. Turbo then activates the sheet, and the job uses it. Other projects can then use it too.
 
 Until then, no **Rate Sheet** list shows the sheet. A rejected request keeps its proposed rates. If you delete the request, Turbo deletes them.

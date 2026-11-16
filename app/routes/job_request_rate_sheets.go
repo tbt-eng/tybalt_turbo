@@ -2,6 +2,7 @@ package routes
 
 import (
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"tybalt/hooks"
@@ -167,6 +168,8 @@ func saveProposedRates(app core.App, r *core.Record, plan *proposedRatesPlan) er
 	draft.Set("name", plan.input.Name)
 	draft.Set("reason", plan.input.Reason)
 	draft.Set("based_on", plan.input.BasedOn)
+	// Changed rates need a new approval.
+	clearRatesApproval(draft)
 	// Job creation sets the date the sheet becomes active.
 	draft.Set("effective_date", hooks.RateSheetToday())
 	if err := app.Save(draft); err != nil {
@@ -277,6 +280,11 @@ func requestProposedRates(app core.App, r *core.Record, result map[string]any, r
 		return err
 	}
 	result["rate_sheet_proposed"] = true
+	if id := draft.GetString("rates_approver"); id != "" {
+		if approver, err := app.FindRecordById("users", id); err == nil {
+			result["rate_sheet_rates_approver"] = workflowPerson(app, approver)
+		}
+	}
 	sourceRates := map[string]hooks.RateSheetEntryValues{}
 	if id := draft.GetString("based_on"); id != "" {
 		source, err := app.FindRecordById("rate_sheets", id)
@@ -305,11 +313,56 @@ func requestProposedRates(app core.App, r *core.Record, result map[string]any, r
 	return nil
 }
 
-// proposedRatesChecklistText replaces the rate sheet statement of the approval
-// checklist for proposed rates. The approver approves the rates themselves, not
-// the choice of an existing sheet. The key and the stored version stay the
-// same, so approvals need no new checklist version.
-const proposedRatesChecklistText = "The proposed rates are approved for this client."
+// The approver of a request with proposed rates approves the creation of the
+// new rate sheet and its rates. This is a statement of its own, apart from the
+// checklist, and the draft records who made it and when. The record stays on
+// the sheet after job creation, when the request is gone.
 
-// requestRateSheetChecklistKey is the approval statement about the rate sheet.
-const requestRateSheetChecklistKey = "rate_sheet_correct"
+func clearRatesApproval(draft *core.Record) {
+	draft.Set("rates_approver", "")
+	draft.Set("rates_approved", "")
+}
+
+// approveProposedRates records the approval on the request's draft. It refuses
+// when the approver did not make the statement, and does nothing when the
+// request uses an active sheet. The caller checks that approver is the
+// request's approver.
+func approveProposedRates(app core.App, r *core.Record, approved bool, approver string) error {
+	draft, err := hooks.RequestRateSheetDraft(app, r)
+	if err != nil || draft == nil {
+		return err
+	}
+	if !approved {
+		return workflowError("Approve the creation of the new rate sheet and its rates.")
+	}
+	draft.Set("rates_approver", approver)
+	draft.Set("rates_approved", time.Now().UTC())
+	return app.Save(draft)
+}
+
+// clearProposedRatesApproval ends the approval of the request's draft, so a
+// new submission needs a new one.
+func clearProposedRatesApproval(app core.App, r *core.Record) error {
+	draft, err := hooks.RequestRateSheetDraft(app, r)
+	if err != nil || draft == nil {
+		return err
+	}
+	if draft.GetString("rates_approver") == "" && draft.GetString("rates_approved") == "" {
+		return nil
+	}
+	clearRatesApproval(draft)
+	return app.Save(draft)
+}
+
+// requireProposedRatesApproval refuses job creation when the request's draft
+// has no approval by the request's approver.
+func requireProposedRatesApproval(app core.App, r *core.Record) error {
+	draft, err := hooks.RequestRateSheetDraft(app, r)
+	if err != nil || draft == nil {
+		return err
+	}
+	if draft.GetString("rates_approver") == "" || draft.GetString("rates_approver") != r.GetString("approver") || draft.GetString("rates_approved") == "" {
+		return workflowError("The proposed rates are not approved. Recall the request for a new approval.")
+	}
+	return nil
+}

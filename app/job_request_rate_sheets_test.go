@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"tybalt/hooks"
+	"tybalt/utilities"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/tests"
@@ -75,6 +76,15 @@ func proposedRequest(t *testing.T, app *tests.TestApp, principal float64, reason
 		t.Fatalf("the request does not use its proposed rates: %q", draft)
 	}
 	return id, draft
+}
+
+// ratesApprovalData is the approver's action data with the statement that
+// approves the new rate sheet and its rates.
+func ratesApprovalData(t *testing.T, app *tests.TestApp, id string) map[string]any {
+	t.Helper()
+	data := requestActionData(t, app, id)
+	data["rates_approved"] = true
+	return data
 }
 
 func requestJSON(t *testing.T, app *tests.TestApp, method, path, email string, body any, status int) map[string]any {
@@ -323,7 +333,7 @@ func TestProposedRatesAreCheckedAgainWhenTheJobIsCreated(t *testing.T) {
 
 	id, draftID := proposedRequest(t, app, 275, "Client MSA")
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
-	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
 
 	// The draft is not active, so the direct sheet can still be activated.
 	clientSetupJSON(t, app, http.MethodPost, "/api/rate_sheets/"+directID+"/activate", workflowAuthor, nil, http.StatusOK)
@@ -347,17 +357,20 @@ func TestProposedRatesApprovedAndActivatedWithTheJob(t *testing.T) {
 	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
 
-	// The approver's rate sheet statement is about the proposed rates.
+	// The checklist keeps its stored statements for proposed rates.
 	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowApprover, nil, http.StatusOK)
-	found := false
-	for _, question := range detail["checklist"].(map[string]any)["questions"].([]any) {
-		q := question.(map[string]any)
-		if q["key"] == "rate_sheet_correct" {
-			found = q["text"] == "The proposed rates are approved for this client."
-		}
+	_, stored, err := utilities.CurrentRequestChecklist(app, utilities.RequestChecklistScopeApproval)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !found {
+	shown := detail["checklist"].(map[string]any)["questions"].([]any)
+	if len(shown) != len(stored) {
 		t.Fatalf("approval checklist: %#v", detail["checklist"])
+	}
+	for i, question := range shown {
+		if q := question.(map[string]any); q["key"] != stored[i].Key || q["text"] != stored[i].Text {
+			t.Fatalf("checklist statement %d: %#v", i, q)
+		}
 	}
 	if detail["related"].(map[string]any)["rate_sheet_proposed"] != true {
 		t.Fatal("the approver does not see the proposal")
@@ -365,9 +378,24 @@ func TestProposedRatesApprovedAndActivatedWithTheJob(t *testing.T) {
 	// Only the selected approver approves, and a job holder can't create first.
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), http.StatusBadRequest)
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowAuthor, requestActionData(t, app, id), http.StatusForbidden)
-	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
-	if workflowRecord(t, app, "rate_sheets", draftID).GetBool("active") {
+	// The approver must approve the new sheet and its rates as well.
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusBadRequest)
+	if workflowRecord(t, app, "job_requests", id).GetString("status") != "Awaiting approval" {
+		t.Fatal("the request was approved without the rates")
+	}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
+	approver := workflowRecord(t, app, "job_requests", id).GetString("approver")
+	draft := workflowRecord(t, app, "rate_sheets", draftID)
+	if draft.GetBool("active") {
 		t.Fatal("approval activated the draft")
+	}
+	if draft.GetString("rates_approver") != approver || draft.GetString("rates_approved") == "" {
+		t.Fatalf("rates approval: %#v", draft.PublicExport())
+	}
+	// The job creator sees who approved the rates.
+	detail = clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowAuthor, nil, http.StatusOK)
+	if person, _ := detail["related"].(map[string]any)["rate_sheet_rates_approver"].(map[string]any); person["id"] != approver {
+		t.Fatalf("rates approver in the detail: %#v", person)
 	}
 	// A job holder makes a sheet with the same rates directly. The draft is
 	// inactive, so the sheet can be saved, inactive.
@@ -379,7 +407,8 @@ func TestProposedRatesApprovedAndActivatedWithTheJob(t *testing.T) {
 	jobID := result["job_id"].(string)
 	sheet := workflowRecord(t, app, "rate_sheets", draftID)
 	if !sheet.GetBool("active") || sheet.GetString("request") != "" || sheet.GetString("reason") != "Client MSA, schedule B" ||
-		sheet.GetString("effective_date") != hooks.RateSheetToday() || sheet.GetString("based_on") != standardRateSheet {
+		sheet.GetString("effective_date") != hooks.RateSheetToday() || sheet.GetString("based_on") != standardRateSheet ||
+		sheet.GetString("rates_approver") != approver || sheet.GetString("rates_approved") == "" {
 		t.Fatalf("activated sheet: %#v", sheet.PublicExport())
 	}
 	job := workflowRecord(t, app, "jobs", jobID)
@@ -411,7 +440,7 @@ func TestJobCreatorCanRenameProposedRates(t *testing.T) {
 	app := newWorkflowTestApp(t, true)
 	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
-	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
 
 	withName := func(name string) map[string]any {
 		data := requestActionData(t, app, id)
@@ -480,4 +509,28 @@ func TestDeletingARequestDeletesItsDraft(t *testing.T) {
 	if count, _ := app.CountRecords("rate_sheet_entries", dbx.HashExp{"rate_sheet": standardRateSheet}); count != 33 {
 		t.Fatalf("the source sheet has %d entries", count)
 	}
+}
+
+// Recall ends the approval of the rates, so the next approval states it again,
+// and nobody can set the approval through the collection API.
+func TestRecallClearsTheRatesApproval(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
+	if workflowRecord(t, app, "rate_sheets", draftID).GetString("rates_approver") == "" {
+		t.Fatal("the approval was not recorded")
+	}
+
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/recall", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	draft := workflowRecord(t, app, "rate_sheets", draftID)
+	if draft.GetString("rates_approver") != "" || draft.GetString("rates_approved") != "" {
+		t.Fatalf("recall kept the approval: %#v", draft.PublicExport())
+	}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, requestActionData(t, app, id), http.StatusBadRequest)
+
+	// A sheet made directly can't claim an approval.
+	approver := workflowRecord(t, app, "job_requests", id).GetString("approver")
+	requestJSON(t, app, http.MethodPost, "/api/collections/rate_sheets/records", workflowAuthor, map[string]any{"name": "Claimed Approval", "effective_date": "2026-11-01", "revision": 0, "rates_approver": approver}, http.StatusBadRequest)
 }

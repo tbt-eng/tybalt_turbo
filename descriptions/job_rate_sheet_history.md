@@ -377,6 +377,14 @@ Migration `1794610269_proposed_rate_sheets.go` adds three fields to
 | `reason`   | text, max 500                        | Why the client needs the rates. Kept after the request is gone.                           |
 | `based_on` | relation to `rate_sheets`, optional  | The active sheet the requester started from; the approver compares with it. Kept as well. |
 
+Migration `1794857829_proposed_rates_approval.go` adds two more, and refuses
+both in the create rule:
+
+| Field            | Type                          | Notes                                                          |
+| ---------------- | ----------------------------- | -------------------------------------------------------------- |
+| `rates_approver` | relation to `users`, optional | The request approver who approved the new sheet and its rates. |
+| `rates_approved` | date, optional                | When they did. Both are cleared when the request is sent back. |
+
 A sheet with `request` set is a **draft**. A draft is always inactive and
 revision 0. The request's `rate_sheet` points at its draft, so job creation
 copies it to the job like any other sheet. A request has at most one draft.
@@ -431,12 +439,28 @@ request options leave drafts out.
 ### Approval
 
 The request approver approves the rates as part of the request. No claim and
-no second sign-off are added. For a request with proposed rates, the detail
-route replaces the text of the approval checklist question
-`rate_sheet_correct` with "The proposed rates are approved for this client."
-The key and the stored checklist version stay the same, so no new checklist
-version is needed and approvals of other requests are unaffected. The
-creation checklist keeps its text.
+no second approver are added. The approval of the rates is a statement of its
+own, apart from the checklists, which show their stored text for every
+request:
+
+- The approver's page shows a check box under the rates: "I approve the
+  creation of this new rate sheet and its rates." The approve action sends it
+  as `rates_approved`.
+- `approveProposedRates` refuses the approval of a request with a draft when
+  `rates_approved` is not true, and otherwise sets `rates_approver` and
+  `rates_approved` on the draft.
+- The review token covers the rate sheet, so the approve action saves the
+  token computed after the draft changed. Job creation compares with that.
+- Submission, recall and rejection clear both fields
+  (`clearProposedRatesApproval`), and so does a save that changes the draft.
+- Job creation refuses a draft whose `rates_approver` is not the request's
+  approver (`requireProposedRatesApproval`).
+- The detail's related records carry `rate_sheet_rates_approver`, so the job
+  creator sees who approved. The job creator makes no statement about the
+  rates.
+
+Both fields stay on the sheet after it is activated, when the request is
+gone. A sheet that a job holder creates directly has neither.
 
 ### Job creation
 
@@ -450,7 +474,8 @@ everything back; the request and its draft stay as they were.
 
 ### Returned and deleted requests
 
-Recall and rejection do not touch the draft, so the creator can edit it. A
+Recall and rejection keep the draft and clear only its rates approval, so the
+creator can edit it. A
 model hook on `job_requests` delete (`addRateSheetDraftHooks`) deletes the
 request's drafts after the request on every path (creator delete, admin
 delete of an abandoned request, any other delete). Job creation clears
@@ -490,8 +515,12 @@ other. Existing sheets are not checked or changed.
   submission. It is at most 500 characters.
 - The proposal is checked for duplicates on every save and again at
   submission, approval and creation.
-- The approval statement is replaced by text in code, not by a new checklist
-  version, and only in the approval checklist.
+- The approver approves the rates with a check box beside them, not with a
+  checklist statement. An approval records only the checklist version, so text
+  swapped in code for a stored statement would leave a record of words the
+  approver did not see. The checklists stay the same for every request.
+- The job creator makes no statement about the rates, and a job holder can
+  still create a rate sheet directly with no approval.
 - The requester's rates are compared with the source sheet's per role; a role
   the source lacks counts as changed.
 - Near matches are not shown to the requester or the approver.

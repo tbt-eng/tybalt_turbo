@@ -44,6 +44,9 @@ type workflowAction struct {
 	ChecklistVersion int            `json:"checklist_version"`
 	ChecklistAnswers map[string]any `json:"checklist_answers"`
 	RejectionReason  string         `json:"rejection_reason"`
+	// RatesApproved is the approver's statement that they approve the creation
+	// of the proposed rate sheet and its rates (approveProposedRates).
+	RatesApproved bool `json:"rates_approved"`
 	// RateSheetName lets the job creator rename proposed rates as the job is
 	// created (renameProposedRates). Empty keeps the requester's name.
 	RateSheetName string `json:"rate_sheet_name"`
@@ -652,6 +655,9 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 					return err
 				}
 				clearAttachmentApproval(a)
+				if err = clearProposedRatesApproval(tx, r); err != nil {
+					return err
+				}
 				a.Set("project_value", r.Get("project_value"))
 				r.Set("status", "Awaiting approval")
 				r.Set("submitted", time.Now().UTC())
@@ -695,6 +701,9 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				// End this submission together with its saved approval/checklist.
 				// Resubmission must issue a new token, never revive this one.
 				r.Set("submission_token", "")
+				if err = clearProposedRatesApproval(tx, r); err != nil {
+					return err
+				}
 				if a != nil {
 					clearAttachmentApproval(a)
 					if action == "reject" {
@@ -742,6 +751,15 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				a.Set("approval_max_value", limit)
 				a.Set("request_version", r.GetInt("version"))
 				a.Set("checklist_version", input.ChecklistVersion)
+				if err = approveProposedRates(tx, r, input.RatesApproved, e.Auth.Id); err != nil {
+					return err
+				}
+				// The digest covers the rate sheet, and the approval of proposed
+				// rates has just changed it. Save the digest of the approved
+				// state, which is what job creation compares.
+				if token, err = requestReviewToken(tx, r); err != nil {
+					return err
+				}
 				a.Set("review_token", token)
 				r.Set("status", "Awaiting creation")
 			case "create":
@@ -782,6 +800,9 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 					return workflowError("The saved checklist is invalid.")
 				}
 				a.Set("creation_checklist_version", input.ChecklistVersion)
+				if err = requireProposedRatesApproval(tx, r); err != nil {
+					return err
+				}
 				if err = renameProposedRates(tx, r, input.RateSheetName, e.Auth.Id); err != nil {
 					return err
 				}

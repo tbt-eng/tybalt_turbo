@@ -20,10 +20,12 @@
 
 ```
 @request.auth.id != "" &&
-// A draft is made only through a project request.
+// A draft is made and approved only through a project request.
 @request.body.request:isset = false &&
 @request.body.based_on:isset = false &&
-@request.body.reason:isset = false && (
+@request.body.reason:isset = false &&
+@request.body.rates_approver:isset = false &&
+@request.body.rates_approved:isset = false && (
   @request.auth.user_claims_via_uid.cid.name ?= 'rate_sheet_revise' ||
   @request.auth.user_claims_via_uid.cid.name ?= 'admin' ||
   (@request.auth.user_claims_via_uid.cid.name ?= 'job' && @request.body.revision = 0)
@@ -52,6 +54,8 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `request` | relation | maxSelect 1; to `job_requests` |
 | `reason` | text | max 500 |
 | `based_on` | relation | maxSelect 1; to `rate_sheets` |
+| `rates_approver` | relation | maxSelect 1; to `users` |
+| `rates_approved` | date |  |
 
 ## Indexes: rate_sheets
 

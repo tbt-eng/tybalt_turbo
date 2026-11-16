@@ -194,14 +194,6 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 		if err != nil {
 			return err
 		}
-		// The approver of proposed rates approves the rates themselves.
-		if proposed, _ := related["rate_sheet_proposed"].(bool); proposed && requestChecklistScope(r) == utilities.RequestChecklistScopeApproval {
-			for i := range checklistQuestions {
-				if checklistQuestions[i].Key == requestRateSheetChecklistKey {
-					checklistQuestions[i].Text = proposedRatesChecklistText
-				}
-			}
-		}
 		attachment := recordPublic(a)
 		if a != nil {
 			attachment["document_url"] = "/api/job_attachments/" + a.Id + "/document"

@@ -23,7 +23,9 @@
   let checklist = $state<Record<string, boolean>>({}),
     rejectionReason = $state(""),
     // Procurement can correct the name of proposed rates as they create the job.
-    rateSheetName = $state("");
+    rateSheetName = $state(""),
+    // The approver approves proposed rates beside the rates, not in the checklist.
+    ratesApproved = $state(false);
   let editor: RequestEditor | undefined = $state();
   const detail = $derived(data.detail),
     request = $derived(detail.request),
@@ -47,6 +49,7 @@
     detail.review_token;
     request.version;
     checklist = emptyChecklist(detail.checklist.questions);
+    ratesApproved = false;
   });
   $effect(() => {
     rateSheetName = related.rate_sheet_proposed ? (related.rate_sheet?.name ?? "") : "";
@@ -72,6 +75,9 @@
             checklist_version: detail.checklist.version,
             checklist_answers: checklist,
             rejection_reason: rejectionReason,
+            ...(name === "approve" && related.rate_sheet_proposed
+              ? { rates_approved: ratesApproved }
+              : {}),
             ...(name === "create" && related.rate_sheet_proposed
               ? { rate_sheet_name: rateSheetName }
               : {}),
@@ -257,7 +263,11 @@
             .join(" — ") || "Unknown division"}: {allocation.hours} h
         </p>{/each}
     </section>
-    {#if related.rate_sheet_proposed}<ProposedRatesReview {related} />{/if}
+    {#if related.rate_sheet_proposed}<ProposedRatesReview
+        {related}
+        canApprove={permission.can_approve}
+        bind:approved={ratesApproved}
+      />{/if}
   {/if}
   <section class="space-y-3 rounded border p-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -333,7 +343,10 @@
       {/snippet}
       {#if permission.can_approve}<div class="space-y-3">
           {@render checklistAnswers()}<button
-            disabled={busy || dirty || !allChecked}
+            disabled={busy ||
+              dirty ||
+              !allChecked ||
+              (related.rate_sheet_proposed && !ratesApproved)}
             class="rounded bg-green-700 px-4 py-2 text-white disabled:opacity-40"
             onclick={() => action("approve")}>Approve request</button
           >
