@@ -34,13 +34,27 @@
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
-  import RateSheetRatesTable from "./RateSheetRatesTable.svelte";
+  import DSActionButton from "$lib/components/DSActionButton.svelte";
+  import RateSheetRatesTable, { rateChanged } from "./RateSheetRatesTable.svelte";
+  import RateSheetMatchCallout from "./RateSheetMatchCallout.svelte";
   import { rateSheets } from "$lib/stores/rateSheets";
+  import type { RateSheetComparison } from "$lib/rateSheetMatches";
 
   // Proposed rates in a project request: the requester starts from an active
   // sheet, names the new sheet, says why it is needed and changes the rates.
   // The server keeps them as a draft that only this request uses.
-  let { proposal = $bindable() }: { proposal: ProposedRates } = $props();
+  // onUse chooses an active sheet in place of the proposal. blocked is true
+  // while the page shows the sheets that refused the last save, so the same
+  // sheets are not listed twice.
+  let {
+    proposal = $bindable(),
+    onUse,
+    blocked = false,
+  }: {
+    proposal: ProposedRates;
+    onUse?: (id: string) => void;
+    blocked?: boolean;
+  } = $props();
 
   rateSheets.init();
   const noErrors: Record<string, { message: string }> = {};
@@ -82,6 +96,39 @@
       current = false;
     };
   });
+
+  // Compare the rates with the active sheets as the requester changes them,
+  // so that a sheet that already fits is found before a new one is proposed.
+  // Rates with no change equal the source sheet, which needs no notice. The
+  // server leaves the source out of the close sheets, since the table already
+  // compares the rates with it.
+  const noComparison: RateSheetComparison = { exact: [], near: [] };
+  let comparison = $state<RateSheetComparison>(noComparison);
+  let compareSequence = 0;
+  $effect(() => {
+    // The reason is left out so that typing it does not compare again.
+    const body = JSON.stringify({ ...proposedRatesPayload(proposal), reason: "" });
+    const sequence = ++compareSequence;
+    if (!proposal.rows.some(rateChanged)) {
+      comparison = noComparison;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const response = await pb.send("/api/job_requests/compare_rates", {
+          method: "POST",
+          body,
+          requestKey: null,
+        });
+        if (sequence !== compareSequence) return;
+        comparison = { exact: response.exact ?? [], near: response.near ?? [] };
+      } catch (error) {
+        console.error("Failed to compare the proposed rates:", error);
+        if (sequence === compareSequence) comparison = noComparison;
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  });
 </script>
 
 <div class="flex flex-col gap-2">
@@ -118,5 +165,33 @@
   {#if loadError}<DSCallout tone="danger">{loadError}</DSCallout>{/if}
   {#if proposal.rows.length > 0}
     <RateSheetRatesTable bind:rows={proposal.rows} editable {sourceName} />
+  {/if}
+  {#if comparison.exact.length > 0 && !blocked}
+    <RateSheetMatchCallout
+      tone="warning"
+      title="Same rates as an active sheet"
+      intro="Turbo won't save these rates. Use that sheet, or change a rate."
+      matches={comparison.exact}
+    >
+      {#snippet actions()}
+        {#each comparison.exact as match (match.id)}
+          <DSActionButton action={() => onUse?.(match.id)}>Use {match.name}</DSActionButton>
+        {/each}
+      {/snippet}
+    </RateSheetMatchCallout>
+  {/if}
+  {#if comparison.near.length > 0}
+    <RateSheetMatchCallout
+      tone="info"
+      title="Close to active sheets"
+      intro="Use one of these sheets if it fits the client's contract."
+      matches={comparison.near}
+    >
+      {#snippet actions()}
+        {#each comparison.near as match (match.id)}
+          <DSActionButton action={() => onUse?.(match.id)}>Use {match.name}</DSActionButton>
+        {/each}
+      {/snippet}
+    </RateSheetMatchCallout>
   {/if}
 </div>

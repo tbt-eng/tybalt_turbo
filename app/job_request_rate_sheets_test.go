@@ -534,3 +534,63 @@ func TestRecallClearsTheRatesApproval(t *testing.T) {
 	approver := workflowRecord(t, app, "job_requests", id).GetString("approver")
 	requestJSON(t, app, http.MethodPost, "/api/collections/rate_sheets/records", workflowAuthor, map[string]any{"name": "Claimed Approval", "effective_date": "2026-11-01", "revision": 0, "rates_approver": approver}, http.StatusBadRequest)
 }
+
+// The requester sees the active sheets close to the proposed rates before the
+// save. The standard sheet with one changed rate differs from it in one role;
+// with no changed rate it is an exact match. The sheet the requester started
+// from is not listed as close. noclaims@example.com lacks the
+// time claim, which starting a request needs.
+func TestRequesterComparesProposedRatesWithActiveSheets(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	body := func(principal float64) map[string]any {
+		return map[string]any{"name": "Client Negotiated Rates", "entries": standardRates(t, app, principal)}
+	}
+	matches := func(result map[string]any, key string) []map[string]any {
+		list := []map[string]any{}
+		for _, match := range result[key].([]any) {
+			list = append(list, match.(map[string]any))
+		}
+		return list
+	}
+
+	result := requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, body(260), http.StatusOK)
+	if exact := matches(result, "exact"); len(exact) != 0 {
+		t.Fatalf("changed rates have exact matches: %v", exact)
+	}
+	near := matches(result, "near")
+	if len(near) == 0 || len(near) > hooks.RateSheetNearMatchLimit {
+		t.Fatalf("near matches: %v", near)
+	}
+	if near[0]["id"] != standardRateSheet || near[0]["differing_roles"] != float64(1) {
+		t.Fatalf("the closest sheet is %v", near[0])
+	}
+	for _, match := range near {
+		if match["id"] == draftFixtureSheet {
+			t.Fatal("a draft is shown as a close sheet")
+		}
+	}
+
+	fromStandard := body(260)
+	fromStandard["based_on"] = standardRateSheet
+	result = requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, fromStandard, http.StatusOK)
+	for _, match := range matches(result, "near") {
+		if match["id"] == standardRateSheet {
+			t.Fatal("the source sheet is shown as a close sheet")
+		}
+	}
+
+	result = requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, body(0), http.StatusOK)
+	if exact := matches(result, "exact"); len(exact) != 1 || exact[0]["id"] != standardRateSheet {
+		t.Fatalf("exact matches: %v", exact)
+	}
+
+	requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", "noclaims@example.com", body(260), http.StatusForbidden)
+	if drafts, _ := hooks.RequestRateSheetDrafts(app, draftFixtureRequest); len(drafts) != 1 {
+		t.Fatal("the comparison changed the drafts")
+	}
+}
+
+func TestComparingProposedRatesNeedsProjectRequests(t *testing.T) {
+	app := newWorkflowTestApp(t, false)
+	requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, map[string]any{"name": "X", "entries": standardRates(t, app, 260)}, http.StatusForbidden)
+}

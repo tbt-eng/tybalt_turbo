@@ -23,6 +23,10 @@ The reason tells why the client needs these rates, such as a contract schedule. 
 
 Turbo won't save rates that match an active sheet. It names that sheet. Select **Use** and the sheet name to choose that sheet instead.
 
+## Rates close to a sheet
+
+As you change rates, Turbo lists up to three active sheets that differ in five roles or fewer. Select a sheet's name to see its rates. If one fits the client's contract, select **Use** and its name. Turbo then saves the request with that sheet, without the proposed rates.
+
 ## Approve proposed rates
 
 The approver sees each rate beside the rate of the starting sheet. Changed roles show **Changed**.

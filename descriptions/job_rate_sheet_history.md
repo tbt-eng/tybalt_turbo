@@ -523,7 +523,13 @@ other. Existing sheets are not checked or changed.
   still create a rate sheet directly with no approval.
 - The requester's rates are compared with the source sheet's per role; a role
   the source lacks counts as changed.
-- Near matches are not shown to the requester or the approver.
+- The requester sees near matches as the rates change, with a button that
+  chooses the sheet instead: up to `RateSheetNearMatchLimit` active sheets that
+  differ in at most `RateSheetNearMatchMaxRoles` roles, without the source
+  sheet. `POST /api/job_requests/compare_rates` returns them to anyone who can
+  start a request (the `time` claim); `/api/rate_sheets/compare` needs a claim
+  that most requesters lack. Rates with no change are not compared. The
+  approver is not shown near matches.
 
 ## Migration
 

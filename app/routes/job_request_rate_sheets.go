@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"net/http"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -365,4 +366,42 @@ func requireProposedRatesApproval(app core.App, r *core.Record) error {
 		return workflowError("The proposed rates are not approved. Recall the request for a new approval.")
 	}
 	return nil
+}
+
+// requestCompareRatesHandler compares unsaved proposed rates with the active
+// rate sheets, for POST /api/job_requests/compare_rates. It returns the exact
+// matches, which a save would refuse, and a few close sheets, so the requester
+// can choose one of them instead of proposing a new sheet. The sheet in
+// based_on is left out of the close sheets: the requester started from it and
+// already sees how the rates differ from it. It changes nothing.
+// Anyone who can start a request can call it; the rate sheets compare route
+// needs a claim that most requesters lack.
+func requestCompareRatesHandler(app core.App) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if err := requestEnabled(app); err != nil {
+			return err
+		}
+		if err := workflowClaim(app, e.Auth, "time"); err != nil {
+			return err
+		}
+		var input proposedRatesWrite
+		if err := e.BindBody(&input); err != nil {
+			return workflowError("Invalid request data.")
+		}
+		comparison, err := hooks.CompareWithActiveRateSheets(app, rateSheetEntryValues(input.Entries), strings.TrimSpace(input.Name))
+		if err != nil {
+			return err
+		}
+		near := []hooks.RateSheetMatch{}
+		for _, match := range comparison.Near {
+			if match.ID != strings.TrimSpace(input.BasedOn) {
+				near = append(near, match)
+			}
+		}
+		comparison.Near = near
+		return e.JSON(http.StatusOK, map[string]any{
+			"exact": comparison.Exact,
+			"near":  comparison.Closest(hooks.RateSheetNearMatchMaxRoles, hooks.RateSheetNearMatchLimit),
+		})
+	}
 }

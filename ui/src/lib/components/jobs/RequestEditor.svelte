@@ -220,7 +220,8 @@
     if (mode === "choose" && related.rate_sheet_proposed && item.rate_sheet === request.rate_sheet)
       item.rate_sheet = "";
   }
-  // Choose the active sheet that has the proposed rates instead.
+  // Choose an active sheet that has the proposed rates, or rates close to
+  // them, instead.
   function useMatchingSheet(id: string) {
     rateMode = "choose";
     item.rate_sheet = id;
@@ -508,7 +509,7 @@
       />
     </div>
     {#if rateMode === "propose"}
-      <ProposedRatesEditor bind:proposal />
+      <ProposedRatesEditor bind:proposal onUse={useMatchingSheet} blocked={!!rateMatches?.length} />
     {:else if $rateSheets.index !== null}
       <DsAutoComplete
         bind:value={item.rate_sheet}
