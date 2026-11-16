@@ -296,7 +296,7 @@ it treats `jobs.rate_sheet`:
 
 ## Revision rollout
 
-Status: implemented on branch `205` (issue 205), not yet merged.
+Status: Implemented and deployed (issue 205, merged to `main` on 2026-11-13)
 
 An `admin` claim holder moves every active project on an earlier revision of
 a rate sheet to its latest revision, from one date. Each moved project gets a
@@ -354,7 +354,7 @@ repriced (`RateSheetRollout.svelte`).
 
 ## Proposed rates
 
-Status: implemented on branch `187` (issue 187), not yet merged.
+Status: Implemented (issue 187)
 
 A project request can propose new rates instead of choosing an active sheet.
 The request approver approves them with the request, and the sheet becomes
