@@ -95,8 +95,17 @@
   let editedEntries = $state<Record<string, { rate: number; overtime_rate: number }>>({});
   let savingEntryId = $state<string | null>(null);
   let entryErrors = $state<Record<string, string>>({});
-  // Active sheets with the same rates, when they blocked saving a corrected rate.
-  let entryMatches = $state<RateSheetMatch[] | null>(null);
+  // By entry id: the active sheets with the same rates, when they blocked
+  // saving that row's corrected rate. They show under the row.
+  let entryMatches = $state<Record<string, RateSheetMatch[]>>({});
+
+  // Remove a row's refusal, when the row is saved, edited again or cancelled.
+  function clearEntryError(entryId: string) {
+    delete entryErrors[entryId];
+    entryErrors = { ...entryErrors };
+    delete entryMatches[entryId];
+    entryMatches = { ...entryMatches };
+  }
 
   // Overtime multiplier for bulk calculation
   let overtimeMultiplier = $state(1.3);
@@ -154,6 +163,8 @@
     editedEntries[entry.id][field] = value;
     // Trigger reactivity
     editedEntries = { ...editedEntries };
+    // The refusal was for the value that was saved, not this one.
+    clearEntryError(entry.id);
   }
 
   // Save a single edited entry
@@ -162,9 +173,7 @@
     if (!edits) return;
 
     savingEntryId = entryId;
-    entryMatches = null;
-    delete entryErrors[entryId];
-    entryErrors = { ...entryErrors };
+    clearEntryError(entryId);
 
     try {
       const response = await pb.send(`/api/rate_sheet_entries/${entryId}`, {
@@ -185,8 +194,13 @@
       editedEntries = { ...editedEntries };
     } catch (error: any) {
       console.error("Failed to update entry:", error);
-      entryMatches = duplicateRateSheetMatches(error, "entry");
-      entryErrors[entryId] = entryMatches?.length
+      // The row keeps the new value with Save and Cancel, and shows why it
+      // was not saved: the matching sheets under the row, or the message.
+      const matches = duplicateRateSheetMatches(error, "entry");
+      if (matches?.length) {
+        entryMatches = { ...entryMatches, [entryId]: matches };
+      }
+      entryErrors[entryId] = matches?.length
         ? "Not saved"
         : (error.data?.message ?? "Failed to update");
       entryErrors = { ...entryErrors };
@@ -199,9 +213,7 @@
   function cancelEntryEdit(entryId: string) {
     delete editedEntries[entryId];
     editedEntries = { ...editedEntries };
-    delete entryErrors[entryId];
-    entryErrors = { ...entryErrors };
-    entryMatches = null;
+    clearEntryError(entryId);
   }
 
   // Apply overtime multiplier to all entries
@@ -420,16 +432,6 @@
   <!-- Entries Table -->
   <div class="mb-6">
     <h2 class="mb-2 text-lg font-semibold">Rate Entries</h2>
-    {#if entryMatches && entryMatches.length > 0}
-      <div class="mb-4">
-        <RateSheetMatchCallout
-          tone="danger"
-          title="Rate not saved"
-          intro="With this rate, the sheet has the same rates as another active sheet."
-          matches={entryMatches}
-        />
-      </div>
-    {/if}
     {#if entries.length > 0}
       {#if isAdmin}
         <!-- Editable table for admins -->
@@ -555,6 +557,18 @@
                     {/if}
                   </td>
                 </tr>
+                {#if entryMatches[entry.id]?.length && isEntryModified(entry)}
+                  <tr class="border-b border-neutral-200">
+                    <td class="py-2" colspan="4">
+                      <RateSheetMatchCallout
+                        tone="danger"
+                        title="Rate not saved"
+                        intro="With this rate, the sheet has the same rates as another active sheet."
+                        matches={entryMatches[entry.id]}
+                      />
+                    </td>
+                  </tr>
+                {/if}
               {/each}
             </tbody>
           </table>
