@@ -51,8 +51,15 @@
     checklist = emptyChecklist(detail.checklist.questions);
     ratesApproved = false;
   });
+  // The name starts as the saved name. A reload gives related new objects, so
+  // the effect depends only on the saved name and the request id, which are
+  // strings: it resets the typed name only when either of them changes.
+  const savedRateSheetName = $derived(
+    related.rate_sheet_proposed ? (related.rate_sheet?.name ?? "") : "",
+  );
   $effect(() => {
-    rateSheetName = related.rate_sheet_proposed ? (related.rate_sheet?.name ?? "") : "";
+    requestId;
+    rateSheetName = savedRateSheetName;
   });
   async function refresh() {
     await Promise.all([invalidateAll(), globalStore.refreshAttentionCounts()]);
