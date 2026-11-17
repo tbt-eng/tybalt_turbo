@@ -117,11 +117,17 @@ func requestReviewToken(app core.App, r *core.Record) (string, error) {
 	// a rename, a newer revision) does not change what was approved.
 	delete(related, "rate_sheet_rates_approver")
 	delete(related, "rate_sheet_source")
-	// The request binds the sheet by its id. The code is a label that only a
-	// superuser can change, and leaving it out keeps the digest of every
-	// approval made before rate sheets had codes.
+	// The request binds the sheet by its id, so the sheet's code, name and
+	// updated time are left out: a rename or a code change does not change
+	// what was approved. Every other field stays, so a change to the revision,
+	// active, the effective date or, for proposed rates, the reason, based_on,
+	// rates_approver or rates_approved makes the approval stale. The rates are
+	// in related["rate_sheet_entries"], apart from the record, so a changed
+	// rate does too.
 	if sheet, ok := related["rate_sheet"].(map[string]any); ok {
 		delete(sheet, "code")
+		delete(sheet, "name")
+		delete(sheet, "updated")
 	}
 	data := map[string]any{"version": r.GetInt("version"), "submission_token": r.GetString("submission_token"), "related": related}
 	for _, key := range requestBusinessFields {

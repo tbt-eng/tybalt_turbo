@@ -661,13 +661,17 @@ absorb commit moves the code history of the absorbed sheets to the target.
 
 ### Review token
 
-The request's review token leaves the sheet's `code` out of its digest. The
-request binds the sheet by id, so the code adds nothing, and leaving it out
-keeps the digest of every approval made before codes existed. The backfill
-writes `code` with SQL, so `updated` does not change either. The digest still
-holds the chosen sheet's record, including `name` and `updated`, as it did
-before, so a rename of the chosen active sheet between approval and job
-creation still makes the approval stale.
+The request's review token leaves the chosen sheet's `code`, `name` and
+`updated` out of its digest. The request binds the sheet by id, and the code
+is the sheet's identity, so a rename or a code change between approval and
+job creation does not make the approval stale. Every other field of the
+sheet's record stays in the digest: a change to `revision`, `active` or
+`effective_date`, or for proposed rates to `reason`, `based_on`,
+`rates_approver` or `rates_approved`, makes the approval stale. The rates are
+in the digest apart from the record, so a changed rate does too. No save of a
+sheet changes `updated` alone: a rate edit saves the entry, not the sheet,
+and a deactivation by `DeactivateOtherRevisions` is a SQL update that leaves
+`updated` as it was but changes `active`.
 
 ### Migration
 
