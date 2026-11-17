@@ -561,8 +561,8 @@ other. Existing sheets are not checked or changed.
 ## Rate sheet codes
 
 Status: Built on the `rate-sheet-codes` branch (issue 207), not deployed.
-This section covers the server; the UI, printed pages and user docs follow
-on the same branch.
+The UI, printed pages and user docs are described at the end of this
+section.
 
 Revisions of a rate sheet were linked only by `name`. Names tried to carry
 meaning, and a name that suited one project misled the next person. Each
@@ -699,6 +699,29 @@ rules and log; no change by anyone else; nothing can revise a proposal
 (finding 2 of the review of issue 187); no new sheet takes a proposal's
 name in other capitals (finding 1); empty names; the rename claim; codes in
 responses and messages; the review token; the writeback; and two imports.
+
+### UI, printed pages and docs
+
+- `ui/src/lib/rateSheetLabel.ts` gives the text: `rateSheetCodeRevision()`
+  (`2026-11-00004 (rev. 2)`) and `rateSheetLabel()`, which matches
+  `hooks.RateSheetLabel`. `rateSheets/RateSheetLabel.svelte` shows a sheet
+  with its code linked to its page and its name muted after it, through
+  `DSRecordLabel`. Lists, pickers, callouts, the job pages, the request
+  pages, the absorb pages and WIP use them. Pickers use the text label,
+  since a dropdown option holds only text.
+- The `rateSheets` store indexes `code`, `name` and `effective_date`, so a
+  picker finds a sheet by code. The Rate Sheets list searches the same text.
+- No form requires a name. A copy starts with none. A revision sends `code`
+  and no name, and shows its name read only. The copy page finds the next
+  revision by code. Rename is shown to `admin` and `rate_sheet_revise`.
+- At job creation an empty name box keeps the requester's name
+  (`renameProposedRates` ignores an empty name), so the job creator can't
+  clear a proposal's name there; the box says so.
+- The printed rate sheet shows the code and revision as its title, the name
+  under it, and former names and codes. The printed project authorization
+  shows the code, revision and effective date, without the name.
+- User docs: `rate-sheet-codes.md` (code, name, rename), with changes to
+  `rate-sheets.md`, `proposed-rates.md` and the glossary.
 
 ## Migration
 

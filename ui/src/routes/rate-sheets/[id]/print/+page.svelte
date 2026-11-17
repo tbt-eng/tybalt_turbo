@@ -9,6 +9,7 @@
   let rateSheet = $state(untrack(() => data.rateSheet));
   let entries = $state(untrack(() => data.entries));
   let formerNames = $state(untrack(() => data.formerNames));
+  const formerCodes = $derived(data.formerCodes);
 
   // Sort entries by rate descending
   const sortedEntries = $derived([...entries].sort((a, b) => b.rate - a.rate));
@@ -26,18 +27,28 @@
   });
 </script>
 
+<!-- A saved PDF takes its file name from the title. -->
+<svelte:head><title>Rate Sheet {rateSheet.code} rev. {rateSheet.revision}</title></svelte:head>
+
 <div class="print-page mx-auto max-w-4xl p-8">
   <!-- Header -->
   <div class="mb-6 border-b-2 border-black pb-4">
+    <!-- The code identifies the sheet on paper; the name only describes it. -->
     <h1 class="text-2xl font-bold text-black">
-      {rateSheet.name}
+      {rateSheet.code}
       <span class="text-lg font-normal">— Rev. {rateSheet.revision}</span>
     </h1>
+    {#if rateSheet.name}
+      <p class="mt-1 text-black">{rateSheet.name}</p>
+    {/if}
     <p class="mt-1 text-sm text-black">
       Effective: {shortDate(rateSheet.effective_date, true)}
     </p>
     {#if formerNames.length > 0}
       <p class="mt-1 text-sm text-black">Formerly {formerNames.join(", ")}</p>
+    {/if}
+    {#if formerCodes.length > 0}
+      <p class="mt-1 text-sm text-black">Former codes {formerCodes.join(", ")}</p>
     {/if}
   </div>
 

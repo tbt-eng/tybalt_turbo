@@ -134,7 +134,7 @@
             </p>
             <p>Applicable taxes are additional.</p>
             <p>
-              Rate sheet: {shown(d.rate_sheet?.name)} · Revision: {shown(d.rate_sheet?.revision)} · Effective:
+              Rate sheet: {shown(d.rate_sheet?.code)} · Revision: {shown(d.rate_sheet?.revision)} · Effective:
               {date(d.rate_sheet?.effective_date)}
             </p>
           </section>
@@ -183,7 +183,7 @@
             </section>{/if}
           {#if r.time_and_materials}<section class="appendix">
               <h2>Client billing rate sheet — CAD</h2>
-              <h3>{shown(d.rate_sheet?.name)} — Revision {shown(d.rate_sheet?.revision)}</h3>
+              <h3>{shown(d.rate_sheet?.code)} — Revision {shown(d.rate_sheet?.revision)}</h3>
               <p>Effective: {date(d.rate_sheet?.effective_date)}</p>
               <table class="rates">
                 <thead

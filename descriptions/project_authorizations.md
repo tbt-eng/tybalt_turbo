@@ -104,13 +104,13 @@ together. Use this section order:
 | Project and scope | Full project description under **Project / scope of work**. The request form calls this field **Description**, as the job form does. Use the description as the project name as well; add no separate name field. Show the location, including the stored Plus Code. Preserve paragraph breaks. Print the request notes after the description under **Additional details** only when staff choose to include them. |
 | References | Linked proposal number and description when present; client PO and client reference number when supplied. For a subjob, show the parent project number and description. Omit unused optional references. |
 | Project contacts | Client project contact name, email, and available phone. Show the TBT project manager's name, available business email/phone, and branch name. Do not substitute the internal approver as the TBT contact or signatory. |
-| Fees | Prominent **Project value (CAD, before tax)** with thousands separators and whole dollars. Show **Fee basis: Fixed fee** when T&M is false, or **Fee basis: Time and materials** when true. State **Applicable taxes are additional.** Identify the selected rate sheet by name, revision, and effective date. |
+| Fees | Prominent **Project value (CAD, before tax)** with thousands separators and whole dollars. Show **Fee basis: Fixed fee** when T&M is false, or **Fee basis: Time and materials** when true. State **Applicable taxes are additional.** Identify the selected rate sheet by code, revision, and effective date (issue 207). The name is left off: it is an optional description, and the code is the sheet's printed label. |
 | Invoicing | **Bill to** the name the invoicing profile chooses: the client's official name, or its alias when the profile bills the alias (`utilities.BillingName`); billing contact name, email, available phone, and billing fax when supplied. Use the billing contact's address when present, otherwise the client's address. Use one address source; do not combine partial addresses from different records. Show the invoicing instructions verbatim when present. Always show this section, even when the project and billing contacts are the same. |
 | Agreement and signatures | The agreement text and two signature blocks defined below. |
 
 For T&M work, append the selected rate sheet's client billing rates, using the
 existing rate-sheet print layout: role, regular hourly rate, and overtime hourly
-rate, in CAD. Include its name, revision, and effective date on the appendix.
+rate, in CAD. Include its code, revision, and effective date on the appendix.
 Generate the main document and appendix together so the client can read the
 rates before signing. Do not print internal labour costs or profit calculations.
 Keep **Project value** as the amount label for T&M; do not relabel it as a fixed
