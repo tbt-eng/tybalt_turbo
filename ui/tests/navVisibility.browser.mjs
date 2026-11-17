@@ -47,7 +47,7 @@ await runBrowserHarness(async (page, origin) => {
   lacks(
     none,
     "Purchase Orders/PO Groups",
-    "Business/Jobs+New Job",
+    "Business/Jobs+New Project or Proposal",
     "Business/WIP/Branch",
     "Business/Abandoned Requests",
     "Business/PO Approvers",
@@ -74,12 +74,20 @@ await runBrowserHarness(async (page, origin) => {
   // Project request links need the feature on as well as the claim.
   lacks(await labels({ claims: ["time", "job"] }), "Business/Project Requests");
   const requests = await labels({ claims: ["time"], jobRequestsEnabled: true });
-  has(requests, "Business/Project Requests", "Business/Project Requests+New Project Request");
+  has(requests, "Business/Project Requests");
   lacks(requests, "Business/Request Approvals", "Business/Job Create Queue");
-  lacks(
-    await labels({ claims: ["job"], jobRequestsEnabled: true }),
-    "Business/Job Create Queue",
-    "Business/Project Requests+New Project Request",
+  lacks(await labels({ claims: ["job"], jobRequestsEnabled: true }), "Business/Job Create Queue");
+
+  // One plus starts a project: beside Jobs, never beside Project Requests.
+  // Procurement always sees it; staff with time see it while requests are on.
+  const newProject = "Business/Jobs+New Project or Proposal";
+  has(requests, newProject);
+  lacks(await labels({ claims: ["time"] }), newProject);
+  has(await labels({ claims: ["job"] }), newProject);
+  has(await labels({ claims: ["job"], jobRequestsEnabled: true }), newProject);
+  assert.ok(
+    !everything.some((label) => label.startsWith("Business/Project Requests+")),
+    "Project Requests has no plus",
   );
   has(
     await labels({

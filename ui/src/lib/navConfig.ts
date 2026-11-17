@@ -276,11 +276,15 @@ export const navSections: NavSection[] = [
             title: "Jobs Map",
             color: "blue",
           },
+          // The one way to start a project. Procurement creates jobs and
+          // proposals; while project requests are on, /jobs/add sends staff
+          // with the time claim to a new request.
           {
             action: "/jobs/add",
-            canView: anyClaim("job"),
+            canView: ({ claims, jobRequestsEnabled }) =>
+              claims.includes("job") || (jobRequestsEnabled && claims.includes("time")),
             icon: "feather:plus-circle",
-            title: "New Job",
+            title: "New Project or Proposal",
             color: "green",
           },
         ],
@@ -299,15 +303,7 @@ export const navSections: NavSection[] = [
         label: "Project Requests",
         href: "/job-requests",
         canView: jobRequests(anyClaim("time", "job", "project_authorization")),
-        buttons: [
-          {
-            action: "/job-requests/new",
-            canView: anyClaim("time"),
-            icon: "feather:plus-circle",
-            title: "New Project Request",
-            color: "green",
-          },
-        ],
+        buttons: [],
       },
       {
         label: "Request Approvals",

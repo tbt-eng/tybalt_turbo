@@ -26,10 +26,11 @@ Procurement must award the proposal before you can submit.
 
 If a proposal exists, [start from the proposal](/docs/project-requests#start-from-a-proposal) instead.
 
-1. Select the plus button beside **Project Requests**. For a subjob, open the parent project and select the **Create Subjob Request** button.
-2. Enter the details and division hours.
-3. Select an invoicing profile and an approver. The list shows approvers whose limit covers the project value.
-4. Select **Save request**.
+1. Select the plus button beside **Jobs**. For a subjob, select **Create Subjob Request** on the parent project.
+2. Select **Create a project request**.
+3. Enter the details and division hours.
+4. Select an invoicing profile and an approver. The list shows approvers whose limit covers the project value.
+5. Select **Save request**.
 
 ## Upload and submit
 

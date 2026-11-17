@@ -28,6 +28,7 @@
   import DSHelp from "./DSHelp.svelte";
   import DSPicker from "./DSPicker.svelte";
   import DSPopover from "./DSPopover.svelte";
+  import DSCallout from "./DSCallout.svelte";
   import { profiles } from "$lib/stores/profiles";
   import { clients } from "$lib/stores/clients";
   import { jobs } from "$lib/stores/jobs";
@@ -279,6 +280,22 @@
   ];
 
   const isNewJob = $derived(data.id === null);
+
+  // While project requests are on, a new project starts as a request. The
+  // nav's one plus button lands here, so this page offers each person what
+  // they may start: a request (time claim) or a proposal (job claim).
+  const canRequestProject = $derived($globalStore.claims.includes("time"));
+  const projectRequestHref = $derived(
+    (item as any).parent
+      ? `/job-requests/new?parent=${(item as any).parent}`
+      : item.proposal
+        ? `/job-requests/new?proposal=${item.proposal}`
+        : "/job-requests/new",
+  );
+  function startProposal() {
+    item.project_award_date = "";
+    item.proposal_opening_date = new Date().toLocaleDateString("en-CA");
+  }
 
   const statusOptionsList = $derived.by(() => {
     let statuses: JobsStatusOptions[];
@@ -866,26 +883,35 @@
     <p>Job creation and editing is temporarily disabled during a system transition.</p>
     <p>Please check back later or contact an administrator if you need immediate assistance.</p>
   </DsEditingDisabledBanner>
+{:else if isNewJob && !isProposal && $jobRequestsEnabled}
+  <div class="p-4">
+    <DSCallout tone="info" title="New project or proposal">
+      {#if canRequestProject || hasJobClaim}
+        <p>A new project needs an approved project request.</p>
+      {:else}
+        <p>
+          You need the time permission to request a project. Only procurement creates proposals.
+        </p>
+      {/if}
+      {#snippet actions()}
+        {#if canRequestProject}
+          <DsActionButton variant="primary" action={projectRequestHref}>
+            Create a project request
+          </DsActionButton>
+        {/if}
+        {#if hasJobClaim}
+          <DsActionButton
+            variant={canRequestProject ? "secondary" : "primary"}
+            action={startProposal}
+          >
+            Create a proposal
+          </DsActionButton>
+        {/if}
+      {/snippet}
+    </DSCallout>
+  </div>
 {:else if !hasJobClaim && !managerAllocationsOnly}
   <p class="p-4">The job permission is required to edit or create a job.</p>
-{:else if isNewJob && !isProposal && $jobRequestsEnabled}
-  <div class="space-y-3 p-4">
-    <p>New projects require an approved Project Request.</p>
-    <a
-      class="text-blue-700 underline"
-      href={(item as any).parent
-        ? `/job-requests/new?parent=${(item as any).parent}`
-        : item.proposal
-          ? `/job-requests/new?proposal=${item.proposal}`
-          : "/job-requests/new"}>Create Project Request</a
-    ><button
-      class="ml-3 rounded border px-3 py-2"
-      onclick={() => {
-        item.project_award_date = "";
-        item.proposal_opening_date = new Date().toLocaleDateString("en-CA");
-      }}>Create a proposal</button
-    >
-  </div>
 {:else if isCancelledProposal}
   <DsEditingDisabledBanner>
     <p>This proposal has been cancelled and cannot be modified.</p>
@@ -907,7 +933,7 @@
         {#if data.editing && item.number}
           {managerAllocationsOnly ? "Edit allocations for" : "Editing"} {item.number}
         {:else}
-          Create Job
+          {isProposal ? "Create Proposal" : "Create Job"}
         {/if}
       </h1>
       {#if isProposal && !managerAllocationsOnly}
