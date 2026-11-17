@@ -1,68 +1,68 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_staff_summary.sql","sha256":"8d6d804ac7ffbcda566afab5548be49d020407174f6999e83e2ed808794dffa5","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_staff_summary.sql","sha256":"c39081581436a6236c43487ba753e547b2b90b745ca14d4604cf9b3ec9192a25","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_staff_summary.sql
 
-## Job staff summary groups time by person, not by role
+## Job staff summary prices entries before grouping by person
 
 Lines 1-3
 
-Asked as: same person two roles; employee twice on job; staff listed twice; worked two roles one job
+Asked as: same person two roles; one row per person; person works two roles job; entries priced separately by role
 
-The job staff summary prices each time entry first and then groups the entries by employee (uid). An employee who worked in more than one role on the same job gets one row.
+The job staff summary prices each time entry first and then groups the entries by person (uid). A person who works in more than one role on the same job therefore gets one row, and each entry is priced at its own role.
 
-## Rate sheets column lists each sheet and revision used
+## Rate sheets column lists each sheet used, with revision and name
 
-Lines 4-13
+Lines 4-16
 
-Asked as: which rate sheet used; rate sheet revision column; multiple rate sheets employee; rate sheets listed per person
+Asked as: which rate sheets used; rate sheet list blank; rate sheet revision name; multiple rate sheets per person
 
-For each employee, the job staff summary lists the distinct rate sheets that priced their entries, as 'name (rev. N)', sorted and separated by '; '. Entries with a blank rate sheet name are left out. The column is blank when no sheet priced any entry. Time in different periods can show more than one sheet.
+For each person, the summary lists the distinct rate sheets that priced their entries, separated by '; ' and sorted by label. A label shows the code and the revision, as in '2026-11-00004 (rev. 1)'. When the sheet has a name, the name follows in quotes. Entries with no rate sheet code add no label, and a person with no sheet gets a blank list (rate_sheets).
 
-## Staff with no profile show blank names
+## Staff without a profile show blank names
 
-Lines 12-12
+Lines 15-15
 
-Asked as: blank name in staff list; missing employee name; no profile name empty; staff name missing
+Asked as: missing name in summary; no profile name blank; staff row no name; person without profile
 
-When an employee has no profile, the job staff summary shows a blank given name and a blank surname (empty strings, not NULL). The row is still listed.
+When a person has no profile, the job staff summary shows blank given and family names (given_name, surname) for that person. The row stays in the summary.
 
-## Staff value and job total are sums of priced values
+## Person's value is the sum of priced entries, zero if none
 
-Lines 14-21
+Lines 17-24
 
-Asked as: staff value total wrong; job total hours sum; value per employee calculation; summary totals add up
+Asked as: person total zero; sum of hours per person; staff value adds up; hours totals per staff
 
-Each row's value is the sum of the employee's entry values, or 0 when there are none. The total is the sum of the values of all rows. Hours, meals hours, estimated hours and unpriced hours are also summed for each employee.
+A person's value is the sum of their entries' values. It is 0 when no entry has a value. Hours, meal hours, estimated hours and unpriced hours are summed per person in the same way.
 
-## Row value status: Incomplete, Estimated or Rate sheet
+## Percent of job total is blank when any hours are unpriced
 
-Lines 28-29
+Lines 19-35
 
-Asked as: why value says incomplete; estimated status on employee; unpriced hours status; value status meaning
+Asked as: percent of job blank; no percentage shown; percent empty unpriced hours; job share missing
 
-A row's value status (value_status) is 'Incomplete' when the employee has any unpriced hours. Otherwise it is 'Estimated' when the employee has any estimated hours. Otherwise it is 'Rate sheet'.
+A person's percent is their value divided by the job total, times 100, rounded to 1 decimal place. Turbo leaves the percent blank when any hours on the job are unpriced. It also leaves it blank when the total value is 0, because the division by zero gives no result.
 
-## Total status uses the whole job's hours
+## Row status shows Incomplete, Estimated or Rate sheet
 
-Lines 30-31
+Lines 31-32
 
-Asked as: job total status incomplete; whole job status estimated; total status meaning; job status overall
+Asked as: row says incomplete; estimated status staff; why rate sheet status; unpriced hours status
 
-The total status (total_status) is 'Incomplete' when any employee on the job has unpriced hours. Otherwise it is 'Estimated' when any employee has estimated hours. Otherwise it is 'Rate sheet'.
+A person's value status (value_status) is 'Incomplete' when any of their hours are unpriced. Otherwise it is 'Estimated' when any of their hours are estimated. Otherwise it is 'Rate sheet'. Unpriced hours take precedence over estimated hours.
 
-## Percent of job value shown only when nothing is unpriced
+## Total status uses the same rule across all staff
 
-Lines 32-32
+Lines 33-34
 
-Asked as: percent of job missing; why percent blank; percentage not showing; share of job empty
+Asked as: total status incomplete; job total status wrong; overall job status; whole job estimated flag
 
-Each person's percent is their value divided by the job total, times 100, rounded to 1 decimal. Turbo leaves the percent empty when any hours on the job are unpriced. It is also empty when the total is 0.
+The total status (total_status) is 'Incomplete' when any person on the job has unpriced hours. Otherwise it is 'Estimated' when any person has estimated hours. Otherwise it is 'Rate sheet'.
 
-## Job staff summary sort order
+## Staff summary is sorted by surname, given name, then ID
 
-Lines 34-34
+Lines 37-37
 
-Asked as: staff list order; sort staff summary; alphabetical staff summary; order of people on job
+Asked as: staff list order; sort staff by surname; blank names listed first; summary sorting people
 
-The job staff summary sorts rows by surname, then given name, then employee ID (uid).
+The job staff summary lists people by surname, then given name, then uid. People without a profile have blank names, so they sort first.

@@ -1,52 +1,44 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/helpcorpus/collections/rate_sheet_name_changes.md","sha256":"26150999c44429e16a293e58e93eb42d9243b56b41c14219e368ebc932bbaedd","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/helpcorpus/collections/rate_sheet_name_changes.md","sha256":"d038740a5c70cff44f15580fab5a6654ca1b6bb8e7f407af755de13286154286","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/helpcorpus/collections/rate_sheet_name_changes.md
 
-## Who can list rate sheet name change records
+## Who can list or view rate sheet name change records
 
-Lines 9-11
+Lines 7-17
 
-Asked as: list rate sheet renames; see rename history; who can see name changes; browse rate sheet name log
+Asked as: who can see rename history; view rate sheet renames; not signed in access; list rate sheet name log
 
-Any signed-in person can list the records of rate sheet name changes (rate_sheet_name_changes). A request without a signed-in user cannot.
+Any signed-in person can list and view records of rate sheet name changes (rate_sheet_name_changes). A request without a sign-in cannot.
 
-## Who can view one rate sheet name change record
+## Nobody creates rate sheet name changes through the API
 
-Lines 15-17
+Lines 19-21
 
-Asked as: view one rename record; open a rate sheet rename; see details of a name change; check a rate sheet rename
+Asked as: add rename record via API; create rate sheet rename entry; insert name change manually; api post rate sheet name
 
-Any signed-in person can view one record of a rate sheet name change (rate_sheet_name_changes). A request without a signed-in user cannot.
+Nobody can create a rate sheet name change record (rate_sheet_name_changes) through the API, except a PocketBase superuser. Turbo's own server code can still create one.
 
-## Nobody can create rate sheet name change records through the API
+## Nobody updates rate sheet name changes through the API
 
-Lines 21-21
+Lines 23-25
 
-Asked as: cannot add rename record; create rate sheet rename via api; manually log a name change; api rename insert forbidden
+Asked as: edit a rename record; change logged rate sheet name; fix rename history entry; update name change via API
 
-No one can create a rate sheet name change record (rate_sheet_name_changes) through the API, except a PocketBase superuser. Turbo's own server code can still create them.
+Nobody can update a rate sheet name change record (rate_sheet_name_changes) through the API, except a PocketBase superuser. Turbo's own server code can still update one.
 
-## Nobody can update rate sheet name change records through the API
+## Nobody deletes rate sheet name changes through the API
 
-Lines 25-25
+Lines 27-29
 
-Asked as: edit a rename record; change a logged rename; fix rate sheet rename entry; api update rename blocked
+Asked as: remove rename log entry; delete rate sheet rename record; erase name change history; api delete rename
 
-No one can update a rate sheet name change record (rate_sheet_name_changes) through the API, except a PocketBase superuser. Turbo's own server code can still update them.
+Nobody can delete a rate sheet name change record (rate_sheet_name_changes) through the API, except a PocketBase superuser. Turbo's own server code can still delete one.
 
-## Nobody can delete rate sheet name change records through the API
+## Required fields of a rate sheet name change
 
-Lines 29-29
+Lines 31-40
 
-Asked as: remove a rename record; delete name change log; erase rate sheet rename; api delete rename not allowed
+Asked as: rename record missing fields; which fields are required for rename; who renamed the rate sheet; old name and new name fields
 
-No one can delete a rate sheet name change record (rate_sheet_name_changes) through the API, except a PocketBase superuser. Turbo's own server code can still delete them.
-
-## Fields required on a rate sheet name change record
-
-Lines 35-40
-
-Asked as: required fields rename record; what to fill in rename; missing rate sheet name change field; renamed_by required; rename record validation error
-
-Each rate sheet name change record requires the rate sheet (rate_sheet), the old name (old_name), the new name (new_name) and the person who renamed it (renamed_by, a user). Turbo sets the created time (created) by itself when the record is created.
+A rate sheet name change record must name its rate sheet (rate_sheet) and the person who renamed it (renamed_by). The old name (old_name) and new name (new_name) are optional text. Turbo sets the created time (created) when the record is made.

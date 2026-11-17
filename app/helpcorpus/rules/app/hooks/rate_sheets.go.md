@@ -1,84 +1,84 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/rate_sheets.go","sha256":"ed880ae299c00db705a0f0ee7e057f9b4cdd51d80933252c47b1dff2d8098cd8","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/rate_sheets.go","sha256":"03853d0134437a808ba20d61d260e0434c1143ad1ef5d706164d2e1f3938e825","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/rate_sheets.go
 
-## Completeness check runs only when activating
+## Rate sheet checks run only when it becomes active
 
-Lines 19-31
+Lines 17-22
 
-Asked as: rate sheet saved inactive; activate rate sheet check; rate sheet not checked on update; completeness check only when active
+Asked as: save rate sheet inactive; rate sheet check skipped; completeness check not running; rate sheet saved as draft
 
-Turbo checks that a rate sheet has entries for all roles only when the sheet is being saved as active. A rate sheet saved as inactive is not checked. A sheet that is already active is not checked again on update.
+Turbo checks a rate sheet for completeness only when the sheet is saved with active set to true. A save that leaves the sheet inactive skips the check.
+
+## Already-active rate sheet is not re-checked on update
+
+Lines 24-31
+
+Asked as: edit active rate sheet; update live rate sheet; no check on active sheet edit; changed active rate sheet
+
+When a rate sheet that is already active is updated, Turbo does not check again that it has an entry for every role. The check runs on a new sheet created as active, or on an inactive sheet that becomes active.
+
+## Activating a rate sheet needs an entry for every role
+
+Lines 33-56
+
+Asked as: cannot activate rate sheet; rate sheet missing role; activate rate sheet fails; add entries for all roles
+
+Turbo refuses to set a rate sheet to active (active=true) when any role (rate_roles) has no entry (rate_sheet_entries) on that sheet. It shows the message "rate sheet must have entries for all roles before activation" and lists the missing roles (missing_roles). The overall error is "rate sheet is missing entries for some roles".
 
 ## Rate sheet completeness check failure message
 
 Lines 33-42
 
-Asked as: unable to verify rate sheet completeness; rate sheet activation refused database error; cannot activate rate sheet error; rate sheet verification failed
+Asked as: unable to verify rate sheet completeness; failed to validate rate sheet entries; rate sheet check error; cannot validate rate sheet
 
-If Turbo cannot check the rate sheet's entries because of a database error, it refuses the activation. The message is "unable to verify rate sheet completeness".
+If Turbo cannot check the rate sheet's entries, it refuses the activation. It says 'failed to validate rate sheet entries' and, on the active field, 'unable to verify rate sheet completeness'.
 
-## Activating a rate sheet requires entries for every role
+## Incomplete rate sheet lists the missing roles
 
-Lines 44-56
+Lines 44-84
 
-Asked as: cannot activate rate sheet missing role; rate sheet must have entries for all roles; missing rate for role; activation blocked roles without entries
+Asked as: which roles are missing; rate sheet missing roles list; roles without rate entry; rate sheet incomplete activation
 
-Turbo refuses to set a rate sheet active when any role in rate roles (rate_roles) has no entry on that rate sheet (rate_sheet_entries). The message is "rate sheet must have entries for all roles before activation". The error lists the missing role names.
+When a rate sheet lacks an entry for some role, Turbo refuses to activate it. It says 'rate sheet is missing entries for some roles', and the active field says 'rate sheet must have entries for all roles before activation'. The error lists the missing roles (missing_roles) by name, in alphabetical order.
 
-## Missing roles are listed alphabetically
-
-Lines 63-84
-
-Asked as: list of missing roles order; missing roles sorted alphabetically; which roles are missing rates; missing role names order
-
-The list of roles missing from a rate sheet is sorted by role name. A role counts as missing when the sheet has no entry for it.
-
-## Revised rate sheet effective date cannot be earlier than previous revision
+## Revised rate sheet effective date cannot precede previous revision
 
 Lines 89-119
 
-Asked as: effective date earlier than previous revision; new revision date too early; effective date must be on or after; revision date before previous revision
+Asked as: effective date too early; effective date before previous revision; revision date earlier than last; rate sheet date rejected
 
-When a person creates a rate sheet with a revision above 0, Turbo compares its effective date (effective_date) with that of the previous revision of the same name. If the new date is earlier, Turbo refuses it. The message is "effective date must be on or after <previous date> (previous revision's date)". The same date is allowed.
+When a person creates a rate sheet revision above 0, its effective date must be on or after the previous revision's effective date. An earlier date is refused with 'effective date must be on or after the previous revision's effective date'. The field message names the previous date. The same date is allowed.
 
-## Effective date check skips first revision and edits
+## Effective date check skips updates and first revisions
 
 Lines 90-99
 
-Asked as: effective date not checked first revision; revision 0 effective date; editing rate sheet date check; date check skipped on edit
+Asked as: why date not checked on edit; first revision date allowed; effective date not validated on update; revision zero effective date
 
-Turbo checks the effective date only when a rate sheet is created, and not for revision 0. Edits to an existing rate sheet are not checked.
+Turbo checks the effective date only when a rate sheet is created, not when it is updated. It also skips revision 0, the first revision.
 
-## Missing previous revision allows any effective date
+## Previous revision is found by shared code
 
-Lines 144-147
+Lines 128-156
 
-Asked as: no previous revision date accepted; first revision any effective date; no earlier revision date check; new rate sheet date unchecked
+Asked as: no previous revision found; same code revision missing; effective date with no earlier revision; revision lookup by code
 
-If Turbo finds no previous revision (revision minus 1, same name), it accepts the new effective date without a check.
+Turbo compares the new effective date with the revision numbered one lower that has the same code. If it finds no such revision, it allows the new date without error.
 
-## Effective dates are compared as text
+## Newer revision blocks activating an older one
 
-Lines 149-154
+Lines 158-175
 
-Asked as: same effective date as previous revision; equal date rate sheet allowed; date comparison rate sheet text; effective date same day allowed
+Asked as: cannot activate older revision; newer revision exists; outdated rate sheet activation; old revision blocked
 
-Turbo compares effective dates as YYYY-MM-DD text. A new date equal to the previous date is valid, and only a strictly earlier date is refused.
+Turbo treats a rate sheet as outdated when another sheet with the same code has a higher revision number. This is used to prevent activating older revisions. The function only reports the fact. The refusal itself is not in this file.
 
-## Newer revision check blocks activating older revisions
+## Activating a revision deactivates the other revisions
 
-Lines 157-174
+Lines 177-191
 
-Asked as: cannot activate older revision; newer revision exists rate sheet; activate old rate sheet version; higher revision already exists
+Asked as: other revisions deactivated; only one active revision; activating turns off old sheet; previous rate sheet switched off
 
-Turbo can tell whether a rate sheet with the same name and a higher revision number exists. It is used to prevent activating an older revision. Only a strictly higher revision counts.
-
-## Activating a revision deactivates other revisions
-
-Lines 176-190
-
-Asked as: activating deactivates other revisions; only one active rate sheet; previous active rate sheet switched off; other revisions turned inactive
-
-When a revision is activated, Turbo sets active to false on all other rate sheets with the same name that are active. This leaves one active revision at a time.
+When a revision is activated, Turbo can set every other active rate sheet with the same code to inactive. This keeps one revision active at a time.

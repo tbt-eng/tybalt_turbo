@@ -1,84 +1,92 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/rate_sheet_drafts.go","sha256":"e0ae022cb31e152ad7ec3b1adcff522bc9fe3696f2824f36a79579fe9167b641","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/rate_sheet_drafts.go","sha256":"fd74ff5ed75d8100f631b47bed734f4cba7fe01c3417e1458ff86864767cdea9","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/rate_sheet_drafts.go
 
-## Proposed rates are a draft rate sheet owned by a project request
+## Proposed rate sheet is a draft owned by a project request
 
-Lines 14-31
+Lines 27-31
 
-Asked as: proposed rates; propose new rates; draft rate sheet; rates for a project request
+Asked as: rate sheet owned by request; proposed rates draft; rate sheet not yet active; which request owns this sheet
 
-A project request can propose new rates instead of choosing an active rate sheet. The proposal is a draft: an inactive rate sheet whose request field (request) names the owning request. A rate sheet counts as a draft when its request field is not empty.
+A rate sheet whose request field (request) names a project request is a draft. The project request owns the draft. Turbo treats any rate sheet with an empty request field as an ordinary sheet.
 
 ## Direct use of a draft rate sheet is refused
 
 Lines 33-44
 
-Asked as: cannot use draft rate sheet; rate sheet refused; rate_sheet_draft error; activated when job is created
+Asked as: cannot use proposed rate sheet; rate sheet refused directly; activated when job is created; rate_sheet_draft error
 
-Turbo refuses to use a draft rate sheet directly. The message is "this rate sheet is proposed in a project request; it is activated when the job is created". The error shows under the field that the UI names (code rate_sheet_draft).
+When a rate sheet draft is used directly, Turbo refuses with: "this rate sheet is proposed in a project request; it is activated when the job is created". The error shows under the field that the screen names (code rate_sheet_draft).
 
-## A request counts a sheet as its draft only if it owns it
+## A request's draft is found only if that request owns it
 
 Lines 55-71
 
-Asked as: request has no draft; draft not showing; which rate sheet is mine; sheet owned by another request
+Asked as: request has no draft rates; draft not showing for request; sheet belongs to another request; rates from another request
 
-A project request has a draft only when its rate sheet (rate_sheet) has the request's own ID in its request field. A request with no rate sheet, an unsaved request, or a sheet that is active or owned by another request has no draft. A missing sheet is not reported here; the normal rate sheet checks report it.
+Turbo treats the rate sheet of a project request as its draft only when the sheet's request field names that same request. A request with no rate sheet, an unsaved request, or a sheet that another request owns or that is an ordinary sheet has no draft. A missing sheet is not reported here; the normal rate sheet checks report it.
 
-## Draft must have a reason
+## Draft needs a reason
 
-Lines 83-90
+Lines 87-90
 
-Asked as: reason for new rates; blank reason rates; why rates needed; invalid proposed rates
+Asked as: reason field empty; why new rates needed; cannot submit project request; blank reason for rates
 
-Turbo checks a draft of proposed rates when the request is submitted, approved and turned into a job. A draft with an empty or blank reason fails with "enter the reason why this project needs new rates" (invalid_proposed_rates).
+When a project request with proposed rates is submitted, approved or turned into a job, Turbo refuses a draft whose reason is empty or only spaces. The message is "enter the reason why this project needs new rates".
 
-## Proposed rates must differ from every active rate sheet
-
-Lines 83-108
-
-Asked as: duplicate rate sheet; rates same as existing sheet; identical rates; proposed rates already exist
-
-Turbo compares the draft's rates with the active rate sheets, ignoring revisions that share the draft's name. If any active sheet has exactly the same rates, Turbo refuses with the duplicate rate sheet error under the proposed rates field. Turbo repeats the comparison at submission, approval and job creation, because an active sheet can change after the draft is saved.
-
-## Draft must have a rate for every role
+## Draft needs a rate for every role
 
 Lines 91-97
 
-Asked as: missing rate for role; rates incomplete; no rate for role; role missing from proposal
+Asked as: missing role rate; proposed rates incomplete; no rate for role; rate missing for a role
 
-A draft of proposed rates must have an entry for every role. If roles are missing, Turbo refuses with "the proposed rates have no rate for" followed by the missing roles, separated by commas.
+Turbo refuses proposed rates that lack a role's entry. The message is "the proposed rates have no rate for " followed by the missing roles, separated by commas. The check runs at submission, approval and job creation.
 
-## Activating a rate sheet refuses duplicate rates
+## Proposed rates must differ from every active rate sheet
 
-Lines 112-131
+Lines 98-109
 
-Asked as: cannot activate rate sheet; activation duplicate error; same rates as active sheet; rate sheet activate fails
+Asked as: rates same as active sheet; duplicate proposed rates; rates already exist; proposed rates identical to current
 
-Before Turbo activates a rate sheet, it compares the stored entries with the other active sheets. Revisions with the same name are excluded. If an active sheet of another name has the same rates, Turbo refuses with the duplicate rate sheet error under the field active.
+Turbo refuses proposed rates when an active rate sheet has exactly the same rates. It shows the duplicate-rate-sheet error under proposed rates (proposed_rates). The draft's own code is excluded from the comparison. Turbo repeats the comparison at each step, because an active sheet can change after the draft is saved.
 
-## Activation deactivates other revisions of the same name
+## Activating a rate sheet checks duplicates and replaces other revisions
 
-Lines 112-136
+Lines 117-137
 
-Asked as: two active revisions; other revisions deactivated; make rate sheet active; new revision replaces old
+Asked as: cannot activate rate sheet; active duplicate rate sheet error; old revisions still active; activate replaces previous revision
 
-When Turbo activates a rate sheet, it first deactivates the other revisions of that name. A name never has two active revisions. The caller checks permissions, completeness and newer revisions, and this code does not.
+When Turbo activates a rate sheet, it compares the stored entries with the active sheets of other codes. If the rates are exactly the same, it refuses with the duplicate error under the field active. Otherwise it deactivates the other revisions of the same code, then sets the sheet active, so a code never has two active revisions.
 
-## Creating the job activates the request's draft rates
+## Job creation activates the request's draft rates
 
-Lines 139-156
+Lines 139-166
 
-Asked as: job creation rates; rates become active after job; draft turns active; job made from request rates
+Asked as: job creation proposed rates; draft turns active on job; rates activated when job made; effective date set on job
 
-When a job is created from an approved request that has a draft, Turbo validates the draft again. It then clears the draft's request field, sets its effective date (effective_date) to today's rate sheet date (RateSheetToday), and activates it. The sheet becomes an ordinary active sheet that keeps its reason. If the request uses an active sheet, Turbo does nothing.
+When a job holder creates a job from an approved project request that has a draft, Turbo activates the draft in the same transaction. It sets the draft's effective date to today (RateSheetToday) and clears its request field. The sheet then keeps its reason as an ordinary active sheet. A request that uses an active sheet gets no activation.
+
+## Job creation validates the draft again
+
+Lines 148-152
+
+Asked as: job fails draft checks; rates rejected when creating job; duplicate error at job creation; draft revalidated for job
+
+Before activating the draft, Turbo runs the draft checks again: reason, a rate for every role, and no duplicate of an active sheet. A duplicate is reported under proposed rates.
+
+## Older draft revision cannot replace a newer one
+
+Lines 153-162
+
+Asked as: older rate sheet revision; newer revision exists; old proposed rates won't activate; outdated draft cannot activate
+
+If a newer revision of the draft's code exists, Turbo refuses to activate it. The message is "a newer revision of the proposed rate sheet exists". This is a safeguard, because nothing can revise a draft.
 
 ## Deleting a project request deletes its draft rate sheet
 
-Lines 158-183
+Lines 168-193
 
-Asked as: deleted request rate sheet; delete project request draft; draft gone after delete; request removed rates removed
+Asked as: deleted request draft gone; project request deletion removes rates; rate sheet disappeared after delete; draft removed with request
 
-When a project request is deleted by any route, Turbo also deletes its draft rate sheet, after the request itself is deleted. A sheet that job creation activated has its request field cleared, so it stays. If a draft is already gone, Turbo skips it.
+Deleting a project request also deletes the draft rate sheets that it owns, whoever deletes it. Turbo deletes the request first, then the drafts. A sheet already gone is skipped. Job creation clears the draft's request first, so an activated sheet stays after the request is deleted.

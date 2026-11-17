@@ -1,60 +1,68 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/helpcorpus/collections/rate_sheets_augmented.md","sha256":"5ef7d9ed7b71b485090ddb8a17aad44e7051699862bf01bd651f6e6f63f2f147","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/helpcorpus/collections/rate_sheets_augmented.md","sha256":"aff577fb4a1ca985709614e7539ea417c28c12748a41b119b456b4fe9b2d379e","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/helpcorpus/collections/rate_sheets_augmented.md
 
-## Nobody can create, update or delete through the rate sheets view
+## Nobody can create, update or delete rate sheets in this view
 
-Lines 5-5
+Lines 5-17
 
-Asked as: cannot edit rate sheet; rate sheets read only; can't update rate sheet api; delete rate sheet view
+Asked as: cannot edit rate sheet; read only rate sheets view; cannot delete rate sheet via API; rate sheets view is locked
 
-The rate sheets view (rate_sheets_augmented) has no create, update or delete rules, so nobody can do these actions on it through the API. It is a saved query that Turbo reads and never writes.
+The rate sheets view (rate_sheets_augmented) has only a list rule and a view rule. Nobody can create, update or delete its records through the API, because it is a read-only view. Turbo's own server code can still change the underlying rate sheets.
 
-## Who can list rate sheets with job counts
+## Who can list rate sheets in the augmented view
 
-Lines 7-11
+Lines 9-11
 
-Asked as: list rate sheets; who can see rate sheets; rate sheet list access; signed out rate sheets refused
+Asked as: list rate sheets without login; who can see rate sheet list; rate sheets not loading signed out; anyone can browse rate sheets
 
-Any signed-in person can list the records of the rate sheets view (rate_sheets_augmented). A request with no signed-in person is refused.
+Any signed-in person can list the records of the rate sheets view (rate_sheets_augmented). A request without a signed-in user cannot list them.
 
-## Who can view one rate sheet with its job count
+## Who can view one rate sheet in the augmented view
 
-Lines 13-17
+Lines 15-17
 
-Asked as: view one rate sheet; open a rate sheet; single rate sheet access; rate sheet details permission
+Asked as: open one rate sheet; view single rate sheet permission; rate sheet details not showing; signed out rate sheet access
 
-Any signed-in person can view one record of the rate sheets view (rate_sheets_augmented). A request with no signed-in person is refused.
+Any signed-in person can view one record of the rate sheets view (rate_sheets_augmented). A request without a signed-in user cannot view it.
 
-## Rate sheet fields shown in the view and their patterns
+## Job count counts each job once, from current and past use
 
-Lines 22-52
+Lines 31-37
 
-Asked as: rate sheet date format; effective date format; rate sheet id characters; rate sheet fields shown
+Asked as: how many jobs use rate sheet; job count wrong; jobs counted twice rate sheet; rate sheet usage total
 
-Each record shows the rate sheet's name, effective date, revision, active flag, created and updated times, and job_count. The effective_date must be text in the form YYYY-MM-DD, and the id must contain only lowercase letters and digits.
+The job count (job_count) is the number of distinct jobs that use the rate sheet. It counts a job whose current rate sheet (jobs.rate_sheet) is this one, and a job that has this rate sheet in its history (job_rate_sheets). A job that appears in both is counted once, because the query uses UNION. A job with no rate sheet is not counted.
 
-## Job count counts each job once, from current and past rate sheet use
+## Unused rate sheets still appear with a job count of 0
 
-Lines 30-36
+Lines 31-37
 
-Asked as: job count wrong; jobs counted twice rate sheet; how job count works; rate sheet job total
+Asked as: unused rate sheet showing; rate sheet with zero jobs; rate sheet missing from list no jobs; why is job count zero
 
-job_count is the number of distinct jobs that use the rate sheet now (the job's rate_sheet field) or used it before (the job_rate_sheets rows, the rate sheet periods). The same job counts once, even if it appears in both places. A job with no rate sheet set is not counted from the jobs table.
+The view joins jobs with a LEFT JOIN. A rate sheet that no job uses still appears, and its job count (job_count) is 0.
 
-## Rate sheets used by no job still appear with a count of 0
+## Rate sheets that belong to a project request are hidden
 
-Lines 30-36
+Lines 38-38
 
-Asked as: unused rate sheet missing; rate sheet zero jobs; rate sheet no jobs showing; empty rate sheet not listed
+Asked as: project proposed rates not showing; rate sheet missing from list; project request rates hidden; proposal rate sheet not visible
 
-The view joins jobs to rate sheets with a LEFT JOIN, so a rate sheet that no job uses still appears, and its job_count is 0.
+The view lists only rate sheets whose request field (rs.request) is empty or null. A rate sheet that a project request owns (proposed rates) does not appear in it.
 
-## Rate sheets view leaves out rate sheets that belong to a project request
+## Rate sheet code format
 
-Lines 37-37
+Lines 47-47
 
-Asked as: project request rate sheet missing; proposed rates not showing; rate sheet hidden from view; rate sheet attached to request
+Asked as: rate sheet code invalid; wrong rate sheet number format; rate sheet code error; code not accepted rate sheet
 
-The view lists only rate sheets whose request field (rs.request) is empty or not set. A rate sheet that is attached to a project request (for example proposed rates) does not appear in it.
+The code of a rate sheet is required and must match year-month-number: four digits, a month from 01 to 12, and five digits, such as 2026-11-00004.
+
+## Effective date format of a rate sheet
+
+Lines 49-49
+
+Asked as: rate sheet date error; effective date rejected; wrong date format rate sheet; start date of rate sheet invalid
+
+The effective date (effective_date) of a rate sheet is required and has the pattern YYYY-MM-DD (four digits, two digits, two digits).

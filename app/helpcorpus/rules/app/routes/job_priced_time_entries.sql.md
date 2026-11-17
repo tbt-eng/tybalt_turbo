@@ -1,84 +1,108 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_priced_time_entries.sql","sha256":"58f04f789d0adfdb9afe0800ae67a31d9f25291296afa4024581bf6dc504df0a","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_priced_time_entries.sql","sha256":"b5b2b93b59e5166f679462249ef9d3908e8d859be44ecc5d6f38fc9d783c8b56","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_priced_time_entries.sql
 
-## Time entry priced with rate sheet in effect on its date
+## Time entry priced with the rate sheet in effect on its date
 
 Lines 1-3
 
-Asked as: wrong rate on old timesheet; rate changed after the date; which rate sheet applies to a date; time priced with the wrong rates; rate sheet history by date
+Asked as: wrong rate on old time; rate sheet by date; which rate applies to entry; time priced with old rates
 
-Turbo prices each time entry with the rate sheet that was in effect on the entry's date. It takes the sheet from the project's rate sheet history (job_rate_sheets). This applies to WIP and to the staff and division summaries.
+For WIP and the staff and division summaries, Turbo prices each time entry with the rate sheet that is in effect on the entry's date. It takes the sheet from the project's rate sheet history (job_rate_sheets). A period runs from its effective date up to, but not including, the next period's effective date.
 
-## Project without rate sheet history uses its own rate sheet
+## Project with no rate sheet history uses the job's rate sheet
 
 Lines 3-5
 
-Asked as: project has no rate history; imported project wrong rate; job rate sheet not used; no rate sheet history
+Asked as: no rate history for project; imported project rates; job rate sheet used; project has no rate sheet
 
-A project with no history rows uses the job's rate sheet (jobs.rate_sheet) for all of its time. Imported projects have no history until it is written. An empty rate sheet value on the job is treated as no sheet (null).
+When a project has no rows in its rate sheet history, Turbo prices all its time with the job's own rate sheet (jobs.rate_sheet). Imported projects have no history until it is written. An empty rate sheet value on the job counts as no sheet.
 
-## Inactive rate sheet revisions still price past time
+## Pricing uses the assigned rate sheet revision even if inactive
 
-Lines 5-6
+Lines 4-5
 
-Asked as: inactive rate revision; rate change not updating past time; old revision still pricing hours; rates changed but value unchanged
+Asked as: inactive rate sheet still used; old revision recalculated; changing rates changes past value; rate change updates old time
 
-Turbo uses the revision assigned to the rate sheet even when that revision is inactive. A change to a sheet's rates therefore recalculates the value of past time.
+Turbo prices time with the revision of the rate sheet that is assigned, even when that revision is inactive. A change to a sheet's rates therefore recalculates the value of past time.
 
-## Which time entries count toward value
+## Amendments and meals are not part of the time value
 
-Lines 6-8
+Lines 5-8
 
-Asked as: why amendments not in value; meal entries excluded from value; what counts toward job value; uncommitted hours in value
+Asked as: expenses in time value; meals counted in value; why value differs from hours; amendments included in total
 
-Value keeps the existing selection of committed and uncommitted entries. Amendments and meals are not part of the value.
+Turbo keeps its existing selection of committed and uncommitted time entries when it prices time. Amendments and meals are not part of the value. The value is the entry's hours multiplied by the rate.
 
-## Rate sheet period boundaries and opening period
+## Opening period covers entries dated before the first rate sheet
 
-Lines 12-29
+Lines 16-24
 
-Asked as: entries before first effective date; rate changes on effective date; which rate applies on start day; time before rate sheet start; early entries no rate; period boundary rate sheet
+Asked as: entries before first rate sheet; missing rate before start date; time dated before sheet; opening rate period
 
-Each rate sheet period runs from its effective date up to, but not including, the next period's effective date. The last period has no end. An entry on a period's start date uses that period, and an entry on the next effective date uses the next sheet. Every selected job gets an opening period with an empty start date that is before every date. It is added when the job has no history row with an empty effective date, so entries before the first effective date are still kept. Such early entries use no sheet when the job has history rows.
+Turbo adds an opening period with an empty start date to each selected job that has no history row with an empty effective date. This period is before every date, so no entry of the job is dropped. When the job has history rows, the opening period has no rate sheet, and entries before the first effective date get no sheet rate.
 
-## Rate comes from the rate sheet by role, else employee default
+## Empty job rate sheet is treated as no rate sheet
 
-Lines 33-51
+Lines 17-19
 
-Asked as: rate for role missing; fallback to employee default rate; role has no rate; charge out rate used for hours
+Asked as: blank rate sheet on job; job has no sheet; empty rate sheet field
 
-The rate for an entry is the rate sheet's rate for the entry's role. If the sheet has no rate for that role, Turbo uses the employee's default charge-out rate from the admin profile (default_charge_out_rate). The value is hours times that rate.
+For a job with no history rows, an empty rate sheet on the job (jobs.rate_sheet) counts as none. The opening period then has no rate sheet.
 
-## Zero or missing default rate is not used
+## Each rate sheet period runs until the next period starts
+
+Lines 25-42
+
+Asked as: rate change on boundary date; which period an entry falls in; end date of rate period; rate sheet switch day
+
+A project's rate sheet history is split into periods. A period starts on its effective date and ends when the next one starts. An entry dated on the next start date belongs to the next period, and the last period has no end.
+
+## Rate sheet code and name are blank when no sheet applies
+
+Lines 32-32
+
+Asked as: rate sheet name missing; blank rate sheet code; no sheet shown on entry
+
+Turbo shows an empty code and name for the rate sheet when an entry's period has no rate sheet or the sheet is not found.
+
+## Employee default rate fills in when the sheet has no rate
 
 Lines 34-35
 
-Asked as: zero default rate; employee has no charge out rate; time shows no dollar value; missing default rate value
+Asked as: default charge out rate; employee rate used instead; no rate so default applied; fallback hourly rate
 
-An employee's default charge-out rate counts only when it is above 0. A zero or missing default cannot supply a dollar value.
+When no sheet rate exists, Turbo prices the entry with the employee's default charge-out rate from the admin profile. A default rate of zero or less, or a missing one, is not used.
 
-## Entries limited to the report date range, inclusive
+## Sheet rate is matched by the entry's role
+
+Lines 44-45
+
+Asked as: rate missing for role; wrong role rate; role has no price; rate by job role
+
+Turbo takes the rate from the period's rate sheet for the role on the time entry. When the sheet has no rate for that role, there is no sheet rate.
+
+## Pricing covers only entries inside the report dates, both ends included
 
 Lines 47-48
 
-Asked as: report date range included; start date end date report; entries missing from report dates; report includes last day
+Asked as: entries outside report dates; time missing from WIP report; report date range excluded; last day of report
 
-Only time entries dated from the start date through the end date count. Both dates are included.
+Turbo prices only the time entries dated from the start date to the end date of the report. Both dates are included.
 
-## Estimated hours use the default rate
+## Entries priced with the default rate count as estimated hours
 
-Lines 52-52
+Lines 51-52
 
-Asked as: estimated hours column; why hours marked estimated; estimate instead of rate; hours with no role rate
+Asked as: estimated hours shown; default rate hours estimate; why hours marked estimated
 
-An entry counts as estimated hours when the rate sheet has no rate for its role but the employee has a usable default rate. Its estimated hours equal its hours. Otherwise estimated hours are 0.
+When an entry has no sheet rate but has a default rate, its hours count as estimated hours (estimated_hours). Other entries count zero estimated hours.
 
-## Unpriced hours when no rate is available
+## Entries with no rate at all are unpriced hours
 
-Lines 53-53
+Lines 51-53
 
-Asked as: unpriced hours shown; hours with no rate; time with zero value; no rate for hours
+Asked as: unpriced hours appear; entry has no value; hours with no rate; null value on time
 
-An entry counts as unpriced hours when neither the rate sheet nor the employee default gives a rate. Its unpriced hours equal its hours. Otherwise unpriced hours are 0.
+When an entry has neither a sheet rate nor a usable default rate, its hours count as unpriced hours (unpriced_hours) and its value is empty (null).

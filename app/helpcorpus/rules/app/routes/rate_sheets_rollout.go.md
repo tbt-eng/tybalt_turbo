@@ -1,108 +1,92 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/rate_sheets_rollout.go","sha256":"7a8b5d41c5c53d8ccc2038ac8734ee64a131bee6e11e7f76318916afaf2c0b25","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/rate_sheets_rollout.go","sha256":"a39ed61dec3c9cff4527d425d0a851c4fc7a01c391c1b8fc0795c30745c0cc43","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/rate_sheets_rollout.go
 
-## Only an active admin can use rate sheet rollout
+## Rollout moves active projects from one date to the latest revision
+
+Lines 15-20
+
+Asked as: update jobs to new rates; projects still on old rate sheet; move jobs to new price list; reprice jobs after rate change
+
+A revision rollout gives every active project on an earlier revision of a rate sheet a new rate sheet period on the latest revision, from the chosen date. Each project gets the period in the same way as a new period on the job details page. Time from that date is repriced.
+
+## Only active admins can move projects to a rate sheet revision
 
 Lines 45-58
 
-Asked as: not an admin; only admins can move projects; rollout permission denied; who can move projects to a revision
+Asked as: can't move projects to revision; not allowed to move jobs; need admin rights for rollout; permission denied moving projects
 
-Turbo refuses both the rollout preview and the rollout itself unless the person is an active user with the admin claim. The message is "Only an active admin can move projects to a revision."
+Both the preview count and the rollout need an active admin (the admin claim). Anyone else gets "Only an active admin can move projects to a revision."
 
-## Rollout target must be the latest active revision
+## Rollout target must be the latest, active revision
 
 Lines 63-79
 
-Asked as: rate sheet not found; move to old revision; activate revision first; revision not latest
+Asked as: move projects to old revision; rate sheet revision not active; newer version of rate sheet exists; activate rate sheet before moving
 
-Projects move only to a rate sheet revision that exists, is the latest revision of its name, and is active. Turbo refuses with "Rate sheet not found.", "Projects can move only to the latest revision of a rate sheet." or "Activate this revision before you move projects to it."
+The target revision must exist, or Turbo says "Rate sheet not found." If a newer revision of the same code exists, Turbo says "Projects can move only to the latest revision of a rate sheet." If the revision is not active, Turbo says "Activate this revision before you move projects to it."
 
-## Rollout moves only active non-proposal projects on earlier revisions
+## Rollout skips proposals, cancelled, closed and later-period projects
 
-Lines 92-110
+Lines 99-130
 
-Asked as: which projects get moved; proposal jobs excluded; jobs on older revision; projects eligible for rollout
+Asked as: why some jobs were skipped; cancelled jobs not moved; closed projects left behind; project skipped in rollout
 
-A revision rollout looks at jobs whose current rate sheet has the same name and a lower revision (rs.revision < the chosen revision). Jobs whose number starts with P (proposals) are left out. Projects are counted by status and by their latest period.
+The rollout looks at projects (not proposals, whose number starts with P) whose current sheet has the same code and an earlier revision. A Cancelled project is counted as cancelled (cancelled). Any other project that is not Active is counted as closed (closed). An Active project whose latest period starts on or after the date is counted as later_period, because a period from the date would not be the latest. All other projects move (move).
 
-## Rollout sorts projects into move and skipped groups
+## Rollout is refused while a rate sheet absorb is pending
 
-Lines 115-130
+Lines 134-146
 
-Asked as: why was project skipped; project not moved; cancelled project rollout; later period skipped
+Asked as: rollout blocked by absorb; rate sheet absorb waiting; can't move projects pending absorb; undo or commit absorb first
 
-Turbo counts a Cancelled project as cancelled (cancelled). It counts any other project that is not Active (Closed) as closed (closed). An Active project whose latest dated period starts on or after the chosen date counts as later_period, so the equal date is skipped. All other Active projects move (move).
+If any rate sheet absorb can still be undone or committed, Turbo refuses the rollout with "A rate sheet absorb is waiting to be committed or undone. Finish it before moving projects." Undo would overwrite a moved project.
 
-## Rollout is blocked while a rate sheet absorb is pending
+## Rollout preview defaults the date to the revision's effective date
 
-Lines 137-146
+Lines 148-173
 
-Asked as: absorb pending; rate sheet absorb waiting; cannot move projects absorb; undo absorb before rollout
+Asked as: preview projects to move; count before rollout; which effective date is used; dry run rate sheet change
 
-While any rate sheet absorb is waiting to be committed or undone, Turbo refuses the rollout with "A rate sheet absorb is waiting to be committed or undone. Finish it before moving projects." Undo would overwrite moved projects.
+The preview counts the projects that would move and those skipped, without changing anything. Only an active admin can use it. If no effective_date is given, Turbo uses the effective date of the revision. The date must pass the new-period date and revision checks.
 
-## Rollout preview date defaults to the revision's effective date
+## Rollout checks date and reason before moving projects
 
-Lines 151-172
+Lines 187-211
 
-Asked as: rollout preview; how many projects would move; default effective date; preview rate sheet change
+Asked as: rollout reason rejected; invalid date for rate change; rollout date error; reason field validation rate sheet
 
-The preview (GET) counts the projects that would move and those skipped. When no effective_date is given or it is blank, Turbo uses the revision's own effective date. The date must pass the new-period date rules (CheckRateSheetPeriodDate and CheckRateSheetPeriodRevision). The preview changes nothing.
-
-## Rollout trims spaces from date and reason
-
-Lines 187-188
-
-Asked as: extra spaces in date; trim reason spaces; whitespace in rollout reason; spaces around effective date
-
-When an admin moves projects to a revision, Turbo trims leading and trailing spaces from the effective date (effective_date) and from the reason. It checks and saves the trimmed values.
-
-## Rollout request has no default date
-
-Lines 187-187
-
-Asked as: blank date rollout; rollout date empty; no date when moving projects; date required to move projects
-
-The rollout itself does not use the revision's effective date when the effective date is empty, unlike the preview. Turbo passes the empty date to the same date check as any other date (checkRolloutDate), so the admin should send a date.
+Turbo checks that the date passes the new-period date rules and the revision rule for the sheet. It also checks the reason with the rate sheet reason check (checkRateSheetReason). The reason and date are trimmed of spaces first.
 
 ## Rollout needs a confirmed project count
 
 Lines 189-191
 
-Asked as: confirm project count; expected count missing; number of projects required; rollout count not confirmed
+Asked as: confirm number of projects; rollout missing count; expected count required; how many projects to confirm
 
-A rollout request without expected_count is refused with "Confirm the number of projects to move." The admin must give the count that the preview showed.
+A rollout request without expected_count is refused with "Confirm the number of projects to move."
 
-## Rollout is refused when job editing is off
+## Rollout moves all projects or none
+
+Lines 194-246
+
+Asked as: some projects failed rollout; rollout failed halfway; partial rollout left behind; all projects move or nothing
+
+The rollout runs in one transaction. Each project gets a new dated period on the sheet, with the reason and the admin who did it. If any project fails, none move. On success Turbo returns the counts.
+
+## Rollout is refused when job editing is disabled
 
 Lines 195-201
 
-Asked as: job editing disabled; cannot edit jobs rollout; rollout blocked editing off; jobs editing turned off
+Asked as: jobs editing disabled rollout; can't edit jobs during rollout; job editing turned off; ErrJobsEditingDisabled
 
-The rollout checks inside its transaction that job editing is enabled. When it is disabled, Turbo refuses with the jobs-editing-disabled error (ErrJobsEditingDisabled).
+The rollout runs only while job editing is enabled. If it is disabled, Turbo refuses the rollout with the jobs-editing-disabled error (ErrJobsEditingDisabled).
 
-## Rollout checks date and reason before moving
-
-Lines 206-211
-
-Asked as: rollout date invalid; reason rejected rollout; rollout failed date check; nothing moved after error
-
-The rollout checks the effective date with the new-period date rules. It checks the reason with the rate sheet reason rule (checkRateSheetReason). A failure on either stops the rollout and moves nothing.
-
-## Rollout refuses when the project count changed
+## Rollout refuses when the project count differs from the confirmed count
 
 Lines 215-221
 
-Asked as: project count changed; numbers changed rollout; count mismatch projects; projects changed since preview
+Asked as: projects to move have changed; count changed since preview; new count try again; number of jobs changed rollout
 
-If the number of projects to move differs from the admin's expected count, nothing moves. Turbo answers "The projects to move have changed. Check the new count and try again." with the new counts.
-
-## Rollout moves all projects in one transaction
-
-Lines 222-246
-
-Asked as: all or nothing rollout; projects added new period; rollout partly failed; rollout success counts
-
-For each project to move, Turbo adds a new dated rate sheet period for the latest revision, from the chosen date, with the given reason and the admin as the creator. It uses the same history rules as a new period on the job page. If any project fails, none move. On success Turbo returns the counts.
+Turbo recounts the projects to move inside the transaction. If the count differs from expected_count, nothing moves. Turbo answers "The projects to move have changed. Check the new count and try again." with the new counts.

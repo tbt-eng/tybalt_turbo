@@ -1,68 +1,68 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_wip_missing_rates.go","sha256":"8e4ca5b958d611b1c2d0609d485d8537dc6e7a08ef1149d3b510327e74ffacfb","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_wip_missing_rates.go","sha256":"f59dd3607664fb94d2fa567704bdfa4eb44a57308a859691309ca49b79c60ba1","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_wip_missing_rates.go
 
-## Missing rates report date defaults to today
+## Missing-rates report date defaults to today
 
-Lines 34-38
+Lines 35-39
 
-Asked as: missing rates default date; report date today; as of date blank; which date is used
+Asked as: missing rates report date; report date defaults to today; no as_of date given; which date does the report use
 
-The job's WIP missing rates report uses an as-of date (as_of). If none is given, it uses today's date in UTC. The report counts time entries up to and including that date.
+The job's WIP missing-rates report uses the as_of date from the request. When as_of is empty, it uses today's date (UTC).
 
-## Missing rates report refuses invalid or future dates
+## Missing-rates report refuses invalid or future as_of date
 
-Lines 39-41
+Lines 40-42
 
-Asked as: invalid as_of date; future date rejected; as of date error; date later than today
+Asked as: invalid as_of date; as_of in the future; future date rejected; report date format error; as_of must be a valid date
 
-Turbo refuses the missing rates request when the as-of date (as_of) is not a valid YYYY-MM-DD date or is later than today. The message is "as_of must be a valid date no later than today". Today itself is accepted.
+Turbo refuses the missing-rates report when as_of is not a valid YYYY-MM-DD date or is later than today. The message is "as_of must be a valid date no later than today". An as_of equal to today is accepted.
 
-## Missing rates report needs an existing job
+## Missing-rates report refuses unknown job
 
-Lines 42-45
+Lines 43-46
 
-Asked as: job not found error; wrong job id missing rates; unknown job for rates report; job does not exist
+Asked as: job not found; unknown job report; wrong job number missing rates; job does not exist
 
-Turbo refuses the missing rates request when the job does not exist. The message is "Job not found". Turbo checks the date before it checks the job.
+When the job does not exist, Turbo refuses the missing-rates report with the message "Job not found".
 
-## Missing rates grouped by rate sheet and role
+## Missing-rates report lists roles with no rate on the priced sheet
 
-Lines 54-71
+Lines 56-68
 
-Asked as: roles without rate; no rate for role; which rate sheet lacks role; hours missing a rate
+Asked as: roles without a rate; missing rate on sheet; role has no rate; which roles are unpriced; no rate for role
 
-The report lists each rate sheet that priced the job's time, with the roles that sheet has no rate for. Each role shows its total hours. A role missing a rate in one period of the job's rate sheet history can still be priced in another period. Each entry is placed under the rate sheet of the period its date falls in. The report uses the same pricing rules and date limit as WIP.
+For one job, the report lists each rate sheet that priced the job's time entries, with the roles that the sheet has no rate for (no sheet_rate). It uses the same pricing rules and date limit as WIP. Each entry is matched to the sheet of the rate sheet period its date falls in, so a role can be missing on one sheet and priced on another. The details of the pricing come from singleJobScopeQuery and jobPricedTimeEntriesQuery, which are defined in other files.
 
-## Missing rates ordering and role name fallback
+## Missing-rates report shows role name or falls back to role ID
 
-Lines 57-68
+Lines 61-66
 
-Asked as: missing rates sort order; role shows id not name; unnamed role in report; rate sheet listing order
+Asked as: role shows as ID; role name missing; blank role name; role record not found; unnamed role on report
 
-The report sorts rate sheets by name, then revision. Roles within a sheet sort by role name, then role ID. When a role has no name, the report shows the role ID as its name.
+Each missing role shows its name with its total hours. When the role has no name, or the role record is not found, the report shows the role ID in place of the name.
 
-## Only entries with a role and no sheet rate count
+## Missing-rates report skips entries without a role and zero-hour roles
 
-Lines 65-65
+Lines 67-69
 
-Asked as: entries without role; why entry not in missing rates; time with no role; role blank in report
+Asked as: time entries without role; zero hours role hidden; negative hours role; role with no hours shown
 
-A time entry shows up as missing a rate only when it has a role and the rate sheet has no rate for that role. Entries without a role are left out of the report.
+The report ignores time entries that have no role. It sums the hours per rate sheet and role, and leaves out a role whose total hours equal 0. A role with negative total hours still appears.
 
-## Roles with zero net hours are hidden
+## Missing-rates report order and grouping
 
-Lines 66-67
+Lines 70-89
 
-Asked as: zero hours role hidden; role missing from report; zero net hours; negative hours missing rate
+Asked as: rate sheets order; sort missing rate sheets; empty rate sheet list; group roles by sheet; no missing rates shown
 
-A role on a rate sheet is left out of the missing rates report when its hours add up to exactly 0. Negative totals still appear.
+The report groups roles under their rate sheet (id, code, name, revision). It sorts sheets by code and then revision, and roles by name and then ID. When no role is missing a rate, the list of rate sheets is empty.
 
-## Missing rates report with nothing missing is empty
+## Missing-rates report covers time up to as_of with no start date
 
-Lines 75-88
+Lines 71-73
 
-Asked as: no missing rates shown; empty missing rates report; all roles have rates; report has nothing
+Asked as: time since beginning; rates report start date; time up to as_of; all earlier time entries counted; report includes older hours
 
-When no role lacks a rate, the report returns the as-of date and an empty list of rate sheets.
+The report counts time entries from the beginning (the start date is empty) up to and including the as_of date.

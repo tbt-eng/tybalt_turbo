@@ -1,284 +1,364 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/rate_sheet_absorb.go","sha256":"0027063b1210c34aaeae4fd0f5fa112a553fa9dca607304c91b036d06c187073","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/rate_sheet_absorb.go","sha256":"0704d3d0ab52b246485ca522846a499662fdbfa640ebd842d8d79804eef0eb6a","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/rate_sheet_absorb.go
 
-## Rate sheet absorb never reprices time
+## What an absorbed rate sheet moves to the target
 
-Lines 13-52
+Lines 43-61
 
-Asked as: absorb changes my prices; merging rate sheets reprices jobs; do rates change after merge; absorb alters rates
+Asked as: jobs moved after merge; where did my jobs go; project requests moved to other sheet; move jobs to another rate sheet
 
-Absorbing a rate sheet moves its jobs, project rate sheet periods (job_rate_sheets) and project requests to the target. So the two sheets must have identical rates. Turbo also repoints rate sheets that were based on the absorbed sheet (rate_sheets.based_on) to the target.
+When a rate sheet is absorbed, its jobs, project rate sheet periods (job_rate_sheets) and project requests (job_requests) move to the target. Sheets that were based on it (based_on) also point to the target. Its rate entries are owned rows and are handled with the sheet. An absorb never reprices time, so the rates must match.
 
-## What counts as a job using a rate sheet
+## Claims needed to absorb rate sheets
 
-Lines 18-20
+Lines 62-71
 
-Asked as: why does sheet show in use; which jobs use this rate sheet; old period still uses sheet; sheet in use by job
+Asked as: can't absorb rate sheets; no permission to merge sheets; absorb button missing; need admin to merge rates
 
-A job uses a rate sheet when the job's rate sheet (jobs.rate_sheet) is that sheet, or when any period in the job's rate sheet history is on that sheet. A sheet that only an old period uses still counts as in use. Project requests that use the sheet are counted separately.
+A person needs the admin claim, or both the absorb claim and the rate sheet revise claim (rate_sheet_revise), to absorb rate sheets. The absorb claim alone is not enough, because an absorb moves jobs between contract rate sheets.
 
-## Any revision can be the target
+## A sheet can't absorb itself
 
-Lines 35-35
+Lines 76-76
 
-Asked as: pick older revision as target; merge into a specific revision; target an old revision; any revision as target
+Asked as: merge sheet into itself; same sheet as target; absorb sheet into itself error
 
-Any revision of any rate sheet can be the target of an absorb.
+Turbo refuses to absorb a rate sheet into itself. The message is "<sheet> can't be absorbed into <target>. A sheet can't absorb itself."
 
-## Absorbing rate sheets moves jobs, periods and requests to the target
+## A revision of the target can't be absorbed into it
 
-Lines 41-57
+Lines 77-77
 
-Asked as: where do jobs go after merge; jobs moved to other sheet; what happens to requests when merging; move periods to target
+Asked as: merge revision into its parent; same code merge refused; merge revision into target
 
-When a rate sheet is absorbed, Turbo moves its jobs, project rate sheet periods (job_rate_sheets) and project requests to the target. Turbo also moves the sheets that proposed rates were based on (based_on). The absorbed sheet's rate entries are owned rows and are removed with it. A job whose only moved reference is an older period is not touched, so its jobs.rate_sheet field is unchanged.
+Turbo refuses when the sheet has the same code as the target. The reason is "It is a revision of the target sheet."
 
-## Who can absorb rate sheets
+## Target with no rates refuses absorb
 
-Lines 58-64
+Lines 78-78
 
-Asked as: who is allowed to absorb; absorb permission denied; need admin to merge sheets; can't merge rate sheets access
+Asked as: target has no rates; merge into empty rate sheet; target sheet is empty
 
-Absorbing rate sheets needs the admin claim, or both the absorb claim and the rate sheet revise claim (rate_sheet_revise). The absorb claim alone is not enough, because an absorb moves jobs between contract rate sheets.
+Turbo refuses an absorb when the target has no rate entries. The reason is "The target has no rates."
 
-## Rate sheet absorb needs two claim sets, not absorb alone
+## Refusal message when the target's rates differ from a single-revision sheet
 
-Lines 58-63
+Lines 79-79
 
-Asked as: absorb claim not enough; missing rate sheet revise claim; need both claims to merge; merge access claims
+Asked as: rates don't match merge; different rates can't merge; merge refused rates differ
 
-Turbo lets a person absorb rate sheets only with the admin claim, or with both the absorb claim and the rate sheet revise claim (rate_sheet_revise). The absorb claim alone is not enough, because an absorb moves jobs between contract rate sheets.
+A rate sheet with only one revision can be absorbed only when its rates are identical to the target's. If they differ, Turbo refuses with "Its rates are not identical to the target's."
 
-## Absorb reason texts shown to users
+## Refusal message for a multi-revision sheet whose latest rates differ
 
-Lines 70-79
+Lines 80-80
 
-Asked as: what does absorb refusal mean; absorb error message; why can't absorb rate sheet; rate sheet merge error text
+Asked as: latest revision rates different; last revision doesn't match target; merge revisions rates mismatch
 
-The reasons are: "A sheet can't absorb itself.", "It is a revision of the target sheet.", "The target has no rates.", "Its rates are not identical to the target's.", "Its latest revision's rates are not identical to the target's.", "Its name has revisions, and a job or project request uses one of them." and "An inactive target can't absorb an active sheet.". The date refusal reads "The target's effective date, X, is later than this sheet's, Y.".
+When a sheet with several revisions is absorbed, Turbo compares only its latest revision with the target. If they differ, Turbo refuses with "Its latest revision's rates are not identical to the target's."
 
-## Job count includes jobs using the sheet only in old periods
+## Refusal message when a revised sheet is in use
 
-Lines 114-119
+Lines 81-81
 
-Asked as: job count looks wrong; why job count is higher; count jobs in old periods; request count on rate sheet
+Asked as: revision in use can't merge; job uses old revision; sheet revision being used
 
-For the absorb rules, a rate sheet's job count (job_count) counts each job once, whether jobs.rate_sheet is the sheet or any period of the job's rate sheet history (job_rate_sheets) is on it. The request count (request_count) counts project requests (job_requests) whose rate sheet is the sheet.
+A sheet with revisions cannot be absorbed if a job or project request uses any of its revisions. Turbo refuses with "It has revisions, and a job or project request uses one of them."
 
-## Proposed-rate sheets are left out of absorb data
+## Refusal message for an inactive target and an active sheet
 
-Lines 120-122
+Lines 82-82
 
-Asked as: proposed sheet missing from list; request sheets not showing in absorb; can't find request rate sheet; hidden sheets in merge
+Asked as: merge into inactive sheet; inactive target active sheet; disabled sheet can't absorb
 
-Rate sheets that belong to a project request (request is not empty) are not loaded for absorb. They are never a target, never absorbed, and never in a duplicate group or candidate list.
+An inactive target cannot absorb an active sheet. Turbo refuses with "An inactive target can't absorb an active sheet."
 
-## Proposed rates sheets are excluded from absorb
+## Job count includes old periods
 
-Lines 121-122
+Lines 93-96
 
-Asked as: absorb a proposed rates sheet; merge request's proposed rates; proposed rates as target; absorb request sheet
+Asked as: job count includes old periods; old rate period counted; job still counted on sheet
 
-A project request's proposed rates sheet is never absorbed and never a target. Turbo leaves out every rate sheet that belongs to a request.
+A job counts as using a rate sheet when the sheet is its current rate sheet or when any period in its rate sheet history uses it. Project requests using the sheet are counted separately.
 
-## Absorb rate comparison covers every role's rate and overtime rate
+## Rate sheet job count includes jobs using it only in old periods
 
-Lines 128-157
+Lines 125-129
 
-Asked as: overtime rate ignored in comparison; same rates but different overtime; role rates compared when merging; identical rates check overtime
+Asked as: why job counted on sheet; jobs counted in old periods; job count on rate sheet wrong
 
-Turbo decides that two sheets have identical rates by comparing a rates key (RateSheetRatesKey) built from the role, rate and overtime rate of each rate sheet entry. A sheet with no entries has an empty key and takes part in no duplicate group.
+Turbo counts a job as using a rate sheet when the job's current rate sheet (jobs.rate_sheet) is that sheet. It also counts a job when any period in the job's rate sheet history (job_rate_sheets) is on that sheet. Each job counts once.
 
-## Revisions of a name are counted oldest first
+## Request count counts project requests on the sheet
 
-Lines 153-163
+Lines 130-130
 
-Asked as: which revision is latest; order of revisions; latest revision checked; revision numbering order
+Asked as: request count on rate sheet; how many requests use sheet; project requests counted on sheet
 
-Turbo groups rate sheets by name and orders the revisions by revision number, oldest first. The last one is the latest revision, and the check for a name with revisions compares its rates with the target's.
+Turbo counts the project requests (job_requests) whose rate sheet is the sheet. This count (request_count) decides whether a sheet with revisions can be absorbed.
 
-## A rate sheet cannot absorb itself
+## Request proposed rates are never absorbed or targets
 
-Lines 170-172
+Lines 132-133
 
-Asked as: merge sheet into itself; absorb same rate sheet; same sheet absorb error; sheet absorbs itself
+Asked as: proposed rates sheet; can't merge proposed rates sheet; request proposed rate sheet target
 
-Turbo refuses with "A sheet can't absorb itself." when the source and target are the same sheet.
+Rate sheets that hold a project request's proposed rates are left out of absorb checks. They can be neither absorbed nor a target.
 
-## A revision of the target's own name cannot be absorbed
+## Rates are compared as a whole set of role entries
 
-Lines 173-175
+Lines 139-168
 
-Asked as: merge revision into own name; absorb sibling revision; same name sheet absorb; revision of target refused
+Asked as: how rates are compared; identical rates check; same role rates match
 
-Turbo refuses with "It is a revision of the target sheet." when the source has the same name as the target.
+Turbo compares each sheet's rate sheet entries (role, rate, overtime rate) as one rates key built by RateSheetRatesKey. Two sheets have identical rates when the keys are equal. A sheet with no entries has an empty key.
 
-## Target must have rates
+## Revisions of a sheet are ordered oldest first
 
-Lines 176-178
+Lines 164-174
 
-Asked as: target has no rates; empty target rate sheet; merge into sheet without rates; target sheet blank
+Asked as: revision order; which revision is latest; sort revisions by number
 
-Turbo refuses with "The target has no rates." when the target rate sheet has no entries.
+Turbo groups rate sheet revisions by code and sorts each group by revision number, oldest first. Each sheet learns how many revisions its code has. The absorb checks use the latest revision as the last one in the list.
 
-## Single-revision sheet needs identical rates
+## Absorb checks run in a fixed order
 
-Lines 181-184
+Lines 180-189
 
-Asked as: rates not identical merge; different rates can't merge; rate mismatch absorb; single revision rates differ
+Asked as: which merge error shows first; several merge errors; why this refusal reason first
 
-A sheet that is the only revision of its name can be absorbed only when its rates are identical to the target's. Otherwise Turbo refuses with "Its rates are not identical to the target's."
+Turbo checks in this order: a sheet absorbing itself, a revision of the same code as the target, a target with no rates. Only then does it check the rates, effective date and active status. The first failing check gives the refusal reason.
+
+## Which sheet counts as the same code
+
+Lines 184-186
+
+Asked as: same code as target; code matches target refused; sheets with same code
+
+Sheets are compared by code, not by the selected revision. A sheet whose code matches the target's code is refused as a revision of the target.
+
+## Absorbing a sheet that has a single revision
+
+Lines 191-204
+
+Asked as: merge single revision sheet; only that sheet merged; one revision merge rules
+
+A sheet with only one revision can be absorbed only if its rates are identical to the target's. Otherwise Turbo refuses with "Its rates are not identical to the target's." Only that sheet is absorbed.
+
+## Absorbed sheets are deleted: one sheet or all revisions
+
+Lines 191-224
+
+Asked as: what gets deleted on merge; sheet deleted after absorb; all revisions deleted together
+
+Absorbing a single-revision sheet deletes only that sheet. Absorbing a sheet with revisions deletes every revision of its code together.
 
 ## Target effective date must not be later than the sheet's
 
-Lines 185-189
+Lines 196-200
 
-Asked as: effective date later error; target date after sheet; effective date blocks absorb; why date is refused
+Asked as: target start date later; effective date merge error; target date later than sheet
 
-For a single-revision sheet, Turbo refuses when the target's effective date is later than the sheet's. The message is "The target's effective date, X, is later than this sheet's, Y." Equal dates are allowed.
+When the sheet has one revision, Turbo refuses if the target's effective date is later than the sheet's. The message is "The target's effective date, X, is later than this sheet's, Y." Equal dates pass. Dates compare as YYYY-MM-DD text.
 
-## Inactive target cannot absorb an active sheet
+## Effective date refusal message names both dates
 
-Lines 190-192
+Lines 198-200
 
-Asked as: inactive target can't absorb; absorb active sheet into inactive; activate target before merging; inactive sheet merge error
+Asked as: effective date refused message; dates in merge message; target effective date too late
 
-Turbo refuses with "An inactive target can't absorb an active sheet." when the target is inactive and the sheet is active. For a name with revisions, the refusal applies when any revision is active. Absorb does not change the active flag.
+When the target's effective date is later than a single-revision sheet's, Turbo refuses with "The target's effective date, X, is later than this sheet's, Y." Equal dates are allowed.
 
-## Single-revision sheet absorbs alone
+## Inactive target can't absorb an active sheet
 
-Lines 193-193
+Lines 201-203
 
-Asked as: absorb only one sheet; what gets deleted on single revision; does absorb delete just this sheet; single sheet merge result
+Asked as: inactive target active revision; merge revisions into inactive sheet; inactive target blocks merge
 
-When all checks pass for a single-revision sheet, only that sheet is absorbed and deleted.
+Turbo refuses when the target is inactive and the sheet is active, because absorb does not change active and the sheet would leave the Rate Sheet selector. The reason is "An inactive target can't absorb an active sheet." For a sheet with revisions, the refusal happens if any revision is active.
 
-## Name with revisions absorbed only when unused
+## Absorbing a sheet that has revisions
 
-Lines 196-201
+Lines 207-215
 
-Asked as: revisions in use can't absorb; sheet with revisions used by job; name has revisions error; used revisions block merge
+Asked as: merge all revisions together; absorb sheet with several revisions; revisions moved together
 
-A name with several revisions can be absorbed only when no job, no period and no project request uses any of its revisions. Otherwise Turbo refuses with "Its name has revisions, and a job or project request uses one of them." The effective date rule does not apply, because nothing moves.
+A sheet with several revisions can be absorbed only if no job, period or project request uses any revision. Otherwise Turbo refuses with "It has revisions, and a job or project request uses one of them." All revisions are absorbed together.
 
-## Only the latest revision must match the target's rates
+## Only the latest revision's rates must match
 
-Lines 205-208
+Lines 216-219
 
-Asked as: latest revision rates mismatch; older revision rates don't matter; latest revision not identical; only newest revision compared
+Asked as: only latest revision rates; last revision must match target; merge revisions rates check
 
-For a name with revisions, only the latest revision's rates must be identical to the target's. Otherwise Turbo refuses with "Its latest revision's rates are not identical to the target's." Older revisions are unreferenced, so their rates do not matter.
+When all revisions of a sheet are absorbed, only the latest revision must match the target's rates. Otherwise Turbo refuses with "Its latest revision's rates are not identical to the target's." The effective date rule does not apply because nothing moves.
 
-## Absorbing a name with revisions takes every revision
+## Inactive target with an active revision
 
-Lines 212-212
+Lines 220-222
 
-Asked as: absorb deletes all revisions; select one revision all removed; merge every revision together; all revisions go with name
+Asked as: inactive target any revision active; merge with inactive target and active revision
 
-When a name with revisions passes the checks, Turbo absorbs and deletes all of its revisions together. Selecting one revision is enough.
+When absorbing a sheet with revisions, Turbo refuses if the target is inactive and any revision is active. The reason is "An inactive target can't absorb an active sheet."
 
-## Refusal message when absorbing rate sheets
+## Absorb is refused as a whole on the first bad sheet
 
-Lines 218-239
+Lines 229-259
 
-Asked as: whole absorb refused; target not found error; one sheet blocks absorb all; absorb failed for selected sheet
+Asked as: one sheet blocks whole merge; multiple sheets merge failed; why whole absorb failed
 
-When a selected sheet cannot be absorbed, Turbo refuses the whole absorb. The message is "<name> (rev. N) can't be absorbed into <target> (rev. N). <reason>". Turbo also refuses when the target or a selected sheet is not found.
+When several sheets are absorbed, Turbo checks each one. The first sheet that fails refuses the whole absorb with "<source> can't be absorbed into <target>. <reason>". Turbo also refuses if the target or a sheet is not found. A sheet is deleted only once, even if several selections lead to it.
 
-## Absorbed ids are deduplicated
+## Absorb is refused when a sheet is not found
 
-Lines 228-247
+Lines 234-245
 
-Asked as: same sheet absorbed twice; duplicate selection in absorb; selected revisions twice; repeated sheet in merge
+Asked as: rate sheet not found; target sheet missing; sheet id not found
 
-When several selected sheets share a name, Turbo absorbs each sheet once.
+If the target sheet is not found, Turbo refuses with "the target rate sheet was not found". If a sheet to absorb is not found, it refuses with "rate sheet <id> was not found".
 
-## Absorbed names go into the target's name history
+## Absorbing several sheets of one code does not repeat ids
 
-Lines 250-307
+Lines 239-258
 
-Asked as: formerly name after absorb; old name kept on target; name history rate sheet; where old sheet name goes
+Asked as: same sheet selected twice; duplicate selection in merge; sheet listed twice
 
-On commit, each absorbed name that differs from the target's name is added once to the target's name history. The target shows it after "Formerly". The history is written on commit, so an undo has nothing to remove. The name history rows of the absorbed sheets move to the target.
+When several selected sheets lead to the same sheet ids, each id is absorbed only once.
+
+## Absorb refusal message names the sheets and the reason
+
+Lines 246-250
+
+Asked as: can't be absorbed error; which sheet failed merge; merge error message sheet names
+
+When a sheet can't be absorbed, Turbo refuses with "<source> can't be absorbed into <target>. <reason>". Each sheet is named by its code, revision and name.
+
+## Absorbed names go into the target's name history on commit
+
+Lines 267-293
+
+Asked as: formerly name on sheet; old name shown after merge; previous names of rate sheet
+
+When an absorb is committed, each distinct name of an absorbed sheet is added once to the target's name history, shown after "Formerly". Empty names and the target's own name add nothing. The history is written on commit, so an undo has nothing to remove.
 
 ## Only a user can commit a rate sheet absorb
 
-Lines 256-258
+Lines 268-270
 
-Asked as: absorb commit fails; committed by not a user; absorb by script error; commit rate sheet absorb error
+Asked as: absorb committed by system; must be committed by user; absorb commit error
 
-Turbo refuses with "a rate sheet absorb must be committed by a user" when the committer is not a user record.
+Turbo refuses to commit a rate sheet absorb unless a user commits it. The message is "a rate sheet absorb must be committed by a user."
 
-## Duplicate groups list identical rates from different names
+## Absorbed sheet names are not duplicated in the history
 
-Lines 346-361
+Lines 283-293
 
-Asked as: duplicate rate sheets list; sheets with same rates; find duplicate rate sheets; identical rates different names
+Asked as: duplicate names formerly; same name listed twice; old name repeated in history
 
-The duplicates list groups rate sheets with identical rates. A group needs at least two different names, because revisions of one name are not duplicates of each other. Sheets without entries are in no group.
+The name history skips the target's own name, blank names and repeated names. Each other absorbed name is added once.
 
-## Duplicate groups skip sheets that have no rates
+## Absorbed sheets' name and code history move to the target
 
-Lines 346-351
+Lines 295-312
 
-Asked as: empty sheets in duplicates; no rates not in duplicates; blank rate sheet duplicate; sheets without rates listed
+Asked as: old codes after merge; earlier codes lead to target; history moves after absorb
 
-A rate sheet with no entries (empty rates key) is never in a duplicate group. In the candidate list, a target with no rates gets no candidates.
+On commit, the name history and code history of absorbed sheets move to the target. Their earlier names and codes then lead to the target.
 
-## Duplicate group target is the earliest sheet
+## Name history entries record who committed
 
-Lines 363-380
+Lines 318-327
 
-Asked as: which sheet is duplicate target; earliest sheet chosen; why this sheet is main; target of duplicate group
+Asked as: who renamed sheet; name change user record; who merged the sheet history
 
-The target of a duplicate group is the sheet with the earliest effective date. On a tie Turbo prefers an active sheet, then the sheet with more jobs, then name, then revision.
+Each name history entry from an absorb records the old name, the target's name and the committing user (renamed_by).
 
-## Duplicate group order of sheets and groups
+## Duplicate groups need at least two codes
 
-Lines 363-378
+Lines 360-381
 
-Asked as: order of duplicate sheets; why sheets listed this order; sort duplicate group; group sheet ordering
+Asked as: duplicate groups list; same rates in different codes; revisions showing as duplicates
 
-Within a group of identical sheets, Turbo orders them by earliest effective date. A tie goes to an active sheet, then to the sheet with more jobs, then to name, then to revision. Turbo lists the groups by the name and revision of their first sheet.
+Duplicate groups list rate sheets with identical rates from at least two different codes. Revisions of one sheet are not duplicates of each other. Sheets without entries are in no group.
 
-## Duplicate group shows whether each sheet can absorb
+## Duplicate groups ignore sheets without rates
 
-Lines 384-402
+Lines 366-371
 
-Asked as: can this sheet absorb; how many sheets deleted; absorb column duplicates; can absorb status duplicate
+Asked as: empty sheet in duplicate group; sheets without rates duplicates; no rates duplicate group
 
-For each sheet in a duplicate group, Turbo shows whether it can absorb at least one other sheet. For non-targets it shows the reason the target cannot absorb it, and how many sheets the absorb deletes.
+Sheets that have no rate entries are in no duplicate group. Only sheets with identical rates can group.
+
+## How the target of a duplicate group is chosen
+
+Lines 383-400
+
+Asked as: which sheet is group target; earliest effective date target; group target chosen how
+
+The group's target is the sheet with the earliest effective date. Ties go to an active sheet, then the sheet with more jobs, then the lower code, then the lower revision.
+
+## Duplicate group tie-break order
+
+Lines 383-398
+
+Asked as: duplicate group tie break; which sheet wins a tie; tie between sheets in group
+
+The group's target is the sheet with the earliest effective date. On a tie, an active sheet comes first, then the sheet with more jobs, then the lower code, then the lower revision.
+
+## Duplicate group shows who can absorb and why not
+
+Lines 404-422
+
+Asked as: why can't absorb in group; sheets deleted count in group; who can absorb in group
+
+For each sheet in a group, Turbo shows whether it can absorb another sheet of the group. For a non-target sheet it shows the target's refusal reason and the number of sheets the absorb deletes.
 
 ## Reason shown when no sheet in a group can be absorbed
 
-Lines 404-414
+Lines 424-434
 
-Asked as: no sheet can be absorbed; earliest sheet inactive; why group has no absorb option; group can't absorb anything
+Asked as: no sheet in group can be absorbed; group says activate it first; earliest sheet can't absorb
 
-When the group's target can absorb no sheet, the reason is "No sheet in this group can be absorbed into the earliest sheet." When an inactive refusal is the cause, the reason differs. If the target has a newer revision, it is "The earliest sheet is inactive and has a newer revision. It can't absorb an active sheet, and it can't be activated." Otherwise it is "The earliest sheet is inactive and can't absorb an active sheet. Activate it first."
+When the target can absorb no sheet, the group says "No sheet in this group can be absorbed into the earliest sheet." If the cause is an inactive target with a newer revision, it says the sheet "can't absorb an active sheet, and it can't be activated." If the target is inactive with no newer revision, it says "Activate it first."
 
-## Duplicate groups are sorted by the target's name and revision
+## Reason when an inactive earliest sheet blocks the group
 
-Lines 418-425
+Lines 426-433
 
-Asked as: order of duplicate groups; sort rate sheet groups; duplicate groups sorting; group list order
+Asked as: earliest sheet inactive; can't be activated message; inactive earliest sheet blocks group
 
-Duplicate groups are listed by the name of the group's first sheet (the target), then by its revision.
+If no sheet can be absorbed and the earliest sheet is inactive, Turbo says it can't absorb an active sheet. When it has a newer revision, the message adds that it can't be activated. Otherwise it says "Activate it first."
+
+## Duplicate groups are listed by code and revision
+
+Lines 438-444
+
+Asked as: duplicate group order; duplicate groups sorted; list of duplicate groups
+
+Duplicate groups are sorted by the code and then the revision of their first (target) sheet.
 
 ## Absorb candidates for a target
 
-Lines 441-472
+Lines 461-492
 
-Asked as: candidates to absorb; which sheets can merge into this; list merge options; absorb options for sheet
+Asked as: merge candidates for target; which sheets can merge into this; absorb candidates list
 
-The candidates for a target are the sheets of other names with identical rates. Each shows the reason the target cannot absorb it, or how many sheets an absorb deletes. A target with no rates has no candidates.
+For a target sheet, Turbo lists every sheet of another code with identical rates, with the refusal reason or the number of sheets an absorb deletes. A target with no rates has no candidates. Turbo returns nothing if the target does not exist.
 
-## Candidates exclude the target's own name and different rates
+## Absorb candidates exclude the target's own code
 
-Lines 451-464
+Lines 472-484
 
-Asked as: candidate list different rates; why sheet not candidate; same name not listed; candidates excluded by rates
+Asked as: candidates with same code; only other codes merge; candidates exclude own code
 
-The absorb candidates for a target are the sheets of other names whose rates are identical to the target's. Each candidate shows the reason the target can't absorb it, or an empty reason, and the number of sheets the absorb deletes.
+The candidate list for a target holds sheets with identical rates and a different code. A target with no rates has no candidates.
+
+## Absorb candidates sorted by code and revision
+
+Lines 477-491
+
+Asked as: candidate list order; merge candidates sorted; sort absorb candidates
+
+Candidates are listed by code, then revision. Each shows a refusal reason or how many sheets the absorb deletes.

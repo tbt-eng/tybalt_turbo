@@ -1,164 +1,100 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_details.sql","sha256":"ae59f34c648412fce89adddae9101d1064e34a54ed7f0f92ba86f3e6ada96644","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_details.sql","sha256":"2974352e7f165a15336bff8c4a748b8e24d3d61b8d86bd91391c228cdf5e39c7","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_details.sql
 
-## Job details returns core job fields and the imported flag
+## Job details return one job selected by its ID
 
-Lines 4-14
+Lines 1-3
 
-Asked as: job number missing; job status and location; imported flag; client PO not showing; authorizing document on job
+Asked as: get one job by id; job details for a single job; fetch job record by id; why does job lookup return only one job
 
-Job details returns the job's number, description, status, location, authorizing document, client PO and client reference number. It returns the internal import flag (_imported) as imported.
+The job details query returns a single job, chosen by the id given to it. Related records come back in the same result, so the app does not fetch them one by one.
 
-## Job details shows the parent job number for a subjob
+## Job details show branch and rate sheet
+
+Lines 8-8
+
+Asked as: branch name on job; rate sheet revision; which rate sheet is job using; imported flag on job
+
+The job details give the branch code and name, and the rate sheet's code, name and revision. They also give the imported flag (_imported) as imported.
+
+## Job details show the parent job's number
 
 Lines 9-10
 
-Asked as: subjob parent number; which job is this under; parent job missing; job's parent job
+Asked as: parent job number; subjob parent number; which job is my subjob under; missing parent number on job
 
-Job details returns the job's parent (parent_id) and the parent job's number (parent_number). Both are empty when the job has no parent.
+For a subjob, the job details give the parent job's number (parent_number) beside the parent's ID. A job with no parent has no parent number.
 
-## Job details shows client name and alias
+## Job details include proposal and project values and balance
 
-Lines 15-17
+Lines 12-50
 
-Asked as: client alias not showing; client name on job; which client is this job for
+Asked as: proposal value on job; outstanding balance on job; client po number on job; award and completion dates
 
-Job details returns the job's client (client_id) with the client's name and alias (client_name, client_alias).
+The job details give the proposal dates, the proposal value, the project value, the time and materials setting, the outstanding balance and its date. They also give the award and completion dates, the location, the authorizing document, the client PO, the client reference number and the FN agreement.
 
-## Job details shows the job contact's name
+## Job details show client, contact and job owner names
 
-Lines 18-20
+Lines 15-29
 
-Asked as: job contact person; client contact missing; contact name on job
+Asked as: client name missing on job; job owner name blank; contact name not showing on job; client alias on job
 
-Job details returns the job's client contact (contact_id) with the contact's given name and surname.
+The job details give the client's name and alias, the client contact's given name and surname, and the job owner's name and alias. The job owner is looked up in the clients records. A missing link leaves these names empty.
 
-## Job details shows manager and alternate manager names
+## Job manager and alternate manager names come from profiles
 
 Lines 21-26
 
-Asked as: who manages this job; alternate manager blank; job manager name
+Asked as: job manager name blank; alternate manager not showing; who manages this job; manager name from profile
 
-Job details returns the job's manager and alternate manager (manager_id, alternate_manager_id). Each comes with the given name and surname from the staff profile.
+The job details give the manager's and the alternate manager's given name and surname. Turbo matches them to profiles by user ID (uid). A job with no alternate manager has no alternate manager name.
 
-## Job details shows the job owner from the clients table
+## Job details link a proposal and its projects
 
-Lines 27-29
+Lines 30-62
 
-Asked as: owner of the job; job owner name wrong; owning client on job
+Asked as: which proposal is job linked to; projects under this proposal; proposal number for job; related projects list empty
 
-Job details returns the job owner (job_owner_id) with the name and alias of the client record that it points to (job_owner_name, job_owner_alias).
+The job details give the job's proposal ID and number (proposal_number). They also list the projects whose proposal is this job (projects_json) as ID and number pairs. The list is an empty array when there are none.
 
-## Job details shows the proposal behind a job
-
-Lines 30-31
-
-Asked as: which proposal is this from; proposal number on job; job's source proposal
-
-Job details returns the job's proposal (proposal_id) and the proposal's number (proposal_number).
-
-## Job details returns agreement and project dates
-
-Lines 32-34
-
-Asked as: FN agreement date; project award date; project completion date; agreement date missing
-
-Job details returns the job's FN agreement (fn_agreement), project award date and project completion date.
-
-## Job details shows invoice contact name and instructions from the invoicing profile
+## Job details show invoicing profile, contact and instructions
 
 Lines 35-39
 
-Asked as: who gets the invoice; invoice instructions missing; invoicing profile contact; billing contact on job
+Asked as: invoice contact on job; invoicing profile name; invoicing instructions wrong contact; billing contact for job
 
-The invoice contact name, email, profile name and invoice instructions come from the job's invoicing profile (invoicing_information) and that profile's contact. The contact name joins given name and surname with a space and trims the ends.
+The job details show the name of the job's invoicing profile, its invoice contact's full name and email, and its invoicing instructions. The contact is the one set on the invoicing profile, not the job's own contact. The full name joins given name and surname with a space and trims it.
 
-## Job details shows request creator and job creator names
+## Job details show who requested and who created the job
 
 Lines 40-43
 
-Asked as: who created the request; request submitted date; who made this job; creator name blank
+Asked as: who created this job; job creator name; who requested the project; request submitted date
 
-The request creator name and the created-by name each join the person's given name and surname with a space and trim the ends. The query also returns the request dates (request_created, request_submitted) and creation_completed.
+The job details give the project request creator, the request created and submitted dates, the creator of the job and the creation completed value (creation_completed). They also give the full names of the request creator and of the creator, taken from profiles.
 
-## Job details returns proposal dates and values
+## Job details list subjobs of the job
 
-Lines 44-46
+Lines 63-67
 
-Asked as: proposal due date; proposal opening date; proposal value amount; proposal submission deadline
+Asked as: child jobs of job; list of subjobs; job has no subjobs showing; subjob list on job
 
-Job details returns the proposal opening date, the proposal submission due date and the proposal value. Lines 44-46 hold these fields.
+The job details list the child jobs (subjobs) of this job as ID and number pairs (children_json). The list is an empty array when the job has no subjobs.
 
-## Job details returns project value, time and materials, and outstanding balance
+## Job details list the job's categories
 
-Lines 47-50
+Lines 68-72
 
-Asked as: project total value; time and materials setting; outstanding balance amount; amount still owed on job
+Asked as: job categories not showing; categories on job; job category list empty; tags for job
 
-Job details returns the project value, the time-and-materials setting, the outstanding balance and the date of the outstanding balance.
+The job details list the job's categories as ID and name pairs (categories_json). The list is an empty array when the job has no categories.
 
-## Job details shows branch code and name
+## Job details list time allocations by division
 
-Lines 51-53
+Lines 73-87
 
-Asked as: which branch the job is in; branch code on job; office branch for job
+Asked as: time allocation by division; hours per division on job; job hours missing from division; allocations for job blank
 
-Job details returns the job's branch (branch_id) with its code and name.
-
-## Job details shows rate sheet name and revision
-
-Lines 54-56
-
-Asked as: rate sheet version; which rate card; rate sheet name blank
-
-Job details returns the job's rate sheet (rate_sheet_id) with the rate sheet's name and revision.
-
-## Job details lists projects created from a proposal
-
-Lines 57-61
-
-Asked as: jobs created from proposal; projects from this proposal; jobs spawned by proposal
-
-The job details query returns the id and number of every job whose proposal is this job (projects_json). The list is an empty array when no job points to this job as its proposal.
-
-## Job details lists subjobs of the job
-
-Lines 62-66
-
-Asked as: child jobs list; jobs under this job; list of subjobs
-
-The job details query returns the id and number of every job whose parent is this job (children_json). The list is an empty array when the job has no subjobs.
-
-## Job details lists the job's categories
-
-Lines 67-71
-
-Asked as: job categories list; category missing on job; which categories job has
-
-The job details query returns the id and name of every category that belongs to this job (categories_json). The list is an empty array when the job has no categories.
-
-## Job details lists time allocations by division
-
-Lines 72-86
-
-Asked as: hours by division; time allocated per division; division hours blank; time split across divisions
-
-The job details query returns each time allocation (job_time_allocations) of the job with its division id, code and name, and its hours. Hours show as 0 when the allocation has no hours value. The list is an empty array when the job has no allocations. An allocation whose division record is missing is left out.
-
-## Job details returns the job even when related records are missing
-
-Lines 88-100
-
-Asked as: job blank when contact missing; job not loading missing data; empty fields on job; job shows nothing for client
-
-The job details query uses left joins for the proposal, parent, invoicing profile, client, contact, managers, job owner, branch, rate sheet and creator profiles. The job still returns when any of them is empty, and their fields are then null.
-
-## Job details returns exactly one job selected by id
-
-Lines 101-101
-
-Asked as: open job by id; job lookup by id; why only one job returns; fetch single job
-
-The job details query returns the single job whose id equals the supplied id. The id must be provided. It does not filter by status or by who is asking.
+The job details list the job's time allocations (allocations_json), each with its division ID, code and name and its hours. Hours count as 0 when not set. A time allocation whose division is missing is left out. A job with none gets an empty array.

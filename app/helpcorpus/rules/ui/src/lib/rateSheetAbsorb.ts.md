@@ -1,36 +1,36 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/rateSheetAbsorb.ts","sha256":"87d622beb8f6aba13178b4d36f759b3691d08ed54902be471456aeb35883f3ba","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/rateSheetAbsorb.ts","sha256":"279118536ed95e5adbc84bbb30dc96ad5cf91926819f6750a663273dfa235ec5","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/rateSheetAbsorb.ts
 
-## How many rate sheets an absorb deletes
+## Why a sheet cannot be absorbed into the target
 
-Lines 14-40
+Lines 1-41
 
-Asked as: how many rate sheets get deleted; absorb deletes which sheets; revisions deleted by absorb; count of sheets removed
+Asked as: why can't I absorb this sheet; absorb button greyed out; reason shown for rate sheet; sheet cannot be merged into target
 
-An absorb into the target deletes either 1 sheet or every revision of that sheet's name (absorbs). The same count appears for absorb candidates. A sheet's revisions count is the number of revisions of its name.
+The server decides which rate sheets can be absorbed and says why not in a reason. A duplicate sheet shows a reason when the group's target cannot absorb it. A group shows a reason when no sheet in it can be absorbed into the target. An absorb candidate has no reason when the target can absorb it. The UI only shows these reasons.
 
 ## Target of a duplicate rate sheet group
 
-Lines 18-21
+Lines 19-22
 
-Asked as: which duplicate rate sheet is the target; earliest effective date duplicate; which sheet gets kept; duplicate group target sheet
+Asked as: which rate sheet is the target; earliest effective date duplicate; which duplicate sheet to keep; main sheet in duplicate group
 
-In a group of duplicate rate sheets, the target is the sheet with the earliest effective date (target). Duplicates are absorbed into this target.
+Each group of duplicate rate sheets has a target (target). The target is the sheet with the earliest effective date (effective_date). The other sheets of the group are the ones that can be absorbed into it.
 
-## Why a duplicate rate sheet cannot be absorbed
+## How many sheets an absorb deletes
 
-Lines 22-34
+Lines 26-28
 
-Asked as: why can't I absorb this sheet; absorb button greyed out reason; rate sheet cannot be absorbed; why duplicate sheet blocked
+Asked as: how many rate sheets get deleted; does absorb delete all revisions; absorb removes every revision; how many sheets does absorb remove
 
-The server decides which duplicate sheets the target can absorb. For a sheet that it cannot absorb, it gives a reason (reason), and the UI only shows that reason. A group can also have a reason why no sheet in it can be absorbed into its target.
+The absorbs count says how many rate sheets an absorb into the target deletes. It is 1, or it is every revision of the sheet's name.
 
 ## Who can absorb rate sheets
 
-Lines 42-48
+Lines 43-49
 
-Asked as: who is allowed to absorb rate sheets; need which claim to absorb; absorb permission missing; can't absorb rate sheets access
+Asked as: who is allowed to absorb rate sheets; need admin to merge sheets; absorb permission missing; rate_sheet_revise and absorb claim
 
-A person can absorb rate sheets if they have the admin claim. A person who has both the absorb claim and the rate_sheet_revise claim can also absorb them. Someone with only one of those two claims cannot. The server checks the same claims.
+A person can absorb rate sheets if they have the admin claim. A person who has both the absorb claim and the rate_sheet_revise claim can also do it. The absorb claim alone is not enough. The UI checks this with canAbsorbRateSheets, and the file says the server checks the same claims.
