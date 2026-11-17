@@ -131,6 +131,25 @@ export function withEveryRole(
   ].sort((a, b) => a.roleName.localeCompare(b.roleName));
 }
 
+// The rows with the source sheet's rates added to each row that has none, or
+// null when no row changes. Only the source rates change, never the rates. A
+// saved proposal has source rates only for the roles it has a rate for, so
+// the empty row of another role shows the source sheet's rates this way.
+export function withSourceRates(
+  rows: ProposedRate[],
+  source: { role: string; rate: number; overtime_rate: number }[],
+): ProposedRate[] | null {
+  const byRole = new Map(source.map((entry) => [entry.role, entry]));
+  let changed = false;
+  const result = rows.map((row) => {
+    const entry = byRole.get(row.role);
+    if (row.source_rate !== undefined || !entry) return row;
+    changed = true;
+    return { ...row, source_rate: entry.rate, source_overtime_rate: entry.overtime_rate };
+  });
+  return changed ? result : null;
+}
+
 // The fields of the rates editor that show their own error after a refused
 // save, under the server's keys.
 const proposedRatesFields = ["name", "reason", "based_on"].map(

@@ -12,6 +12,7 @@
     rateChanged,
     rateMissing,
     withEveryRole,
+    withSourceRates,
   } from "$lib/proposedRates";
   import RateSheetMatchCallout from "./RateSheetMatchCallout.svelte";
   import { rateSheets } from "$lib/stores/rateSheets";
@@ -49,18 +50,24 @@
     $rateSheets.items.find((sheet) => sheet.id === proposal.based_on)?.name ?? "",
   );
 
-  // A new source replaces the rates with its rates.
+  // The rates of the source, once loaded, for the source rates column.
+  let sourceRates = $state<{
+    source: string;
+    rates: { role: string; rate: number; overtime_rate: number }[];
+  } | null>(null);
+
+  // Load the rates of the source. A new source replaces the rates with its
+  // rates; a saved proposal keeps its own.
   $effect(() => {
     const source = proposal.based_on;
-    if (!source || source === loadedSource) return;
+    if (!source || sourceRates?.source === source) return;
     let current = true;
     loadError = "";
     pb.collection("rate_sheet_entries")
       .getFullList({ filter: pb.filter("rate_sheet = {:source}", { source }), expand: "role" })
       .then((entries) => {
         if (!current) return;
-        loadedSource = source;
-        proposal.rows = entries
+        const rows = entries
           .map((entry) => ({
             role: entry.role,
             roleName: entry.expand?.role?.name ?? entry.role,
@@ -70,6 +77,13 @@
             source_overtime_rate: entry.overtime_rate,
           }))
           .sort((a, b) => a.roleName.localeCompare(b.roleName));
+        sourceRates = {
+          source,
+          rates: entries.map(({ role, rate, overtime_rate }) => ({ role, rate, overtime_rate })),
+        };
+        if (source === loadedSource) return;
+        loadedSource = source;
+        proposal.rows = rows;
       })
       .catch(() => {
         if (current) loadError = "Turbo could not load the rates of that sheet.";
@@ -86,6 +100,17 @@
   $effect(() => {
     if (!proposal.based_on || loadedSource !== proposal.based_on) return;
     const rows = withEveryRole(proposal.rows, $rateRoles.items);
+    if (rows) proposal.rows = rows;
+  });
+
+  // Each row shows the source's rates for its role, also the empty row of a
+  // role that a saved proposal has no rate for. Only the source rates column
+  // changes: a saved proposal keeps its own rates. It writes only when a row
+  // lacks source rates that the source has, so it settles after one pass.
+  $effect(() => {
+    const source = proposal.based_on;
+    if (!source || loadedSource !== source || sourceRates?.source !== source) return;
+    const rows = withSourceRates(proposal.rows, sourceRates.rates);
     if (rows) proposal.rows = rows;
   });
 

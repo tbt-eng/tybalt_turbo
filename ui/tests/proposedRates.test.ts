@@ -11,6 +11,7 @@ import {
   rateMissing,
   withEveryRole,
   withOvertimeMultiplier,
+  withSourceRates,
 } from "../src/lib/proposedRates.ts";
 
 const roles = [
@@ -141,4 +142,36 @@ test("a multiplier that is not a positive number changes nothing", () => {
   for (const multiplier of [null, 0, -1, Number.NaN]) {
     assert.equal(withOvertimeMultiplier(rows, multiplier), rows);
   }
+});
+
+test("an empty row of a saved proposal gets the source rates, not the rates", () => {
+  // A saved proposal with a rate for Principal only; the source has a rate
+  // for Principal and Biologist, and none for the drone pilot.
+  const saved = { ...sourceRow("principal", "Principal", 250), rate: 260 };
+  const rows = withEveryRole([saved], roles) ?? [];
+  const source = [
+    { role: "principal", rate: 250, overtime_rate: 325 },
+    { role: "biologist", rate: 120, overtime_rate: 156 },
+  ];
+  const filled = withSourceRates(rows, source);
+  assert.deepEqual(
+    filled?.find((row) => row.role === "biologist"),
+    {
+      role: "biologist",
+      roleName: "Biologist",
+      rate: null,
+      overtime_rate: null,
+      source_rate: 120,
+      source_overtime_rate: 156,
+    },
+  );
+  // A row that has source rates keeps them, and its rates.
+  assert.equal(
+    filled?.find((row) => row.role === "principal"),
+    saved,
+  );
+  // A role that the source lacks keeps no source rates.
+  assert.equal(filled?.find((row) => row.role === "drone")?.source_rate, undefined);
+  // Once filled, nothing changes.
+  assert.equal(withSourceRates(filled ?? [], source), null);
 });
