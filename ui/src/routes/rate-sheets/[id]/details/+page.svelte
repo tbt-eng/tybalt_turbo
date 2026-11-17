@@ -11,6 +11,8 @@
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSTextInput from "$lib/components/DSTextInput.svelte";
+  import DSPageHeader from "$lib/components/DSPageHeader.svelte";
+  import { rateSheetCodeRevision } from "$lib/rateSheetLabel";
   import Icon from "@iconify/svelte";
   import type { ClientResponseError } from "pocketbase";
   import type { PageData } from "./$types";
@@ -23,6 +25,7 @@
   let rateSheet = $state(untrack(() => data.rateSheet));
   let allRoles = $state(untrack(() => data.allRoles));
   let formerNames = $state(untrack(() => data.formerNames));
+  const formerCodes = $derived(data.formerCodes);
 
   // Admin check for editing capability
   const isAdmin = $derived($globalStore.claims.includes("admin"));
@@ -76,7 +79,7 @@
       Rate: e.rate.toFixed(2),
       "Overtime Rate": e.overtime_rate.toFixed(2),
     }));
-    downloadCsvRows(`${rateSheet.name} rev${rateSheet.revision}.csv`, rows, [
+    downloadCsvRows(`${rateSheet.code} rev${rateSheet.revision}.csv`, rows, [
       "Role",
       "Rate",
       "Overtime Rate",
@@ -325,28 +328,31 @@
 <div class="p-4">
   <!-- Header -->
   <div class="mb-6">
-    <div class="flex items-baseline gap-2">
-      <h1 class="text-2xl font-bold">
-        {rateSheet.name}
-        <span class="text-base font-normal text-neutral-500">rev. {rateSheet.revision}</span>
-      </h1>
-      <DsActionButton
-        action={() => window.open(`/rate-sheets/${rateSheet.id}/print`, "_blank")}
-        icon="mdi:printer"
-        title="Print"
-        color="gray"
-      />
-      <DsActionButton action={downloadCsv} icon="mdi:download" title="Download CSV" color="gray" />
-      <div class="ml-auto">
+    <DSPageHeader
+      title={rateSheetCodeRevision({ code: rateSheet.code, revision: rateSheet.revision })}
+      subtitle={rateSheet.name}
+    >
+      {#snippet context()}
+        Effective {shortDate(rateSheet.effective_date, true)}
+        {#if formerNames.length > 0}· Formerly {formerNames.join(", ")}{/if}
+        {#if formerCodes.length > 0}· Former codes {formerCodes.join(", ")}{/if}
+      {/snippet}
+      {#snippet actions()}
+        <DsActionButton
+          action={() => window.open(`/rate-sheets/${rateSheet.id}/print`, "_blank")}
+          icon="mdi:printer"
+          title="Print"
+          color="gray"
+        />
+        <DsActionButton
+          action={downloadCsv}
+          icon="mdi:download"
+          title="Download CSV"
+          color="gray"
+        />
         <DSHelp doc="rate-sheets#activate-a-rate-sheet" label="Help" />
-      </div>
-    </div>
-    <p class="text-neutral-600">
-      Effective: {shortDate(rateSheet.effective_date, true)}
-    </p>
-    {#if formerNames.length > 0}
-      <p class="text-neutral-600">Formerly {formerNames.join(", ")}</p>
-    {/if}
+      {/snippet}
+    </DSPageHeader>
   </div>
 
   <!-- Action Buttons -->
@@ -400,6 +406,7 @@
   {#if isAdmin && rateSheet.active}
     <RateSheetRollout
       id={rateSheet.id}
+      code={rateSheet.code}
       revision={rateSheet.revision}
       effectiveDate={rateSheet.effective_date}
     />

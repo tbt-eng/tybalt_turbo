@@ -11,7 +11,8 @@
     type RateSheetDuplicate,
     type RateSheetDuplicateGroup,
   } from "$lib/rateSheetAbsorb";
-  import { resolve } from "$app/paths";
+  import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
+  import { rateSheetLabel } from "$lib/rateSheetLabel";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -21,7 +22,7 @@
   type DuplicateRow = RateSheetDuplicate & { group: string };
 
   function heading({ sheets }: RateSheetDuplicateGroup): string {
-    return `Same rates as ${sheets[0].name} (rev. ${sheets[0].revision})`;
+    return `Same rates as ${rateSheetLabel(sheets[0])}`;
   }
 
   const rows = $derived<DuplicateRow[]>(
@@ -52,14 +53,12 @@
       <DSHelp doc="rate-sheet-absorb#find-duplicate-rate-sheets" label="Help" />
     {/snippet}
 
-    {#snippet headline({ id, name }: DuplicateRow)}
-      <a href={resolve("/rate-sheets/[id]/details", { id })} class="link">{name}</a>
+    {#snippet headline(sheet: DuplicateRow)}
+      <RateSheetLabel {sheet} />
     {/snippet}
 
-    {#snippet byline({ effective_date, revision, job_count }: DuplicateRow)}
-      rev. {revision} • {shortDate(effective_date, true)} • {job_count} job{job_count === 1
-        ? ""
-        : "s"}
+    {#snippet byline({ effective_date, job_count }: DuplicateRow)}
+      {shortDate(effective_date, true)} • {job_count} job{job_count === 1 ? "" : "s"}
     {/snippet}
 
     {#snippet line1({ active, target, absorbs, revisions }: DuplicateRow)}

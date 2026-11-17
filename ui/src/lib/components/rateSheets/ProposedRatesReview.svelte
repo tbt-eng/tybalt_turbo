@@ -6,6 +6,8 @@
   import DsCheck from "$lib/components/DsCheck.svelte";
   import { shortDate } from "$lib/utilities";
   import RateSheetRatesTable from "./RateSheetRatesTable.svelte";
+  import RateSheetLabel from "./RateSheetLabel.svelte";
+  import { rateSheetCodeRevision } from "$lib/rateSheetLabel";
   import type { ProposedRate } from "$lib/proposedRates";
   import type { WorkflowRecord } from "$lib/clientEditors";
 
@@ -34,7 +36,7 @@
       }))
       .sort((a: ProposedRate, b: ProposedRate) => a.roleName.localeCompare(b.roleName)),
   );
-  const sourceLabel = $derived(source ? `${source.name} (rev. ${source.revision})` : "");
+  const sheet = $derived(related.rate_sheet);
   const approver = $derived(related.rate_sheet_rates_approver);
   const approvedBy = $derived(
     approver
@@ -60,12 +62,17 @@
     <DSHelp doc="proposed-rates#approve-proposed-rates" label="Help" />
   {/snippet}
   <DSFieldList>
-    <DSField label="Name" value={related.rate_sheet?.name} />
-    <DSField label="Started from" value={sourceLabel} />
+    {#if sheet?.code}
+      <!-- Proposed rates have no page until the job is created. -->
+      <DSField label="Rate sheet"><RateSheetLabel {sheet} link={false} /></DSField>
+    {/if}
+    {#if source}
+      <DSField label="Started from"><RateSheetLabel sheet={source} /></DSField>
+    {/if}
     <DSField label="Reason" value={related.rate_sheet?.reason} />
     <DSField label="Rates approved by" value={approvedBy} />
   </DSFieldList>
-  <RateSheetRatesTable {rows} sourceName={source?.name ?? ""} />
+  <RateSheetRatesTable {rows} sourceName={source ? rateSheetCodeRevision(source) : ""} />
   {#if canApprove}
     <DsCheck
       bind:value={approved}

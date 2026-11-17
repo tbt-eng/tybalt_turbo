@@ -5,6 +5,7 @@
   import type { BaseSystemFields } from "$lib/pocketbase-types";
   import { shortDate } from "$lib/utilities";
   import type { RateSheetAbsorbCandidate } from "$lib/rateSheetAbsorb";
+  import { rateSheetLabel } from "$lib/rateSheetLabel";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -22,7 +23,7 @@
 
   function describe(item: AbsorbRow): string {
     const parts = [
-      `${item.name} rev. ${item.revision}`,
+      rateSheetLabel(item),
       shortDate(item.effective_date, true),
       `${item.job_count} job${item.job_count === 1 ? "" : "s"}`,
       item.active ? "Active" : "Inactive",
@@ -59,7 +60,7 @@
     <DSCallout tone="info" title="Identical sheets that this sheet can't absorb">
       <ul class="flex flex-col gap-1">
         {#each refused as sheet (sheet.id)}
-          <li>{sheet.name} rev. {sheet.revision}: {sheet.reason}</li>
+          <li>{rateSheetLabel(sheet)}: {sheet.reason}</li>
         {/each}
       </ul>
     </DSCallout>

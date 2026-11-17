@@ -18,6 +18,8 @@
   import { rateSheets } from "$lib/stores/rateSheets";
   import { rateRoles } from "$lib/stores/rateRoles";
   import type { RateSheetComparison } from "$lib/rateSheetMatches";
+  import { rateSheetCodeRevision, rateSheetLabel } from "$lib/rateSheetLabel";
+  import { shortDate } from "$lib/utilities";
 
   // Proposed rates in a project request: the requester starts from an active
   // sheet, names the new sheet, says why it is needed and changes the rates.
@@ -46,9 +48,8 @@
   // them and a saved proposal keeps its own rates.
   let loadedSource = $state(proposal.based_on);
 
-  const sourceName = $derived(
-    $rateSheets.items.find((sheet) => sheet.id === proposal.based_on)?.name ?? "",
-  );
+  const source = $derived($rateSheets.items.find((sheet) => sheet.id === proposal.based_on));
+  const sourceName = $derived(source ? rateSheetCodeRevision(source) : "");
 
   // The rates of the source, once loaded, for the source rates column.
   let sourceRates = $state<{
@@ -160,7 +161,7 @@
       uiName="Start from"
       empty
     >
-      {#snippet option(row)}{row.name} (rev. {row.revision}){/snippet}
+      {#snippet option(row)}{rateSheetLabel(row)} · {shortDate(row.effective_date, true)}{/snippet}
       {#snippet help()}
         <DSHelp doc="proposed-rates#propose-new-rates" iconOnly />
       {/snippet}
@@ -190,7 +191,9 @@
     >
       {#snippet actions()}
         {#each comparison.exact as match (match.id)}
-          <DSActionButton action={() => onUse?.(match.id)}>Use {match.name}</DSActionButton>
+          <DSActionButton action={() => onUse?.(match.id)}
+            >Use {rateSheetCodeRevision(match)}</DSActionButton
+          >
         {/each}
       {/snippet}
     </RateSheetMatchCallout>
@@ -204,7 +207,9 @@
     >
       {#snippet actions()}
         {#each comparison.near as match (match.id)}
-          <DSActionButton action={() => onUse?.(match.id)}>Use {match.name}</DSActionButton>
+          <DSActionButton action={() => onUse?.(match.id)}
+            >Use {rateSheetCodeRevision(match)}</DSActionButton
+          >
         {/each}
       {/snippet}
     </RateSheetMatchCallout>

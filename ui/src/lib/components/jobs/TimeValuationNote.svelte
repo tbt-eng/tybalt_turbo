@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { resolve } from "$app/paths";
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
   import type { RateSheet } from "./timeSummary";
   let { rateSheet }: { rateSheet?: RateSheet } = $props();
 </script>
@@ -8,11 +8,7 @@
 <DSHelp title="How time values are calculated">
   {#if rateSheet?.id}
     <p>
-      Current rate sheet: <a
-        class="text-blue-600 hover:underline"
-        href={resolve("/rate-sheets/[id]/details", { id: rateSheet.id })}
-        >{rateSheet.name} (rev. {rateSheet.revision})</a
-      >.
+      Current rate sheet: <RateSheetLabel sheet={rateSheet} />.
     </p>
   {/if}
   <p>
@@ -21,8 +17,8 @@
     than zero is used.
   </p>
   <p>
-    Estimated amounts include staff defaults. Partial amounts exclude hours that cannot be
-    priced. If no hours can be priced, the value is shown as —.
+    Estimated amounts include staff defaults. Partial amounts exclude hours that cannot be priced.
+    If no hours can be priced, the value is shown as —.
   </p>
   <p>
     Includes committed and uncommitted entries in the selected dates. Excludes meal hours, time

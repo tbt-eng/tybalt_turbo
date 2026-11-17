@@ -3,6 +3,9 @@ import { pb } from "$lib/pocketbase";
 import type { BaseSystemFields } from "$lib/pocketbase-types";
 
 export interface RateSheetResponse extends BaseSystemFields {
+  // The sheet's label and identity, shared by its revisions.
+  code: string;
+  // An optional description.
   name: string;
   effective_date: string;
   revision: number;
@@ -18,8 +21,9 @@ export const rateSheets = createCollectionStore<RateSheetResponse>(
   "rate_sheets", // Subscribe to the base collection for real-time updates
   { requestKey: "rate_sheets" },
   {
-    fields: ["name", "effective_date"],
-    storeFields: ["id", "name", "effective_date", "revision", "active", "job_count"],
+    // A search finds a sheet by its code, its name or its effective date.
+    fields: ["code", "name", "effective_date"],
+    storeFields: ["id", "code", "name", "effective_date", "revision", "active", "job_count"],
   },
   // onCreate handler - refetch from augmented view
   async (item) => {

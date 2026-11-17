@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { resolve } from "$app/paths";
   import { ClientResponseError } from "pocketbase";
   import { pb } from "$lib/pocketbase";
   import { rateSheets, type RateSheetResponse } from "$lib/stores/rateSheets";
@@ -12,6 +11,8 @@
   import DSPicker from "$lib/components/DSPicker.svelte";
   import DSDateInput from "$lib/components/DSDateInput.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
+  import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
+  import { rateSheetLabel } from "$lib/rateSheetLabel";
 
   // A project's rate sheet history: which rate sheet prices its time from which
   // date. Each entry is priced by the period its date falls in, so a change
@@ -22,6 +23,7 @@
     id: string;
     rate_sheet: {
       id: string;
+      code: string;
       name: string;
       revision: number;
       effective_date: string;
@@ -162,9 +164,7 @@
     {#if history.periods.length}
       <DSList items={history.periods}>
         {#snippet headline(period: Period)}
-          <a class="link" href={resolve("/rate-sheets/[id]/details", { id: period.rate_sheet.id })}
-            >{period.rate_sheet.name} (rev. {period.rate_sheet.revision})</a
-          >
+          <RateSheetLabel sheet={period.rate_sheet} />
         {/snippet}
         {#snippet line1(period: Period)}
           {periodDates(period)}
@@ -228,7 +228,10 @@
         uiName="Rate sheet"
         disabled={submitting}
       >
-        {#snippet option(item)}{item.name} (rev. {item.revision}){/snippet}
+        {#snippet option(item)}{rateSheetLabel(item)} · {shortDate(
+            item.effective_date,
+            true,
+          )}{/snippet}
       </DSPicker>
       {#if !isOpening}
         <label class="flex flex-col gap-1">

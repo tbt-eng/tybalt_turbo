@@ -5,6 +5,7 @@
     formatJobLabel,
     formatContactName,
     invoicingProfileLabel,
+    shortDate,
   } from "$lib/utilities";
   import { globalStore } from "$lib/stores/global";
   import InvoicingProfileEmptyState from "./clients/InvoicingProfileEmptyState.svelte";
@@ -33,6 +34,7 @@
   import { branches as branchesStore } from "$lib/stores/branches";
   import { divisions } from "$lib/stores/divisions";
   import { rateSheets } from "$lib/stores/rateSheets";
+  import { rateSheetLabel } from "$lib/rateSheetLabel";
   import { jobsEditingEnabled, jobRequestsEnabled } from "$lib/stores/appConfig";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
   import DsCheck from "$lib/components/DsCheck.svelte";
@@ -1391,7 +1393,7 @@
             empty
           >
             {#snippet option(sheet)}
-              {sheet.name} (rev. {sheet.revision}) - {sheet.effective_date}
+              {rateSheetLabel(sheet)} · {shortDate(sheet.effective_date, true)}
             {/snippet}
             {#snippet help()}
               <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { resolve } from "$app/paths";
   import { pb } from "$lib/pocketbase";
+  import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
   import type { JobWIP } from "./wip";
   let { data, jobId = "" }: { data: JobWIP; jobId?: string } = $props();
   // Missing rates are grouped by the sheet that priced the time. A job's rate
@@ -8,6 +8,7 @@
   type MissingRates = {
     rate_sheets: {
       id: string;
+      code: string;
       name: string;
       revision: number;
       roles: { id: string; name: string; hours: number }[];
@@ -89,13 +90,7 @@
       {:else if details}
         {#if details.rate_sheets.length}
           {#each details.rate_sheets as sheet (sheet.id)}
-            <p>
-              <a
-                class="text-blue-700 underline"
-                href={resolve("/rate-sheets/[id]/details", { id: sheet.id })}>{sheet.name}</a
-              >
-              (revision {sheet.revision})
-            </p>
+            <p><RateSheetLabel {sheet} /></p>
             <ul class="list-disc space-y-1 pl-5">
               {#each sheet.roles as role (role.id)}
                 <li>{role.name} — {role.hours.toFixed(2)} hours</li>

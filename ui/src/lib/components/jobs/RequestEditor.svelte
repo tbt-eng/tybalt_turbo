@@ -20,7 +20,8 @@
   import { divisions } from "$lib/stores/divisions";
   import { jobs } from "$lib/stores/jobs";
   import { rateSheets } from "$lib/stores/rateSheets";
-  import { formatJobLabel } from "$lib/utilities";
+  import { formatJobLabel, shortDate } from "$lib/utilities";
+  import { rateSheetCodeRevision, rateSheetLabel } from "$lib/rateSheetLabel";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
   import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
   import {
@@ -561,7 +562,10 @@
         uiName="Rate Sheet"
         empty
       >
-        {#snippet option(row)}{row.name} (rev. {row.revision}) - {row.effective_date}{/snippet}
+        {#snippet option(row)}{rateSheetLabel(row)} · {shortDate(
+            row.effective_date,
+            true,
+          )}{/snippet}
         {#snippet help()}
           <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
         {/snippet}
@@ -576,7 +580,8 @@
         matches={rateMatches}
       >
         {#snippet actions()}
-          <DSActionButton action={() => useMatchingSheet(match.id)}>Use {match.name}</DSActionButton
+          <DSActionButton action={() => useMatchingSheet(match.id)}
+            >Use {rateSheetCodeRevision(match)}</DSActionButton
           >
         {/snippet}
       </RateSheetMatchCallout>

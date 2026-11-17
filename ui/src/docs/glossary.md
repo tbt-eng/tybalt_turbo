@@ -24,7 +24,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Proposal              | An offer of work to a client. Only procurement can create one.                                                                                      |                 |
 | Proposed rates        | New rates in a project request. See [Proposed rates](/docs/proposed-rates).                                                                         |                 |
 | Purchase order (PO)   | Permission for the company to make a purchase. A PO isn't an accounting record.                                                                     |                 |
-| Rate sheet            | The hourly rates that a client pays for each role. A project uses one at a time. See [Rate sheets](/docs/rate-sheets).                              |                 |
+| Rate sheet            | The hourly rates that a client pays for each role. Its [code](/docs/rate-sheet-codes), such as 2026-11-00004, identifies it.                        |                 |
 | Rate sheet period     | The dates in which a project uses one rate sheet. See [Rate sheet periods](/docs/rate-sheet-periods).                                               |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
 | Revise                | Make a new version of a record: new details for an approved purchase order, or new rates for a rate sheet.                                          |                 |

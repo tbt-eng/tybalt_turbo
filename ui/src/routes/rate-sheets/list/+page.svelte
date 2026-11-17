@@ -2,6 +2,8 @@
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
+  import { rateSheetSearchText } from "$lib/rateSheetLabel";
   import type { RateSheetResponse } from "$lib/stores/rateSheets";
   import { rateSheets } from "$lib/stores/rateSheets";
   import { shortDate } from "$lib/utilities";
@@ -11,7 +13,12 @@
 </script>
 
 {#if $rateSheets.items.length > 0 || $rateSheets.initialized}
-  <DsList items={$rateSheets.items} search={true} inListHeader="Rate Sheets">
+  <DsList
+    items={$rateSheets.items}
+    search={true}
+    searchText={rateSheetSearchText}
+    inListHeader="Rate Sheets"
+  >
     {#snippet searchBarExtra()}
       <DsActionButton
         action="/rate-sheets/duplicates"
@@ -22,17 +29,13 @@
       <DSHelp doc="rate-sheets#find-a-rate-sheet" label="Help" />
     {/snippet}
 
-    {#snippet headline({ id, name }: RateSheetResponse)}
-      <a href={`/rate-sheets/${id}/details`} class="text-blue-600 hover:underline">
-        {name}
-      </a>
+    {#snippet headline(sheet: RateSheetResponse)}
+      <RateSheetLabel {sheet} />
     {/snippet}
 
-    {#snippet byline({ effective_date, revision, job_count }: RateSheetResponse)}
+    {#snippet byline({ effective_date, job_count }: RateSheetResponse)}
       <span class="text-neutral-500">
-        rev. {revision} • {shortDate(effective_date, true)} • {job_count} job{job_count === 1
-          ? ""
-          : "s"}
+        {shortDate(effective_date, true)} • {job_count} job{job_count === 1 ? "" : "s"}
       </span>
     {/snippet}
 

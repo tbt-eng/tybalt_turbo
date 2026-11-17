@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { resolve } from "$app/paths";
   import DSCallout from "$lib/components/DSCallout.svelte";
+  import RateSheetLabel from "./RateSheetLabel.svelte";
   import type { Snippet } from "svelte";
   import type { RateSheetMatch } from "$lib/rateSheetMatches";
 
@@ -35,9 +35,7 @@
     {#each matches as match (match.id)}
       <li>
         {#if match.differing_roles > 0}Differs from{/if}
-        <a class="link" href={resolve("/rate-sheets/[id]/details", { id: match.id })}
-          >{match.name} (rev. {match.revision})</a
-        >{differs(match)}
+        <RateSheetLabel sheet={match} />{differs(match)}
       </li>
     {/each}
   </ul>

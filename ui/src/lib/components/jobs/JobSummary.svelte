@@ -9,6 +9,7 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import JobInvoicingCard from "$lib/components/jobs/JobInvoicingCard.svelte";
   import JobValueLine from "$lib/components/jobs/JobValueLine.svelte";
+  import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
   import { clientLabel } from "$lib/clientWorkspace";
   import { JobValue, valueDate } from "$lib/jobValue.svelte";
   import { formatCurrency, shortDate } from "$lib/utilities";
@@ -102,11 +103,9 @@
               : undefined}
           />
           {#if job.rate_sheet?.id}
-            <DSField
-              label="Rate sheet"
-              value={`${job.rate_sheet.name} (rev. ${job.rate_sheet.revision})`}
-              href={resolve("/rate-sheets/[id]/details", { id: job.rate_sheet.id })}
-            />
+            <DSField label="Rate sheet">
+              <RateSheetLabel sheet={job.rate_sheet} />
+            </DSField>
           {/if}
           <DSField label="Client PO" value={job.client_po} />
           <DSField label="Client reference number" value={job.client_reference_number} />

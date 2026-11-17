@@ -12,6 +12,7 @@
   import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { clientLabel } from "$lib/clientWorkspace";
+  import { rateSheetLabel } from "$lib/rateSheetLabel";
   let { data } = $props();
   let busy = $state(false),
     error = $state(""),
@@ -229,9 +230,9 @@
           : "Fee basis not provided"}
       </p>
       <p>
-        Rate sheet: {related.rate_sheet?.name || "Not provided"} · {related.rate_sheet_proposed
-          ? "Proposed rates"
-          : `Revision ${related.rate_sheet?.revision ?? "Not provided"}`}
+        Rate sheet: {related.rate_sheet
+          ? rateSheetLabel(related.rate_sheet)
+          : "Not provided"}{related.rate_sheet_proposed ? " · Proposed rates" : ""}
       </p>
       <p>First Nations agreement: {request.fn_agreement_answer || "Not answered"}</p>
       <p>Intended project status: {request.project_status}</p>

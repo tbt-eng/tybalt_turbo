@@ -7,6 +7,7 @@
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSDateInput from "$lib/components/DSDateInput.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
+  import { rateSheetCodeRevision } from "$lib/rateSheetLabel";
 
   // Moves every active project on an earlier revision of a rate sheet to this
   // revision, from one date. Only admins can do it, so the page shows this only
@@ -21,8 +22,15 @@
     later_period: number;
   };
 
-  let { id, revision, effectiveDate }: { id: string; revision: number; effectiveDate: string } =
-    $props();
+  let {
+    id,
+    code,
+    revision,
+    effectiveDate,
+  }: { id: string; code: string; revision: number; effectiveDate: string } = $props();
+
+  // The revision that projects move to, such as 2026-11-00004 (rev. 2).
+  const target = $derived(rateSheetCodeRevision({ code, revision }));
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -135,7 +143,7 @@
 {#if moved !== null || movable > 0}
   <div class="mb-6 flex flex-col gap-2">
     {#if moved !== null}
-      <DSCallout tone="success">Moved {projects(moved)} to rev. {revision}.</DSCallout>
+      <DSCallout tone="success">Moved {projects(moved)} to {target}.</DSCallout>
     {/if}
     {#if movable > 0}
       <DSCallout tone="info">
@@ -152,7 +160,7 @@
 {#if show}
   <DSPopover
     bind:show
-    title="Move Projects to rev. {revision}"
+    title="Move Projects to {target}"
     error={globalError}
     {submitting}
     submitLabel="Move projects"
@@ -179,8 +187,8 @@
     />
     {#if date}
       <DSCallout tone="warning">
-        Time from {shortDate(date, true)} on will be priced by rev. {revision}. Earlier time keeps
-        its price.
+        Time from {shortDate(date, true)} on will be priced by {target}. Earlier time keeps its
+        price.
       </DSCallout>
     {/if}
   </DSPopover>

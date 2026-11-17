@@ -19,9 +19,10 @@ A project must have a rate sheet. Choose the sheet with the rates in the client'
 ## Find a rate sheet
 
 1. Select **Rate Sheets** under **Business**.
-2. Select the name of a sheet.
+2. Search for a code, a name or an effective date.
+3. Select the [code](/docs/rate-sheet-codes) of a sheet.
 
-The list shows the revision, the effective date, the number of jobs and **Active** or **Inactive**. To share the rates, select **Print** or **Download CSV**. To combine identical sheets, [absorb them](/docs/rate-sheet-absorb).
+To share the rates, select **Print** or **Download CSV**. To combine identical sheets, [absorb them](/docs/rate-sheet-absorb).
 
 ## Create a rate sheet
 
