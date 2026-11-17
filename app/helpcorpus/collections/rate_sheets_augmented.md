@@ -21,6 +21,7 @@
 ```sql
 SELECT 
   rs.id AS id,
+  rs.code AS code,
   rs.name AS name,
   rs.effective_date AS effective_date,
   rs.revision AS revision,
@@ -35,7 +36,7 @@ LEFT JOIN (
   SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
 ) u ON u.rate_sheet = rs.id
 WHERE COALESCE(rs.request, '') = ''
-GROUP BY rs.id, rs.name, rs.effective_date, rs.revision, rs.active, rs.created, rs.updated
+GROUP BY rs.id, rs.code, rs.name, rs.effective_date, rs.revision, rs.active, rs.created, rs.updated
 ```
 
 ## Fields: rate_sheets_augmented
@@ -43,7 +44,8 @@ GROUP BY rs.id, rs.name, rs.effective_date, rs.revision, rs.active, rs.created, 
 | Field | Type | Details |
 | --- | --- | --- |
 | `id` | text | required; pattern "^[a-z0-9]+$" |
-| `name` | text | required |
+| `code` | text | required; pattern "^\\d{4}-(0[1-9]\|1[0-2])-\\d{5}$" |
+| `name` | text |  |
 | `effective_date` | text | required; pattern "^\\d{4}-\\d{2}-\\d{2}$" |
 | `revision` | number | onlyInt |
 | `active` | bool |  |

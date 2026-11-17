@@ -54,7 +54,8 @@ func TestCreateRateSheet_Success(t *testing.T) {
 				`"entries_created":2`,
 			},
 			ExpectedEvents: map[string]int{
-				"OnRecordCreate": 3, // 1 rate_sheet + 2 entries
+				// 1 rate_sheet, its issued code in rate_sheet_codes, 2 entries
+				"OnRecordCreate": 4,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},

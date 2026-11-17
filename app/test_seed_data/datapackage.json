@@ -2372,6 +2372,11 @@
             "x-sqlite-type": "TEXT"
           },
           {
+            "name": "code",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
             "name": "created",
             "type": "string",
             "x-sqlite-type": "TEXT"
@@ -2431,6 +2436,11 @@
             "x-sqlite-type": "BOOLEAN"
           },
           {
+            "name": "code",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
             "name": "created",
             "type": "string",
             "x-sqlite-type": "TEXT"
@@ -2466,6 +2476,46 @@
         ]
       },
       "x-groups": [
+        "import-baseline"
+      ]
+    },
+    {
+      "name": "rate_sheet_codes",
+      "path": "data/rate_sheet_codes.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "code",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "month",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "serial",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full",
         "import-baseline"
       ]
     },

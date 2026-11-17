@@ -25,7 +25,9 @@
 @request.body.based_on:isset = false &&
 @request.body.reason:isset = false &&
 @request.body.rates_approver:isset = false &&
-@request.body.rates_approved:isset = false && (
+@request.body.rates_approved:isset = false &&
+// The server gives a new sheet its code.
+@request.body.code:isset = false && (
   @request.auth.user_claims_via_uid.cid.name ?= 'rate_sheet_revise' ||
   @request.auth.user_claims_via_uid.cid.name ?= 'admin' ||
   (@request.auth.user_claims_via_uid.cid.name ?= 'job' && @request.body.revision = 0)
@@ -46,7 +48,7 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | --- | --- | --- |
 | `id` | text | required; min 15; max 15; pattern "^[a-z0-9]+$" |
 | `effective_date` | text | required; pattern "^\\d{4}-\\d{2}-\\d{2}$" |
-| `name` | text | required |
+| `name` | text |  |
 | `revision` | number | onlyInt |
 | `active` | bool |  |
 | `created` | autodate | onCreate |
@@ -56,10 +58,11 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `based_on` | relation | maxSelect 1; to `rate_sheets` |
 | `rates_approver` | relation | maxSelect 1; to `users` |
 | `rates_approved` | date |  |
+| `code` | text | required; pattern "^\\d{4}-(0[1-9]\|1[0-2])-\\d{5}$" |
 
 ## Indexes: rate_sheets
 
 A unique index means that two records can't have the same values in its fields.
 
-- `CREATE UNIQUE INDEX `idx_dHsmkOUme0` ON `rate_sheets` ( `name`, `revision` )`
 - `CREATE INDEX `idx_rate_sheets_request` ON `rate_sheets` (`request`)`
+- `CREATE UNIQUE INDEX `idx_rate_sheets_code_revision` ON `rate_sheets` (`code`, `revision`)`

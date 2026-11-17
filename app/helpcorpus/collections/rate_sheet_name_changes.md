@@ -34,8 +34,8 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | --- | --- | --- |
 | `id` | text | required; min 15; max 15; pattern "^[a-z0-9]+$" |
 | `rate_sheet` | relation | required; maxSelect 1; to `rate_sheets` |
-| `old_name` | text | required |
-| `new_name` | text | required |
+| `old_name` | text |  |
+| `new_name` | text |  |
 | `renamed_by` | relation | required; maxSelect 1; to `users` |
 | `created` | autodate | onCreate |
 

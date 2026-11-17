@@ -446,6 +446,7 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 
 		// Run in transaction for atomicity
 		var createdSheetId string
+		var createdCode string
 		var entriesCreated int
 
 		err := app.RunInTransaction(func(txApp core.App) error {
@@ -501,12 +502,22 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			rateSheet.Set("effective_date", req.EffectiveDate)
 			rateSheet.Set("revision", req.Revision)
 			rateSheet.Set("active", false)
+			// A revision takes the code of the sheet it revises. A new sheet
+			// gets the next code when it is saved.
+			if req.Revision > 0 {
+				revised, err := txApp.FindFirstRecordByFilter("rate_sheets", "name = {:name}", dbx.Params{"name": req.Name})
+				if err != nil {
+					return &errs.HookError{Status: http.StatusBadRequest, Message: "there is no rate sheet to revise"}
+				}
+				rateSheet.Set("code", revised.GetString("code"))
+			}
 
 			if err := txApp.Save(rateSheet); err != nil {
 				return err
 			}
 
 			createdSheetId = rateSheet.Id
+			createdCode = rateSheet.GetString("code")
 
 			// Get the rate_sheet_entries collection
 			entriesCollection, err := txApp.FindCollectionByNameOrId("rate_sheet_entries")
@@ -568,6 +579,7 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 
 		return e.JSON(http.StatusCreated, map[string]any{
 			"id":              createdSheetId,
+			"code":            createdCode,
 			"name":            req.Name,
 			"revision":        req.Revision,
 			"entries_created": entriesCreated,

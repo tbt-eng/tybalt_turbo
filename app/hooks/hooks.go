@@ -407,6 +407,7 @@ func AddHooks(app core.App) {
 	AddProjectWorkflowHooks(app)
 	AddJobRateSheetHooks(app)
 	addRateSheetDraftHooks(app)
+	addRateSheetCodeHooks(app)
 	app.OnRecordCreateRequest("jobs").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ProcessJob(app, e); err != nil {
 			return AnnotateHookError(app, e, err)
@@ -548,13 +549,14 @@ func AddHooks(app core.App) {
 		if err := ProcessRateSheet(app, e); err != nil {
 			return AnnotateHookError(app, e, err)
 		}
-		return e.Next()
+		// The model hooks give the sheet its code and check its name.
+		return rateSheetRequestError(e.Next())
 	})
 	app.OnRecordUpdateRequest("rate_sheets").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ProcessRateSheet(app, e); err != nil {
 			return AnnotateHookError(app, e, err)
 		}
-		return e.Next()
+		return rateSheetRequestError(e.Next())
 	})
 
 	// Keep jobs writeback in sync when related records change outside direct jobs edits.

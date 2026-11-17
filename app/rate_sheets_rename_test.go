@@ -284,6 +284,8 @@ func TestRenameRateSheet_HistoryAcrossRenamesAndRevisions(t *testing.T) {
 		t.Fatal(err)
 	}
 	revision := core.NewRecord(collection)
+	// A revision takes the code of the sheet it revises.
+	revision.Set("code", rateSheetCodeOf(t, app, "rs_deactivate_r0"))
 	revision.Set("name", "Name C")
 	revision.Set("revision", 2)
 	revision.Set("effective_date", "2025-03-01")
