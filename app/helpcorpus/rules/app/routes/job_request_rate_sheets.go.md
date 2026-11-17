@@ -1,140 +1,132 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_request_rate_sheets.go","sha256":"12a0bab430c146a204dbcebad2c24d9c1161819c484b9e907e2bced574b5671e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_request_rate_sheets.go","sha256":"1de5f528b0bf70d578bd4ab09eb851cc2f8a698dd5e74eeef567057f280263dd","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_request_rate_sheets.go
 
 ## Proposed rates reason is limited to 500 characters
 
-Lines 41-84
+Lines 41-87
 
-Asked as: reason too long; reason character limit; 500 characters; reason text too long
+Asked as: reason too long; reason character limit; 500 characters; rates reason too long
 
-The reason for proposed rates can have at most 500 characters. A longer reason gives 'the reason can have at most 500 characters'. A draft request can be saved with no reason. The code says submission requires one, but this file does not check it.
+The reason for proposed rates can have at most 500 characters. Longer text is refused with "the reason can have at most 500 characters".
 
 ## Chosen rate sheet in a project request must be active
 
 Lines 53-67
 
-Asked as: rate sheet not active; draft rate sheet chosen; select active rate sheet; invalid rate sheet on project
+Asked as: rate sheet is draft; draft rate sheet not allowed; select active rate sheet; rate sheet not active
 
-When a project request chooses a rate sheet, Turbo checks it. An unknown sheet gives 'Select a valid rate sheet.' A draft sheet gives 'Select an active rate sheet.' The request's own draft is allowed, and an empty choice passes.
+When a project request names a rate sheet, Turbo refuses a sheet that does not exist with "Select a valid rate sheet.". It refuses a draft sheet with "Select an active rate sheet.". The request's own draft of proposed rates is allowed.
 
-## Proposed rates need a name and a starting sheet
+## Proposed rates need a name, reason and source sheet
 
-Lines 73-87
+Lines 73-94
 
-Asked as: proposed rates name missing; blank rates name; no starting rate sheet; pick base rate sheet
+Asked as: proposed rates missing name; reason is required; no source rate sheet; proposed rates empty fields
 
-Proposed rates in a project request must have a name (name) and a rate sheet to start from (based_on). Turbo trims spaces first. A blank name gives 'name is required'. A blank starting sheet gives 'choose the rate sheet to start from'.
+Every save of proposed rates needs a name (proposed_rates.name), a reason and a rate sheet to start from (based_on). Turbo trims spaces first. A missing reason shows "reason is required", and a missing source shows "choose the rate sheet to start from". The rate entries are also checked against the rate sheet entry rules.
 
 ## Proposed rates must start from an active rate sheet
 
-Lines 93-101
+Lines 96-104
 
-Asked as: start from inactive sheet; based on deactivated sheet; proposed rates source inactive; starting sheet not active
+Asked as: starting from inactive sheet; source rate sheet deactivated; base sheet not active; proposed rates source draft
 
-The starting sheet of proposed rates must exist and not be a draft. It must also be active. Otherwise Turbo says 'Start the proposed rates from an active rate sheet.' One exception: a sheet that was deactivated is still allowed when it is the source the request's own draft already started from.
+The source sheet (based_on) must exist and must not be a draft. Otherwise Turbo says "Start the proposed rates from an active rate sheet.". An inactive source is allowed only when it is already the source of the request's own draft, because a draft keeps its source after that sheet is deactivated.
 
 ## Proposed rates must use known roles
 
-Lines 102-106
+Lines 105-109
 
-Asked as: unknown role in rates; rate role not found; wrong role on rate; invalid role proposed rate
+Asked as: unknown role in rates; role not found; invalid role on proposed rate; wrong role in proposed rates
 
-Every rate entry in proposed rates must name an existing role. An unknown role gives 'A proposed rate has an unknown role.'
+Every entry in proposed rates must use an existing role. Otherwise Turbo refuses with "A proposed rate has an unknown role.".
 
 ## Proposed rate sheet name must be unique in any letter case
 
-Lines 108-123
+Lines 111-126
 
-Asked as: rate sheet name taken; duplicate sheet name; name already used rates; same name as sheet
+Asked as: rate sheet name taken; duplicate rate sheet name; name already used; same rate sheet name
 
-The name of proposed rates must differ from the name of every other rate sheet, in any revision and ignoring letter case. The request's own draft does not count. A clash gives 'another rate sheet already has this name'.
+Turbo refuses a proposed name that another rate sheet already uses, ignoring letter case. Every revision of every sheet counts, but the request's own draft does not. The message is "another rate sheet already has this name".
 
 ## Proposed rates that match an active sheet are refused
 
-Lines 125-134
+Lines 128-137
 
-Asked as: rates identical to existing sheet; save refused same rates; rates match existing sheet; duplicate rate sheet error
+Asked as: rates same as existing sheet; duplicate of active sheet; identical rate sheet exists; proposed rates already exist
 
-If the proposed rates are exactly the rates of an active rate sheet, Turbo refuses the save. The error names that sheet (via DuplicateRateSheetError) so the requester can choose it instead.
+If the proposed rates exactly match an active rate sheet, Turbo refuses the save and names that sheet, so the requester can choose it instead. The comparison is done by hooks.CompareWithActiveRateSheets and hooks.DuplicateRateSheetError, which hold the details.
 
-## Saving unchanged proposed rates changes nothing
+## Saving proposed rates only changes the draft if something changed
 
-Lines 136-147
+Lines 139-171
 
-Asked as: save without changes; nothing changed resave; keep approval unchanged edit; resubmit same proposal
+Asked as: save with no changes; nothing changed on rates; draft not updated; rates saved unchanged
 
-Turbo compares a request's existing draft with the new proposal on name, reason, starting sheet and rates. If none differ, it does not rewrite the draft or its entries and keeps the existing approval. A new draft always counts as changed.
-
-## Saving changed proposed rates creates or updates a draft sheet
-
-Lines 153-215
-
-Asked as: draft rate sheet created; where do proposed rates go; rate entries updated draft; new draft revision zero
-
-Changed proposed rates go into a draft rate sheet that the request owns. A new draft has revision 0 and is inactive. Turbo sets its effective date to today, though job creation sets the real date. It adds or updates entries by role, skips unchanged ones, and deletes entries for roles no longer listed. The request then points to the draft.
+A request's proposed rates are stored as a draft rate sheet (revision 0, not active) that the request owns. A new draft counts as changed. An existing draft counts as changed only if its name, reason, source sheet or rates differ. When nothing changed, Turbo leaves the draft and its approval alone and points the request at it.
 
 ## Changed proposed rates lose their approval
 
-Lines 172-173
+Lines 172-218
 
-Asked as: approval lost after edit; rates approval reset; need approve again rates; approver cleared on change
+Asked as: approval lost after edit; rates need reapproval; editing rates clears approval; approval reset on change
 
-When proposed rates change on save, Turbo clears the draft's rates approver and approval time. The approver must approve again.
+When a draft is changed and saved, Turbo clears its rates approver and approval time, so the rates need a new approval. It sets the draft's effective date to today's date, and job creation sets the real date later. Turbo updates entries by role: it adds new roles, updates entries whose rate or overtime rate differ, and deletes roles that are no longer proposed.
 
-## Rate sheet draft is deleted when the request stops using it
+## Draft is deleted when the request stops using it
 
-Lines 217-224
+Lines 220-227
 
-Asked as: old draft sheet remains; leftover draft rate sheet; unused draft removed; stale rate sheet draft
+Asked as: old draft still there; leftover draft rate sheet; remove unused draft; draft not deleted after switch
 
-A draft that the request no longer uses is deleted after the request is saved with its new rate sheet.
+Turbo deletes the request's draft rate sheet when the request no longer uses it, after the request is saved with its new rate sheet. It does nothing if there is no draft.
 
-## Job creation can rename the proposed rates
+## Job creator can rename proposed rates
 
-Lines 226-272
+Lines 229-275
 
-Asked as: rename rates when creating job; change proposed rates name; job holder rename sheet; rename rate sheet on job
+Asked as: rename proposed rates; change proposed rates name; cannot rename rates; rename rate sheet on job
 
-When a job is created from a request, the job holder (the job claim) can give the proposed rates a new name. A blank or unchanged name does nothing. The approval stays, because the approver approved the rates and not the name. Turbo records the old name, the new name and who renamed it. A request with no proposed rates gives 'This request has no proposed rates to rename.' A name that another sheet has, in any letter case, gives 'Another rate sheet already has this name.'
+When a job is created from a request, the person with the job claim can give the proposed rates a new name. An empty or unchanged name does nothing. If the request has no proposed rates, Turbo says "This request has no proposed rates to rename.". If another sheet already has the name, ignoring case, Turbo says "Another rate sheet already has this name.". The approval stands, and Turbo records the old and new names and who renamed it.
 
-## Approver sees proposed rates beside the source sheet
+## Editor and approver see the proposal beside the source rates
 
-Lines 274-315
+Lines 277-318
 
-Asked as: approver cannot see changes; compare proposed rates source; which rates changed; show changed rate highlights
+Asked as: compare proposed with source; see changed rates; highlight rate differences; which rates differ from source
 
-For a request with proposed rates, Turbo adds the draft's reason, the approver of the rates, and the sheet it started from. Each rate is shown beside the source rate and overtime rate. A rate is marked changed if its role is not in the source or if its rate or overtime rate differs. Nothing is added when the request uses an active sheet.
+For a request with proposed rates, Turbo adds the draft's approver, the source sheet and the source rates next to each proposed rate. It marks a rate as changed when the rate or overtime rate differs from the source, or when the role is not on the source sheet. It does nothing if the request uses an active sheet.
 
-## Approver must state approval of proposed rates
+## Approver must confirm the new rate sheet
 
-Lines 327-342
+Lines 330-345
 
-Asked as: approve rates statement; confirm rate sheet approval; approve new rate sheet; approval checkbox missing
+Asked as: approve new rate sheet; approval statement missing; confirm rate sheet creation; approver must confirm rates
 
-When the approver approves a request with proposed rates, they must confirm the approval statement. Otherwise Turbo says 'Approve the creation of the new rate sheet and its rates.' Turbo then records the approver and the time on the draft. It does nothing if the request uses an active sheet.
+When the approver approves a request with proposed rates, they must make a separate statement that approves creating the new rate sheet and its rates. Without it Turbo says "Approve the creation of the new rate sheet and its rates.". With it Turbo records the approver and the time on the draft. It does nothing if the request uses an active sheet.
 
 ## New submission clears the proposed rates approval
 
-Lines 344-356
+Lines 347-359
 
-Asked as: resubmit request approval reset; submit again clears approval; new submission approval gone; reset rates approver
+Asked as: resubmit clears rates approval; new submission approval reset; request resubmitted rates unapproved; approval removed on submit
 
-Turbo clears the approver and approval time on the request's draft, so a new submission needs a new approval. It does nothing if the request has no draft or no approval is set.
+Turbo clears the draft's rates approver and approval time, so a new submission needs a new approval. It saves only if an approval was set.
 
-## Job creation requires approved proposed rates
+## Job creation needs the approver's approval of proposed rates
 
-Lines 358-369
+Lines 361-372
 
-Asked as: cannot create job unapproved; job creation blocked rates; rates not approved error; recall request approval
+Asked as: cannot create job rates; proposed rates not approved; job creation blocked; recall request for approval
 
-Turbo refuses to create a job from a request with proposed rates unless the draft has an approval time and a rates approver, and that approver is the request's approver. The error is 'The proposed rates are not approved. Recall the request for a new approval.'
+Turbo refuses to create the job when the draft's rates were not approved. The approval must be by the request's own approver and have an approval time. The message is "The proposed rates are not approved. Recall the request for a new approval.".
 
-## Compare proposed rates with active rate sheets
+## Compare proposed rates with active sheets before saving
 
-Lines 371-406
+Lines 374-409
 
-Asked as: compare rates with sheets; check rates before saving; find similar rate sheets; preview rate matches
+Asked as: check rates against sheets; compare before saving; find similar rate sheets; preview rate matches
 
-Anyone with the time claim can compare unsaved proposed rates with the active sheets, but only while project requests are enabled. The result lists the exact matches that a save would refuse, plus the closest near matches. The sheet the requester started from is left out of the near matches. The comparison changes nothing.
+Anyone who can start a project request (the time claim) can compare unsaved proposed rates with the active rate sheets, if project requests are enabled. The result lists exact matches, which a save would refuse, and a few close sheets. The sheet the requester started from is left out of the close sheets. The comparison changes nothing.
