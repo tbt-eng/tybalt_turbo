@@ -26,6 +26,24 @@
       })),
     };
   }
+
+  // The fields of the editor that show their own error after a refused save.
+  const proposedRatesFields = ["name", "reason", "based_on"].map(
+    (field) => `proposed_rates.${field}`,
+  );
+
+  // The field errors of a refused request save that belong to the editor's
+  // fields, under the server's keys.
+  type FieldErrors = Record<string, { message?: string } | undefined>;
+  export function proposedRatesFieldErrors(error: unknown): Record<string, { message: string }> {
+    const failed = error as { data?: { data?: FieldErrors }; response?: { data?: FieldErrors } };
+    const fields: FieldErrors = (failed?.data ?? failed?.response)?.data ?? {};
+    return Object.fromEntries(
+      proposedRatesFields
+        .filter((key) => fields[key]?.message)
+        .map((key) => [key, { message: fields[key]?.message ?? "" }]),
+    );
+  }
 </script>
 
 <script lang="ts">
@@ -45,19 +63,21 @@
   // The server keeps them as a draft that only this request uses.
   // onUse chooses an active sheet in place of the proposal. blocked is true
   // while the page shows the sheets that refused the last save, so the same
-  // sheets are not listed twice.
+  // sheets are not listed twice. errors holds the field errors of the last
+  // save, under the server's keys (proposed_rates.name and so on).
   let {
     proposal = $bindable(),
     onUse,
     blocked = false,
+    errors = {},
   }: {
     proposal: ProposedRates;
     onUse?: (id: string) => void;
     blocked?: boolean;
+    errors?: Record<string, { message: string }>;
   } = $props();
 
   rateSheets.init();
-  const noErrors: Record<string, { message: string }> = {};
   let loadError = $state("");
   // The source whose rates the rows show, so that a change of source reloads
   // them and a saved proposal keeps its own rates.
@@ -137,8 +157,8 @@
       bind:value={proposal.based_on}
       index={$rateSheets.index}
       filter={(sheet) => sheet.active}
-      errors={noErrors}
-      fieldName="proposed_rates_based_on"
+      {errors}
+      fieldName="proposed_rates.based_on"
       uiName="Start from"
     >
       {#snippet resultTemplate(row)}{row.name} (rev. {row.revision}){/snippet}
@@ -147,21 +167,17 @@
       {/snippet}
     </DsAutoComplete>
   {/if}
+  <DsTextInput bind:value={proposal.name} {errors} fieldName="proposed_rates.name" uiName="Name" />
   <DsTextInput
-    bind:value={proposal.name}
-    errors={noErrors}
-    fieldName="proposed_rates_name"
-    uiName="Name"
+    bind:value={proposal.reason}
+    {errors}
+    fieldName="proposed_rates.reason"
+    uiName="Reason"
+    rows={2}
+    maxlength={500}
+    placeholder="Why the client needs these rates, such as a contract schedule"
+    helperText="Required to save the proposed rates."
   />
-  <label class="flex flex-col gap-1">
-    Reason
-    <textarea
-      rows="2"
-      maxlength="500"
-      class="rounded-sm border border-neutral-300 p-2"
-      placeholder="Why the client needs these rates, such as a contract schedule"
-      bind:value={proposal.reason}></textarea>
-  </label>
   {#if loadError}<DSCallout tone="danger">{loadError}</DSCallout>{/if}
   {#if proposal.rows.length > 0}
     <RateSheetRatesTable bind:rows={proposal.rows} editable {sourceName} />

@@ -562,6 +562,14 @@
             fieldName="sample_error"
             uiName="With error"
           />
+          <DSTextInput
+            bind:value={text}
+            {errors}
+            fieldName="sample_lines"
+            uiName="Several lines"
+            rows={2}
+            helperText="A line under the field that explains it."
+          />
         </DSCard>
         <DSCard title="DSSelector">
           <DSSelector

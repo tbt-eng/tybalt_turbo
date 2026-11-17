@@ -67,8 +67,9 @@ func checkChosenRateSheet(app core.App, id string, own *core.Record) error {
 }
 
 // prepareProposedRates checks proposed rates against the rate sheet rules and
-// the active sheets. It changes nothing. A draft can be saved without a reason,
-// like any incomplete request; submission requires one.
+// the active sheets. It changes nothing. Every save needs a name, a reason and
+// the sheet to start from; submission checks the reason again, for a draft
+// saved before the reason was required.
 func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input proposedRatesWrite) (*proposedRatesPlan, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Reason = strings.TrimSpace(input.Reason)
@@ -79,7 +80,9 @@ func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input 
 	if input.Name == "" {
 		setValidationError(errs, prefix+"name", validation.NewError("value_required", "name is required"))
 	}
-	if utf8.RuneCountInString(input.Reason) > proposedRatesReasonMax {
+	if input.Reason == "" {
+		setValidationError(errs, prefix+"reason", validation.NewError("value_required", "reason is required"))
+	} else if utf8.RuneCountInString(input.Reason) > proposedRatesReasonMax {
 		setValidationError(errs, prefix+"reason", validation.NewError("validation_length_too_long", "the reason can have at most 500 characters"))
 	}
 	if input.BasedOn == "" {

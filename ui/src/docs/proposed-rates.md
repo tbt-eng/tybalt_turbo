@@ -17,7 +17,7 @@ Note: Rejected? Change the rates and submit the request again.
 4. Change the rates. Turbo marks each changed role.
 5. Select **Save request**.
 
-The reason tells why the client needs these rates, such as a contract schedule. You must enter it before you submit.
+The reason tells why the client needs these rates, such as a contract schedule. Turbo won't save the rates without it.
 
 ## Rates that match a sheet
 

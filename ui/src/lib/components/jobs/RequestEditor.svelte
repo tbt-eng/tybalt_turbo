@@ -25,6 +25,7 @@
     type ProposedRates,
     emptyProposedRates,
     proposedRatesPayload,
+    proposedRatesFieldErrors,
   } from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
   import type { ProposedRate } from "$lib/components/rateSheets/RateSheetRatesTable.svelte";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
@@ -99,6 +100,8 @@
   );
   // Active sheets with the same rates, from the last save that Turbo refused.
   let rateMatches = $state<RateSheetMatch[] | null>(null);
+  // Field errors of the proposed rates from the last save that Turbo refused.
+  let proposalErrors = $state<Record<string, { message: string }>>({});
   let item = $state<WorkflowRecord>(
     untrack(() => ({
       project_award_date: "",
@@ -291,6 +294,7 @@
     saving = true;
     error = "";
     rateMatches = null;
+    proposalErrors = {};
     const proposing = rateMode === "propose";
     const fields = [
       "description",
@@ -341,6 +345,7 @@
       return true;
     } catch (e) {
       rateMatches = duplicateRateSheetMatches(e, "proposed_rates");
+      proposalErrors = proposedRatesFieldErrors(e);
       // The callout beside the rates names the matching sheet.
       if (!rateMatches?.length) error = workflowError(e);
       return false;
@@ -509,7 +514,12 @@
       />
     </div>
     {#if rateMode === "propose"}
-      <ProposedRatesEditor bind:proposal onUse={useMatchingSheet} blocked={!!rateMatches?.length} />
+      <ProposedRatesEditor
+        bind:proposal
+        onUse={useMatchingSheet}
+        blocked={!!rateMatches?.length}
+        errors={proposalErrors}
+      />
     {:else if $rateSheets.index !== null}
       <DsAutoComplete
         bind:value={item.rate_sheet}

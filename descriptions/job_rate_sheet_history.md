@@ -428,10 +428,13 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
 - A save may not both choose a sheet and propose rates. Choosing another
   sheet, or none, deletes the request's draft.
 - A request cannot choose another request's draft.
-- The reason may be blank in a draft save. Submission, approval and job
-  creation require a reason, a rate for every role, and no identical active
-  sheet (`hooks.ValidateRequestRateSheetDraft`, called from
-  `hooks.ValidateProjectRequestData` in place of the active-sheet check).
+- Every save needs a name, a reason and `based_on`; a missing one is a field
+  error under `proposed_rates.name`, `proposed_rates.reason` or
+  `proposed_rates.based_on`, which the request form shows on the field.
+  Submission, approval and job creation require a reason (again, for a draft
+  saved before the reason was required at save), a rate for every role, and
+  no identical active sheet (`hooks.ValidateRequestRateSheetDraft`, called
+  from `hooks.ValidateProjectRequestData` in place of the active-sheet check).
 
 The request detail (`requestRelated`) adds `rate_sheet_proposed`,
 `rate_sheet_source`, and for each rate `role_id`, `source_rate`,
@@ -518,8 +521,8 @@ other. Existing sheets are not checked or changed.
   rename action stays with admins.
 - The draft's effective date is the save date, and becomes the activation
   date at job creation.
-- The reason may be blank while the request is a draft and is required from
-  submission. It is at most 500 characters.
+- The reason is required on every save of proposed rates, as the name and
+  the starting sheet are. It is at most 500 characters.
 - The proposal is checked for duplicates on every save and again at
   submission, approval and creation.
 - The approver approves the rates with a check box beside them, not with a

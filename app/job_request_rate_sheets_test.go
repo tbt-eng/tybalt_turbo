@@ -173,12 +173,12 @@ func TestProposedRatesDraftBelongsToTheRequest(t *testing.T) {
 	// Rates must be whole and each role appears once.
 	bad := standardRates(t, app, 280)
 	bad[0]["rate"] = 100.5
-	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", "", bad), http.StatusBadRequest)
+	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", "Client MSA, schedule B", bad), http.StatusBadRequest)
 	// Another sheet's name, in any case, is refused.
-	proposeRates(t, app, id, workflowAuthor, proposedRates(strings.ToUpper(standardSheetName), "", standardRates(t, app, 280)), http.StatusBadRequest)
+	proposeRates(t, app, id, workflowAuthor, proposedRates(strings.ToUpper(standardSheetName), "Client MSA, schedule B", standardRates(t, app, 280)), http.StatusBadRequest)
 	// Choosing a sheet and proposing rates at once is refused.
 	r = workflowRecord(t, app, "job_requests", id)
-	requestJSON(t, app, http.MethodPatch, "/api/job_requests/"+id, workflowAuthor, map[string]any{"version": r.GetInt("version"), "request": map[string]any{"rate_sheet": "rs_sheetb_r0"}, "proposed_rates": proposedRates("Client Negotiated Rates", "", standardRates(t, app, 280))}, http.StatusBadRequest)
+	requestJSON(t, app, http.MethodPatch, "/api/job_requests/"+id, workflowAuthor, map[string]any{"version": r.GetInt("version"), "request": map[string]any{"rate_sheet": "rs_sheetb_r0"}, "proposed_rates": proposedRates("Client Negotiated Rates", "Client MSA, schedule B", standardRates(t, app, 280))}, http.StatusBadRequest)
 
 	// Choosing an active sheet instead deletes the draft and its entries.
 	requestJSON(t, app, http.MethodPatch, "/api/job_requests/"+id, workflowAuthor, map[string]any{"version": r.GetInt("version"), "request": map[string]any{"rate_sheet": standardRateSheet}}, http.StatusOK)
@@ -300,23 +300,56 @@ func TestProposedRatesPermissions(t *testing.T) {
 	// Only the creator sees the draft through the request.
 	clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+draftFixtureRequest, "corp.noclaim@example.com", nil, http.StatusForbidden)
 	// The draft must start from an active sheet.
-	inactive := proposedRates("Proposed Fixture Rates", "", standardRates(t, app, 265))
+	inactive := proposedRates("Proposed Fixture Rates", "Changed reason", standardRates(t, app, 265))
 	inactive["based_on"] = "rs_hook_inactive_001"
 	proposeRates(t, app, draftFixtureRequest, draftFixtureCreator, inactive, http.StatusBadRequest)
 }
 
+// Every save of proposed rates needs a reason, as it needs a name and the sheet
+// to start from. The refusal is a field error under proposed_rates.reason.
+func TestProposedRatesNeedAReasonToSave(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	id := createWorkflowRequest(t, app)
+	completeWorkflowRequest(t, app, id)
+	for _, reason := range []string{"", "   "} {
+		result := proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", reason, standardRates(t, app, 260)), http.StatusBadRequest)
+		data, _ := result["data"].(map[string]any)
+		fieldErr, _ := data[hooks.ProposedRatesField+".reason"].(map[string]any)
+		if fieldErr["code"] != "value_required" {
+			t.Fatalf("reason %q: no field error for the reason: %#v", reason, result)
+		}
+		if drafts, _ := hooks.RequestRateSheetDrafts(app, id); len(drafts) != 0 {
+			t.Fatalf("reason %q: a refused save made a draft", reason)
+		}
+	}
+	long := strings.Repeat("x", 501)
+	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", long, standardRates(t, app, 260)), http.StatusBadRequest)
+	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", "Client MSA, schedule B", standardRates(t, app, 260)), http.StatusOK)
+
+	// A saved draft can't lose its reason either.
+	draftID := workflowRecord(t, app, "job_requests", id).GetString("rate_sheet")
+	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", "", standardRates(t, app, 260)), http.StatusBadRequest)
+	if reason := workflowRecord(t, app, "rate_sheets", draftID).GetString("reason"); reason != "Client MSA, schedule B" {
+		t.Fatalf("a refused save changed the reason to %q", reason)
+	}
+}
+
+// Submission checks the reason again, for a draft saved before every save
+// needed one. This test clears the reason of its draft directly, since no
+// save can.
 func TestProposedRatesNeedAReasonToSubmit(t *testing.T) {
 	app := newWorkflowTestApp(t, true)
-	id, _ := proposedRequest(t, app, 260, "")
+	id, draftID := proposedRequest(t, app, 260, "Client MSA, schedule B")
+	draft := workflowRecord(t, app, "rate_sheets", draftID)
+	draft.Set("reason", "")
+	if err := app.Save(draft); err != nil {
+		t.Fatal(err)
+	}
 	response := performJSONRequest(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowToken(t, app, workflowAuthor), requestActionData(t, app, id))
 	mustStatus(t, response, http.StatusBadRequest)
 	if !strings.Contains(response.Body.String(), "reason") {
 		t.Fatalf("the refusal does not ask for the reason: %s", response.Body.String())
 	}
-	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", "   ", standardRates(t, app, 260)), http.StatusOK)
-	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowToken(t, app, workflowAuthor), requestActionData(t, app, id)), http.StatusBadRequest)
-	long := strings.Repeat("x", 501)
-	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", long, standardRates(t, app, 260)), http.StatusBadRequest)
 	proposeRates(t, app, id, workflowAuthor, proposedRates("Client Negotiated Rates", "Client MSA, schedule B", standardRates(t, app, 260)), http.StatusOK)
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
 }
