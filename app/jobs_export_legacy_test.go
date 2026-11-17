@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
+	"sort"
+	"strings"
 	"testing"
 	"tybalt/internal/testutils"
 
@@ -267,5 +270,41 @@ func TestJobsExportLegacyClientNotes(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		scenario.Test(t)
+	}
+}
+
+// The legacy system receives each rate sheet's code in the name field of
+// rateSheets, in place of the sheet's name (issue 207).
+func TestJobsExportLegacySendsTheRateSheetCode(t *testing.T) {
+	app := testutils.SetupTestApp(t)
+	response := performJSONRequest(t, app, http.MethodGet, "/api/export_legacy/jobs/2000-01-01", "Bearer test-secret-123", nil)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body.String())
+	}
+	var body struct {
+		RateSheets []map[string]any `json:"rateSheets"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.RateSheets) == 0 {
+		t.Fatal("the export has no rate sheets")
+	}
+	for _, sheet := range body.RateSheets {
+		record, err := app.FindRecordById("rate_sheets", sheet["id"].(string))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sheet["name"] != record.GetString("code") {
+			t.Fatalf("rate sheet %s sent name %v; want its code %s", record.Id, sheet["name"], record.GetString("code"))
+		}
+		keys := []string{}
+		for key := range sheet {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		if strings.Join(keys, ",") != "active,effectiveDate,id,name,revision" {
+			t.Fatalf("the rate sheet payload changed shape: %v", keys)
+		}
 	}
 }

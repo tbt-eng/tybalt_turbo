@@ -46,7 +46,10 @@ type rateRoleExportOutput struct {
 	Name string `json:"name"`
 }
 
-// Rate sheet export struct
+// Rate sheet export struct. Name carries the sheet's code (such as
+// 2026-11-00004), which identifies it and is printed on documents; the
+// sheet's own name is an optional description that the legacy system does
+// not receive.
 type rateSheetExportOutput struct {
 	Id            string `json:"id"`
 	Name          string `json:"name"`
@@ -174,7 +177,7 @@ type rateRoleExportDBRow struct {
 // Internal struct for DB scanning - rate sheets query
 type rateSheetExportDBRow struct {
 	Id            string `db:"id"`
-	Name          string `db:"name"`
+	Code          string `db:"code"`
 	EffectiveDate string `db:"effective_date"`
 	Revision      int    `db:"revision"`
 	Active        bool   `db:"active"`
@@ -402,7 +405,7 @@ func createJobsExportLegacyHandler(app core.App) func(e *core.RequestEvent) erro
 
 		// Query 6: Rate sheets referenced by matched jobs
 		rateSheetsQuery := `
-			SELECT DISTINCT rs.id, rs.name, rs.effective_date, rs.revision, rs.active
+			SELECT DISTINCT rs.id, rs.code, rs.effective_date, rs.revision, rs.active
 			FROM rate_sheets rs
 			WHERE rs.id IN (
 				SELECT j.rate_sheet FROM jobs j
@@ -535,7 +538,7 @@ func createJobsExportLegacyHandler(app core.App) func(e *core.RequestEvent) erro
 		for i, r := range rateSheetRows {
 			rateSheets[i] = rateSheetExportOutput{
 				Id:            r.Id,
-				Name:          r.Name,
+				Name:          r.Code,
 				EffectiveDate: r.EffectiveDate,
 				Revision:      r.Revision,
 				Active:        r.Active,
