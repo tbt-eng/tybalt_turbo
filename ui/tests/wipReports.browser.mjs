@@ -342,7 +342,11 @@ await runBrowserHarness(async (page, origin) => {
       await page.getByLabel("Show All UI", { exact: true }).setChecked(showAll);
       await wipButton.click();
       await wipMenu.waitFor();
-      assert.equal(await wipMenu.getByRole("link").count(), access === "ordinary" ? 1 : 3);
+      // Show All UI shows every link, even ones the user can't use.
+      assert.equal(
+        await wipMenu.getByRole("link").count(),
+        access === "ordinary" && !showAll ? 1 : 3,
+      );
       await page.keyboard.press("Escape");
     }
   }

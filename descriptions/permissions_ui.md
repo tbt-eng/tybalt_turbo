@@ -13,7 +13,7 @@ Links: [UI should reflect user permissions #58](https://github.com/tbt-eng/tybal
 - Claims are stored in `claims` and linked via `user_claims`.
 - Backend checks claims in hooks/utilities (e.g., `HasClaimByUserID`), and PocketBase rules guard collections (e.g., admin-only create/update on several collections).
 - UI now loads `user_claims_summary` (global claims) and `user_po_approver_profile` (PO limits/divisions/claims) into `globalStore`, and displays claims in `profile/[uid]`.
-- The sidebar already hides links by claim. `ui/src/lib/navConfig.ts` gives a link a `requiredClaim` or a `canView` function, and `ui/src/routes/+layout.svelte` filters the links and their buttons against the claims in `globalStore`. It tests the raw claim names; there are no capability flags.
+- The sidebar already hides links by claim. In `ui/src/lib/navConfig.ts`, each link, flyout child and button that not everyone may see has a `canView` check (usually `anyClaim(...)`) that reads a `NavContext`: claims, branch manager, the project requests switch and attention counts. `visibleNavSections` applies the checks and hides empty sections; `ui/src/routes/+layout.svelte` only builds the context and calls it. Show All UI skips every check, so it shows the whole menu to anyone; the server still enforces access. It tests the raw claim names; there are no capability flags.
 
 #### Proposed model: user capabilities
 

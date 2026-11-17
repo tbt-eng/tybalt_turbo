@@ -1,7 +1,7 @@
 <script lang="ts">
   import NavFlyout from "../../src/lib/components/NavFlyout.svelte";
   import WIPReport from "../../src/lib/components/jobs/WIPReport.svelte";
-  import { navSections } from "../../src/lib/navConfig";
+  import { navSections, visibleNavSections } from "../../src/lib/navConfig";
   import type { WIPMode } from "../../src/lib/reports/wipReports";
   let mode = $state<WIPMode>(
     (new URLSearchParams(window.location.search).get("mode") as WIPMode) || "my",
@@ -11,9 +11,15 @@
   let defaultDivision = $state("civil");
   const claims = $derived(access === "kpi" || access === "admin" ? [access] : []);
   const manager = $derived(access === "manager");
-  const wipNav = navSections
-    .find((section) => section.title === "Business")!
-    .items.find((item) => item.label === "WIP")!;
+  const wipNav = $derived(
+    visibleNavSections(
+      navSections,
+      { claims, isBranchManager: manager, jobRequestsEnabled: false, attentionCounts: {} },
+      showAllUi,
+    )
+      .find((section) => section.title === "Business")!
+      .items.find((item) => item.label === "WIP")!,
+  );
 </script>
 
 <div class="p-4">
@@ -41,14 +47,7 @@
     ></label
   >
   <nav aria-label="WIP navigation" class="flex h-12 w-64 overflow-hidden bg-neutral-700 text-white">
-    <NavFlyout
-      label={wipNav.label}
-      items={wipNav.children!}
-      pathname={`/jobs/wip/${mode}`}
-      {claims}
-      isBranchManager={manager}
-      {showAllUi}
-    />
+    <NavFlyout label={wipNav.label} items={wipNav.children!} pathname={`/jobs/wip/${mode}`} />
   </nav>
   <label><input type="checkbox" bind:checked={showAllUi} />Show All UI</label>
 </div>

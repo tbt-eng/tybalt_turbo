@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Nav visibility browser tests</title>
+  </head>
+  <body>
+    <script type="module">
+      import { navSections, visibleNavSections } from "$lib/navConfig";
+      // Labels of what a user sees: "Section/Item", "Section/Item/Child" and
+      // "Section/Item+Button".
+      const labelsOf = (sections) =>
+        sections.flatMap((section) =>
+          section.items.flatMap((item) => {
+            const path = `${section.title}/${item.label}`;
+            return [
+              path,
+              ...(item.children ?? []).map((child) => `${path}/${child.label}`),
+              ...item.buttons.map((button) => `${path}+${button.title}`),
+            ];
+          }),
+        );
+      window.configLabels = labelsOf(navSections);
+      window.visibleLabels = (ctx, showAllUi) =>
+        labelsOf(
+          visibleNavSections(
+            navSections,
+            {
+              claims: [],
+              isBranchManager: false,
+              jobRequestsEnabled: false,
+              attentionCounts: {},
+              ...ctx,
+            },
+            showAllUi,
+          ),
+        );
+      window.ready = true;
+    </script>
+  </body>
+</html>

@@ -32,6 +32,11 @@
     navSections
       .flatMap((section) => section.items)
       .find((item) => item.href === "/pos/approval-limits")
-      ?.canView?.($testStore.claims),
+      ?.canView?.({
+        claims: $testStore.claims,
+        isBranchManager: false,
+        jobRequestsEnabled: false,
+        attentionCounts: {},
+      }),
   )}
 </output>

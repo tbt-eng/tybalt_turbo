@@ -14,9 +14,8 @@
   import { navigating } from "$app/stores";
   import { branches } from "$lib/stores/branches";
   import { tasks } from "$lib/stores/tasks";
-  import { navSections as allNavSections } from "$lib/navConfig";
+  import { navSections as allNavSections, visibleNavSections } from "$lib/navConfig";
   import { appConfig, jobRequestsEnabled } from "$lib/stores/appConfig";
-  import { canViewJobCreateQueue } from "$lib/jobRequests";
   import NavFlyout from "$lib/components/NavFlyout.svelte";
   import DSNotifyDot from "$lib/components/DSNotifyDot.svelte";
   import { helpBubble } from "$lib/stores/helpBubble";
@@ -40,144 +39,16 @@
   let isSidebarOpen = $state(false);
 
   let navSections = $derived(
-    allNavSections
-      .map((section) => {
-        // Filter items within each section
-        const filteredItems = section.items
-          .filter((item) => {
-            if (item.href === "/job-requests?queue=abandoned")
-              return $globalStore.claims.includes("admin");
-            if (item.href.startsWith("/job-requests")) {
-              if (!$jobRequestsEnabled) return false;
-              if (item.href.endsWith("queue=creation"))
-                return canViewJobCreateQueue(
-                  $globalStore.claims,
-                  $jobRequestsEnabled,
-                  $globalStore.attentionCounts.counts,
-                );
-              if (item.href.endsWith("queue=approval"))
-                return $globalStore.claims.includes("project_authorization");
-              return $globalStore.claims.some((claim) =>
-                ["time", "job", "project_authorization"].includes(claim),
-              );
-            }
-            if (item.href === "/jobs/value-approvals")
-              return $globalStore.claims.includes("project_authorization");
-            // Explicit access checks also apply when Show All UI is enabled.
-            if (item.canView) {
-              return item.canView(
-                $globalStore.claims,
-                $branches.items.some((branch) => branch.manager === $authStore?.model?.id),
-              );
-            }
-            if ($globalStore.showAllUi) return true;
-            if (item.requiredClaim) {
-              return $globalStore.claims.includes(item.requiredClaim);
-            }
-            if (
-              item.href.startsWith("/time/tracking") ||
-              item.href.startsWith("/expenses/tracking")
-            ) {
-              return (
-                $globalStore.claims.includes("report") || $globalStore.claims.includes("admin")
-              );
-            }
-            if (item.href.startsWith("/time/work-records")) {
-              return (
-                $globalStore.claims.includes("report") ||
-                $globalStore.claims.includes("work_record")
-              );
-            }
-            if (
-              item.href.startsWith("/time/sheets/pending") ||
-              item.href.startsWith("/time/sheets/approved") ||
-              item.href.startsWith("/expenses/pending") ||
-              item.href.startsWith("/expenses/approved") ||
-              item.href.startsWith("/pos/pending")
-            ) {
-              return $globalStore.claims.includes("tapr");
-            }
-            if (item.href.startsWith("/absorb/actions")) {
-              return $globalStore.claims.includes("absorb");
-            }
-            if (item.href.startsWith("/rate-sheets")) {
-              return $globalStore.claims.includes("job");
-            }
-            if (item.href.startsWith("/reports/expense/queue")) {
-              return $globalStore.claims.includes("commit");
-            }
-            if (item.href.startsWith("/expenses/settlement")) {
-              return $globalStore.claims.includes("payables_admin");
-            }
-            if (item.href.startsWith("/reports/")) {
-              return $globalStore.claims.includes("report");
-            }
-            if (item.href.startsWith("/time/amendments")) {
-              return $globalStore.claims.includes("tame") || $globalStore.claims.includes("report");
-            }
-            if (item.href === "/admin_profiles/list") {
-              return (
-                $globalStore.claims.includes("admin") ||
-                $globalStore.claims.includes("hr") ||
-                $globalStore.claims.includes("time_off_manager") ||
-                $globalStore.claims.includes("it")
-              );
-            }
-            if (
-              item.href.startsWith("/admin_profiles") ||
-              item.href.startsWith("/currencies") ||
-              item.href.startsWith("/timetypes") ||
-              item.href.startsWith("/divisions") ||
-              item.href.startsWith("/machine_secrets") ||
-              item.href.startsWith("/attachment_audit")
-            ) {
-              return $globalStore.claims.includes("admin");
-            }
-            return true; // Keep item if no specific claim is required
-          })
-          .map((item) => {
-            if ($globalStore.showAllUi) return item;
-            const gatedButtons = (item.buttons || []).filter((btn) => {
-              if (
-                btn.action === "/jobs/add" ||
-                btn.action === "/jobs/unused" ||
-                btn.action === "/jobs/stale" ||
-                btn.action === "/jobs/latest" ||
-                btn.action === "/clients/add"
-              ) {
-                return $globalStore.claims.includes("job");
-              }
-              if (btn.action === "/job-requests/new") {
-                return $globalStore.claims.includes("time");
-              }
-              if (btn.action === "/vendors/add") {
-                return $globalStore.claims.includes("payables_admin");
-              }
-              if (btn.action === "/pos/groups/add") {
-                return $globalStore.claims.includes("super_po");
-              }
-              return true;
-            });
-            return { ...item, buttons: gatedButtons };
-          });
-
-        // Return the section with filtered items
-        return { ...section, items: filteredItems };
-      })
-      .filter((section) => {
-        if ($globalStore.showAllUi) return true;
-        // KPI-only users still need the Reports section for the KPI index, and
-        // branch managers need it for the reports their canView check allows.
-        if (section.title === "Reports") {
-          return (
-            $globalStore.claims.includes("report") ||
-            $globalStore.claims.includes("kpi") ||
-            section.items.some((item) => item.canView)
-          );
-        }
-        // Hide sections that become empty after filtering
-        return section.items.length > 0;
-      }),
+    visibleNavSections(
+      allNavSections,
+      {
+        claims: $globalStore.claims,
+        isBranchManager: $branches.items.some((branch) => branch.manager === $authStore?.model?.id),
+        jobRequestsEnabled: $jobRequestsEnabled,
+        attentionCounts: $globalStore.attentionCounts.counts,
+      },
+      $globalStore.showAllUi,
+    ),
   );
 
   // Helper store that reflects whether any task is running
@@ -357,11 +228,6 @@
                         label={item.label}
                         items={item.children}
                         pathname={$page.url.pathname}
-                        claims={$globalStore.claims}
-                        isBranchManager={$branches.items.some(
-                          (branch) => branch.manager === $authStore?.model?.id,
-                        )}
-                        showAllUi={$globalStore.showAllUi}
                       />
                     {:else if item.href}
                       <a

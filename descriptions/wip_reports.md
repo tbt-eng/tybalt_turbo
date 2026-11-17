@@ -14,8 +14,8 @@ remain separate. The report date is today in UTC, as on Job Details.
   explains that the caller has no qualifying projects.
 - Branch WIP and Division WIP require the caller to manage any branch, or hold
   the kpi or admin claim. This grants access to all branches and divisions.
-  The server checks access on every request. The links remain hidden from other
-  users even when Show All UI is enabled.
+  The server checks access on every request. The links are hidden from other
+  users unless Show All UI is on, which shows every link.
 - Branch WIP selects a branch the caller manages when available; otherwise it
   starts with All branches. All branches groups rows by branch, with a separate
   ranking in each group. A branch selection uses `jobs.branch`.

@@ -3,31 +3,19 @@
   import type { NavLink } from "$lib/navConfig";
   import { tick } from "svelte";
 
+  // items are the links the user may see; visibleNavSections filters them.
   let {
     label,
     items,
     pathname,
-    claims,
-    isBranchManager = false,
-    showAllUi = false,
   }: {
     label: string;
     items: NavLink[];
     pathname: string;
-    claims: string[];
-    isBranchManager?: boolean;
-    showAllUi?: boolean;
   } = $props();
   const id = $props.id();
-  const visibleItems = $derived(
-    items.filter((item) =>
-      item.canView
-        ? item.canView(claims, isBranchManager)
-        : showAllUi || !item.requiredClaim || claims.includes(item.requiredClaim),
-    ),
-  );
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const active = $derived(visibleItems.some((item) => isCurrent(item.href)));
+  const active = $derived(items.some((item) => isCurrent(item.href)));
   let trigger: HTMLButtonElement;
   let panel: HTMLElement;
   let open = $state(false);
@@ -94,7 +82,7 @@
   $effect(() => {
     // Close the menu when navigation or access changes.
     void pathname;
-    void visibleItems;
+    void items;
     panel?.hidePopover();
   });
 
@@ -156,7 +144,7 @@
   style:visibility={open ? "visible" : "hidden"}
   class="fixed inset-auto m-0 max-h-[calc(100dvh-1rem)] w-44 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border border-neutral-500 bg-neutral-700 p-1 text-white shadow-lg"
 >
-  {#each visibleItems as item (item.href)}
+  {#each items as item (item.href)}
     <a
       href={resolve(...([item.href] as Parameters<typeof resolve>))}
       onkeydown={onKeydown}
