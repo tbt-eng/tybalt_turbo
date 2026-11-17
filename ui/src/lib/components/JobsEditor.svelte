@@ -878,12 +878,9 @@
   }
 </script>
 
-{#if !$jobsEditingEnabled}
-  <DsEditingDisabledBanner>
-    <p>Job creation and editing is temporarily disabled during a system transition.</p>
-    <p>Please check back later or contact an administrator if you need immediate assistance.</p>
-  </DsEditingDisabledBanner>
-{:else if isNewJob && !isProposal && $jobRequestsEnabled}
+<!-- Requests don't depend on job editing, so a time holder can still start
+     one while job editing is off; a proposal needs job editing. -->
+{#if isNewJob && !isProposal && $jobRequestsEnabled && (canRequestProject || $jobsEditingEnabled)}
   <div class="p-4">
     <DSCallout tone="info" title="New project or proposal">
       {#if canRequestProject || hasJobClaim}
@@ -899,7 +896,7 @@
             Create a project request
           </DsActionButton>
         {/if}
-        {#if hasJobClaim}
+        {#if hasJobClaim && $jobsEditingEnabled}
           <DsActionButton
             variant={canRequestProject ? "secondary" : "primary"}
             action={startProposal}
@@ -910,6 +907,11 @@
       {/snippet}
     </DSCallout>
   </div>
+{:else if !$jobsEditingEnabled}
+  <DsEditingDisabledBanner>
+    <p>Job creation and editing is temporarily disabled during a system transition.</p>
+    <p>Please check back later or contact an administrator if you need immediate assistance.</p>
+  </DsEditingDisabledBanner>
 {:else if !hasJobClaim && !managerAllocationsOnly}
   <p class="p-4">The job permission is required to edit or create a job.</p>
 {:else if isCancelledProposal}

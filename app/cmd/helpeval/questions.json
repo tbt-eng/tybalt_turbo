@@ -2928,13 +2928,13 @@
     "held": [
       "time"
     ],
-    "ideal_answer": "No. Show All UI changes only what the menu shows. With it on, the menu stops hiding most items by claim. It gives you no claim. The server still checks your claims on every request, so, for example, each report request is refused unless you hold the report claim. A few menu items have their own access check, such as PO Approvers, and they stay hidden even with Show All UI on.",
+    "ideal_answer": "No. Show All UI changes only what the menu shows. With it on, the menu shows every link and button, whatever your claims. It gives you no claim. The server still checks your claims on every request, so, for example, each report request is refused unless you hold the report claim.",
     "key_points": [
       "Show All UI only shows more menu items; it gives no access.",
       "The server still checks claims on each request, so a feature without the claim is refused."
     ],
     "extra_points": [
-      "Menu items with their own access check, such as PO Approvers, stay hidden even with Show All UI on."
+      "With Show All UI on, the menu shows every item to everyone, so it is a way to see the whole of Turbo."
     ],
     "wrong_if": [
       "Says Show All UI gives access to the features that it shows.",
@@ -2942,10 +2942,10 @@
     ],
     "sources": [
       {
-        "path": "ui/src/routes/+layout.svelte",
-        "start": 66,
-        "end": 76,
-        "why": "explicit access checks run first; then Show All UI skips the claim checks of the menu"
+        "path": "ui/src/lib/navConfig.ts",
+        "start": 59,
+        "end": 67,
+        "why": "with Show All UI on, the menu skips every access check and shows everything"
       },
       {
         "path": "app/routes/routes.go",
@@ -2954,16 +2954,16 @@
         "why": "every report route needs the report claim, whatever the menu shows"
       },
       {
-        "path": "ui/src/lib/navConfig.ts",
-        "start": 245,
-        "end": 250,
-        "why": "PO Approvers has its own access check"
+        "path": "ui/src/docs/start-here.md",
+        "start": 3,
+        "end": 3,
+        "why": "the user docs: the menu shows every link, but features without access can't be used"
       }
     ],
-    "evidence": "            if ($globalStore.showAllUi) return true;\n            if (item.requiredClaim) {\n              return $globalStore.claims.includes(item.requiredClaim);\n            }",
+    "evidence": "  if (showAllUi) return sections;",
     "confirmed_by_test": "app/report_routes_auth_test.go:11",
-    "in_user_docs": "no",
-    "why_hard": "It needs the difference between what the menu shows and what the server allows, plus the items that the toggle does not reveal."
+    "in_user_docs": "partly",
+    "why_hard": "It needs the difference between what the menu shows and what the server allows."
   },
   {
     "id": "clients-01",
