@@ -19,18 +19,21 @@ import (
 // its rate sheet history is on the sheet. Time is priced from the history, so
 // a sheet that only an old period uses still prices that period's time.
 //
-// Which sheets can be absorbed is decided on the name, never on the one
-// revision that the user selects:
-//   - A sheet that is the only revision of its name can be absorbed when its
+// Which sheets can be absorbed is decided on the sheet (its code), never on
+// the one revision that the user selects:
+//   - A sheet that is its only revision can be absorbed when its
 //     rates are identical to the target's. The target's effective date must
 //     not be later than the sheet's, because its jobs and periods move. A
 //     dated period starts on or after its sheet's effective date, so it then
 //     also starts on or after the target's.
-//   - A name with revisions can be absorbed only when no job, no period and
+//   - A sheet with revisions can be absorbed only when no job, no period and
 //     no project request uses any of its revisions. Then every revision is
 //     absorbed together, and only the latest revision must match the target.
 //     Nothing moves, so the date rule does not apply.
-//   - Otherwise no revision of the name can be absorbed.
+//   - Otherwise no revision of the sheet can be absorbed.
+//
+// The target keeps its code. The code of an absorbed sheet is retired:
+// rate_sheet_codes keeps it, so it is never issued again.
 //
 // Any revision of any sheet can be the target. An inactive target can't absorb
 // an active sheet, because absorb does not change active and the active sheet
@@ -50,8 +53,9 @@ func init() {
 			// same rates, so the comparison the approver sees is unchanged.
 			{Table: "rate_sheets", Column: "based_on"},
 		},
-		// rate_sheet_name_changes also relates to rate_sheets. Its rows move
-		// to the target on commit (commitRateSheetAbsorb), not on absorb.
+		// rate_sheet_name_changes and rate_sheet_code_changes also relate to
+		// rate_sheets. Their rows move to the target on commit
+		// (commitRateSheetAbsorb), not on absorb.
 		OwnedRows: []absorb.RefConfig{
 			{Table: "rate_sheet_entries", Column: "rate_sheet"},
 		},
@@ -74,13 +78,14 @@ const (
 	rateSheetReasonTargetNoRates = "The target has no rates."
 	rateSheetReasonRates         = "Its rates are not identical to the target's."
 	rateSheetReasonLatestRates   = "Its latest revision's rates are not identical to the target's."
-	rateSheetReasonNameInUse     = "Its name has revisions, and a job or project request uses one of them."
+	rateSheetReasonNameInUse     = "It has revisions, and a job or project request uses one of them."
 	rateSheetReasonInactive      = "An inactive target can't absorb an active sheet."
 )
 
 // RateSheetAbsorbSheet is one rate sheet as the absorb rules see it.
 type RateSheetAbsorbSheet struct {
 	ID            string `json:"id" db:"id"`
+	Code          string `json:"code" db:"code"`
 	Name          string `json:"name" db:"name"`
 	Revision      int    `json:"revision" db:"revision"`
 	EffectiveDate string `json:"effective_date" db:"effective_date"`
@@ -89,17 +94,22 @@ type RateSheetAbsorbSheet struct {
 	// or in any period of their rate sheet history.
 	JobCount     int `json:"job_count" db:"job_count"`
 	RequestCount int `json:"request_count" db:"request_count"`
-	// Revisions is the number of revisions of the sheet's name.
+	// Revisions is the number of revisions of the sheet (its code).
 	Revisions int `json:"revisions" db:"-"`
 	ratesKey  string
+}
+
+// label names the sheet in messages: its code, revision and name.
+func (s *RateSheetAbsorbSheet) label() string {
+	return RateSheetLabel(s.Code, s.Name, s.Revision)
 }
 
 // rateSheetAbsorbData holds every rate sheet with its rates and references,
 // so that the rules can be checked for many pairs without more queries.
 type rateSheetAbsorbData struct {
 	sheets map[string]*RateSheetAbsorbSheet
-	// byName holds the revisions of each name, oldest first.
-	byName map[string][]*RateSheetAbsorbSheet
+	// byCode holds the revisions of each code, oldest first.
+	byCode map[string][]*RateSheetAbsorbSheet
 }
 
 func loadRateSheetAbsorbData(app core.App) (*rateSheetAbsorbData, error) {
@@ -107,6 +117,7 @@ func loadRateSheetAbsorbData(app core.App) (*rateSheetAbsorbData, error) {
 	err := app.DB().NewQuery(`
 		SELECT
 			rs.id AS id,
+			rs.code AS code,
 			rs.name AS name,
 			rs.revision AS revision,
 			rs.effective_date AS effective_date,
@@ -148,14 +159,14 @@ func loadRateSheetAbsorbData(app core.App) (*rateSheetAbsorbData, error) {
 
 	data := &rateSheetAbsorbData{
 		sheets: map[string]*RateSheetAbsorbSheet{},
-		byName: map[string][]*RateSheetAbsorbSheet{},
+		byCode: map[string][]*RateSheetAbsorbSheet{},
 	}
 	for _, sheet := range rows {
 		sheet.ratesKey = RateSheetRatesKey(entries[sheet.ID])
 		data.sheets[sheet.ID] = sheet
-		data.byName[sheet.Name] = append(data.byName[sheet.Name], sheet)
+		data.byCode[sheet.Code] = append(data.byCode[sheet.Code], sheet)
 	}
-	for _, revisions := range data.byName {
+	for _, revisions := range data.byCode {
 		sort.Slice(revisions, func(i, j int) bool { return revisions[i].Revision < revisions[j].Revision })
 		for _, sheet := range revisions {
 			sheet.Revisions = len(revisions)
@@ -165,19 +176,19 @@ func loadRateSheetAbsorbData(app core.App) (*rateSheetAbsorbData, error) {
 }
 
 // check returns why target can't absorb source, or "" and the ids that the
-// absorb deletes: source alone, or every revision of its name.
+// absorb deletes: source alone, or every revision of its code.
 func (d *rateSheetAbsorbData) check(target, source *RateSheetAbsorbSheet) (string, []string) {
 	if source.ID == target.ID {
 		return rateSheetReasonSelf, nil
 	}
-	if source.Name == target.Name {
+	if source.Code == target.Code {
 		return rateSheetReasonSameName, nil
 	}
 	if target.ratesKey == "" {
 		return rateSheetReasonTargetNoRates, nil
 	}
 
-	revisions := d.byName[source.Name]
+	revisions := d.byCode[source.Code]
 	if len(revisions) == 1 {
 		if source.ratesKey != target.ratesKey {
 			return rateSheetReasonRates, nil
@@ -214,7 +225,7 @@ func (d *rateSheetAbsorbData) check(target, source *RateSheetAbsorbSheet) (strin
 
 // prepareRateSheetAbsorb is the absorb.Config Prepare of rate_sheets. It
 // refuses any sheet that target can't absorb, and returns the ids to absorb,
-// with every revision of a name that is absorbed as a whole.
+// with every revision of a sheet that is absorbed as a whole.
 func prepareRateSheetAbsorb(app core.App, target *core.Record, ids []string) ([]string, error) {
 	data, err := loadRateSheetAbsorbData(app)
 	if err != nil {
@@ -234,8 +245,8 @@ func prepareRateSheetAbsorb(app core.App, target *core.Record, ids []string) ([]
 		}
 		reason, absorbIDs := data.check(targetSheet, source)
 		if reason != "" {
-			return nil, absorb.Refused("%s (rev. %d) can't be absorbed into %s (rev. %d). %s",
-				source.Name, source.Revision, targetSheet.Name, targetSheet.Revision, reason)
+			return nil, absorb.Refused("%s can't be absorbed into %s. %s",
+				source.label(), targetSheet.label(), reason)
 		}
 		for _, absorbID := range absorbIDs {
 			if !seen[absorbID] {
@@ -250,8 +261,9 @@ func prepareRateSheetAbsorb(app core.App, target *core.Record, ids []string) ([]
 // commitRateSheetAbsorb is the absorb.Config OnCommit of rate_sheets. Each
 // absorbed name goes into the rate sheet name history once, so the target
 // shows it after "Formerly". It is written on commit, not on absorb, so an
-// undo has nothing to remove. The history rows of the absorbed sheets move to
-// the target too, so their earlier names are kept.
+// undo has nothing to remove. A sheet with no name adds nothing. The name and
+// code history rows of the absorbed sheets move to the target too, so their
+// earlier names and codes lead to the target.
 func commitRateSheetAbsorb(app core.App, action *core.Record, auth *core.Record) error {
 	if auth == nil || auth.Collection().Name != "users" {
 		return absorb.Refused("a rate sheet absorb must be committed by a user")
@@ -268,7 +280,7 @@ func commitRateSheetAbsorb(app core.App, action *core.Record, auth *core.Record)
 	}
 	ids := []any{}
 	names := []string{}
-	seen := map[string]bool{targetName: true}
+	seen := map[string]bool{targetName: true, "": true}
 	for _, record := range absorbed {
 		if id, ok := record["id"].(string); ok && id != "" {
 			ids = append(ids, id)
@@ -288,6 +300,14 @@ func commitRateSheetAbsorb(app core.App, action *core.Record, auth *core.Record)
 		).Execute()
 		if err != nil {
 			return fmt.Errorf("moving the name history of absorbed rate sheets: %w", err)
+		}
+		_, err = app.DB().Update(
+			"rate_sheet_code_changes",
+			dbx.Params{"rate_sheet": target.Id},
+			dbx.In("rate_sheet", ids...),
+		).Execute()
+		if err != nil {
+			return fmt.Errorf("moving the code history of absorbed rate sheets: %w", err)
 		}
 	}
 
@@ -354,9 +374,9 @@ func FindRateSheetDuplicates(app core.App) ([]RateSheetDuplicateGroup, error) {
 	for _, sheets := range byKey {
 		names := map[string]bool{}
 		for _, sheet := range sheets {
-			names[sheet.Name] = true
+			names[sheet.Code] = true
 		}
-		// Revisions of one name are not duplicates of each other.
+		// Revisions of one sheet are not duplicates of each other.
 		if len(names) < 2 {
 			continue
 		}
@@ -371,8 +391,8 @@ func FindRateSheetDuplicates(app core.App) ([]RateSheetDuplicateGroup, error) {
 			if a.JobCount != b.JobCount {
 				return a.JobCount > b.JobCount
 			}
-			if a.Name != b.Name {
-				return a.Name < b.Name
+			if a.Code != b.Code {
+				return a.Code < b.Code
 			}
 			return a.Revision < b.Revision
 		})
@@ -404,7 +424,7 @@ func FindRateSheetDuplicates(app core.App) ([]RateSheetDuplicateGroup, error) {
 		if absorbable == 0 {
 			group.Reason = "No sheet in this group can be absorbed into the earliest sheet."
 			if inactiveRefusal {
-				newer := data.byName[target.Name]
+				newer := data.byCode[target.Code]
 				if newer[len(newer)-1].Revision > target.Revision {
 					group.Reason = "The earliest sheet is inactive and has a newer revision. It can't absorb an active sheet, and it can't be activated."
 				} else {
@@ -417,8 +437,8 @@ func FindRateSheetDuplicates(app core.App) ([]RateSheetDuplicateGroup, error) {
 
 	sort.Slice(groups, func(i, j int) bool {
 		a, b := groups[i].Sheets[0], groups[j].Sheets[0]
-		if a.Name != b.Name {
-			return a.Name < b.Name
+		if a.Code != b.Code {
+			return a.Code < b.Code
 		}
 		return a.Revision < b.Revision
 	})
@@ -436,7 +456,7 @@ type RateSheetAbsorbCandidate struct {
 }
 
 // RateSheetAbsorbCandidates returns the target and every sheet of another
-// name with identical rates, with the reason when the target can't absorb
+// code with identical rates, with the reason when the target can't absorb
 // it. ok is false when there is no sheet with id targetID.
 func RateSheetAbsorbCandidates(app core.App, targetID string) (RateSheetAbsorbSheet, []RateSheetAbsorbCandidate, bool, error) {
 	data, err := loadRateSheetAbsorbData(app)
@@ -451,7 +471,7 @@ func RateSheetAbsorbCandidates(app core.App, targetID string) (RateSheetAbsorbSh
 	candidates := []RateSheetAbsorbCandidate{}
 	if target.ratesKey != "" {
 		for _, sheet := range data.sheets {
-			if sheet.Name == target.Name || sheet.ratesKey != target.ratesKey {
+			if sheet.Code == target.Code || sheet.ratesKey != target.ratesKey {
 				continue
 			}
 			reason, ids := data.check(target, sheet)
@@ -464,8 +484,8 @@ func RateSheetAbsorbCandidates(app core.App, targetID string) (RateSheetAbsorbSh
 	}
 	sort.Slice(candidates, func(i, j int) bool {
 		a, b := candidates[i], candidates[j]
-		if a.Name != b.Name {
-			return a.Name < b.Name
+		if a.Code != b.Code {
+			return a.Code < b.Code
 		}
 		return a.Revision < b.Revision
 	})

@@ -41,7 +41,7 @@ func TestCompareWithActiveRateSheets_Identical(t *testing.T) {
 	defer app.Cleanup()
 
 	entries := loadEntries(t, app, standardSheetID)
-	got, err := CompareWithActiveRateSheets(app, entries, "Some New Sheet")
+	got, err := CompareWithActiveRateSheets(app, entries, "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestCompareWithActiveRateSheets_DiffersByRate(t *testing.T) {
 	entries[0].Rate++
 	entries[1].Rate++
 
-	got, err := CompareWithActiveRateSheets(app, entries, "Some New Sheet")
+	got, err := CompareWithActiveRateSheets(app, entries, "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestCompareWithActiveRateSheets_DiffersByOvertimeRate(t *testing.T) {
 	entries := loadEntries(t, app, standardSheetID)
 	entries[0].OvertimeRate += 0.5
 
-	got, err := CompareWithActiveRateSheets(app, entries, "Some New Sheet")
+	got, err := CompareWithActiveRateSheets(app, entries, "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestCompareWithActiveRateSheets_DiffersByRoleSet(t *testing.T) {
 	entries := loadEntries(t, app, standardSheetID)
 
 	// A role missing from the new entries counts as a difference.
-	got, err := CompareWithActiveRateSheets(app, entries[1:], "Some New Sheet")
+	got, err := CompareWithActiveRateSheets(app, entries[1:], "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestCompareWithActiveRateSheets_DiffersByRoleSet(t *testing.T) {
 
 	// A role that only the new entries have counts as a difference too.
 	extra := append(append([]RateSheetEntryValues{}, entries...), RateSheetEntryValues{Role: "not_on_the_sheet", Rate: 100, OvertimeRate: 130})
-	got, err = CompareWithActiveRateSheets(app, extra, "Some New Sheet")
+	got, err = CompareWithActiveRateSheets(app, extra, "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -133,20 +133,21 @@ func TestCompareWithActiveRateSheets_DiffersByRoleSet(t *testing.T) {
 	}
 }
 
-func TestCompareWithActiveRateSheets_ExcludesSameName(t *testing.T) {
+// The revisions of the excluded code are not compared.
+func TestCompareWithActiveRateSheets_ExcludesSameCode(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
 	entries := loadEntries(t, app, standardSheetID)
-	got, err := CompareWithActiveRateSheets(app, entries, standardSheetName)
+	got, err := CompareWithActiveRateSheets(app, entries, rateSheetCode(t, app, standardSheetID))
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
 	if _, ok := findMatch(got.Exact, standardSheetID); ok {
-		t.Errorf("a sheet with the excluded name must not be an exact match")
+		t.Errorf("a sheet with the excluded code must not be an exact match")
 	}
 	if _, ok := findMatch(got.Near, standardSheetID); ok {
-		t.Errorf("a sheet with the excluded name must not be a near match")
+		t.Errorf("a sheet with the excluded code must not be a near match")
 	}
 }
 
@@ -156,7 +157,7 @@ func TestCompareWithActiveRateSheets_IgnoresInactive(t *testing.T) {
 
 	// rs_dupact_001 has the same entries as the standard sheet but is inactive.
 	entries := loadEntries(t, app, "rs_dupact_001")
-	got, err := CompareWithActiveRateSheets(app, entries, "Some New Sheet")
+	got, err := CompareWithActiveRateSheets(app, entries, "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -166,7 +167,7 @@ func TestCompareWithActiveRateSheets_IgnoresInactive(t *testing.T) {
 
 	// rs_complete_all_001 is inactive, so its identical entries never match.
 	entries = loadEntries(t, app, "rs_complete_all_001")
-	got, err = CompareWithActiveRateSheets(app, entries, "Some New Sheet")
+	got, err = CompareWithActiveRateSheets(app, entries, "")
 	if err != nil {
 		t.Fatalf("compare: %v", err)
 	}
@@ -186,7 +187,7 @@ func TestCompareWithActiveRateSheets_InTransaction(t *testing.T) {
 
 	err := app.RunInTransaction(func(txApp core.App) error {
 		entries := loadEntries(t, txApp, standardSheetID)
-		got, err := CompareWithActiveRateSheets(txApp, entries, "Some New Sheet")
+		got, err := CompareWithActiveRateSheets(txApp, entries, "")
 		if err != nil {
 			return err
 		}

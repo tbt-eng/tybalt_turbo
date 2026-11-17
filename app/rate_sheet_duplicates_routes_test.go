@@ -242,7 +242,7 @@ func TestCompareRateSheet(t *testing.T) {
 			Headers:        map[string]string{"Authorization": jobToken},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`"exact":[{"id":"c41ofep525bcacj","name":"2025 Standard Rates","revision":0,"effective_date":"2025-01-07","differing_roles":0}]`,
+				`"exact":[{"id":"c41ofep525bcacj","code":"2026-01-00001","name":"2025 Standard Rates","revision":0,"effective_date":"2025-01-07","differing_roles":0}]`,
 			},
 			ExpectedEvents: map[string]int{"OnRecordCreate": 0, "OnRecordUpdate": 0},
 			TestAppFactory: testutils.SetupTestApp,
@@ -256,7 +256,7 @@ func TestCompareRateSheet(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				`"exact":[]`,
-				`"near":[{"id":"c41ofep525bcacj","name":"2025 Standard Rates","revision":0,"effective_date":"2025-01-07","differing_roles":2}]`,
+				`"near":[{"id":"c41ofep525bcacj","code":"2026-01-00001","name":"2025 Standard Rates","revision":0,"effective_date":"2025-01-07","differing_roles":2}]`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},

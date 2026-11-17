@@ -128,7 +128,13 @@ func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input 
 	// Turbo refuses rates that an active sheet already has, and names it, so
 	// the requester can choose that sheet instead.
 	values := rateSheetEntryValues(input.Entries)
-	comparison, err := hooks.CompareWithActiveRateSheets(app, values, input.Name)
+	// A draft is inactive and has its own code, so no active sheet is one of
+	// its revisions.
+	ownCode := ""
+	if own != nil {
+		ownCode = own.GetString("code")
+	}
+	comparison, err := hooks.CompareWithActiveRateSheets(app, values, ownCode)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +397,8 @@ func requestCompareRatesHandler(app core.App) func(*core.RequestEvent) error {
 		if err := e.BindBody(&input); err != nil {
 			return workflowError("Invalid request data.")
 		}
-		comparison, err := hooks.CompareWithActiveRateSheets(app, rateSheetEntryValues(input.Entries), strings.TrimSpace(input.Name))
+		// The proposal is a new sheet, so every active sheet is compared.
+		comparison, err := hooks.CompareWithActiveRateSheets(app, rateSheetEntryValues(input.Entries), "")
 		if err != nil {
 			return err
 		}

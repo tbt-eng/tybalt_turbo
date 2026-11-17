@@ -58,14 +58,14 @@ func checkRolloutPermission(app core.App, auth *core.Record) error {
 }
 
 // loadRolloutSheet finds the revision that projects move to. It must be the
-// latest revision of its name, and active, because a new period needs an
+// latest revision of its sheet (its code), and active, because a new period needs an
 // active sheet.
 func loadRolloutSheet(app core.App, id string) (*core.Record, error) {
 	sheet, err := app.FindRecordById("rate_sheets", id)
 	if err != nil {
 		return nil, rateSheetRouteError(http.StatusNotFound, "", "", "Rate sheet not found.")
 	}
-	newer, err := hooks.CheckNewerRevisionExists(app, sheet.GetString("name"), sheet.GetInt("revision"))
+	newer, err := hooks.CheckNewerRevisionExists(app, sheet.GetString("code"), sheet.GetInt("revision"))
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +101,11 @@ func findRolloutProjects(app core.App, sheet *core.Record, date string) (rateShe
 			COALESCE((SELECT MAX(p.effective_date) FROM job_rate_sheets p WHERE p.job = j.id), '') AS latest_start
 		FROM jobs j
 		JOIN rate_sheets rs ON rs.id = j.rate_sheet
-		WHERE rs.name = {:name} AND rs.revision < {:revision}
+		WHERE rs.code = {:code} AND rs.revision < {:revision}
 			AND j.number NOT LIKE 'P%'
 		ORDER BY j.number
 	`).Bind(dbx.Params{
-		"name":     sheet.GetString("name"),
+		"code":     sheet.GetString("code"),
 		"revision": sheet.GetInt("revision"),
 	}).All(&rows)
 	if err != nil {

@@ -62,7 +62,7 @@ func formerNamesOf(t *testing.T, app core.App, id string) []string {
 	if err != nil {
 		t.Fatalf("find rate sheet %s: %v", id, err)
 	}
-	names, err := routes.RateSheetFormerNames(app, sheet.GetString("name"))
+	names, err := routes.RateSheetFormerNames(app, sheet.GetString("code"), sheet.GetString("name"))
 	if err != nil {
 		t.Fatalf("former names of %s: %v", id, err)
 	}

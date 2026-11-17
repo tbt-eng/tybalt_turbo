@@ -99,7 +99,7 @@ func ValidateRequestRateSheetDraft(app core.App, draft *core.Record) error {
 	if err != nil {
 		return err
 	}
-	comparison, err := CompareWithActiveRateSheets(app, entries, draft.GetString("name"))
+	comparison, err := CompareWithActiveRateSheets(app, entries, draft.GetString("code"))
 	if err != nil {
 		return err
 	}
@@ -110,26 +110,26 @@ func ValidateRequestRateSheetDraft(app core.App, draft *core.Record) error {
 }
 
 // ActivateRateSheet activates sheet after checking that no active sheet of
-// another name has the same rates, and deactivates the other revisions of its
-// name first, so a name never has two active revisions. Call it in a
+// another code has the same rates, and deactivates the other revisions of its
+// code first, so a sheet never has two active revisions. Call it in a
 // transaction. The caller checks permissions, completeness and newer
 // revisions.
 func ActivateRateSheet(app core.App, sheet *core.Record) error {
 	// Entries can be added between create and activate, so compare the stored
 	// entries with the other active sheets. Revisions of this sheet are
-	// excluded by name.
+	// excluded by code.
 	entries, err := LoadRateSheetEntryValues(app, sheet.Id)
 	if err != nil {
 		return err
 	}
-	comparison, err := CompareWithActiveRateSheets(app, entries, sheet.GetString("name"))
+	comparison, err := CompareWithActiveRateSheets(app, entries, sheet.GetString("code"))
 	if err != nil {
 		return err
 	}
 	if len(comparison.Exact) > 0 {
 		return DuplicateRateSheetError("active", comparison.Exact)
 	}
-	if err := DeactivateOtherRevisions(app, sheet.GetString("name"), sheet.Id); err != nil {
+	if err := DeactivateOtherRevisions(app, sheet.GetString("code"), sheet.Id); err != nil {
 		return err
 	}
 	sheet.Set("active", true)
@@ -149,6 +149,16 @@ func ActivateRequestRateSheet(app core.App, request *core.Record) error {
 	// a duplicate is reported under the proposed rates.
 	if err := ValidateRequestRateSheetDraft(app, draft); err != nil {
 		return err
+	}
+	// A draft has its own code from its first save and nothing can revise
+	// it, so it has no newer revision. Check anyway, as the activate route
+	// does, so that a newer revision is never deactivated by an older one.
+	newer, err := CheckNewerRevisionExists(app, draft.GetString("code"), draft.GetInt("revision"))
+	if err != nil {
+		return err
+	}
+	if newer {
+		return proposedRatesError("a newer revision of the proposed rate sheet exists")
 	}
 	draft.Set("request", "")
 	draft.Set("effective_date", RateSheetToday())

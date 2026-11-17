@@ -341,7 +341,7 @@ func TestRateSheetAbsorbCommitWritesNameHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Nothing is written on absorb.
-	if names, err := routes.RateSheetFormerNames(app, "Absorb Target"); err != nil || len(names) != 0 {
+	if names, err := routes.RateSheetFormerNames(app, rateSheetCodeOf(t, app, rsAbTarget), "Absorb Target"); err != nil || len(names) != 0 {
 		t.Fatalf("former names after absorb = %v, %v; want none", names, err)
 	}
 	action := rateSheetAction(t, app)
@@ -355,14 +355,14 @@ func TestRateSheetAbsorbCommitWritesNameHistory(t *testing.T) {
 	if status, body := absorbRequest(t, app, http.MethodGet, path, absorbAdminEmail, nil); status != http.StatusOK {
 		t.Fatalf("view by an admin without absorb: status %d: %s", status, body)
 	}
-	if names, _ := routes.RateSheetFormerNames(app, "Absorb Target"); len(names) != 0 {
+	if names, _ := routes.RateSheetFormerNames(app, rateSheetCodeOf(t, app, rsAbTarget), "Absorb Target"); len(names) != 0 {
 		t.Fatalf("a refused commit wrote history: %v", names)
 	}
 
 	if status, body := absorbRequest(t, app, http.MethodDelete, path, absorbReviseEmail, nil); status != http.StatusNoContent {
 		t.Fatalf("commit status %d: %s", status, body)
 	}
-	names, err := routes.RateSheetFormerNames(app, "Absorb Target")
+	names, err := routes.RateSheetFormerNames(app, rateSheetCodeOf(t, app, rsAbTarget), "Absorb Target")
 	if err != nil {
 		t.Fatal(err)
 	}

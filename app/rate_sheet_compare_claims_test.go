@@ -36,7 +36,7 @@ func TestCompareRateSheet_Claims(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	exact := `"exact":[{"id":"c41ofep525bcacj","name":"2025 Standard Rates","revision":0,"effective_date":"2025-01-07","differing_roles":0}]`
+	exact := `"exact":[{"id":"c41ofep525bcacj","code":"2026-01-00001","name":"2025 Standard Rates","revision":0,"effective_date":"2025-01-07","differing_roles":0}]`
 
 	scenarios := []tests.ApiScenario{
 		{

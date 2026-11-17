@@ -56,9 +56,9 @@ func createActivateRateSheetHandler(app core.App) func(e *core.RequestEvent) err
 		}
 
 		// Check if a newer revision exists (cannot activate older revisions)
-		name := record.GetString("name")
+		code := record.GetString("code")
 		revision := record.GetInt("revision")
-		newerExists, err := hooks.CheckNewerRevisionExists(app, name, revision)
+		newerExists, err := hooks.CheckNewerRevisionExists(app, code, revision)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to check for newer revisions", err)
 		}
@@ -225,8 +225,8 @@ func createUpdateRateSheetEntryHandler(app core.App) func(e *core.RequestEvent) 
 						entries[i].OvertimeRate = record.GetFloat("overtime_rate")
 					}
 				}
-				// Revisions of this sheet are excluded by name.
-				comparison, err := hooks.CompareWithActiveRateSheets(txApp, entries, sheet.GetString("name"))
+				// Revisions of this sheet are excluded by code.
+				comparison, err := hooks.CompareWithActiveRateSheets(txApp, entries, sheet.GetString("code"))
 				if err != nil {
 					return err
 				}
@@ -260,8 +260,12 @@ type CreateRateSheetEntry struct {
 	OvertimeRate float64 `json:"overtime_rate"`
 }
 
-// CreateRateSheetRequest defines the request body for creating a rate sheet with entries
+// CreateRateSheetRequest defines the request body for creating a rate sheet with entries.
+// Code names the sheet that a revision (revision > 0) revises; the new revision takes that
+// code. A new sheet (revision 0) gets the next code when it is saved, so it may not send one.
+// A revision without a code is matched to its sheet by name, as before codes existed.
 type CreateRateSheetRequest struct {
+	Code          string                 `json:"code"`
 	Name          string                 `json:"name"`
 	EffectiveDate string                 `json:"effective_date"`
 	Revision      int                    `json:"revision"`
@@ -405,7 +409,7 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 
 		// Validate name
 		req.Name = strings.TrimSpace(req.Name)
-		if req.Name == "" {
+		if req.Name == "" && req.Revision == 0 {
 			setValidationError(validationErrors, "name", validation.NewError("value_required", "name is required"))
 		}
 
@@ -431,9 +435,40 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			return apis.NewBadRequestError("Validation error", validationErrors)
 		}
 
+		// A revision takes the code of the sheet it revises.
+		req.Code = strings.TrimSpace(req.Code)
+		if req.Revision == 0 && req.Code != "" {
+			return apis.NewBadRequestError("Validation error", validation.Errors{
+				"code": validation.NewError("validation_not_allowed", "a new rate sheet gets its code when it is saved"),
+			})
+		}
+		var revised *core.Record
+		if req.Revision > 0 {
+			var err error
+			revised, err = revisedRateSheet(app, req.Code, req.Name)
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to find the rate sheet to revise", err)
+			}
+			if revised == nil {
+				return apis.NewBadRequestError("Validation error", validation.Errors{
+					"code": validation.NewError("validation_missing_rate_sheet", "there is no rate sheet to revise"),
+				})
+			}
+			// A request's proposed rates have no revisions until the job is
+			// created and they become an ordinary sheet.
+			if hooks.IsRateSheetDraft(revised) {
+				return e.JSON(http.StatusBadRequest, hooks.RateSheetDraftError("name"))
+			}
+			req.Code = revised.GetString("code")
+			// A revision keeps the name of its sheet.
+			if req.Name == "" {
+				req.Name = revised.GetString("name")
+			}
+		}
+
 		// Validate revision effective date (for revisions, must be >= previous revision's date)
 		if req.Revision > 0 {
-			prevEffectiveDate, err := hooks.CheckRevisionEffectiveDate(app, req.Name, req.Revision, req.EffectiveDate)
+			prevEffectiveDate, err := hooks.CheckRevisionEffectiveDate(app, req.Code, req.Revision, req.EffectiveDate)
 			if err != nil {
 				return e.Error(http.StatusInternalServerError, "failed to validate effective date", err)
 			}
@@ -468,6 +503,19 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			if err != nil {
 				return err
 			}
+			if req.Revision > 0 {
+				existingSheets, err = txApp.FindRecordsByFilter(
+					"rate_sheets",
+					"code={:code} && revision={:revision}",
+					"",
+					1,
+					0,
+					dbx.Params{"code": req.Code, "revision": req.Revision},
+				)
+				if err != nil {
+					return err
+				}
+			}
 			if len(existingSheets) > 0 {
 				return &uniqueConstraintError{
 					message: "a rate sheet with this name and revision already exists",
@@ -475,20 +523,20 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 				}
 			}
 
-			// A request's proposed rates have no revisions until the job is
-			// created and they become an ordinary sheet.
-			drafts, err := txApp.CountRecords("rate_sheets", dbx.HashExp{"name": req.Name}, dbx.Not(dbx.HashExp{"request": ""}))
-			if err != nil {
-				return err
-			}
-			if drafts > 0 {
-				return hooks.RateSheetDraftError("name")
+			if req.Revision == 0 {
+				drafts, err := txApp.CountRecords("rate_sheets", dbx.HashExp{"name": req.Name}, dbx.Not(dbx.HashExp{"request": ""}))
+				if err != nil {
+					return err
+				}
+				if drafts > 0 {
+					return hooks.RateSheetDraftError("name")
+				}
 			}
 
 			// Block a sheet whose rates are identical to another active sheet.
-			// Sheets with this name are excluded, so a revision that changes
-			// only the effective date is allowed.
-			comparison, err := hooks.CompareWithActiveRateSheets(txApp, rateSheetEntryValues(req.Entries), req.Name)
+			// The revisions of a revised sheet are excluded, so a revision that
+			// changes only the effective date is allowed.
+			comparison, err := hooks.CompareWithActiveRateSheets(txApp, rateSheetEntryValues(req.Entries), req.Code)
 			if err != nil {
 				return err
 			}
@@ -504,13 +552,7 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			rateSheet.Set("active", false)
 			// A revision takes the code of the sheet it revises. A new sheet
 			// gets the next code when it is saved.
-			if req.Revision > 0 {
-				revised, err := txApp.FindFirstRecordByFilter("rate_sheets", "name = {:name}", dbx.Params{"name": req.Name})
-				if err != nil {
-					return &errs.HookError{Status: http.StatusBadRequest, Message: "there is no rate sheet to revise"}
-				}
-				rateSheet.Set("code", revised.GetString("code"))
-			}
+			rateSheet.Set("code", req.Code)
 
 			if err := txApp.Save(rateSheet); err != nil {
 				return err
@@ -611,10 +653,12 @@ func rateSheetEntryValues(entries []CreateRateSheetEntry) []hooks.RateSheetEntry
 	return values
 }
 
-// CompareRateSheetRequest is the body of POST /api/rate_sheets/compare. Name
-// is the name of the sheet being made; active sheets with that name are not
-// compared.
+// CompareRateSheetRequest is the body of POST /api/rate_sheets/compare. Code
+// is the code of the sheet being revised; its active revision is not compared.
+// A request without a code is matched to a sheet by name, as before codes
+// existed. A new sheet sends neither.
 type CompareRateSheetRequest struct {
+	Code    string                 `json:"code"`
 	Name    string                 `json:"name"`
 	Entries []CreateRateSheetEntry `json:"entries"`
 }
@@ -646,7 +690,15 @@ func createCompareRateSheetHandler(app core.App) func(e *core.RequestEvent) erro
 			return e.Error(http.StatusBadRequest, "invalid request body", err)
 		}
 
-		comparison, err := hooks.CompareWithActiveRateSheets(app, rateSheetEntryValues(req.Entries), strings.TrimSpace(req.Name))
+		excludeCode := ""
+		revised, err := revisedRateSheet(app, strings.TrimSpace(req.Code), strings.TrimSpace(req.Name))
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to compare rate sheets", err)
+		}
+		if revised != nil {
+			excludeCode = revised.GetString("code")
+		}
+		comparison, err := hooks.CompareWithActiveRateSheets(app, rateSheetEntryValues(req.Entries), excludeCode)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to compare rate sheets", err)
 		}
@@ -656,4 +708,26 @@ func createCompareRateSheetHandler(app core.App) func(e *core.RequestEvent) erro
 			"near":  comparison.Closest(hooks.RateSheetNearMatchMaxRoles, hooks.RateSheetNearMatchLimit),
 		})
 	}
+}
+
+// revisedRateSheet returns the latest revision of the sheet with code, or,
+// when code is empty, of the sheet named name, so that a client that sends
+// only the name still finds the sheet it revises. It returns nil when there
+// is none.
+func revisedRateSheet(app core.App, code, name string) (*core.Record, error) {
+	if code == "" {
+		if name == "" {
+			return nil, nil
+		}
+		named, err := app.FindRecordsByFilter("rate_sheets", "name = {:name}", "-revision", 1, 0, dbx.Params{"name": name})
+		if err != nil || len(named) == 0 {
+			return nil, err
+		}
+		code = named[0].GetString("code")
+	}
+	family, err := hooks.RateSheetFamily(app, code)
+	if err != nil || len(family) == 0 {
+		return nil, err
+	}
+	return family[len(family)-1], nil
 }

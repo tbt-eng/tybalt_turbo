@@ -98,10 +98,10 @@ func ValidateRateSheetEffectiveDate(app core.App, e *core.RecordRequestEvent) er
 		return nil
 	}
 
-	name := e.Record.GetString("name")
+	code := e.Record.GetString("code")
 	newEffectiveDate := e.Record.GetString("effective_date")
 
-	prevEffectiveDate, err := CheckRevisionEffectiveDate(app, name, revision, newEffectiveDate)
+	prevEffectiveDate, err := CheckRevisionEffectiveDate(app, code, revision, newEffectiveDate)
 	if err != nil {
 		return err
 	}
@@ -122,9 +122,10 @@ func ValidateRateSheetEffectiveDate(app core.App, e *core.RecordRequestEvent) er
 }
 
 // CheckRevisionEffectiveDate checks if a new rate sheet revision has a valid effective date.
-// Returns the previous revision's effective_date if the new date is invalid (earlier than previous),
-// or empty string if valid. Returns error only for database failures.
-func CheckRevisionEffectiveDate(app core.App, name string, revision int, newEffectiveDate string) (string, error) {
+// Revisions of a sheet share its code. Returns the previous revision's effective_date if the
+// new date is invalid (earlier than previous), or empty string if valid. Returns error only
+// for database failures.
+func CheckRevisionEffectiveDate(app core.App, code string, revision int, newEffectiveDate string) (string, error) {
 	// Skip validation for first revision (revision 0)
 	if revision == 0 {
 		return "", nil
@@ -135,9 +136,9 @@ func CheckRevisionEffectiveDate(app core.App, name string, revision int, newEffe
 	err := app.DB().NewQuery(`
 		SELECT effective_date
 		FROM rate_sheets
-		WHERE name = {:name} AND revision = {:prevRevision}
+		WHERE code = {:code} AND revision = {:prevRevision}
 	`).Bind(dbx.Params{
-		"name":         name,
+		"code":         code,
 		"prevRevision": revision - 1,
 	}).Row(&prevEffectiveDate)
 
@@ -154,15 +155,15 @@ func CheckRevisionEffectiveDate(app core.App, name string, revision int, newEffe
 	return "", nil
 }
 
-// CheckNewerRevisionExists checks if a rate sheet with the same name and a higher
+// CheckNewerRevisionExists checks if a rate sheet with the same code and a higher
 // revision number exists. Used to prevent activating older revisions.
-func CheckNewerRevisionExists(app core.App, name string, revision int) (bool, error) {
+func CheckNewerRevisionExists(app core.App, code string, revision int) (bool, error) {
 	var count int
 	err := app.DB().NewQuery(`
 		SELECT COUNT(*) FROM rate_sheets
-		WHERE name = {:name} AND revision > {:revision}
+		WHERE code = {:code} AND revision > {:revision}
 	`).Bind(dbx.Params{
-		"name":     name,
+		"code":     code,
 		"revision": revision,
 	}).Row(&count)
 
@@ -173,16 +174,16 @@ func CheckNewerRevisionExists(app core.App, name string, revision int) (bool, er
 	return count > 0, nil
 }
 
-// DeactivateOtherRevisions deactivates all rate sheets with the same name except
+// DeactivateOtherRevisions deactivates all rate sheets with the same code except
 // the one with the given ID. Used when activating a new revision to ensure only
 // one revision is active at a time.
-func DeactivateOtherRevisions(app core.App, name string, excludeId string) error {
+func DeactivateOtherRevisions(app core.App, code string, excludeId string) error {
 	_, err := app.DB().NewQuery(`
 		UPDATE rate_sheets
 		SET active = false
-		WHERE name = {:name} AND id != {:id} AND active = true
+		WHERE code = {:code} AND id != {:id} AND active = true
 	`).Bind(dbx.Params{
-		"name": name,
+		"code": code,
 		"id":   excludeId,
 	}).Execute()
 

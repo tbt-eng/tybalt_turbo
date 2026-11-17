@@ -33,6 +33,7 @@ type RateSheetEntryValues struct {
 // roles that are on one side only. It is 0 for an exact match.
 type RateSheetMatch struct {
 	ID             string `json:"id"`
+	Code           string `json:"code"`
 	Name           string `json:"name"`
 	Revision       int    `json:"revision"`
 	EffectiveDate  string `json:"effective_date"`
@@ -67,6 +68,7 @@ func (c RateSheetComparison) Closest(maxRoles int, limit int) []RateSheetMatch {
 // entries gives one row with an empty role.
 type rateSheetEntryRow struct {
 	SheetID       string  `db:"sheet_id"`
+	Code          string  `db:"code"`
 	Name          string  `db:"name"`
 	Revision      int     `db:"revision"`
 	EffectiveDate string  `db:"effective_date"`
@@ -118,11 +120,11 @@ func RateSheetRatesKey(entries []RateSheetEntryValues) string {
 }
 
 // CompareWithActiveRateSheets compares entries with every active rate sheet
-// except those named excludeName, so that a revision is never compared with
-// its own earlier revisions. Two sheets are identical when they have the same
+// except the revisions of excludeCode, so that a revision is never compared
+// with its own earlier revisions. Pass "" for a sheet that has no code yet. Two sheets are identical when they have the same
 // set of roles and every role's rate and overtime rate are equal. Inactive
 // sheets are never compared. app may be a transaction app.
-func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, excludeName string) (RateSheetComparison, error) {
+func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, excludeCode string) (RateSheetComparison, error) {
 	result := RateSheetComparison{Exact: []RateSheetMatch{}, Near: []RateSheetMatch{}}
 
 	wanted := rateCentsByRole(entries)
@@ -131,6 +133,7 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 	err := app.DB().NewQuery(`
 		SELECT
 			rs.id AS sheet_id,
+			rs.code AS code,
 			rs.name AS name,
 			rs.revision AS revision,
 			rs.effective_date AS effective_date,
@@ -139,10 +142,10 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 			COALESCE(rse.overtime_rate, 0) AS overtime_rate
 		FROM rate_sheets rs
 		LEFT JOIN rate_sheet_entries rse ON rse.rate_sheet = rs.id
-		WHERE rs.active = true AND rs.name != {:excludeName}
+		WHERE rs.active = true AND rs.code != {:excludeCode}
 		ORDER BY rs.id
 	`).Bind(dbx.Params{
-		"excludeName": excludeName,
+		"excludeCode": excludeCode,
 	}).All(&rows)
 	if err != nil {
 		return result, err
@@ -160,6 +163,7 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 			s = &sheet{
 				match: RateSheetMatch{
 					ID:            row.SheetID,
+					Code:          row.Code,
 					Name:          row.Name,
 					Revision:      row.Revision,
 					EffectiveDate: row.EffectiveDate,
@@ -205,8 +209,8 @@ func sortMatches(matches []RateSheetMatch) {
 		if a.DifferingRoles != b.DifferingRoles {
 			return a.DifferingRoles < b.DifferingRoles
 		}
-		if a.Name != b.Name {
-			return a.Name < b.Name
+		if a.Code != b.Code {
+			return a.Code < b.Code
 		}
 		return a.Revision < b.Revision
 	})

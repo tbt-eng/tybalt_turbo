@@ -29,10 +29,11 @@ var errRateSheetNameInUse = errors.New("rate sheet name in use")
 // createRenameRateSheetHandler renames a rate sheet. Only admins can rename;
 // rate_sheet_revise does not allow it.
 //
-// Revisions of a sheet are linked by name, so the handler changes name on
-// every revision in one transaction and writes one rate_sheet_name_changes row
-// whose anchor is the revision in the URL. No rates change and jobs keep their
-// rate_sheet id, so nothing is repriced.
+// Revisions of a sheet share its code and its name, so the handler changes
+// name on every revision with the code in one transaction and writes one
+// rate_sheet_name_changes row whose anchor is the revision in the URL. The
+// code does not change, no rates change and jobs keep their rate_sheet id, so
+// nothing is repriced.
 //
 // Only current names are checked: a sheet may take a name that another sheet
 // used before. The check ignores case, so two sheets can't differ only in
@@ -61,6 +62,7 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 		}
 
 		var oldName string
+		var code string
 		var renamed int
 		err = app.RunInTransaction(func(txApp core.App) error {
 			sheet, err := txApp.FindRecordById("rate_sheets", id)
@@ -78,18 +80,16 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 				}
 			}
 
-			var inUse int
-			if err := txApp.DB().NewQuery(`
-				SELECT COUNT(*) FROM rate_sheets
-				WHERE LOWER(name) = LOWER({:newName}) AND name != {:oldName}
-			`).Bind(dbx.Params{"newName": newName, "oldName": oldName}).Row(&inUse); err != nil {
+			code = sheet.GetString("code")
+			holder, err := hooks.RateSheetNameHolder(txApp, newName, code)
+			if err != nil {
 				return err
 			}
-			if inUse > 0 {
+			if holder != nil {
 				return errRateSheetNameInUse
 			}
 
-			revisions, err := txApp.FindRecordsByFilter("rate_sheets", "name = {:name}", "revision", 0, 0, dbx.Params{"name": oldName})
+			revisions, err := hooks.RateSheetFamily(txApp, code)
 			if err != nil {
 				return err
 			}
@@ -134,13 +134,14 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 			return e.Error(http.StatusInternalServerError, "failed to rename rate sheet", err)
 		}
 
-		formerNames, err := RateSheetFormerNames(app, newName)
+		formerNames, err := RateSheetFormerNames(app, code, newName)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load former names", err)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"id":                id,
+			"code":              code,
 			"name":              newName,
 			"old_name":          oldName,
 			"revisions_renamed": renamed,
@@ -149,8 +150,9 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 	}
 }
 
-// createGetRateSheetFormerNamesHandler returns the earlier names of a rate
-// sheet, newest first. Any signed-in user can read them.
+// createGetRateSheetFormerNamesHandler returns the earlier names and the
+// earlier codes of a rate sheet, newest first. Any signed-in user can read
+// them.
 func createGetRateSheetFormerNamesHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		id := e.Request.PathValue("id")
@@ -159,38 +161,46 @@ func createGetRateSheetFormerNamesHandler(app core.App) func(e *core.RequestEven
 			return e.Error(http.StatusNotFound, "rate sheet not found", err)
 		}
 		name := sheet.GetString("name")
-		formerNames, err := RateSheetFormerNames(app, name)
+		code := sheet.GetString("code")
+		formerNames, err := RateSheetFormerNames(app, code, name)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load former names", err)
 		}
+		formerCodes, err := RateSheetFormerCodes(app, code)
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to load former codes", err)
+		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"id":           id,
+			"code":         code,
 			"name":         name,
 			"former_names": formerNames,
+			"former_codes": formerCodes,
 		})
 	}
 }
 
-// RateSheetFormerNames returns the earlier names of the sheet whose current
-// name is name, newest first. They are the old_name values of the history rows
-// whose anchor revision has that name now. The current name and repeats are
-// left out, so a sheet renamed A to B and back to A shows only B.
-func RateSheetFormerNames(app core.App, name string) ([]string, error) {
+// RateSheetFormerNames returns the earlier names of the sheet with code,
+// whose current name is name, newest first. They are the old_name values of
+// the history rows whose anchor is a revision with that code. The current
+// name, empty names and repeats are left out, so a sheet renamed A to B and
+// back to A shows only B.
+func RateSheetFormerNames(app core.App, code, name string) ([]string, error) {
 	var oldNames []string
 	// rowid breaks ties between renames saved in the same millisecond.
 	err := app.DB().NewQuery(`
 		SELECT c.old_name
 		FROM rate_sheet_name_changes c
 		JOIN rate_sheets s ON s.id = c.rate_sheet
-		WHERE s.name = {:name}
+		WHERE s.code = {:code}
 		ORDER BY c.created DESC, c.rowid DESC
-	`).Bind(dbx.Params{"name": name}).Column(&oldNames)
+	`).Bind(dbx.Params{"code": code}).Column(&oldNames)
 	if err != nil {
 		return nil, err
 	}
 
 	formerNames := []string{}
-	seen := map[string]bool{name: true}
+	seen := map[string]bool{name: true, "": true}
 	for _, oldName := range oldNames {
 		if seen[oldName] {
 			continue
@@ -199,4 +209,31 @@ func RateSheetFormerNames(app core.App, name string) ([]string, error) {
 		formerNames = append(formerNames, oldName)
 	}
 	return formerNames, nil
+}
+
+// RateSheetFormerCodes returns the earlier codes of the sheet with code,
+// newest first: the old_code values of the code changes whose anchor has that
+// code now. Printed documents and the legacy system keep an old code, and this
+// is the way back from it to the sheet.
+func RateSheetFormerCodes(app core.App, code string) ([]string, error) {
+	var oldCodes []string
+	err := app.DB().NewQuery(`
+		SELECT c.old_code
+		FROM rate_sheet_code_changes c
+		JOIN rate_sheets s ON s.id = c.rate_sheet
+		WHERE s.code = {:code}
+		ORDER BY c.created DESC, c.rowid DESC
+	`).Bind(dbx.Params{"code": code}).Column(&oldCodes)
+	if err != nil {
+		return nil, err
+	}
+	formerCodes := []string{}
+	seen := map[string]bool{code: true}
+	for _, oldCode := range oldCodes {
+		if !seen[oldCode] {
+			seen[oldCode] = true
+			formerCodes = append(formerCodes, oldCode)
+		}
+	}
+	return formerCodes, nil
 }

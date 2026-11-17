@@ -3,6 +3,8 @@ package hooks
 import (
 	"testing"
 	"tybalt/internal/testseed"
+
+	"github.com/pocketbase/pocketbase/core"
 )
 
 // TestValidateRateSheetComplete_NoEntries tests that a rate sheet without any entries
@@ -85,7 +87,7 @@ func TestCheckRevisionEffectiveDate_Revision0(t *testing.T) {
 	defer app.Cleanup()
 
 	// Revision 0 should always pass validation, even with any date
-	prevDate, err := CheckRevisionEffectiveDate(app, "Any Name", 0, "2020-01-01")
+	prevDate, err := CheckRevisionEffectiveDate(app, "2026-01-00099", 0, "2020-01-01")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,10 +102,10 @@ func TestCheckRevisionEffectiveDate_ValidRevision(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	sheetName := "Test Effective Date Validation"
+	sheetCode := rateSheetCode(t, app, "rs_effvalid_r0") // Test Effective Date Validation
 
 	// Test revision 1 with same date - should be valid
-	prevDate, err := CheckRevisionEffectiveDate(app, sheetName, 1, "2025-01-15")
+	prevDate, err := CheckRevisionEffectiveDate(app, sheetCode, 1, "2025-01-15")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +114,7 @@ func TestCheckRevisionEffectiveDate_ValidRevision(t *testing.T) {
 	}
 
 	// Test revision 1 with later date - should be valid
-	prevDate, err = CheckRevisionEffectiveDate(app, sheetName, 1, "2025-06-01")
+	prevDate, err = CheckRevisionEffectiveDate(app, sheetCode, 1, "2025-06-01")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -127,10 +129,10 @@ func TestCheckRevisionEffectiveDate_InvalidRevision(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	sheetName := "Test Invalid Effective Date"
+	sheetCode := rateSheetCode(t, app, "rs_effinvalid_r0") // Test Invalid Effective Date
 
 	// Test revision 1 with earlier date - should be invalid
-	prevDate, err := CheckRevisionEffectiveDate(app, sheetName, 1, "2025-01-01")
+	prevDate, err := CheckRevisionEffectiveDate(app, sheetCode, 1, "2025-01-01")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -148,10 +150,10 @@ func TestCheckNewerRevisionExists_NoNewer(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	sheetName := "Test Newer Revision Check"
+	sheetCode := rateSheetCode(t, app, "rs_newercheck_r0") // Test Newer Revision Check
 
 	// Check for newer revision - should return false
-	exists, err := CheckNewerRevisionExists(app, sheetName, 0)
+	exists, err := CheckNewerRevisionExists(app, sheetCode, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,10 +168,10 @@ func TestCheckNewerRevisionExists_NewerExists(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	sheetName := "Test Newer Revision Exists"
+	sheetCode := rateSheetCode(t, app, "rs_newerexists_r0") // Test Newer Revision Exists
 
 	// Check for newer revision from revision 0 - should return true
-	exists, err := CheckNewerRevisionExists(app, sheetName, 0)
+	exists, err := CheckNewerRevisionExists(app, sheetCode, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -178,7 +180,7 @@ func TestCheckNewerRevisionExists_NewerExists(t *testing.T) {
 	}
 
 	// Check for newer revision from revision 1 - should return false
-	exists, err = CheckNewerRevisionExists(app, sheetName, 1)
+	exists, err = CheckNewerRevisionExists(app, sheetCode, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,14 +190,14 @@ func TestCheckNewerRevisionExists_NewerExists(t *testing.T) {
 }
 
 // TestDeactivateOtherRevisions tests that DeactivateOtherRevisions deactivates
-// all other revisions with the same name.
+// all other revisions with the same code.
 func TestDeactivateOtherRevisions(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	sheetName := "Test Deactivate Others"
+	sheetCode := rateSheetCode(t, app, "rs_deactivate_r0") // Test Deactivate Others
 	// Deactivate other revisions (keeping rev1)
-	if err := DeactivateOtherRevisions(app, sheetName, "rs_deactivate_r1"); err != nil {
+	if err := DeactivateOtherRevisions(app, sheetCode, "rs_deactivate_r1"); err != nil {
 		t.Fatalf("failed to deactivate other revisions: %v", err)
 	}
 
@@ -221,13 +223,13 @@ func TestDeactivateOtherRevisions(t *testing.T) {
 }
 
 // TestDeactivateOtherRevisions_DifferentName tests that DeactivateOtherRevisions
-// does not affect rate sheets with different names.
+// does not affect rate sheets with different codes.
 func TestDeactivateOtherRevisions_DifferentName(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
 	// Deactivate other revisions of Sheet A (keeping sheetA1)
-	if err := DeactivateOtherRevisions(app, "Sheet A", "rs_sheeta_r1"); err != nil {
+	if err := DeactivateOtherRevisions(app, rateSheetCode(t, app, "rs_sheeta_r0"), "rs_sheeta_r1"); err != nil {
 		t.Fatalf("failed to deactivate other revisions: %v", err)
 	}
 
@@ -248,4 +250,15 @@ func TestDeactivateOtherRevisions_DifferentName(t *testing.T) {
 	if !sheetB.GetBool("active") {
 		t.Error("expected Sheet B to still be active")
 	}
+}
+
+// rateSheetCode returns the code of a fixture sheet. Revisions of a sheet
+// share its code.
+func rateSheetCode(t testing.TB, app core.App, id string) string {
+	t.Helper()
+	sheet, err := app.FindRecordById("rate_sheets", id)
+	if err != nil {
+		t.Fatalf("find rate sheet %s: %v", id, err)
+	}
+	return sheet.GetString("code")
 }
