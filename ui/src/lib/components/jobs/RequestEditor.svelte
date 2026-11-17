@@ -86,6 +86,7 @@
         restored?.proposal ??
         (related.rate_sheet_proposed
           ? {
+              code: related.rate_sheet?.code ?? "",
               name: related.rate_sheet?.name ?? "",
               reason: related.rate_sheet?.reason ?? "",
               based_on: related.rate_sheet?.based_on ?? "",

@@ -22,11 +22,12 @@ export const load: PageLoad = async ({ url }) => {
       expand: "role",
     });
 
-    // For revise mode, find the next revision number
+    // For revise mode, find the next revision number. Every revision of a
+    // sheet has its code.
     let nextRevision = 0;
     if (isRevising) {
       const existingSheets = await pb.collection("rate_sheets").getFullList({
-        filter: `name = "${sourceSheet.name}"`,
+        filter: pb.filter("code = {:code}", { code: sourceSheet.code }),
         sort: "-revision",
         fields: "revision",
       });

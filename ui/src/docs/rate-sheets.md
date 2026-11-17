@@ -26,15 +26,15 @@ To share the rates, select **Print** or **Download CSV**. To combine identical s
 
 ## Create a rate sheet
 
-Procurement creates rate sheets from an existing sheet.
+Procurement does this.
 
 1. Find a sheet close to the new one.
 2. Select **Use as Template**.
-3. Enter the **Name** and the **Effective Date**.
+3. Enter the **Effective Date**. A **Name** is optional.
 4. Change the **Rate** and the **Overtime Rate** for each role.
 5. Select **Save**.
 
-A rate is a whole number. The new sheet is Inactive. Turbo won't save rates that match an active sheet.
+Rates are whole numbers. The new sheet gets a [code](/docs/rate-sheet-codes). It is Inactive. Turbo won't save rates that match an active sheet.
 
 ## Set the overtime rates
 
@@ -60,7 +60,7 @@ New projects can't select an inactive sheet. Jobs on the sheet keep it and its r
 
 ## Revise a rate sheet
 
-A revision is a new version of an active sheet. It has the same name and the next revision number. Only admins and staff with revision access can revise.
+A revision is a new version of an active sheet. It has the same code and name, and the next revision number. Only admins and staff with revision access can revise.
 
 1. Open the sheet and select **Revise**.
 2. Enter the **Effective Date**. It can't be before the last revision's date.
@@ -72,15 +72,6 @@ A revision is a new version of an active sheet. It has the same name and the nex
 Activation of a revision makes the older revisions inactive. You can't activate an older revision again.
 
 Jobs keep their revision. See [Move projects](/docs/rate-sheet-periods#move-projects-to-a-revision).
-
-## Rename a rate sheet
-
-Only admins can do this. Every revision gets the new name, and jobs keep the sheet.
-
-1. Open the sheet and select **Rename**.
-2. Enter the **Name** and select **Rename**.
-
-The sheet shows its old names after **Formerly**.
 
 ## Correct a rate
 

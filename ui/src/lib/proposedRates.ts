@@ -16,6 +16,10 @@ export interface ProposedRate {
 }
 
 export interface ProposedRates {
+  // The code of the saved proposed rates. Turbo gives it on the first save,
+  // and a save never sends it.
+  code?: string;
+  // An optional description.
   name: string;
   reason: string;
   based_on: string;

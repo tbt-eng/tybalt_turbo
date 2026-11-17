@@ -1,6 +1,10 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSField from "$lib/components/DSField.svelte";
+  import DSFieldList from "$lib/components/DSFieldList.svelte";
+  import { rateSheetCodeRevision, rateSheetLabel } from "$lib/rateSheetLabel";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
@@ -22,6 +26,11 @@
   const sourceEntries = untrack(() => data.sourceEntries);
   const isRevising = untrack(() => data.isRevising);
   const nextRevision = untrack(() => data.nextRevision);
+  const source = {
+    code: sourceSheet.code as string,
+    name: sourceSheet.name as string,
+    revision: sourceSheet.revision as number,
+  };
 
   let errors = $state({} as Record<string, { message: string }>);
   let saveError = $state("");
@@ -29,9 +38,18 @@
   const entryError = (index: number, field: string) =>
     errors[`entries.${index}.${field}`] as { message: string } | undefined;
   const entriesError = () => errors.entries as { message: string } | undefined;
+  // Errors of fields that the form has no input for: a revision's name, which
+  // it keeps from its sheet, the revision and the code. The server sends them
+  // under these keys.
+  const sheetErrors = $derived(
+    (isRevising ? ["name", "revision", "code"] : ["revision", "code"])
+      .map((key) => errors[key]?.message)
+      .filter((message): message is string => !!message),
+  );
 
-  // Form state - name is locked when revising
-  let name = $state(isRevising ? sourceSheet.name : `Copy of ${sourceSheet.name}`);
+  // The name is an optional description. A revision keeps its sheet's name
+  // and code, and a new sheet gets its code when it is saved.
+  let name = $state(isRevising ? sourceSheet.name : "");
   let effective_date = $state("");
 
   // Staged entries - editable copies of source entries, sorted by role name
@@ -60,8 +78,10 @@
   let blockingMatches = $state<RateSheetMatch[] | null>(null);
 
   $effect(() => {
+    // A revision is compared without the active revision of its own sheet,
+    // which it replaces.
     const body = JSON.stringify({
-      name: name.trim(),
+      ...(isRevising ? { code: sourceSheet.code } : {}),
       entries: stagedEntries.map((entry) => ({
         role: entry.role,
         rate: Number(entry.rate),
@@ -100,10 +120,6 @@
     blockingMatches = null;
 
     // Validate
-    if (!name.trim()) {
-      errors = { name: { message: "Name is required" } };
-      return;
-    }
     if (!effective_date) {
       errors = { effective_date: { message: "Effective date is required" } };
       return;
@@ -115,8 +131,10 @@
       // Create rate sheet and all entries atomically via custom endpoint
       const response = await pb.send("/api/rate_sheets", {
         method: "POST",
+        // A revision names the sheet it revises by its code and keeps the
+        // sheet's name.
         body: JSON.stringify({
-          name: name.trim(),
+          ...(isRevising ? { code: sourceSheet.code } : { name: name.trim() }),
           effective_date,
           revision: isRevising ? nextRevision : 0,
           entries: stagedEntries.map((entry) => ({
@@ -138,10 +156,14 @@
         saving = false;
         return;
       }
-      saveError = error.data?.message ?? error.message ?? "Failed to create rate sheet";
       if (error.data?.data) {
         errors = error.data.data;
       }
+      // Field errors show at their fields; the message adds nothing to them.
+      saveError =
+        Object.keys(errors).length > 0
+          ? ""
+          : (error.data?.message ?? error.message ?? "Failed to create rate sheet");
       saving = false;
     }
   }
@@ -162,28 +184,29 @@
   </div>
   <p class="mb-6 text-neutral-600">
     {isRevising
-      ? `Creating revision ${nextRevision} of "${sourceSheet.name}"`
-      : `Creating a new rate sheet based on "${sourceSheet.name}"`}
+      ? `Revising ${rateSheetCodeRevision(source)}`
+      : `Creating a new rate sheet based on ${rateSheetLabel(source)}`}
   </p>
 
   <form onsubmit={save} class="flex flex-col gap-4">
-    <!-- Name field -->
     {#if isRevising}
-      <div class="flex w-full flex-col gap-2">
-        <span class="flex w-full items-center gap-2">
-          <label for="name">Name</label>
-          <input
-            class="flex-1 cursor-not-allowed rounded-sm border border-neutral-300 bg-neutral-100 px-1 opacity-60"
-            type="text"
-            id="name"
-            value={name}
-            disabled
-          />
-          <span class="text-sm text-neutral-500 italic">revising</span>
-        </span>
-      </div>
+      <!-- A revision keeps its sheet's code and name. -->
+      <DSFieldList>
+        <DSField
+          label="New revision"
+          value={rateSheetCodeRevision({ code: source.code, revision: nextRevision })}
+        />
+        <DSField label="Name" value={name} />
+      </DSFieldList>
     {:else}
-      <DsTextInput bind:value={name} {errors} fieldName="name" uiName="Name" />
+      <DsTextInput
+        bind:value={name}
+        {errors}
+        fieldName="name"
+        uiName="Name"
+        placeholder="Optional description, such as the client or contract"
+        helperText="Optional. Turbo gives the new sheet a code when you save it."
+      />
     {/if}
 
     <!-- Effective Date field -->
@@ -309,6 +332,12 @@
         intro="Close to these active sheets:"
         matches={comparison.near}
       />
+    {/if}
+
+    {#if sheetErrors.length > 0}
+      <DSCallout tone="danger" title="Not saved">
+        {#each sheetErrors as message (message)}<p>{message}</p>{/each}
+      </DSCallout>
     {/if}
 
     <!-- Save/Cancel buttons -->

@@ -13,7 +13,7 @@ Note: Rejected? Change the rates and submit the request again.
 
 1. In the project request, select **Propose new rates**.
 2. Select the sheet in **Start from**.
-3. Enter the **Name** of the new sheet and the **Reason**.
+3. Enter the **Reason**. The **Name** of the new sheet is optional.
 4. Change the rates. Turbo marks each changed role.
 5. Select **Save request**.
 
@@ -32,11 +32,11 @@ Turbo shows every role. If the starting sheet has no rate for a role, its rates 
 
 ## Rates that match a sheet
 
-Turbo won't save rates that match an active sheet. It names that sheet. Select **Use** and the sheet name to choose that sheet instead.
+Turbo won't save rates that match an active sheet. It shows the code of that sheet. Select **Use** and the code to choose that sheet instead.
 
 ## Rates close to a sheet
 
-As you change rates, Turbo lists up to three active sheets that differ in five roles or fewer. Select a sheet's name to see its rates. If one fits the client's contract, select **Use** and its name. Turbo then saves the request with that sheet, without the proposed rates.
+As you change rates, Turbo lists up to three active sheets that differ in five roles or fewer. Select a sheet's code to see its rates. If one fits the client's contract, select **Use** and its code. Turbo then saves the request with that sheet, without the proposed rates.
 
 ## Approve proposed rates
 

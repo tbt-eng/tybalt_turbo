@@ -30,7 +30,12 @@
   // Admin check for editing capability
   const isAdmin = $derived($globalStore.claims.includes("admin"));
 
-  // Rename: admins only. The server renames every revision of the sheet.
+  // Rename: admins and holders of rate_sheet_revise, as the server allows.
+  // The server renames every revision of the sheet. The name is optional, so
+  // an empty name removes it.
+  const canRename = $derived(
+    $globalStore.claims.includes("admin") || $globalStore.claims.includes("rate_sheet_revise"),
+  );
   let showRename = $state(false);
   let renameName = $state("");
   let renaming = $state(false);
@@ -363,7 +368,7 @@
     <DsActionButton action={`/rate-sheets/copy?from=${rateSheet.id}`}>
       Use as Template
     </DsActionButton>
-    {#if isAdmin}
+    {#if canRename}
       <DsActionButton action={openRename}>Rename</DsActionButton>
     {/if}
   </div>
@@ -625,15 +630,15 @@
   </div>
 </div>
 
-{#if isAdmin}
+{#if canRename}
   <DSPopover
     bind:show={showRename}
     title="Rename Rate Sheet"
-    subtitle="Changes the name of every revision. Jobs keep this sheet."
+    subtitle="Changes the name of every revision. The code stays, and jobs keep this sheet."
     error={renameError}
     submitting={renaming}
     submitLabel="Rename"
-    submitDisabled={renameName.trim() === "" || renameName.trim() === rateSheet.name}
+    submitDisabled={renameName.trim() === (rateSheet.name ?? "").trim()}
     onSubmit={rename}
   >
     <DSTextInput
@@ -641,6 +646,8 @@
       errors={renameFieldErrors}
       fieldName="name"
       uiName="Name"
+      placeholder="Optional description"
+      helperText="Optional. Clear it to remove the name."
     />
   </DSPopover>
 {/if}

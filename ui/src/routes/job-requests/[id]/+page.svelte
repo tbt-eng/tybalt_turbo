@@ -362,14 +362,17 @@
       {#if permission.can_create}<div class="space-y-3">
           {@render checklistAnswers()}
           {#if related.rate_sheet_proposed}
+            <!-- The server keeps the requester's name when this is empty. -->
             <DSTextInput
               bind:value={rateSheetName}
               errors={{}}
               fieldName="rate_sheet_name"
               uiName="Rate sheet name"
+              placeholder="Optional description"
+              helperText={`Optional. The new sheet's code is ${related.rate_sheet?.code}. Leave the name empty to keep the requester's name.`}
             />
           {/if}<button
-            disabled={busy || !allChecked || (related.rate_sheet_proposed && !rateSheetName.trim())}
+            disabled={busy || !allChecked}
             class="rounded bg-green-700 px-4 py-2 text-white disabled:opacity-40"
             onclick={() => action("create")}>Create Job</button
           >

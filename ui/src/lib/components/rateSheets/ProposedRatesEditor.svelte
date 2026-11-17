@@ -22,7 +22,7 @@
   import { shortDate } from "$lib/utilities";
 
   // Proposed rates in a project request: the requester starts from an active
-  // sheet, names the new sheet, says why it is needed and changes the rates.
+  // sheet, may name the new sheet, says why it is needed and changes the rates.
   // The server keeps them as a draft that only this request uses.
   // onUse chooses an active sheet in place of the proposal. blocked is true
   // while the page shows the sheets that refused the last save, so the same
@@ -167,7 +167,16 @@
       {/snippet}
     </DSPicker>
   {/if}
-  <DsTextInput bind:value={proposal.name} {errors} fieldName="proposed_rates.name" uiName="Name" />
+  <DsTextInput
+    bind:value={proposal.name}
+    {errors}
+    fieldName="proposed_rates.name"
+    uiName="Name"
+    placeholder="Optional description, such as the client or contract"
+    helperText={proposal.code
+      ? `Optional. The new sheet's code is ${proposal.code}.`
+      : "Optional. Turbo gives the new sheet a code when you save the request."}
+  />
   <DsTextInput
     bind:value={proposal.reason}
     {errors}
