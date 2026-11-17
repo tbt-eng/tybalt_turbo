@@ -16,8 +16,11 @@ import (
 // Proposed rates in a project request (issue 187). The fixture request
 // rsdraftreq00001, made by time@test.com, owns the draft rate sheet
 // rsdraftsheet001: the 2025 Standard Rates (c41ofep525bcacj) with the
-// Principal at 260 instead of 250. Other tests start a request through the API
-// and propose rates the same way the request editor does.
+// Principal at 260 instead of 250. The fixture request rsdraftreq00002 owns
+// rsdraftsheet002, a copy of that draft without a rate for the Survey Drone
+// Pilot, as a draft saved before that role was added. Other tests start a
+// request through the API and propose rates the same way the request editor
+// does.
 
 const (
 	standardRateSheet   = "c41ofep525bcacj"
@@ -26,6 +29,10 @@ const (
 	draftFixtureRequest = "rsdraftreq00001"
 	draftFixtureSheet   = "rsdraftsheet001"
 	draftFixtureCreator = "time@test.com"
+	// The draft rsdraftsheet002 has no rate for this role.
+	incompleteDraftSheet = "rsdraftsheet002"
+	missingDraftRole     = "1qortezd8bfc513"
+	missingDraftRoleName = "Survey Drone Pilot"
 )
 
 // standardRates returns the standard sheet's entries, with the Principal's
@@ -223,9 +230,20 @@ func TestProposedRatesDraftIsHiddenAndUnusable(t *testing.T) {
 	revise := performJSONRequest(t, app, http.MethodPost, "/api/rate_sheets", workflowToken(t, app, draftFixtureCreator), map[string]any{"name": "Proposed Fixture Rates", "effective_date": "2026-12-01", "revision": 1, "entries": standardRates(t, app, 0)})
 	mustStatus(t, revise, http.StatusBadRequest)
 
-	// The collection API can't make a draft or add rates to one.
+	// The collection API can't make a draft or add rates to one. The rate is
+	// for a role the draft lacks, so only the create rule can refuse it, not
+	// the unique index on (rate_sheet, role).
 	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/collections/rate_sheets/records", author, map[string]any{"name": "Sneaky Draft", "effective_date": "2026-11-13", "revision": 0, "request": draftFixtureRequest}), http.StatusBadRequest)
-	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/collections/rate_sheet_entries/records", author, map[string]any{"rate_sheet": draftFixtureSheet, "role": entry.GetString("role"), "rate": 1, "overtime_rate": 1}), http.StatusBadRequest)
+	if !hooks.IsRateSheetDraft(workflowRecord(t, app, "rate_sheets", incompleteDraftSheet)) {
+		t.Fatal("the fixture sheet is not a draft")
+	}
+	if _, err := app.FindFirstRecordByFilter("rate_sheet_entries", "rate_sheet = {:sheet} && role = {:role}", dbx.Params{"sheet": incompleteDraftSheet, "role": missingDraftRole}); err == nil {
+		t.Fatal("the fixture draft already has a rate for the role")
+	}
+	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/collections/rate_sheet_entries/records", author, map[string]any{"rate_sheet": incompleteDraftSheet, "role": missingDraftRole, "rate": 1, "overtime_rate": 1}), http.StatusBadRequest)
+	if _, err := app.FindFirstRecordByFilter("rate_sheet_entries", "rate_sheet = {:sheet} && role = {:role}", dbx.Params{"sheet": incompleteDraftSheet, "role": missingDraftRole}); err == nil {
+		t.Fatal("the collection API added a rate to a draft")
+	}
 	// The same writes without a draft pass, so the refusals above come from
 	// the draft rules.
 	plain := performJSONRequest(t, app, http.MethodPost, "/api/collections/rate_sheets/records", author, map[string]any{"name": "Plain Sheet", "effective_date": "2026-11-13", "revision": 0})
@@ -234,7 +252,7 @@ func TestProposedRatesDraftIsHiddenAndUnusable(t *testing.T) {
 	if err := json.Unmarshal(plain.Body.Bytes(), &plainSheet); err != nil {
 		t.Fatal(err)
 	}
-	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/collections/rate_sheet_entries/records", author, map[string]any{"rate_sheet": plainSheet["id"], "role": entry.GetString("role"), "rate": 1, "overtime_rate": 1}), http.StatusOK)
+	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/collections/rate_sheet_entries/records", author, map[string]any{"rate_sheet": plainSheet["id"], "role": missingDraftRole, "rate": 1, "overtime_rate": 1}), http.StatusOK)
 
 	// Another request can't choose it.
 	other := createWorkflowRequest(t, app)

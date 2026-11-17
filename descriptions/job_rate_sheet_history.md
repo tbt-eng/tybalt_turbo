@@ -399,10 +399,12 @@ The migration also:
   collection API cannot make or change a draft;
 - leaves drafts out of the `rate_sheets_augmented` view (the Rate Sheets list).
 
-The test fixtures add one draft: request `rsdraftreq00001` (by
+The test fixtures add two drafts. Request `rsdraftreq00001` (by
 `time@test.com`) owns sheet `rsdraftsheet001`, the 2025 Standard Rates with the
-Principal at 260. `rate_sheets_import_baseline.csv` has the same row without
-the new columns, as for the other test sheets.
+Principal at 260. Request `rsdraftreq00002` owns `rsdraftsheet002`, the same
+rates without the Survey Drone Pilot, as a draft saved before a role was added.
+`rate_sheets_import_baseline.csv` has the same rows without the new columns,
+as for the other test sheets.
 
 ### Request routes
 

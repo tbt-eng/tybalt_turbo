@@ -52,3 +52,4 @@ active,based_on,created,effective_date,id,name,reason,request,revision,updated
 0,,2026-11-13 00:00:00.000Z,2024-01-01,rsrollout0r0001,Rollout Rates,,,0,2026-11-13 00:00:00.000Z
 1,,2026-11-13 00:00:00.000Z,2025-03-01,rsrollout1r0001,Rollout Rates,,,1,2026-11-13 00:00:00.000Z
 0,c41ofep525bcacj,2026-11-13 00:00:00.000Z,2026-11-13,rsdraftsheet001,Proposed Fixture Rates,"Client master services agreement, schedule B",rsdraftreq00001,0,2026-11-13 00:00:00.000Z
+0,c41ofep525bcacj,2026-11-16 00:00:00.000Z,2026-11-16,rsdraftsheet002,Proposed Fixture Rates Missing A Role,Client rate schedule,rsdraftreq00002,0,2026-11-16 00:00:00.000Z
