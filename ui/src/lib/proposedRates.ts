@@ -63,7 +63,9 @@ export function rateChanged(row: ProposedRate): boolean {
 
 // The proposed_rates object of a request save. A role with no rate is left
 // out, so an incomplete proposal can still be saved; submission names the
-// roles that have none.
+// roles that have none. The request editor refuses a save while a role has
+// one of its two rates (incompleteRateErrors), so a typed rate is never left
+// out.
 export function proposedRatesPayload(proposal: ProposedRates) {
   return {
     name: proposal.name,
@@ -77,6 +79,34 @@ export function proposedRatesPayload(proposal: ProposedRates) {
         overtime_rate: Number(row.overtime_rate),
       })),
   };
+}
+
+// A rate of a role in the rates table: its rate, its overtime rate, or the
+// role itself.
+export type RateField = "rate" | "overtime_rate" | "role";
+
+// The key of a rate's error among the rates editor's errors. The rates table
+// shows it on the role's row.
+export function rateErrorKey(role: string, field: RateField): string {
+  return `proposed_rates.rates.${role}.${field}`;
+}
+
+// An error for each role that has one of its two rates and not the other. A
+// save leaves out a role with no rate, which would lose the rate typed, so the
+// request editor refuses the save instead. A role with both rates empty has
+// no error.
+export function incompleteRateErrors(rows: ProposedRate[]): Record<string, { message: string }> {
+  const errors: Record<string, { message: string }> = {};
+  for (const row of rows) {
+    const noRate = empty(row.rate);
+    const noOvertimeRate = empty(row.overtime_rate);
+    if (noRate && !noOvertimeRate) {
+      errors[rateErrorKey(row.role, "rate")] = { message: "Enter the rate." };
+    } else if (!noRate && noOvertimeRate) {
+      errors[rateErrorKey(row.role, "overtime_rate")] = { message: "Enter the overtime rate." };
+    }
+  }
+  return errors;
 }
 
 // The rows with an empty row added for each rate role that has none, in role

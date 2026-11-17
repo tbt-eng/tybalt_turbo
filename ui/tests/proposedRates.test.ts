@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import {
   type ProposedRate,
   type ProposedRates,
+  incompleteRateErrors,
   proposedRatesFieldErrors,
   proposedRatesPayload,
   rateChanged,
+  rateErrorKey,
   rateMissing,
   withEveryRole,
   withOvertimeMultiplier,
@@ -82,6 +84,29 @@ test("the save leaves out roles with no rate and sends numbers only", () => {
     assert.ok(Number.isFinite(entry.rate) && Number.isFinite(entry.overtime_rate));
   }
   assert.equal(payload.reason, "Contract schedule B");
+});
+
+test("a role with only one of its rates gets an error on the empty rate", () => {
+  const rows = withEveryRole([sourceRow("principal", "Principal", 250)], roles) ?? [];
+  const biologist = rows.findIndex((row) => row.role === "biologist");
+  const drone = rows.findIndex((row) => row.role === "drone");
+  rows[biologist] = { ...rows[biologist], rate: 140 };
+  rows[drone] = { ...rows[drone], overtime_rate: 130 };
+  assert.deepEqual(incompleteRateErrors(rows), {
+    [rateErrorKey("biologist", "overtime_rate")]: { message: "Enter the overtime rate." },
+    [rateErrorKey("drone", "rate")]: { message: "Enter the rate." },
+  });
+  // A role with both rates, or with neither, has no error.
+  const complete = withEveryRole([sourceRow("principal", "Principal", 250)], roles) ?? [];
+  assert.deepEqual(incompleteRateErrors(complete), {});
+  // A rate the user cleared is empty too.
+  const cleared = {
+    ...sourceRow("principal", "Principal", 250),
+    overtime_rate: "" as unknown as null,
+  };
+  assert.deepEqual(Object.keys(incompleteRateErrors([cleared])), [
+    rateErrorKey("principal", "overtime_rate"),
+  ]);
 });
 
 test("the field errors of a refused save are those of the editor's fields", () => {

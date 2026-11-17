@@ -1,22 +1,34 @@
 <script lang="ts">
   import DsLabel from "$lib/components/DsLabel.svelte";
   import { formatCurrency } from "$lib/utilities";
-  import { type ProposedRate, rateChanged, rateMissing } from "$lib/proposedRates";
+  import {
+    type ProposedRate,
+    type RateField,
+    rateChanged,
+    rateErrorKey,
+    rateMissing,
+  } from "$lib/proposedRates";
   import OvertimeMultiplier from "./OvertimeMultiplier.svelte";
 
   // The rates of a proposed rate sheet beside the rates of the sheet it
   // started from, with each changed role marked. With editable, the rate and
   // the overtime rate of each role are inputs, with a multiplier above the
-  // overtime rates.
+  // overtime rates. errors holds the errors of the last save under
+  // rateErrorKey, and each shows under the rate it belongs to.
   let {
     rows = $bindable(),
     editable = false,
     sourceName = "",
+    errors = {},
   }: {
     rows: ProposedRate[];
     editable?: boolean;
     sourceName?: string;
+    errors?: Record<string, { message: string }>;
   } = $props();
+
+  const errorOf = (row: ProposedRate, field: RateField) =>
+    errors[rateErrorKey(row.role, field)]?.message;
 
   // A role with no rate is counted apart, not as a change.
   const missingCount = $derived(rows.filter(rateMissing).length);
@@ -67,9 +79,15 @@
                   min="1"
                   step="1"
                   aria-label={`Rate for ${row.roleName}`}
-                  class="w-24 rounded-sm border border-neutral-300 px-1"
+                  aria-invalid={errorOf(row, "rate") ? true : undefined}
+                  class="w-24 rounded-sm border px-1 {errorOf(row, 'rate')
+                    ? 'border-red-500'
+                    : 'border-neutral-300'}"
                   bind:value={rows[i].rate}
                 />
+                {#if errorOf(row, "rate")}
+                  <div class="mt-1 text-xs text-red-600">{errorOf(row, "rate")}</div>
+                {/if}
               {:else}
                 {formatCurrency(row.rate)}
               {/if}
@@ -81,9 +99,15 @@
                   min="1"
                   step="0.01"
                   aria-label={`Overtime rate for ${row.roleName}`}
-                  class="w-24 rounded-sm border border-neutral-300 px-1"
+                  aria-invalid={errorOf(row, "overtime_rate") ? true : undefined}
+                  class="w-24 rounded-sm border px-1 {errorOf(row, 'overtime_rate')
+                    ? 'border-red-500'
+                    : 'border-neutral-300'}"
                   bind:value={rows[i].overtime_rate}
                 />
+                {#if errorOf(row, "overtime_rate")}
+                  <div class="mt-1 text-xs text-red-600">{errorOf(row, "overtime_rate")}</div>
+                {/if}
               {:else}
                 {formatCurrency(row.overtime_rate)}
               {/if}

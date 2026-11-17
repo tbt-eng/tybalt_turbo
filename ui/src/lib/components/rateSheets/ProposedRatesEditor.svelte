@@ -24,7 +24,8 @@
   // onUse chooses an active sheet in place of the proposal. blocked is true
   // while the page shows the sheets that refused the last save, so the same
   // sheets are not listed twice. errors holds the field errors of the last
-  // save, under the server's keys (proposed_rates.name and so on).
+  // save, under the server's keys (proposed_rates.name and so on), and the
+  // errors of single rates under rateErrorKey.
   let {
     proposal = $bindable(),
     onUse,
@@ -153,7 +154,7 @@
   />
   {#if loadError}<DSCallout tone="danger">{loadError}</DSCallout>{/if}
   {#if proposal.rows.length > 0}
-    <RateSheetRatesTable bind:rows={proposal.rows} editable {sourceName} />
+    <RateSheetRatesTable bind:rows={proposal.rows} editable {sourceName} {errors} />
   {/if}
   {#if comparison.exact.length > 0 && !blocked}
     <RateSheetMatchCallout

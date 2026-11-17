@@ -27,6 +27,7 @@
     type ProposedRate,
     type ProposedRates,
     emptyProposedRates,
+    incompleteRateErrors,
     proposedRatesPayload,
     proposedRatesFieldErrors,
   } from "$lib/proposedRates";
@@ -306,11 +307,21 @@
   }
   export async function save(): Promise<boolean> {
     if (saving) return false;
-    saving = true;
     error = "";
     rateMatches = null;
     proposalErrors = {};
     const proposing = rateMode === "propose";
+    // A save leaves out a role with no rate, so a role with only one of its
+    // rates would lose it. Refuse the save and mark the empty rate instead.
+    if (proposing) {
+      const incomplete = incompleteRateErrors(proposal.rows);
+      if (Object.keys(incomplete).length > 0) {
+        proposalErrors = incomplete;
+        error = "Not saved. Enter both rates of each role marked below, or leave both empty.";
+        return false;
+      }
+    }
+    saving = true;
     const fields = [
       "description",
       "notes",
