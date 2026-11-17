@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/marcboeker/go-duckdb" // DuckDB driver (blank import for side-effect registration)
+	"github.com/parquet-go/parquet-go"
 	"github.com/pocketbase/dbx"
 	_ "modernc.org/sqlite" // SQLite driver for deletion cleanup
 )
@@ -172,8 +173,16 @@ func main() {
 				"clients",
 			}
 
-			// Optionally clear rate tables when --clear_rates is specified
+			// Optionally clear rate tables when --clear_rates is specified.
+			// The codes of the rate sheets are read first, so that a sheet
+			// keeps its code when it is imported again (rate_sheet_codes.go).
+			var rateSheetCodes rateSheetCodeSnapshot
 			if *clearRatesFlag {
+				var err error
+				rateSheetCodes, err = snapshotRateSheetCodes(targetDatabase)
+				if err != nil {
+					log.Fatalf("Failed to read rate sheet codes: %v", err)
+				}
 				fmt.Println("  --clear_rates specified: clearing rate_sheets, rate_roles, rate_sheet_entries")
 				tablesToClear = append(tablesToClear, "rate_sheet_entries", "rate_sheets", "rate_roles")
 			}
@@ -258,10 +267,21 @@ func main() {
 
 				// --- Load Rate Sheets ---
 				// Rate sheets must be loaded before jobs (FK) and rate_sheet_entries (FK).
-				rateSheetInsertSQL := "INSERT INTO rate_sheets (id, name, effective_date, revision, active) VALUES ({:id}, {:name}, {:effective_date}, {:revision}, {:active})"
+				// Each sheet keeps its code from an earlier import, or gets one
+				// in the month of this import (rate_sheet_codes.go).
+				rateSheetItems, err := parquet.ReadFile[load.RateSheet]("./parquet/RateSheets.parquet")
+				if err != nil {
+					log.Fatalf("Failed to read rate sheets: %v", err)
+				}
+				plannedCodes, err := planRateSheetCodesForImport(targetDatabase, rateSheetItems, rateSheetCodes, time.Now())
+				if err != nil {
+					log.Fatalf("Failed to plan rate sheet codes: %v", err)
+				}
+				rateSheetInsertSQL := "INSERT INTO rate_sheets (id, code, name, effective_date, revision, active) VALUES ({:id}, {:code}, {:name}, {:effective_date}, {:revision}, {:active})"
 				rateSheetBinder := func(item load.RateSheet) dbx.Params {
 					return dbx.Params{
 						"id":             item.Id,
+						"code":           plannedCodes[item.Id],
 						"name":           item.Name,
 						"effective_date": item.EffectiveDate,
 						"revision":       item.Revision,
@@ -276,6 +296,9 @@ func main() {
 					rateSheetBinder,
 					true,
 				)
+				if err := recordIssuedRateSheetCodes(targetDatabase, plannedCodes); err != nil {
+					log.Fatalf("Failed to record rate sheet codes: %v", err)
+				}
 
 				// --- Load Rate Sheet Entries ---
 				// Rate sheet entries reference both rate_roles and rate_sheets.
