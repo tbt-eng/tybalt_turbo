@@ -250,23 +250,6 @@ func TestCreateRateSheet_Validation(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "empty name fails",
-			Method: http.MethodPost,
-			URL:    "/api/rate_sheets",
-			Body: strings.NewReader(`{
-				"name": "",
-				"effective_date": "2026-03-01",
-				"revision": 0,
-				"entries": [{"role": "` + roles[0].Id + `", "rate": 100, "overtime_rate": 130}]
-			}`),
-			Headers: map[string]string{
-				"Authorization": jobToken,
-			},
-			ExpectedStatus:  http.StatusBadRequest,
-			ExpectedContent: []string{`"status":400`},
-			TestAppFactory:  testutils.SetupTestApp,
-		},
-		{
 			Name:   "invalid date format fails",
 			Method: http.MethodPost,
 			URL:    "/api/rate_sheets",

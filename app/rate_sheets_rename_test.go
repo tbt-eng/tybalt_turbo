@@ -87,21 +87,24 @@ func TestRenameRateSheet_Permissions(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 		},
 		{
-			Name:            "rate_sheet_revise does not allow a rename",
+			// Holders of rate_sheet_revise may rename as well as admins.
+			Name:            "rate_sheet_revise allows a rename",
 			Method:          http.MethodPost,
 			URL:             "/api/rate_sheets/rsvaluation0001/rename",
 			Body:            renameBody("New Name"),
 			Headers:         map[string]string{"Authorization": reviseToken},
-			ExpectedStatus:  http.StatusForbidden,
-			ExpectedContent: []string{`You do not have permission to rename rate sheets`},
+			ExpectedStatus:  http.StatusOK,
+			ExpectedContent: []string{`"name":"New Name"`, `"revisions_renamed":2`},
 			TestAppFactory:  testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				sheet, err := app.FindRecordById("rate_sheets", "rsvaluation0001")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if sheet.GetString("name") != renameValuationName {
-					t.Fatalf("name changed to %q", sheet.GetString("name"))
+				for _, id := range []string{"rsvaluation0001", "rsvaluation0002"} {
+					sheet, err := app.FindRecordById("rate_sheets", id)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if sheet.GetString("name") != "New Name" {
+						t.Fatalf("%s name = %q", id, sheet.GetString("name"))
+					}
 				}
 			},
 		},
@@ -238,7 +241,6 @@ func TestRenameRateSheet_RefusesBadNames(t *testing.T) {
 		status  int
 		content []string
 	}{
-		{"empty name", "   ", http.StatusBadRequest, []string{`"code":"value_required"`}},
 		{"unchanged name", renameValuationName, http.StatusBadRequest, []string{`"code":"name_unchanged"`}},
 		{"unchanged name with spaces", "  " + renameValuationName + " ", http.StatusBadRequest, []string{`"code":"name_unchanged"`}},
 		{"name of another sheet", "Sheet A", http.StatusConflict, []string{`"status":409`, `"code":"validation_not_unique"`}},

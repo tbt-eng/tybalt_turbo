@@ -67,9 +67,10 @@ func checkChosenRateSheet(app core.App, id string, own *core.Record) error {
 }
 
 // prepareProposedRates checks proposed rates against the rate sheet rules and
-// the active sheets. It changes nothing. Every save needs a name, a reason and
-// the sheet to start from; submission checks the reason again, for a draft
-// saved before the reason was required.
+// the active sheets. It changes nothing. Every save needs a reason and the
+// sheet to start from; submission checks the reason again, for a draft saved
+// before the reason was required. The name is an optional description, as for
+// any sheet; the draft has its code from its first save.
 func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input proposedRatesWrite) (*proposedRatesPlan, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	input.Reason = strings.TrimSpace(input.Reason)
@@ -77,9 +78,6 @@ func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input 
 
 	errs := validation.Errors{}
 	prefix := hooks.ProposedRatesField + "."
-	if input.Name == "" {
-		setValidationError(errs, prefix+"name", validation.NewError("value_required", "name is required"))
-	}
 	if input.Reason == "" {
 		setValidationError(errs, prefix+"reason", validation.NewError("value_required", "reason is required"))
 	} else if utf8.RuneCountInString(input.Reason) > proposedRatesReasonMax {
@@ -108,32 +106,23 @@ func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input 
 		}
 	}
 
-	// Any revision of any sheet holds its name, in any letter case, as a
-	// rename does.
-	ownID := ""
-	if own != nil {
-		ownID = own.Id
-	}
-	var named int
-	if err := app.DB().NewQuery(`
-		SELECT COUNT(*) FROM rate_sheets
-		WHERE LOWER(name) = LOWER({:name}) AND id != {:own}
-	`).Bind(dbx.Params{"name": input.Name, "own": ownID}).Row(&named); err != nil {
-		return nil, err
-	}
-	if named > 0 {
-		return nil, validation.Errors{prefix + "name": validation.NewError("validation_not_unique", "another rate sheet already has this name")}
-	}
-
-	// Turbo refuses rates that an active sheet already has, and names it, so
-	// the requester can choose that sheet instead.
-	values := rateSheetEntryValues(input.Entries)
-	// A draft is inactive and has its own code, so no active sheet is one of
-	// its revisions.
+	// Any other sheet holds its name, in any letter case, as for a rename.
 	ownCode := ""
 	if own != nil {
 		ownCode = own.GetString("code")
 	}
+	holder, err := hooks.RateSheetNameHolder(app, input.Name, ownCode)
+	if err != nil {
+		return nil, err
+	}
+	if holder != nil {
+		return nil, validation.Errors{prefix + "name": validation.NewError("validation_not_unique", "another rate sheet already has this name")}
+	}
+
+	// Turbo refuses rates that an active sheet already has, and names it, so
+	// the requester can choose that sheet instead. A draft is inactive and
+	// has its own code, so no active sheet is one of its revisions.
+	values := rateSheetEntryValues(input.Entries)
 	comparison, err := hooks.CompareWithActiveRateSheets(app, values, ownCode)
 	if err != nil {
 		return nil, err
@@ -254,14 +243,11 @@ func renameProposedRates(app core.App, r *core.Record, name, renamedBy string) e
 	if name == oldName {
 		return nil
 	}
-	var named int
-	if err := app.DB().NewQuery(`
-		SELECT COUNT(*) FROM rate_sheets
-		WHERE LOWER(name) = LOWER({:name}) AND id != {:own}
-	`).Bind(dbx.Params{"name": name, "own": draft.Id}).Row(&named); err != nil {
+	holder, err := hooks.RateSheetNameHolder(app, name, draft.GetString("code"))
+	if err != nil {
 		return err
 	}
-	if named > 0 {
+	if holder != nil {
 		return workflowError("Another rate sheet already has this name.")
 	}
 	draft.Set("name", name)

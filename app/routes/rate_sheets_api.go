@@ -296,7 +296,7 @@ func setValidationError(errs validation.Errors, key string, err error) {
 
 func rateSheetUniqueValidationErrors() validation.Errors {
 	return validation.Errors{
-		"name": validation.NewError("validation_not_unique", "name and revision must be unique"),
+		"revision": validation.NewError("validation_not_unique", "code and revision must be unique"),
 	}
 }
 
@@ -407,11 +407,9 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 
 		validationErrors := validation.Errors{}
 
-		// Validate name
+		// The name is an optional description. A revision keeps its sheet's
+		// name.
 		req.Name = strings.TrimSpace(req.Name)
-		if req.Name == "" && req.Revision == 0 {
-			setValidationError(validationErrors, "name", validation.NewError("value_required", "name is required"))
-		}
 
 		// Validate effective_date format (YYYY-MM-DD)
 		req.EffectiveDate = strings.TrimSpace(req.EffectiveDate)
@@ -491,45 +489,36 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 				return err
 			}
 
-			// Check for existing rate sheet to provide a consistent conflict response
-			existingSheets, err := txApp.FindRecordsByFilter(
-				"rate_sheets",
-				"name={:name} && revision={:revision}",
-				"",
-				1,
-				0,
-				dbx.Params{"name": req.Name, "revision": req.Revision},
-			)
-			if err != nil {
-				return err
-			}
 			if req.Revision > 0 {
-				existingSheets, err = txApp.FindRecordsByFilter(
-					"rate_sheets",
-					"code={:code} && revision={:revision}",
-					"",
-					1,
-					0,
-					dbx.Params{"code": req.Code, "revision": req.Revision},
-				)
+				// Check for existing revision to provide a consistent conflict response
+				existing, err := txApp.CountRecords("rate_sheets", dbx.HashExp{"code": req.Code, "revision": req.Revision})
 				if err != nil {
 					return err
 				}
-			}
-			if len(existingSheets) > 0 {
-				return &uniqueConstraintError{
-					message: "a rate sheet with this name and revision already exists",
-					data:    rateSheetUniqueValidationErrors(),
+				if existing > 0 {
+					return &uniqueConstraintError{
+						message: "this rate sheet already has this revision",
+						data:    rateSheetUniqueValidationErrors(),
+					}
 				}
-			}
-
-			if req.Revision == 0 {
-				drafts, err := txApp.CountRecords("rate_sheets", dbx.HashExp{"name": req.Name}, dbx.Not(dbx.HashExp{"request": ""}))
+			} else {
+				// Two sheets can't have the same name, in any letter case.
+				// Several sheets may have none. A request's proposed rates
+				// hold their name too.
+				holder, err := hooks.RateSheetNameHolder(txApp, req.Name, "")
 				if err != nil {
 					return err
 				}
-				if drafts > 0 {
+				if holder != nil && holder.Draft {
 					return hooks.RateSheetDraftError("name")
+				}
+				if holder != nil {
+					return &uniqueConstraintError{
+						message: "another rate sheet already has this name",
+						data: validation.Errors{
+							"name": validation.NewError("validation_not_unique", "another rate sheet already has this name"),
+						},
+					}
 				}
 			}
 
@@ -609,12 +598,12 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			}
 			if ve, ok := asValidationErrors(err); ok {
 				if hasUniqueValidationError(ve) {
-					return apis.NewApiError(http.StatusConflict, "a rate sheet with this name and revision already exists", ve)
+					return apis.NewApiError(http.StatusConflict, "a rate sheet with this code and revision already exists", ve)
 				}
 				return apis.NewBadRequestError("Validation error", ve)
 			}
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				return apis.NewApiError(http.StatusConflict, "a rate sheet with this name and revision already exists", rateSheetUniqueValidationErrors())
+				return apis.NewApiError(http.StatusConflict, "a rate sheet with this code and revision already exists", rateSheetUniqueValidationErrors())
 			}
 			return e.Error(http.StatusInternalServerError, "failed to create rate sheet", err)
 		}

@@ -26,8 +26,9 @@ type RenameRateSheetRequest struct {
 // sheet already has the new name.
 var errRateSheetNameInUse = errors.New("rate sheet name in use")
 
-// createRenameRateSheetHandler renames a rate sheet. Only admins can rename;
-// rate_sheet_revise does not allow it.
+// createRenameRateSheetHandler renames a rate sheet. Holders of admin or
+// rate_sheet_revise can rename. The name is an optional description, so a
+// rename to an empty name removes it.
 //
 // Revisions of a sheet share its code and its name, so the handler changes
 // name on every revision with the code in one transaction and writes one
@@ -42,11 +43,15 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 	return func(e *core.RequestEvent) error {
 		id := e.Request.PathValue("id")
 
-		hasAdminClaim, err := utilities.HasClaim(app, e.Auth, "admin")
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+		allowed := false
+		for _, claim := range []string{"admin", "rate_sheet_revise"} {
+			has, err := utilities.HasClaim(app, e.Auth, claim)
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+			}
+			allowed = allowed || has
 		}
-		if !hasAdminClaim {
+		if !allowed {
 			return e.Error(http.StatusForbidden, "you do not have permission to rename rate sheets", nil)
 		}
 
@@ -55,16 +60,11 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 			return e.Error(http.StatusBadRequest, "invalid request body", err)
 		}
 		newName := strings.TrimSpace(req.Name)
-		if newName == "" {
-			return apis.NewBadRequestError("Validation error", validation.Errors{
-				"name": validation.NewError("value_required", "name is required"),
-			})
-		}
 
 		var oldName string
 		var code string
 		var renamed int
-		err = app.RunInTransaction(func(txApp core.App) error {
+		err := app.RunInTransaction(func(txApp core.App) error {
 			sheet, err := txApp.FindRecordById("rate_sheets", id)
 			if err != nil {
 				return err
