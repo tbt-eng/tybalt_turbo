@@ -19,6 +19,13 @@ Note: Rejected? Change the rates and submit the request again.
 
 The reason tells why the client needs these rates, such as a contract schedule. Turbo won't save the rates without it.
 
+## Set the overtime rates
+
+1. Enter a multiplier above **Overtime Rate**.
+2. Select **×**.
+
+Turbo sets each overtime rate to the rate times the multiplier. A role with no rate stays empty.
+
 ## Roles with no rate
 
 Turbo shows every role. If the starting sheet has no rate for a role, its rates are empty and it shows **No rate**. Enter its rates before you submit. Turbo saves the request without them.

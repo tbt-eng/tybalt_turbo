@@ -8,6 +8,7 @@ import {
   rateChanged,
   rateMissing,
   withEveryRole,
+  withOvertimeMultiplier,
 } from "../src/lib/proposedRates.ts";
 
 const roles = [
@@ -93,4 +94,26 @@ test("the field errors of a refused save are those of the editor's fields", () =
   assert.deepEqual(proposedRatesFieldErrors({ response: { data } }), expected);
   assert.deepEqual(proposedRatesFieldErrors(new Error("offline")), {});
   assert.deepEqual(proposedRatesFieldErrors(undefined), {});
+});
+
+test("the multiplier sets each overtime rate to the cent and leaves empty rows empty", () => {
+  const rows = withEveryRole([sourceRow("principal", "Principal", 251)], roles) ?? [];
+  const applied = withOvertimeMultiplier(rows, 1.3);
+  assert.equal(applied.find((row) => row.role === "principal")?.overtime_rate, 326.3);
+  for (const row of applied.filter((row) => row.role !== "principal")) {
+    assert.equal(row.rate, null);
+    assert.equal(row.overtime_rate, null);
+  }
+  // A row with no rate keeps the overtime rate it has.
+  const partial = { ...sourceRow("drone", "Drone", 100), rate: null };
+  assert.equal(withOvertimeMultiplier([partial], 1.5)[0].overtime_rate, 130);
+  // Rounding is to the cent.
+  assert.equal(withOvertimeMultiplier([sourceRow("x", "X", 117)], 1.333)[0].overtime_rate, 155.96);
+});
+
+test("a multiplier that is not a positive number changes nothing", () => {
+  const rows = [sourceRow("principal", "Principal", 250)];
+  for (const multiplier of [null, 0, -1, Number.NaN]) {
+    assert.equal(withOvertimeMultiplier(rows, multiplier), rows);
+  }
 });

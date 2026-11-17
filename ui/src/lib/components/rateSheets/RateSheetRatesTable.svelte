@@ -2,10 +2,12 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import { formatCurrency } from "$lib/utilities";
   import { type ProposedRate, rateChanged, rateMissing } from "$lib/proposedRates";
+  import OvertimeMultiplier from "./OvertimeMultiplier.svelte";
 
   // The rates of a proposed rate sheet beside the rates of the sheet it
   // started from, with each changed role marked. With editable, the rate and
-  // the overtime rate of each role are inputs.
+  // the overtime rate of each role are inputs, with a multiplier above the
+  // overtime rates.
   let {
     rows = $bindable(),
     editable = false,
@@ -33,6 +35,14 @@
   <div class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
+        {#if editable}
+          <tr>
+            <th></th>
+            <th></th>
+            <th class="px-2 py-1 text-left"><OvertimeMultiplier bind:rows /></th>
+            <th></th>
+          </tr>
+        {/if}
         <tr class="border-b border-neutral-300 text-left">
           <th class="px-2 py-1">Role</th>
           <th class="px-2 py-1">Rate</th>

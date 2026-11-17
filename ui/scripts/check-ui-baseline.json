@@ -44,7 +44,6 @@
     "src/routes/login/+page.svelte": 1,
     "src/routes/pos/[poid]/details/+page.svelte": 3,
     "src/routes/rate-sheets/[id]/details/+page.svelte": 6,
-    "src/routes/rate-sheets/copy/+page.svelte": 1,
     "src/routes/reports/kpi/employee-branch-hours/+page.svelte": 1,
     "src/routes/reports/payables-spreadsheet/+page.svelte": 4,
     "src/routes/time/tracking/[weekEnding]/+page.svelte": 1

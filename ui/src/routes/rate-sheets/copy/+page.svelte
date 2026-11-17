@@ -5,6 +5,7 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
+  import OvertimeMultiplier from "$lib/components/rateSheets/OvertimeMultiplier.svelte";
   import { globalStore } from "$lib/stores/global";
   import {
     duplicateRateSheetMatches,
@@ -44,17 +45,6 @@
       }))
       .sort((a, b) => a.roleName.localeCompare(b.roleName)),
   );
-
-  // Overtime multiplier for bulk calculation
-  let overtimeMultiplier = $state(1.3);
-
-  // Apply overtime multiplier to all staged entries
-  function applyOvertimeMultiplier() {
-    stagedEntries = stagedEntries.map((entry) => ({
-      ...entry,
-      overtime_rate: Math.round(entry.rate * overtimeMultiplier * 100) / 100,
-    }));
-  }
 
   // Compare the staged entries with the active sheets as the user edits them.
   // Exact matches would block the save; near matches are information. The
@@ -229,24 +219,7 @@
               <th></th>
               <th></th>
               <th class="px-3 py-2 text-left">
-                <div class="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    bind:value={overtimeMultiplier}
-                    class="w-16 rounded-sm border border-neutral-300 px-2 py-1 text-right text-sm"
-                    title="Overtime multiplier"
-                  />
-                  <button
-                    type="button"
-                    class="rounded-sm bg-neutral-200 px-2 py-1 text-sm text-neutral-700 hover:bg-neutral-300"
-                    onclick={applyOvertimeMultiplier}
-                    title="Apply multiplier to all overtime rates"
-                  >
-                    &times;
-                  </button>
-                </div>
+                <OvertimeMultiplier bind:rows={stagedEntries} />
               </th>
             </tr>
             <tr class="border-b border-neutral-300">

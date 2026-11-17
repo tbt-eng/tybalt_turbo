@@ -26,12 +26,29 @@ export function emptyProposedRates(): ProposedRates {
   return { name: "", reason: "", based_on: "", rows: [] };
 }
 
-// A role has no rate while its rate or its overtime rate is empty. An empty
-// number input binds null.
+// An empty number input binds null.
+const empty = (value: number | string | null | undefined) =>
+  value === null || value === undefined || value === "";
+
+// A role has no rate while its rate or its overtime rate is empty.
 export function rateMissing(row: ProposedRate): boolean {
-  const empty = (value: number | string | null | undefined) =>
-    value === null || value === undefined || value === "";
   return empty(row.rate) || empty(row.overtime_rate);
+}
+
+// The rows with each overtime rate set to the rate times the multiplier,
+// rounded to the cent. A row with no rate keeps its overtime rate, so an empty
+// row stays empty. A multiplier that is not a positive number changes nothing.
+// The proposed rates editor and the rate sheet copy page both use it.
+export function withOvertimeMultiplier<
+  T extends { rate: number | null; overtime_rate: number | null },
+>(rows: T[], multiplier: number | null): T[] {
+  const factor = Number(multiplier);
+  if (empty(multiplier) || !Number.isFinite(factor) || factor <= 0) return rows;
+  return rows.map((row) => {
+    const rate = Number(row.rate);
+    if (empty(row.rate) || !Number.isFinite(rate)) return row;
+    return { ...row, overtime_rate: Math.round(rate * factor * 100) / 100 };
+  });
 }
 
 // A rate is changed when it differs from the source sheet's, or when the
