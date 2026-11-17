@@ -12,7 +12,8 @@ var jobPricedTimeEntriesQuery string
 // the API and CSV exports. Percent is null for incomplete or zero totals.
 type JobTimeValuation struct {
 	// RateSheets names the sheets that priced the row's entries, such as
-	// "2026 Standard Rates (rev. 0)", joined by "; ". Empty when none applied.
+	// `2026-11-00004 (rev. 0) "2026 Standard Rates"` (the code, the revision
+	// and the name when there is one), joined by "; ". Empty when none applied.
 	RateSheets          string   `db:"rate_sheets" json:"rate_sheets"`
 	Value               float64  `db:"value" json:"value"`
 	Total               float64  `db:"total" json:"total"`

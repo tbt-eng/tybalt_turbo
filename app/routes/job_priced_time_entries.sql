@@ -29,7 +29,7 @@
   FROM rate_history
 ), entry_rates AS (
   SELECT te.job, te.uid, te.division, te.date, te.hours, te.meals_hours, te.role, j.number, p.rate_sheet,
-    COALESCE(rs.name, '') AS rate_sheet_name, rs.revision AS rate_sheet_revision,
+    COALESCE(rs.code, '') AS rate_sheet_code, COALESCE(rs.name, '') AS rate_sheet_name, rs.revision AS rate_sheet_revision,
     rse.rate AS sheet_rate,
     -- A zero or missing employee default cannot supply a dollar value.
     CASE WHEN ap.default_charge_out_rate > 0 THEN ap.default_charge_out_rate END AS default_rate

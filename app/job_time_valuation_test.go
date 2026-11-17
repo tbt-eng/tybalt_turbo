@@ -162,11 +162,11 @@ func TestJobTimeValuation(t *testing.T) {
 					for i, want := range expected {
 						row := rows[i]
 						// The label lists the sheets that priced the row's entries.
-						sheets := "Summary valuation fixture (rev. 0)"
+						sheets := `2026-09-00001 (rev. 0) "Summary valuation fixture"`
 						if tc.job == "jobvaluation002" {
 							sheets = ""
 						} else if tc.job == "jobvaluation003" {
-							sheets = "Summary valuation fixture (rev. 1)"
+							sheets = `2026-09-00001 (rev. 1) "Summary valuation fixture"`
 						}
 						for field, value := range map[string]any{
 							key: want.key, "hours": want.hours, "value": want.value,

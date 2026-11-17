@@ -5,8 +5,11 @@
   -- The sheets that priced each row's entries. Time in different periods can
   -- use different sheets.
   SELECT uid, GROUP_CONCAT(label, '; ') AS rate_sheets
-  FROM (SELECT DISTINCT uid, rate_sheet_name || ' (rev. ' || rate_sheet_revision || ')' AS label
-    FROM priced_entries WHERE rate_sheet_name != '' ORDER BY label)
+  -- A sheet is named by its code and revision, and its name in quotes when
+  -- it has one, as hooks.RateSheetLabel does.
+  FROM (SELECT DISTINCT uid, rate_sheet_code || ' (rev. ' || rate_sheet_revision || ')'
+      || CASE WHEN rate_sheet_name != '' THEN ' "' || rate_sheet_name || '"' ELSE '' END AS label
+    FROM priced_entries WHERE rate_sheet_code != '' ORDER BY label)
   GROUP BY uid
 ), base AS (
   SELECT te.number, COALESCE(p.given_name, '') AS given_name, COALESCE(p.surname, '') AS surname, te.uid,

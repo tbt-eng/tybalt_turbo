@@ -67,6 +67,7 @@ type jobDetailsRow struct {
 	BranchCode                sql.NullString  `db:"branch_code"`
 	BranchName                sql.NullString  `db:"branch_name"`
 	RateSheetID               sql.NullString  `db:"rate_sheet_id"`
+	RateSheetCode             sql.NullString  `db:"rate_sheet_code"`
 	RateSheetName             sql.NullString  `db:"rate_sheet_name"`
 	RateSheetRevision         sql.NullInt64   `db:"rate_sheet_revision"`
 	FnAgreement               bool            `db:"fn_agreement"`
@@ -105,6 +106,7 @@ type ClientInfo struct {
 
 type RateSheetInfo struct {
 	ID       string `json:"id"`
+	Code     string `json:"code"`
 	Name     string `json:"name"`
 	Revision int    `json:"revision"`
 }
@@ -236,7 +238,7 @@ func createGetJobDetailsHandler(app core.App) func(e *core.RequestEvent) error {
 			BranchID:                  ns(r.BranchID),
 			BranchCode:                ns(r.BranchCode),
 			BranchName:                ns(r.BranchName),
-			RateSheet:                 RateSheetInfo{ID: ns(r.RateSheetID), Name: ns(r.RateSheetName), Revision: int(r.RateSheetRevision.Int64)},
+			RateSheet:                 RateSheetInfo{ID: ns(r.RateSheetID), Code: ns(r.RateSheetCode), Name: ns(r.RateSheetName), Revision: int(r.RateSheetRevision.Int64)},
 			FnAgreement:               r.FnAgreement,
 			ProjectAwardDate:          ns(r.ProjectAwardDate),
 			ProjectCompletionDate:     ns(r.ProjectCompletionDate),

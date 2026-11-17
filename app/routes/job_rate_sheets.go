@@ -27,6 +27,7 @@ const rateSheetReasonMaxLength = 500
 
 type rateSheetPeriodSheet struct {
 	ID            string `json:"id"`
+	Code          string `json:"code"`
 	Name          string `json:"name"`
 	Revision      int    `json:"revision"`
 	EffectiveDate string `json:"effective_date"`
@@ -165,6 +166,7 @@ func buildRateSheetHistory(app core.App, job *core.Record) ([]rateSheetPeriod, e
 func sheetSummary(sheet *core.Record) rateSheetPeriodSheet {
 	return rateSheetPeriodSheet{
 		ID:            sheet.Id,
+		Code:          sheet.GetString("code"),
 		Name:          sheet.GetString("name"),
 		Revision:      sheet.GetInt("revision"),
 		EffectiveDate: sheet.GetString("effective_date"),

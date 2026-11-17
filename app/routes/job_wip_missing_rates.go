@@ -16,6 +16,7 @@ type WIPMissingRateRole struct {
 
 type WIPMissingRateSheet struct {
 	ID       string               `json:"id"`
+	Code     string               `json:"code"`
 	Name     string               `json:"name"`
 	Revision int                  `json:"revision"`
 	Roles    []WIPMissingRateRole `json:"roles"`
@@ -45,6 +46,7 @@ func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent)
 		}
 		var rows []struct {
 			RateSheetID       string  `db:"rate_sheet_id"`
+			RateSheetCode     string  `db:"rate_sheet_code"`
 			RateSheetName     string  `db:"rate_sheet_name"`
 			RateSheetRevision int     `db:"rate_sheet_revision"`
 			RoleID            string  `db:"role_id"`
@@ -54,7 +56,7 @@ func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent)
 		// Use the same pricing rules and date limit as WIP. Each entry carries
 		// the sheet of the period its date falls in.
 		err := app.DB().NewQuery(singleJobScopeQuery + jobPricedTimeEntriesQuery + `
-			SELECT rs.id AS rate_sheet_id, rs.name AS rate_sheet_name,
+			SELECT rs.id AS rate_sheet_id, rs.code AS rate_sheet_code, rs.name AS rate_sheet_name,
 				rs.revision AS rate_sheet_revision,
 				p.role AS role_id,
 				COALESCE(NULLIF(r.name, ''), p.role) AS role_name,
@@ -65,7 +67,7 @@ func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent)
 			WHERE COALESCE(p.role, '') != '' AND p.sheet_rate IS NULL
 			GROUP BY rs.id, p.role
 			HAVING SUM(p.hours) != 0
-			ORDER BY rs.name, rs.revision, role_name, role_id
+			ORDER BY rs.code, rs.revision, role_name, role_id
 		`).Bind(dbx.Params{
 			"job_id": jobID, "start_date": "", "end_date": asOf,
 		}).All(&rows)
@@ -77,7 +79,7 @@ func createGetJobWIPMissingRatesHandler(app core.App) func(e *core.RequestEvent)
 			n := len(result.RateSheets)
 			if n == 0 || result.RateSheets[n-1].ID != row.RateSheetID {
 				result.RateSheets = append(result.RateSheets, WIPMissingRateSheet{
-					ID: row.RateSheetID, Name: row.RateSheetName, Revision: row.RateSheetRevision,
+					ID: row.RateSheetID, Code: row.RateSheetCode, Name: row.RateSheetName, Revision: row.RateSheetRevision,
 					Roles: []WIPMissingRateRole{},
 				})
 				n++

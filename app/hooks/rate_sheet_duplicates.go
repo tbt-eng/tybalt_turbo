@@ -236,8 +236,8 @@ func LoadRateSheetEntryValues(app core.App, rateSheetId string) ([]RateSheetEntr
 func DuplicateRateSheetError(field string, matches []RateSheetMatch) *errs.HookError {
 	first := matches[0]
 	message := fmt.Sprintf(
-		"the rates are identical to active rate sheet %q (rev. %d); use that sheet instead",
-		first.Name, first.Revision,
+		"the rates are identical to active rate sheet %s; use that sheet instead",
+		RateSheetLabel(first.Code, first.Name, first.Revision),
 	)
 	return &errs.HookError{
 		Status:  http.StatusConflict,

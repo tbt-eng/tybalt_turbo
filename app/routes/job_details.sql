@@ -52,6 +52,7 @@ SELECT
   br.code            AS branch_code,
   br.name            AS branch_name,
   j.rate_sheet       AS rate_sheet_id,
+  rs.code            AS rate_sheet_code,
   rs.name            AS rate_sheet_name,
   rs.revision        AS rate_sheet_revision,
   (

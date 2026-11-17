@@ -24,7 +24,7 @@ func TestJobWIPMissingRates(t *testing.T) {
 		sheets          []routes.WIPMissingRateSheet
 	}{
 		{"group missing rates and exclude blank roles and future time", "jobwipreason001", "2026-01-02", []routes.WIPMissingRateSheet{{
-			ID: "rsvaluation0001", Name: "Summary valuation fixture", Revision: 0,
+			ID: "rsvaluation0001", Code: "2026-09-00001", Name: "Summary valuation fixture", Revision: 0,
 			Roles: []routes.WIPMissingRateRole{{ID: "2bd6pxxof7p649x", Name: "Administration Staff", Hours: 7}},
 		}}},
 		{"honour the report date", "jobwipreason001", "2026-01-01", none},

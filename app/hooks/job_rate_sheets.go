@@ -217,7 +217,7 @@ func CheckRateSheetPeriodDate(date string) error {
 func CheckRateSheetPeriodRevision(sheet *core.Record, date string) error {
 	if date < sheet.GetString("effective_date") {
 		return rateSheetError(http.StatusBadRequest, "effective_date", "before_revision",
-			"The start date is before "+sheet.GetString("name")+" took effect on "+sheet.GetString("effective_date")+".")
+			"The start date is before "+RateSheetRecordLabel(sheet)+" took effect on "+sheet.GetString("effective_date")+".")
 	}
 	return nil
 }
