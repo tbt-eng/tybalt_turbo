@@ -5,7 +5,8 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DsCheck from "$lib/components/DsCheck.svelte";
   import { shortDate } from "$lib/utilities";
-  import RateSheetRatesTable, { type ProposedRate } from "./RateSheetRatesTable.svelte";
+  import RateSheetRatesTable from "./RateSheetRatesTable.svelte";
+  import type { ProposedRate } from "$lib/proposedRates";
   import type { WorkflowRecord } from "$lib/clientEditors";
 
   // A project request's proposed rates, read only, as the approver and

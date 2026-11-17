@@ -21,13 +21,14 @@
   import { rateSheets } from "$lib/stores/rateSheets";
   import { formatJobLabel } from "$lib/utilities";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
-  import ProposedRatesEditor, {
+  import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
+  import {
+    type ProposedRate,
     type ProposedRates,
     emptyProposedRates,
     proposedRatesPayload,
     proposedRatesFieldErrors,
-  } from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
-  import type { ProposedRate } from "$lib/components/rateSheets/RateSheetRatesTable.svelte";
+  } from "$lib/proposedRates";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
   import { canCreateInvoicingProfile, clientLabel } from "$lib/clientWorkspace";
@@ -124,7 +125,20 @@
         (request.time_and_materials_set ? (request.time_and_materials ? "tm" : "fixed") : ""),
     ),
   );
-  const snapshot = () => JSON.stringify({ item, allocations, fee, rateMode, proposal });
+  // The rates editor adds an empty row for each role with no rate. Those rows
+  // are left out, so they do not make the request unsaved until a rate is
+  // typed in one.
+  const snapshot = () =>
+    JSON.stringify({
+      item,
+      allocations,
+      fee,
+      rateMode,
+      proposal: {
+        ...proposal,
+        rows: proposal.rows.filter((row) => row.rate !== null || row.overtime_rate !== null),
+      },
+    });
   let saved = $state(untrack(() => restored?.saved || snapshot()));
   let openingClient = false;
   let saving = $state(false),

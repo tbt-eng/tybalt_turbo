@@ -1,51 +1,3 @@
-<script lang="ts" module>
-  import type { ProposedRate } from "./RateSheetRatesTable.svelte";
-
-  // The proposed rates of a project request, as the request editor holds them.
-  export interface ProposedRates {
-    name: string;
-    reason: string;
-    based_on: string;
-    rows: ProposedRate[];
-  }
-
-  export function emptyProposedRates(): ProposedRates {
-    return { name: "", reason: "", based_on: "", rows: [] };
-  }
-
-  // The proposed_rates object of a request save.
-  export function proposedRatesPayload(proposal: ProposedRates) {
-    return {
-      name: proposal.name,
-      reason: proposal.reason,
-      based_on: proposal.based_on,
-      entries: proposal.rows.map((row) => ({
-        role: row.role,
-        rate: Number(row.rate),
-        overtime_rate: Number(row.overtime_rate),
-      })),
-    };
-  }
-
-  // The fields of the editor that show their own error after a refused save.
-  const proposedRatesFields = ["name", "reason", "based_on"].map(
-    (field) => `proposed_rates.${field}`,
-  );
-
-  // The field errors of a refused request save that belong to the editor's
-  // fields, under the server's keys.
-  type FieldErrors = Record<string, { message?: string } | undefined>;
-  export function proposedRatesFieldErrors(error: unknown): Record<string, { message: string }> {
-    const failed = error as { data?: { data?: FieldErrors }; response?: { data?: FieldErrors } };
-    const fields: FieldErrors = (failed?.data ?? failed?.response)?.data ?? {};
-    return Object.fromEntries(
-      proposedRatesFields
-        .filter((key) => fields[key]?.message)
-        .map((key) => [key, { message: fields[key]?.message ?? "" }]),
-    );
-  }
-</script>
-
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
@@ -53,9 +5,17 @@
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DSActionButton from "$lib/components/DSActionButton.svelte";
-  import RateSheetRatesTable, { rateChanged } from "./RateSheetRatesTable.svelte";
+  import RateSheetRatesTable from "./RateSheetRatesTable.svelte";
+  import {
+    type ProposedRates,
+    proposedRatesPayload,
+    rateChanged,
+    rateMissing,
+    withEveryRole,
+  } from "$lib/proposedRates";
   import RateSheetMatchCallout from "./RateSheetMatchCallout.svelte";
   import { rateSheets } from "$lib/stores/rateSheets";
+  import { rateRoles } from "$lib/stores/rateRoles";
   import type { RateSheetComparison } from "$lib/rateSheetMatches";
 
   // Proposed rates in a project request: the requester starts from an active
@@ -78,6 +38,7 @@
   } = $props();
 
   rateSheets.init();
+  rateRoles.init();
   let loadError = $state("");
   // The source whose rates the rows show, so that a change of source reloads
   // them and a saved proposal keeps its own rates.
@@ -117,9 +78,20 @@
     };
   });
 
+  // The rows always cover every rate role: a role with no known rate gets an
+  // empty row to fill in. This runs once the rows belong to the chosen source,
+  // for rows loaded from a new source and for a saved proposal alike. It
+  // writes only when a role is missing, so it settles after one pass.
+  $effect(() => {
+    if (!proposal.based_on || loadedSource !== proposal.based_on) return;
+    const rows = withEveryRole(proposal.rows, $rateRoles.items);
+    if (rows) proposal.rows = rows;
+  });
+
   // Compare the rates with the active sheets as the requester changes them,
   // so that a sheet that already fits is found before a new one is proposed.
-  // Rates with no change equal the source sheet, which needs no notice. The
+  // Rates with no change equal the source sheet, which needs no notice, and a
+  // role with no rate is left out of the comparison as it is of a save. The
   // server leaves the source out of the close sheets, since the table already
   // compares the rates with it.
   const noComparison: RateSheetComparison = { exact: [], near: [] };
@@ -129,7 +101,7 @@
     // The reason is left out so that typing it does not compare again.
     const body = JSON.stringify({ ...proposedRatesPayload(proposal), reason: "" });
     const sequence = ++compareSequence;
-    if (!proposal.rows.some(rateChanged)) {
+    if (!proposal.rows.some((row) => !rateMissing(row) && rateChanged(row))) {
       comparison = noComparison;
       return;
     }

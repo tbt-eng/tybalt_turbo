@@ -36,6 +36,7 @@
     "test:po-group-csv": "node --test --experimental-strip-types tests/poGroupCsv.test.ts",
     "test:po-print-browser": "node tests/poPrint.browser.mjs",
     "test:job-requests": "node --test --experimental-strip-types tests/jobRequests.test.ts",
+    "test:proposed-rates": "node --test --experimental-strip-types tests/proposedRates.test.ts",
     "test:job-request-permissions": "node --experimental-vm-modules --test tests/jobRequestPermissions.test.mjs",
     "test:manager-allocations-browser": "node tests/managerAllocations.browser.mjs",
     "test:job-requests-browser": "node tests/projectRequests.browser.mjs",

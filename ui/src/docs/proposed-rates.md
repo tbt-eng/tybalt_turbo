@@ -19,6 +19,10 @@ Note: Rejected? Change the rates and submit the request again.
 
 The reason tells why the client needs these rates, such as a contract schedule. Turbo won't save the rates without it.
 
+## Roles with no rate
+
+Turbo shows every role. If the starting sheet has no rate for a role, its rates are empty and it shows **No rate**. Enter its rates before you submit. Turbo saves the request without them.
+
 ## Rates that match a sheet
 
 Turbo won't save rates that match an active sheet. It names that sheet. Select **Use** and the sheet name to choose that sheet instead.

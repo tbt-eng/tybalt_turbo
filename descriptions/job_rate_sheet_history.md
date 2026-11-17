@@ -533,6 +533,14 @@ other. Existing sheets are not checked or changed.
   still create a rate sheet directly with no approval.
 - The requester's rates are compared with the source sheet's per role; a role
   the source lacks counts as changed.
+- The request form shows a row for every rate role (`rate_roles`, all of
+  which `ValidateRateSheetComplete` requires), whether its rows come from a
+  new source sheet or from the saved draft. A role with no known rate, because
+  the source lacks it or the draft was saved before the role was added, gets
+  an empty row marked **No rate** for the requester to fill in. A row with an
+  empty rate or overtime rate is left out of the save, so the save works, and
+  submission names the roles that still have none. The editor merges the
+  roles in one place (`withEveryRole` in `ui/src/lib/proposedRates.ts`).
 - The requester sees near matches as the rates change, with a button that
   chooses the sheet instead: up to `RateSheetNearMatchLimit` active sheets that
   differ in at most `RateSheetNearMatchMaxRoles` roles, without the source

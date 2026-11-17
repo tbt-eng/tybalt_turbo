@@ -354,6 +354,49 @@ func TestProposedRatesNeedAReasonToSubmit(t *testing.T) {
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
 }
 
+// A proposal can lack a rate for a role: the source sheet may have none, or
+// the draft was saved before the role was added. The request form then sends
+// the rates it has, and the save works; submission, approval and job creation
+// name the role. The fixture draft rsdraftsheet002 has no rate for the
+// Survey Drone Pilot.
+func TestProposedRatesWithoutEveryRoleNameTheMissingRole(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const request = "rsdraftreq00002"
+	incomplete := func() {
+		t.Helper()
+		err := hooks.ValidateRequestRateSheetDraft(app, workflowRecord(t, app, "rate_sheets", incompleteDraftSheet))
+		if err == nil || !strings.Contains(err.Error(), "no rate for "+missingDraftRoleName) {
+			t.Fatalf("the check does not name the missing role: %v", err)
+		}
+	}
+	incomplete()
+
+	// The request detail lists the rates the draft has, so the form adds an
+	// empty row for the missing role.
+	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+request, draftFixtureCreator, nil, http.StatusOK)
+	for _, row := range detail["related"].(map[string]any)["rate_sheet_entries"].([]any) {
+		if row.(map[string]any)["role_id"] == missingDraftRole {
+			t.Fatal("the detail lists a rate the draft lacks")
+		}
+	}
+
+	// A save without the role works and keeps the draft incomplete.
+	entries := []map[string]any{}
+	for _, entry := range standardRates(t, app, 265) {
+		if entry["role"] != missingDraftRole {
+			entries = append(entries, entry)
+		}
+	}
+	proposeRates(t, app, request, draftFixtureCreator, proposedRates("Proposed Fixture Rates Missing A Role", "Client rate schedule", entries), http.StatusOK)
+	incomplete()
+
+	// With the role, the draft is complete.
+	proposeRates(t, app, request, draftFixtureCreator, proposedRates("Proposed Fixture Rates Missing A Role", "Client rate schedule", standardRates(t, app, 265)), http.StatusOK)
+	if err := hooks.ValidateRequestRateSheetDraft(app, workflowRecord(t, app, "rate_sheets", incompleteDraftSheet)); err != nil {
+		t.Fatalf("a complete draft is refused: %v", err)
+	}
+}
+
 // Turbo refuses proposed rates that an active sheet already has and names it,
 // and the requester can choose that sheet instead.
 func TestProposedRatesThatMatchAnActiveSheetAreRefused(t *testing.T) {

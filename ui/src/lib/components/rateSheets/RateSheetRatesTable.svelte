@@ -1,29 +1,7 @@
-<script lang="ts" module>
-  // One role's rates on a proposed rate sheet, with the rates of the sheet
-  // that the proposal started from when they are known.
-  export interface ProposedRate {
-    role: string;
-    roleName: string;
-    rate: number;
-    overtime_rate: number;
-    source_rate?: number;
-    source_overtime_rate?: number;
-  }
-
-  // A rate is changed when it differs from the source sheet's, or when the
-  // source sheet has no rate for the role.
-  export function rateChanged(row: ProposedRate): boolean {
-    return (
-      row.source_rate === undefined ||
-      Number(row.rate) !== row.source_rate ||
-      Number(row.overtime_rate) !== row.source_overtime_rate
-    );
-  }
-</script>
-
 <script lang="ts">
   import DsLabel from "$lib/components/DsLabel.svelte";
   import { formatCurrency } from "$lib/utilities";
+  import { type ProposedRate, rateChanged, rateMissing } from "$lib/proposedRates";
 
   // The rates of a proposed rate sheet beside the rates of the sheet it
   // started from, with each changed role marked. With editable, the rate and
@@ -38,7 +16,9 @@
     sourceName?: string;
   } = $props();
 
-  const changedCount = $derived(rows.filter(rateChanged).length);
+  // A role with no rate is counted apart, not as a change.
+  const missingCount = $derived(rows.filter(rateMissing).length);
+  const changedCount = $derived(rows.filter((row) => !rateMissing(row) && rateChanged(row)).length);
 </script>
 
 <div class="flex flex-col gap-2">
@@ -46,6 +26,9 @@
     {changedCount === 0
       ? "No rate differs from the source sheet."
       : `${changedCount} ${changedCount === 1 ? "role differs" : "roles differ"} from ${sourceName || "the source sheet"}.`}
+    {#if missingCount > 0}
+      {`${missingCount} ${missingCount === 1 ? "role has" : "roles have"} no rate. Enter ${missingCount === 1 ? "its" : "their"} rates before you submit.`}
+    {/if}
   </p>
   <div class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
@@ -63,7 +46,8 @@
             <td class="px-2 py-1">
               <span class="flex items-center gap-2">
                 {row.roleName}
-                {#if rateChanged(row)}<DsLabel tone="warning" size="sm">Changed</DsLabel>{/if}
+                {#if rateMissing(row)}<DsLabel tone="danger" size="sm">No rate</DsLabel>
+                {:else if rateChanged(row)}<DsLabel tone="warning" size="sm">Changed</DsLabel>{/if}
               </span>
             </td>
             <td class="px-2 py-1">
