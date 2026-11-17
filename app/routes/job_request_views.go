@@ -110,6 +110,13 @@ func requestReviewToken(app core.App, r *core.Record) (string, error) {
 	}
 	delete(related, "approver")
 	delete(related, "creator")
+	// For proposed rates the digest already holds what the approval is bound
+	// to: the draft's record, with rates_approver and based_on as ids, and each
+	// rate beside the source's. The approver's contact details and the source
+	// sheet's own record are for display, and a change to them (a profile edit,
+	// a rename, a newer revision) does not change what was approved.
+	delete(related, "rate_sheet_rates_approver")
+	delete(related, "rate_sheet_source")
 	data := map[string]any{"version": r.GetInt("version"), "submission_token": r.GetString("submission_token"), "related": related}
 	for _, key := range requestBusinessFields {
 		data[key] = r.Get(key)

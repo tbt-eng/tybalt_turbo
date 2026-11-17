@@ -594,3 +594,58 @@ func TestComparingProposedRatesNeedsProjectRequests(t *testing.T) {
 	app := newWorkflowTestApp(t, false)
 	requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, map[string]any{"name": "X", "entries": standardRates(t, app, 260)}, http.StatusForbidden)
 }
+
+// An approval of proposed rates is bound to the approver's id, the source
+// sheet's id and the rates, not to display data. This test changes fixture
+// data after the approval: it edits the approver's profile and renames the
+// source sheet (2025 Standard Rates), and the job is still created.
+func TestRatesApprovalSurvivesAProfileEditAndASourceRename(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
+
+	approver := workflowRecord(t, app, "job_requests", id).GetString("approver")
+	profile, err := app.FindFirstRecordByData("profiles", "uid", approver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile.Set("given_name", "Renamed")
+	if err := app.Save(profile); err != nil {
+		t.Fatal(err)
+	}
+	source := workflowRecord(t, app, "rate_sheets", standardRateSheet)
+	source.Set("name", "2025 Standard Rates Renamed")
+	if err := app.Save(source); err != nil {
+		t.Fatal(err)
+	}
+
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	if !workflowRecord(t, app, "rate_sheets", draftID).GetBool("active") {
+		t.Fatal("the proposed sheet was not activated")
+	}
+}
+
+// A corrected rate on the source sheet changes the comparison that the
+// approver saw, so the approval is stale. This test changes a fixture rate of
+// the source sheet (2025 Standard Rates) after the approval.
+func TestRatesApprovalIsStaleAfterASourceRateChanges(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
+
+	entries, err := app.FindRecordsByFilter("rate_sheet_entries", "rate_sheet = {:sheet} && role != {:role}", "", 1, 0, dbx.Params{"sheet": standardRateSheet, "role": principalRole})
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("source entry: %v %d", err, len(entries))
+	}
+	entries[0].Set("rate", entries[0].GetFloat("rate")+1)
+	if err := app.UnsafeWithoutHooks().Save(entries[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), http.StatusConflict)
+	if workflowRecord(t, app, "rate_sheets", draftID).GetBool("active") {
+		t.Fatal("a stale approval activated the proposed sheet")
+	}
+}

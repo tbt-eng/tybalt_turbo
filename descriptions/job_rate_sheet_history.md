@@ -354,7 +354,7 @@ repriced (`RateSheetRollout.svelte`).
 
 ## Proposed rates
 
-Status: Implemented (issue 187)
+Status: Implemented and deployed (issue 187, merged to `main` on 2026-11-16)
 
 A project request can propose new rates instead of choosing an active sheet.
 The request approver approves them with the request, and the sheet becomes
@@ -433,8 +433,13 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
 
 The request detail (`requestRelated`) adds `rate_sheet_proposed`,
 `rate_sheet_source`, and for each rate `role_id`, `source_rate`,
-`source_overtime_rate` and `changed`. These are part of the review token. The
-request options leave drafts out.
+`source_overtime_rate` and `changed`. The rates and `rate_sheet_proposed` are
+part of the review token. `rate_sheet_source` and `rate_sheet_rates_approver`
+are for display and are not: the token is bound to the source and the approver
+through `based_on` and `rates_approver` on the draft's record, which are ids.
+So a rename or a newer revision of the source, or an edit of the approver's
+profile, does not make an approval stale. A changed rate on the source does,
+since the approver compared with it. The request options leave drafts out.
 
 ### Approval
 
