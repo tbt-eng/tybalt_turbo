@@ -71,6 +71,9 @@
                 {#if rateMissing(row)}<DsLabel tone="danger" size="sm">No rate</DsLabel>
                 {:else if rateChanged(row)}<DsLabel tone="warning" size="sm">Changed</DsLabel>{/if}
               </span>
+              {#if errorOf(row, "role")}
+                <div class="mt-1 text-xs text-red-600">{errorOf(row, "role")}</div>
+              {/if}
             </td>
             <td class="px-2 py-1">
               {#if editable}

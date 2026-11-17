@@ -30,6 +30,7 @@
     incompleteRateErrors,
     proposedRatesPayload,
     proposedRatesFieldErrors,
+    withoutRowErrors,
   } from "$lib/proposedRates";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
@@ -352,6 +353,8 @@
     if (fee) {
       payload.time_and_materials = fee === "tm";
     }
+    // Kept so that an error on one of the entries sent goes on its row.
+    const proposedRates = proposing ? proposedRatesPayload(proposal) : undefined;
     try {
       const result = await pb.send(item.id ? `/api/job_requests/${item.id}` : "/api/job_requests", {
         method: item.id ? "PATCH" : "POST",
@@ -359,7 +362,7 @@
           version: item.version,
           request: payload,
           allocations,
-          ...(proposing ? { proposed_rates: proposedRatesPayload(proposal) } : {}),
+          ...(proposedRates ? { proposed_rates: proposedRates } : {}),
         },
       });
       saved = snapshot();
@@ -371,9 +374,11 @@
       return true;
     } catch (e) {
       rateMatches = duplicateRateSheetMatches(e, "proposed_rates");
-      proposalErrors = proposedRatesFieldErrors(e);
-      // The callout beside the rates names the matching sheet.
-      if (!rateMatches?.length) error = workflowError(e);
+      proposalErrors = proposedRatesFieldErrors(e, proposedRates?.entries);
+      // The callout beside the rates names the matching sheet. An error on one
+      // rate shows on its row, and the message here says only that the save
+      // was refused.
+      if (!rateMatches?.length) error = workflowError(withoutRowErrors(e, proposedRates?.entries));
       return false;
     } finally {
       saving = false;

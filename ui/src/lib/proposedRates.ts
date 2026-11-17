@@ -158,14 +158,68 @@ const proposedRatesFields = ["name", "reason", "based_on"].map(
 
 type FieldErrors = Record<string, { message?: string } | undefined>;
 
+type FailedSave = {
+  message?: string;
+  data?: { message?: string; data?: FieldErrors };
+  response?: { message?: string; data?: FieldErrors };
+};
+
+// The server keys an error on one rate of the entries that a save sent, such
+// as proposed_rates.entries.2.rate, where 2 is the place of the entry in the
+// save, not in the table.
+const entryErrorKey = /^proposed_rates\.entries\.(\d+)\.(rate|overtime_rate|role)$/;
+
+// The server's message on one rate, in the words of the table, such as
+// "Overtime rate must be at least 1." for "entry overtime_rate must be at
+// least 1".
+function rateMessage(message: string): string {
+  const text = message
+    .replace(/^entry /i, "")
+    .replaceAll("overtime_rate", "overtime rate")
+    .trim();
+  const sentence = text.charAt(0).toUpperCase() + text.slice(1);
+  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+}
+
+// Each error of a refused save on one rate of a sent entry, with its server
+// key and its key in the rates table.
+function rowErrors(fields: FieldErrors, entries: { role: string }[]) {
+  return Object.entries(fields).flatMap(([key, value]) => {
+    const match = entryErrorKey.exec(key);
+    const entry = match ? entries[Number(match[1])] : undefined;
+    if (!match || !entry || !value?.message) return [];
+    const field = match[2] as RateField;
+    return [{ key, rowKey: rateErrorKey(entry.role, field), message: rateMessage(value.message) }];
+  });
+}
+
 // The field errors of a refused request save that belong to the rates
-// editor's fields.
-export function proposedRatesFieldErrors(error: unknown): Record<string, { message: string }> {
-  const failed = error as { data?: { data?: FieldErrors }; response?: { data?: FieldErrors } };
+// editor's fields. entries are the entries that the save sent, in the order
+// sent: an error on one of their rates goes on its role's row, under
+// rateErrorKey.
+export function proposedRatesFieldErrors(
+  error: unknown,
+  entries: { role: string }[] = [],
+): Record<string, { message: string }> {
+  const failed = error as FailedSave | undefined;
   const fields: FieldErrors = (failed?.data ?? failed?.response)?.data ?? {};
-  return Object.fromEntries(
-    proposedRatesFields
+  return Object.fromEntries([
+    ...proposedRatesFields
       .filter((key) => fields[key]?.message)
       .map((key) => [key, { message: fields[key]?.message ?? "" }]),
-  );
+    ...rowErrors(fields, entries).map((row) => [row.rowKey, { message: row.message }]),
+  ]);
+}
+
+// The refused save without the errors that the rates table shows on a row, for
+// the general error message. Their keys name a place in the save, which means
+// nothing to the user. The other errors stay.
+export function withoutRowErrors(error: unknown, entries: { role: string }[] = []): unknown {
+  const failed = error as FailedSave | undefined;
+  const body = failed?.data ?? failed?.response;
+  if (!body?.data) return error;
+  const placed = new Set(rowErrors(body.data, entries).map((row) => row.key));
+  if (placed.size === 0) return error;
+  const data = Object.fromEntries(Object.entries(body.data).filter(([key]) => !placed.has(key)));
+  return { message: failed?.message, data: { ...body, data } };
 }

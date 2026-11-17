@@ -12,6 +12,7 @@ import {
   withEveryRole,
   withOvertimeMultiplier,
   withSourceRates,
+  withoutRowErrors,
 } from "../src/lib/proposedRates.ts";
 
 const roles = [
@@ -120,6 +121,48 @@ test("the field errors of a refused save are those of the editor's fields", () =
   assert.deepEqual(proposedRatesFieldErrors({ response: { data } }), expected);
   assert.deepEqual(proposedRatesFieldErrors(new Error("offline")), {});
   assert.deepEqual(proposedRatesFieldErrors(undefined), {});
+});
+
+test("an error on one rate of a refused save goes on its role's row", () => {
+  // The save sent Biologist and then Principal; the keys count in that order.
+  const entries = [{ role: "biologist" }, { role: "principal" }];
+  const data = {
+    "proposed_rates.reason": { code: "value_required", message: "reason is required" },
+    "proposed_rates.entries.0.rate": {
+      code: "validation_not_whole_number",
+      message: "entry rate must be a whole number",
+    },
+    "proposed_rates.entries.1.overtime_rate": {
+      code: "validation_negative_number",
+      message: "entry overtime_rate must be at least 1",
+    },
+    "proposed_rates.entries.1.role": { code: "x", message: "entry role must be unique" },
+    // No entry was sent in this place, so no row can show it.
+    "proposed_rates.entries.7.rate": { code: "x", message: "entry rate must be at least 1" },
+  };
+  const error = { message: "Check the request fields.", data: { message: "Check", data } };
+  assert.deepEqual(proposedRatesFieldErrors(error, entries), {
+    "proposed_rates.reason": { message: "reason is required" },
+    [rateErrorKey("biologist", "rate")]: { message: "Rate must be a whole number." },
+    [rateErrorKey("principal", "overtime_rate")]: { message: "Overtime rate must be at least 1." },
+    [rateErrorKey("principal", "role")]: { message: "Role must be unique." },
+  });
+
+  // The general message keeps the errors that no row shows.
+  const general = withoutRowErrors(error, entries) as {
+    message: string;
+    data: { message: string; data: object };
+  };
+  assert.equal(general.message, "Check the request fields.");
+  assert.equal(general.data.message, "Check");
+  assert.deepEqual(Object.keys(general.data.data), [
+    "proposed_rates.reason",
+    "proposed_rates.entries.7.rate",
+  ]);
+  // An error with no row errors is left as it is.
+  const other = new Error("offline");
+  assert.equal(withoutRowErrors(other, entries), other);
+  assert.equal(withoutRowErrors(error, []), error);
 });
 
 test("the multiplier sets each overtime rate to the cent and leaves empty rows empty", () => {

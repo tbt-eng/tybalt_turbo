@@ -397,6 +397,31 @@ func TestProposedRatesWithoutEveryRoleNameTheMissingRole(t *testing.T) {
 	}
 }
 
+// A refused rate is a field error under the place of its entry in the save,
+// such as proposed_rates.entries.2.rate. The request editor maps the place
+// back to the role and shows the error on its row. The refused save changes
+// nothing in the fixture draft.
+func TestProposedRatesRefuseABadRateUnderItsEntry(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	entries := standardRates(t, app, 265)
+	entries[1]["rate"] = 120.5
+	entries[2]["overtime_rate"] = 0.5
+	result := proposeRates(t, app, draftFixtureRequest, draftFixtureCreator, proposedRates("Proposed Fixture Rates", "Client rate schedule", entries), http.StatusBadRequest)
+	data, _ := result["data"].(map[string]any)
+	for key, code := range map[string]string{
+		hooks.ProposedRatesField + ".entries.1.rate":          "validation_not_whole_number",
+		hooks.ProposedRatesField + ".entries.2.overtime_rate": "validation_negative_number",
+	} {
+		fieldErr, _ := data[key].(map[string]any)
+		if fieldErr["code"] != code {
+			t.Fatalf("no %s error under %s: %#v", code, key, result)
+		}
+	}
+	if len(data) != 2 {
+		t.Fatalf("the refusal has other errors: %#v", data)
+	}
+}
+
 // Turbo refuses proposed rates that an active sheet already has and names it,
 // and the requester can choose that sheet instead.
 func TestProposedRatesThatMatchAnActiveSheetAreRefused(t *testing.T) {
