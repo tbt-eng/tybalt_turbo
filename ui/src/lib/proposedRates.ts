@@ -39,6 +39,14 @@ export function rateMissing(row: ProposedRate): boolean {
   return empty(row.rate) || empty(row.overtime_rate);
 }
 
+// The label of a role that has no rate, which says what is missing: "No
+// overtime rate" when only the overtime rate is empty, otherwise "No rate".
+// It is "" for a role that has both rates.
+export function missingRateLabel(row: ProposedRate): string {
+  if (!rateMissing(row)) return "";
+  return empty(row.overtime_rate) && !empty(row.rate) ? "No overtime rate" : "No rate";
+}
+
 // The rows with each overtime rate set to the rate times the multiplier,
 // rounded to the cent. A row with no rate keeps its overtime rate, so an empty
 // row stays empty. A multiplier that is not a positive number changes nothing.
@@ -215,14 +223,18 @@ export function proposedRatesFieldErrors(
   ]);
 }
 
-// The refused save without the errors that the rates table shows on a row, for
-// the general error message. Their keys name a place in the save, which means
-// nothing to the user. The other errors stay.
-export function withoutRowErrors(error: unknown, entries: { role: string }[] = []): unknown {
+// The refused save without the errors that the rates editor shows, for the
+// general error message: those of its fields (name, reason, based_on) and
+// those that the rates table shows on a row. The editor shows each where it
+// belongs, and the keys mean nothing to the user. The other errors stay.
+export function withoutShownErrors(error: unknown, entries: { role: string }[] = []): unknown {
   const failed = error as FailedSave | undefined;
   const body = failed?.data ?? failed?.response;
   if (!body?.data) return error;
-  const placed = new Set(rowErrors(body.data, entries).map((row) => row.key));
+  const placed = new Set([
+    ...proposedRatesFields.filter((key) => body.data?.[key]?.message),
+    ...rowErrors(body.data, entries).map((row) => row.key),
+  ]);
   if (placed.size === 0) return error;
   const data = Object.fromEntries(Object.entries(body.data).filter(([key]) => !placed.has(key)));
   return { message: failed?.message, data: { ...body, data } };

@@ -5,6 +5,7 @@
     type ProposedRate,
     type RateField,
     rateChanged,
+    missingRateLabel,
     rateErrorKey,
     rateMissing,
   } from "$lib/proposedRates";
@@ -30,7 +31,7 @@
   const errorOf = (row: ProposedRate, field: RateField) =>
     errors[rateErrorKey(row.role, field)]?.message;
 
-  // A role with no rate is counted apart, not as a change.
+  // A role that lacks either rate is counted apart, not as a change.
   const missingCount = $derived(rows.filter(rateMissing).length);
   const changedCount = $derived(rows.filter((row) => !rateMissing(row) && rateChanged(row)).length);
 </script>
@@ -41,7 +42,7 @@
       ? "No rate differs from the source sheet."
       : `${changedCount} ${changedCount === 1 ? "role differs" : "roles differ"} from ${sourceName || "the source sheet"}.`}
     {#if missingCount > 0}
-      {`${missingCount} ${missingCount === 1 ? "role has" : "roles have"} no rate. Enter ${missingCount === 1 ? "its" : "their"} rates before you submit.`}
+      {`${missingCount} ${missingCount === 1 ? "role is missing a rate" : "roles are missing rates"}. Enter ${missingCount === 1 ? "its" : "their"} rates before you submit.`}
     {/if}
   </p>
   <div class="overflow-x-auto">
@@ -68,7 +69,9 @@
             <td class="px-2 py-1">
               <span class="flex items-center gap-2">
                 {row.roleName}
-                {#if rateMissing(row)}<DsLabel tone="danger" size="sm">No rate</DsLabel>
+                {#if rateMissing(row)}<DsLabel tone="danger" size="sm"
+                    >{missingRateLabel(row)}</DsLabel
+                  >
                 {:else if rateChanged(row)}<DsLabel tone="warning" size="sm">Changed</DsLabel>{/if}
               </span>
               {#if errorOf(row, "role")}

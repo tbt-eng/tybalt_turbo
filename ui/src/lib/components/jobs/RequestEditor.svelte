@@ -31,7 +31,7 @@
     incompleteRateErrors,
     proposedRatesPayload,
     proposedRatesFieldErrors,
-    withoutRowErrors,
+    withoutShownErrors,
   } from "$lib/proposedRates";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
@@ -104,8 +104,15 @@
           : emptyProposedRates()),
     ),
   );
-  // Active sheets with the same rates, from the last save that Turbo refused.
-  let rateMatches = $state<RateSheetMatch[] | null>(null);
+  // Active sheets with the same rates, from the last save that Turbo refused,
+  // with the rates that the save sent. The notice shows only while the rates
+  // are those: after a change, the editor's live comparison takes over.
+  let refusal = $state<{ matches: RateSheetMatch[]; rates: string } | null>(null);
+  const rateMatches = $derived(
+    refusal && JSON.stringify(proposedRatesPayload(proposal).entries) === refusal.rates
+      ? refusal.matches
+      : null,
+  );
   // Field errors of the proposed rates from the last save that Turbo refused.
   let proposalErrors = $state<Record<string, { message: string }>>({});
   let item = $state<WorkflowRecord>(
@@ -238,7 +245,7 @@
   function setRateMode(mode: string) {
     if (mode === rateMode) return;
     rateMode = mode;
-    rateMatches = null;
+    refusal = null;
     if (mode === "choose" && related.rate_sheet_proposed && item.rate_sheet === request.rate_sheet)
       item.rate_sheet = "";
   }
@@ -247,7 +254,7 @@
   function useMatchingSheet(id: string) {
     rateMode = "choose";
     item.rate_sheet = id;
-    rateMatches = null;
+    refusal = null;
     save();
   }
   $effect(() => {
@@ -311,7 +318,7 @@
   export async function save(): Promise<boolean> {
     if (saving) return false;
     error = "";
-    rateMatches = null;
+    refusal = null;
     proposalErrors = {};
     const proposing = rateMode === "propose";
     // A save leaves out a role with no rate, so a role with only one of its
@@ -375,12 +382,16 @@
       else await invalidateAll();
       return true;
     } catch (e) {
-      rateMatches = duplicateRateSheetMatches(e, "proposed_rates");
+      const matches = duplicateRateSheetMatches(e, "proposed_rates");
+      refusal =
+        matches?.length && proposedRates
+          ? { matches, rates: JSON.stringify(proposedRates.entries) }
+          : null;
       proposalErrors = proposedRatesFieldErrors(e, proposedRates?.entries);
       // The callout beside the rates names the matching sheet. An error on one
-      // rate shows on its row, and the message here says only that the save
-      // was refused.
-      if (!rateMatches?.length) error = workflowError(withoutRowErrors(e, proposedRates?.entries));
+      // rate shows on its row and an error on a field of the proposed rates on
+      // that field, so the message here leaves them out.
+      if (!matches?.length) error = workflowError(withoutShownErrors(e, proposedRates?.entries));
       return false;
     } finally {
       saving = false;

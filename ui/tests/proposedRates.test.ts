@@ -12,7 +12,8 @@ import {
   withEveryRole,
   withOvertimeMultiplier,
   withSourceRates,
-  withoutRowErrors,
+  missingRateLabel,
+  withoutShownErrors,
 } from "../src/lib/proposedRates.ts";
 
 const roles = [
@@ -67,6 +68,19 @@ test("a role with an empty rate or overtime rate has no rate", () => {
   assert.equal(rateMissing({ ...row, overtime_rate: null }), true);
   // Zero is a value; the server refuses it.
   assert.equal(rateMissing({ ...row, rate: 0 }), false);
+});
+
+test("the label of a role with no rate says which rate is missing", () => {
+  const row = sourceRow("principal", "Principal", 250);
+  assert.equal(missingRateLabel(row), "");
+  assert.equal(missingRateLabel({ ...row, rate: null, overtime_rate: null }), "No rate");
+  assert.equal(missingRateLabel({ ...row, rate: null }), "No rate");
+  assert.equal(missingRateLabel({ ...row, overtime_rate: null }), "No overtime rate");
+  // A rate the user cleared is empty too.
+  assert.equal(
+    missingRateLabel({ ...row, overtime_rate: "" as unknown as null }),
+    "No overtime rate",
+  );
 });
 
 test("an empty row counts as changed and does not throw", () => {
@@ -148,21 +162,38 @@ test("an error on one rate of a refused save goes on its role's row", () => {
     [rateErrorKey("principal", "role")]: { message: "Role must be unique." },
   });
 
-  // The general message keeps the errors that no row shows.
-  const general = withoutRowErrors(error, entries) as {
+  // The general message keeps the errors that no row or field shows.
+  const general = withoutShownErrors(error, entries) as {
     message: string;
     data: { message: string; data: object };
   };
   assert.equal(general.message, "Check the request fields.");
   assert.equal(general.data.message, "Check");
-  assert.deepEqual(Object.keys(general.data.data), [
-    "proposed_rates.reason",
-    "proposed_rates.entries.7.rate",
-  ]);
-  // An error with no row errors is left as it is.
+  assert.deepEqual(Object.keys(general.data.data), ["proposed_rates.entries.7.rate"]);
+  // An error that the editor shows nowhere is left as it is.
   const other = new Error("offline");
-  assert.equal(withoutRowErrors(other, entries), other);
-  assert.equal(withoutRowErrors(error, []), error);
+  assert.equal(withoutShownErrors(other, entries), other);
+  const unplaced = {
+    message: "x",
+    data: { message: "x", data: { description: { message: "y" } } },
+  };
+  assert.equal(withoutShownErrors(unplaced, entries), unplaced);
+});
+
+test("the general message leaves out the errors on the proposed rates fields", () => {
+  const data = {
+    "proposed_rates.name": { code: "validation_not_unique", message: "Taken." },
+    "proposed_rates.reason": { code: "value_required", message: "Reason is required." },
+    "proposed_rates.based_on": { code: "value_required", message: "Choose a sheet." },
+    description: { code: "value_required", message: "Description is required." },
+  };
+  const error = { message: "Check the request fields.", data: { message: "Check", data } };
+  const general = withoutShownErrors(error) as { data: { message: string; data: object } };
+  assert.equal(general.data.message, "Check");
+  assert.deepEqual(Object.keys(general.data.data), ["description"]);
+  // An empty field error is not shown on its field, so it stays.
+  const blank = { data: { message: "Check", data: { "proposed_rates.name": { message: "" } } } };
+  assert.equal(withoutShownErrors(blank), blank);
 });
 
 test("the multiplier sets each overtime rate to the cent and leaves empty rows empty", () => {

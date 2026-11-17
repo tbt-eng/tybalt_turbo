@@ -26,9 +26,11 @@
   // The server keeps them as a draft that only this request uses.
   // onUse chooses an active sheet in place of the proposal. blocked is true
   // while the page shows the sheets that refused the last save, so the same
-  // sheets are not listed twice. errors holds the field errors of the last
-  // save, under the server's keys (proposed_rates.name and so on), and the
-  // errors of single rates under rateErrorKey.
+  // sheets are not listed twice. The page shows them only until the rates
+  // change; then this editor's live comparison is the only notice. errors
+  // holds the field errors of the last save, under the server's keys
+  // (proposed_rates.name and so on), and the errors of single rates under
+  // rateErrorKey.
   let {
     proposal = $bindable(),
     onUse,
