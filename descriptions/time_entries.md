@@ -35,7 +35,7 @@ Percentages are available for complete estimates. They are null when the total
 is incomplete or zero. A range without entries returns an empty array.
 Zero-hour entries do not make a total estimated or incomplete.
 
-CSV exports include the rate sheet name and revision, estimated and unpriced
+CSV exports include the rate sheets (code, revision and name), estimated and unpriced
 hours, and pricing status. The shared query in `app/routes/job_priced_time_entries.sql`
 keeps the pricing and entry selection rules the same for both summaries.
 

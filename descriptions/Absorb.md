@@ -80,15 +80,19 @@ The rule behind every check: an absorb never reprices time.
 - Rates: the target and the absorbed sheet must have the same set of roles,
   with the same rate and overtime rate in cents. A missing role is a
   difference. A sheet without entries is never a duplicate.
-- Names: the test is on the name, not on the selected revision. A sheet that
-  is the only revision of its name can be absorbed. A name with revisions can
-  be absorbed only when no job, no period and no project request uses any of
-  its revisions; then every revision and its entries are absorbed in one action,
+- Sheets: the test is on the sheet, which its code identifies (all its
+  revisions share the code), not on the selected revision. A sheet that is
+  its only revision can be absorbed. A sheet with revisions can be absorbed
+  only when no job, no period and no project request uses any of its
+  revisions; then every revision and its entries are absorbed in one action,
   and only the latest revision must match the target. Otherwise no revision
-  of the name can be absorbed. A revision of the target's own name can't be
-  absorbed.
+  of the sheet can be absorbed. A revision of the target itself can't be
+  absorbed. Before issue 207 the revisions were linked by name.
+- Codes: the target keeps its code. The code of an absorbed sheet is
+  retired: `rate_sheet_codes` keeps it, so it is never issued again, and an
+  undo puts the sheet back with it.
 - Effective date: the target's date can't be later than the date of a single
-  revision sheet that it absorbs. The rule does not apply to a name with
+  revision sheet that it absorbs. The rule does not apply to a sheet with
   revisions, because nothing moves. A dated period starts on or after its
   sheet's effective date, so after a move it also starts on or after the
   target's, as the history rules require. The opening period has no date.
@@ -97,8 +101,9 @@ The rule behind every check: an absorb never reprices time.
   sheet, as a period keeps its sheet when the sheet is deactivated.
 - Commit writes one `rate_sheet_name_changes` row for each absorbed name, with
   the target as its anchor and the committing user as `renamed_by`, so the
-  target shows "Formerly ...". The history rows of the absorbed sheets move to
-  the target on commit too. Nothing is written on absorb.
+  target shows "Formerly ...". An absorbed sheet with no name adds no row. The
+  name and code history rows (`rate_sheet_code_changes`) of the absorbed
+  sheets move to the target on commit too. Nothing is written on absorb.
 - A request that becomes a job while the action is pending moves its pending
   undo data to the job (`transferRequestMergeReferences`), as for clients.
   The job's opening period, written on the target with the job, is added to

@@ -1,7 +1,8 @@
 # Job rate sheet history
 
-Status: Implemented and deployed (merged to `main` on 2026-11-13)
-Last updated: 2026-11-13
+Status: Implemented and deployed (merged to `main` on 2026-11-13). Rate sheet
+codes (issue 207): built on the `rate-sheet-codes` branch, not deployed.
+Last updated: 2026-11-17
 
 ## Behaviour before this change
 
@@ -44,7 +45,8 @@ recorded correctly today.
 ## Problem
 
 Rate sheet revisions already have `rate_sheets.effective_date`, and activating a
-revision deactivates the others with the same name. That date says when a
+revision deactivates the others of the same sheet (the same code; see Rate
+sheet codes). That date says when a
 revision became available. It does not say when a job moved to it. A client may
 accept a new revision months after it was issued, or never.
 
@@ -233,7 +235,8 @@ one sheet.
 
 - `JobTimeValuation` replaces `rate_sheet_name` and `rate_sheet_revision` with
   `rate_sheets`: the sheets that priced the row's entries, such as
-  "2026 Standard Rates (rev. 0)", joined by "; ". It is in the staff and
+  `2026-11-00004 (rev. 0) "2026 Standard Rates"` (the code, the revision and
+  the name when there is one), joined by "; ". It is in the staff and
   division summaries and their CSV exports.
 - The periods themselves, with their dates, come from the history route.
 - `TimeSummaryTable.svelte` uses `jobs.rate_sheet` for the "no rate sheet"
@@ -242,8 +245,8 @@ one sheet.
 ### Missing rates
 
 `GET /api/jobs/{id}/wip/missing-rates` returns `rate_sheets`, a list of
-`{ id, name, revision, roles }`, one per sheet that priced time with a missing
-role rate. A role can be priced in one period and not in the next.
+`{ id, code, name, revision, roles }`, one per sheet that priced time with a
+missing role rate, in order of code. A role can be priced in one period and not in the next.
 
 ### Job editor and details
 
@@ -270,8 +273,8 @@ it treats `jobs.rate_sheet`:
   sheet of each row. The rows are changed by SQL, so their `updated` and
   `updated_by` stay as they were and the row hooks do not run.
 - A row is a use of its sheet. A sheet that only an old row uses counts as
-  used, so a rate sheet name with revisions is not absorbed while any row is
-  on one of them.
+  used, so a rate sheet with revisions is not absorbed while any row is on
+  one of them.
 - The job and its latest row move together, so `jobs.rate_sheet` stays equal
   to the latest row. A job whose only moved reference is an older row is not
   saved, and its `_imported` and `updated` don't change: the writeback sends
@@ -315,10 +318,10 @@ GET date defaults to the revision's `effective_date`; the POST needs one.
 
 - **Who:** an active user with the `admin` claim. `job` and
   `rate_sheet_revise` are not needed. Anyone else gets 403.
-- **Target:** `{id}` must be the latest revision of its name, and active,
+- **Target:** `{id}` must be the latest revision of its sheet, and active,
   because a new row needs an active sheet.
 - **Projects:** projects (not proposals) whose `jobs.rate_sheet` is an earlier
-  revision of the same name. Only Active projects move. Closed and Cancelled
+  revision of the same sheet (the same code). Only Active projects move. Closed and Cancelled
   projects are skipped and counted. A project whose latest dated row starts on
   or after the date is skipped and counted as `later_period`, because a new
   row would not become its latest.
@@ -419,8 +422,8 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
   with `POST /api/rate_sheets`): each role once, a whole rate of at least 1,
   an overtime rate of at least 1. `based_on` must be an active sheet that is
   not a draft; a saved draft may keep a source that has since been
-  deactivated. The name may not equal any other sheet's name in any letter
-  case, as for a rename.
+  deactivated. The name is optional; when given, it may not equal any other
+  sheet's name in any letter case, as for a rename.
 - Turbo refuses rates identical to an active sheet with 409
   `duplicate_rate_sheet` under `proposed_rates`, listing the matches
   (`hooks.CompareWithActiveRateSheets`, the same check as for a new sheet).
@@ -428,9 +431,11 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
 - A save may not both choose a sheet and propose rates. Choosing another
   sheet, or none, deletes the request's draft.
 - A request cannot choose another request's draft.
-- Every save needs a name, a reason and `based_on`; a missing one is a field
-  error under `proposed_rates.name`, `proposed_rates.reason` or
-  `proposed_rates.based_on`, which the request form shows on the field.
+- Every save needs a reason and `based_on`; a missing one is a field error
+  under `proposed_rates.reason` or `proposed_rates.based_on`, which the
+  request form shows on the field. A name taken by another sheet is a field
+  error under `proposed_rates.name`. The draft gets its code on its first
+  save and keeps it.
   Submission, approval and job creation require a reason (again, for a draft
   saved before the reason was required at save), a rate for every role, and
   no identical active sheet (`hooks.ValidateRequestRateSheetDraft`, called
@@ -495,7 +500,9 @@ delete of an abandoned request, any other delete). Job creation clears
 
 - `POST /api/rate_sheets/{id}/activate`, `PUT /api/rate_sheet_entries/{id}`
   and `POST /api/rate_sheets/{id}/rename` return `rate_sheet_draft`.
-- `POST /api/rate_sheets` refuses a revision of a draft's name.
+- `POST /api/rate_sheets` refuses a revision of a draft, by code or by name,
+  and every path refuses a new sheet with a draft's code (see Rate sheet
+  codes).
 - Jobs and history rows need an active sheet, so neither accepts a draft.
 - Rate sheet absorb leaves drafts out of its data, so a draft is neither a
   source, a target nor a duplicate. `rate_sheets.based_on` is a moved
@@ -512,17 +519,19 @@ other. Existing sheets are not checked or changed.
 
 - A request chooses a sheet or proposes rates; choosing a sheet discards the
   draft.
-- The requester names the new sheet; it is always revision 0.
+- The requester may name the new sheet; it is always revision 0. Since issue
+  207 the name is optional and the draft has its own code.
 - The job holder who creates the job can change that name in the create step
   (`rate_sheet_name` on `POST /api/job_requests/{id}/create`). Procurement
   keeps the rate sheet list, and the approver approved the rates, not the name,
   so the approval stands. The name must be unique in any letter case. The old
-  name is kept in `rate_sheet_name_changes`, as for an admin rename. The general
-  rename action stays with admins.
+  name is kept in `rate_sheet_name_changes`, as for any rename. An empty
+  `rate_sheet_name` keeps the requester's name. The general rename action is
+  for `admin` and, since issue 207, `rate_sheet_revise` holders.
 - The draft's effective date is the save date, and becomes the activation
   date at job creation.
-- The reason is required on every save of proposed rates, as the name and
-  the starting sheet are. It is at most 500 characters.
+- The reason is required on every save of proposed rates, as the starting
+  sheet is. It is at most 500 characters.
 - The proposal is checked for duplicates on every save and again at
   submission, approval and creation.
 - The approver approves the rates with a check box beside them, not with a
@@ -548,6 +557,148 @@ other. Existing sheets are not checked or changed.
   start a request (the `time` claim); `/api/rate_sheets/compare` needs a claim
   that most requesters lack. Rates with no change are not compared. The
   approver is not shown near matches.
+
+## Rate sheet codes
+
+Status: Built on the `rate-sheet-codes` branch (issue 207), not deployed.
+This section covers the server; the UI, printed pages and user docs follow
+on the same branch.
+
+Revisions of a rate sheet were linked only by `name`. Names tried to carry
+meaning, and a name that suited one project misled the next person. Each
+sheet now has a generated code, which is both its identity and its label.
+The name is an optional description.
+
+### The code
+
+- Form `YYYY-MM-serial` with a five digit serial, such as `2026-11-00004`.
+  The month is the creation month (UTC) of the sheet's first revision. Each
+  month starts again at `00001`.
+- Every revision of a sheet has its code, and `rate_sheets` is unique on
+  `code` and `revision` (`idx_rate_sheets_code_revision`), in place of the
+  old unique index on `name` and `revision`. Revisions are shown as the code
+  and revision, such as `2026-11-00004 (rev. 2)`.
+- `rate_sheet_codes` holds every code ever issued (`code`, `month`,
+  `serial`), unique on `code` and on `month` and `serial`. Its rows are never
+  deleted, so it is the per-month counter: the next serial is one more than
+  the highest issued in the month (`hooks.IssueRateSheetCode`, which also
+  looks at the codes on `rate_sheets` in case one was written outside the
+  hooks). A code is never issued twice, so a deleted draft or an absorbed
+  sheet leaves a gap. Gaps are accepted. The collection has no API rules, so
+  only server code and superusers see it.
+- A `rate_sheets` model hook (`app/hooks/rate_sheet_codes.go`) issues the
+  code inside the transaction that saves a new sheet. PocketBase runs one
+  write transaction at a time, and the unique indexes are the backstop.
+- A new sheet with no code must be revision 0 and gets the next code. A new
+  revision must carry the code of the sheet it revises, keeps that sheet's
+  name, and may not revise a draft. No other new sheet may carry a code,
+  except one that the undo of a pending rate sheet absorb recreates with its
+  own code. The create rule refuses `code` in the body, so the collection API
+  can create only revision 0 with a generated code.
+- A proposal (a request's draft) gets its code on its first save, like any
+  new sheet.
+- Absorb: the target keeps its code; the absorbed sheet's code is retired.
+
+### Editing a code
+
+A code is printed and sent to the legacy system, so it is meant to be
+permanent. Only a PocketBase superuser can change one, through the
+collection API (`PATCH /api/collections/rate_sheets/records/{id}`); the
+collection has no update rule, so nobody else reaches it, and the model hook
+refuses a code change in any save that a superuser request did not mark.
+The new code must have the form, must never have been issued, and the sheet
+must have no other revisions. The new code is recorded as issued.
+
+Every change is logged in `rate_sheet_code_changes`: `rate_sheet` (optional,
+so a deleted sheet leaves its rows), `old_code`, `new_code` and `created`.
+Signed-in users can list and view it. A superuser is not a `users` record, so
+the log has no user. `GET /api/rate_sheets/{id}/former_names` returns
+`former_codes` beside `former_names`, both found through the sheet's code. An
+absorb commit moves the code history of the absorbed sheets to the target.
+
+### The name
+
+- Optional. Several sheets may have none. Two sheets can't have the same
+  name in any letter case or surrounding spaces; names are compared in Go
+  (`hooks.RateSheetNameHolder`), since SQLite `LOWER` changes only ASCII
+  letters. The create route, the collection API (through the model hook), a
+  rename, a proposal save and the rename at job creation all check it.
+- A rename (`POST /api/rate_sheets/{id}/rename`) is open to `admin` and
+  `rate_sheet_revise` holders, renames every revision with the code, and
+  touches no identity. An empty name removes the description.
+  `rate_sheet_name_changes` stays the log of names; its `old_name` and
+  `new_name` are no longer required.
+- The migration does not merge or rename sheets whose names already differ
+  only in capitals; the rule applies to new and changed names.
+
+### Routes and responses
+
+- `POST /api/rate_sheets` takes an optional `code`: the sheet that a
+  revision revises. A revision without one is matched to its sheet by name,
+  as before. A new sheet that sends a code is refused under `code`. The
+  response adds `code`. The name conflict for a new sheet is 409
+  `validation_not_unique` under `name`, or `rate_sheet_draft` when a proposal
+  holds the name; a taken revision is 409 under `revision`.
+- `POST /api/rate_sheets/compare` takes `code` the same way, to leave out
+  the revised sheet's own revisions; without it the name is used.
+- Matches (`exact`, `near`, `duplicate_rate_sheet`), absorb sheets,
+  candidates and duplicates, job details (`rate_sheet.code`), the history
+  (`periods[].rate_sheet.code`), the missing rates and `rate_sheets_augmented`
+  carry `code`. The request detail and options carry it in the sheet records.
+- The server names a sheet by `hooks.RateSheetLabel`: the code and revision,
+  with the name in quotes when there is one. The summaries' `rate_sheets`
+  text and the server's error messages use it.
+
+### Outside Turbo
+
+- The jobs writeback sends the code in `rateSheets[].name`, where it sent the
+  name. The payload keeps its shape.
+- `import_data` with `--clear_rates` reads the codes before it clears the
+  rate tables. An imported sheet keeps the code it had (by id), else takes
+  the code of a revision with the same name, else gets the next code in the
+  month of the import. It records every code in `rate_sheet_codes`, which it
+  never clears, so a second run keeps every code.
+
+### Review token
+
+The request's review token leaves the sheet's `code` out of its digest. The
+request binds the sheet by id, so the code adds nothing, and leaving it out
+keeps the digest of every approval made before codes existed. The backfill
+writes `code` with SQL, so `updated` does not change either. The digest still
+holds the chosen sheet's record, including `name` and `updated`, as it did
+before, so a rename of the chosen active sheet between approval and job
+creation still makes the approval stale.
+
+### Migration
+
+Migration `1794946943_rate_sheet_codes.go` adds the field, the two
+collections and the index, makes the name optional, lets `rate_sheet_revise`
+rename in its claim description, adds `code` to `rate_sheets_augmented`, and
+backfills (`migrations.BackfillRateSheetCodes`):
+
+- Sheets of the same name are one sheet and share a code, as the old index
+  linked them. A draft is always a sheet of its own.
+- The month is the `created` month of the first revision. When it is empty,
+  the earliest `created` of the sheet's revisions is used, then the first
+  revision's `effective_date`, then the month of the migration.
+- Within a month, serials follow that date, then the first revision's id.
+- Every code is recorded in `rate_sheet_codes`.
+
+The test fixtures carry the codes the backfill gives them, and
+`rate_sheet_codes.csv` holds them. `TestRateSheetCodeBackfill` runs the
+backfill on the fixtures and compares.
+
+### Tests
+
+`app/rate_sheet_codes_test.go`, `app/rate_sheet_code_edit_test.go`,
+`app/rate_sheet_identity_test.go`, `app/rate_sheet_names_test.go`,
+`app/rate_sheet_labels_test.go` and `import_data/rate_sheet_codes_test.go`:
+codes per month and a new month; no reuse after a delete, an absorb or a
+superuser edit; revisions share a code; the backfill; the superuser edit
+rules and log; no change by anyone else; nothing can revise a proposal
+(finding 2 of the review of issue 187); no new sheet takes a proposal's
+name in other capitals (finding 1); empty names; the rename claim; codes in
+responses and messages; the review token; the writeback; and two imports.
 
 ## Migration
 
@@ -613,7 +764,7 @@ In `app/rate_sheet_history_absorb_test.go` and `app/rate_sheet_absorb_test.go`
 - **Absorb:** a sheet that only an older row uses is absorbed, its row
   moves, the job is not touched, and WIP is the same before, after, after
   undo and after commit; undo restores every field of the history; the
-  job's current sheet and latest row move together; a name with revisions
+  job's current sheet and latest row move together; a sheet with revisions
   is refused when only a row uses one of them, with the reason in the
   Duplicates view and the candidates; a pair of neighbouring rows left by an
   absorb does not block a new row, and a change that makes a pair is still
