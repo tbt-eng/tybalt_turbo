@@ -434,7 +434,9 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
 - Every save needs a reason and `based_on`; a missing one is a field error
   under `proposed_rates.reason` or `proposed_rates.based_on`, which the
   request form shows on the field. A name taken by another sheet is a field
-  error under `proposed_rates.name`. The draft gets its code on its first
+  error under `proposed_rates.name` (`validation_not_unique`, or
+  `rate_sheet_name_proposed` when another request's proposed rates hold
+  it). The draft gets its code on its first
   save and keeps it.
   Submission, approval and job creation require a reason (again, for a draft
   saved before the reason was required at save), a rate for every role, and
@@ -623,6 +625,12 @@ absorb commit moves the code history of the absorbed sheets to the target.
   (`hooks.RateSheetNameHolder`), since SQLite `LOWER` changes only ASCII
   letters. The create route, the collection API (through the model hook), a
   rename, a proposal save and the rename at job creation all check it.
+- A request's proposed rates hold their name. Every one of those paths
+  refuses a name that proposed rates hold with the code
+  `rate_sheet_name_proposed` and the message "a project request's proposed
+  rates already have this name" (`hooks.RateSheetNameHeld`), so the person
+  knows where the name is. `rate_sheet_draft` stays the refusal of an action
+  on a draft itself.
 - A rename (`POST /api/rate_sheets/{id}/rename`) is open to `admin` and
   `rate_sheet_revise` holders, renames every revision with the code, and
   touches no identity. An empty name removes the description.
@@ -637,8 +645,8 @@ absorb commit moves the code history of the absorbed sheets to the target.
   revision revises. A revision without one is matched to its sheet by name,
   as before. A new sheet that sends a code is refused under `code`. The
   response adds `code`. The name conflict for a new sheet is 409
-  `validation_not_unique` under `name`, or `rate_sheet_draft` when a proposal
-  holds the name; a taken revision is 409 under `revision`.
+  `validation_not_unique` under `name`, or `rate_sheet_name_proposed` when a
+  proposal holds the name; a taken revision is 409 under `revision`.
 - `POST /api/rate_sheets/compare` takes `code` the same way, to leave out
   the revised sheet's own revisions; without it the name is used.
 - Matches (`exact`, `near`, `duplicate_rate_sheet`), absorb sheets,

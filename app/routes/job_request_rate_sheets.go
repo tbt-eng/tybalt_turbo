@@ -116,7 +116,8 @@ func prepareProposedRates(app core.App, r *core.Record, own *core.Record, input 
 		return nil, err
 	}
 	if holder != nil {
-		return nil, validation.Errors{prefix + "name": validation.NewError("validation_not_unique", "another rate sheet already has this name")}
+		code, message := hooks.RateSheetNameHeld(holder)
+		return nil, validation.Errors{prefix + "name": validation.NewError(code, message)}
 	}
 
 	// Turbo refuses rates that an active sheet already has, and names it, so
@@ -248,7 +249,8 @@ func renameProposedRates(app core.App, r *core.Record, name, renamedBy string) e
 		return err
 	}
 	if holder != nil {
-		return workflowError("Another rate sheet already has this name.")
+		_, message := hooks.RateSheetNameHeld(holder)
+		return workflowError(message)
 	}
 	draft.Set("name", name)
 	if err := app.Save(draft); err != nil {

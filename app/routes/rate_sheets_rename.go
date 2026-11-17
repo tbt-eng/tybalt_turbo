@@ -23,7 +23,8 @@ type RenameRateSheetRequest struct {
 }
 
 // errRateSheetNameInUse is returned from the rename transaction when another
-// sheet already has the new name.
+// sheet already has the new name. The handler names the holder's kind in the
+// message.
 var errRateSheetNameInUse = errors.New("rate sheet name in use")
 
 // createRenameRateSheetHandler renames a rate sheet. Holders of admin or
@@ -64,6 +65,7 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 		var oldName string
 		var code string
 		var renamed int
+		var heldBy *hooks.RateSheetNameUse
 		err := app.RunInTransaction(func(txApp core.App) error {
 			sheet, err := txApp.FindRecordById("rate_sheets", id)
 			if err != nil {
@@ -86,6 +88,7 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 				return err
 			}
 			if holder != nil {
+				heldBy = holder
 				return errRateSheetNameInUse
 			}
 
@@ -118,8 +121,9 @@ func createRenameRateSheetHandler(app core.App) func(e *core.RequestEvent) error
 				return e.JSON(hookErr.Status, hookErr)
 			}
 			if errors.Is(err, errRateSheetNameInUse) {
-				return apis.NewApiError(http.StatusConflict, "another rate sheet already has this name", validation.Errors{
-					"name": validation.NewError("validation_not_unique", "another rate sheet already has this name"),
+				code, message := hooks.RateSheetNameHeld(heldBy)
+				return apis.NewApiError(http.StatusConflict, message, validation.Errors{
+					"name": validation.NewError(code, message),
 				})
 			}
 			if ve, ok := asValidationErrors(err); ok {

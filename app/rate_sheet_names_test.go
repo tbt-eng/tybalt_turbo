@@ -21,12 +21,14 @@ import (
 // proposal's name with other capitals, because the create route compared
 // exact text, and job creation then activated the proposal beside it. Now the
 // create route, the collection API and the model hook all compare names
-// without regard to capitals.
+// without regard to capitals. The refusal says that a proposal has the name.
 func TestANewSheetCannotTakeAProposalsNameInOtherCapitals(t *testing.T) {
 	app := testutils.SetupTestApp(t)
 
 	status, body := createRateSheetThroughRoute(t, app, "author@soup.com", map[string]any{"name": "proposed fixture rates", "revision": 0})
-	if status != http.StatusBadRequest || body["data"].(map[string]any)["name"].(map[string]any)["code"] != "rate_sheet_draft" {
+	nameErr, _ := body["data"].(map[string]any)["name"].(map[string]any)
+	if status != http.StatusConflict || nameErr["code"] != "rate_sheet_name_proposed" ||
+		!strings.Contains(nameErr["message"].(string), proposalHoldsNameMessage) {
 		t.Fatalf("the create route accepted a proposal's name in other capitals: %d %v", status, body)
 	}
 
@@ -41,7 +43,7 @@ func TestANewSheetCannotTakeAProposalsNameInOtherCapitals(t *testing.T) {
 		Body:            strings.NewReader(`{"name":"PROPOSED FIXTURE RATES","revision":0,"effective_date":"2026-11-20"}`),
 		Headers:         map[string]string{"Authorization": token},
 		ExpectedStatus:  http.StatusConflict,
-		ExpectedContent: []string{`"validation_not_unique"`},
+		ExpectedContent: []string{`"rate_sheet_name_proposed"`, proposalHoldsNameMessage},
 	})
 
 	count, err := app.CountRecords("rate_sheets", dbx.NewExp("LOWER(name) = 'proposed fixture rates'"))
@@ -50,6 +52,43 @@ func TestANewSheetCannotTakeAProposalsNameInOtherCapitals(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("%d sheets have the proposal's name", count)
+	}
+}
+
+// proposalHoldsNameMessage is the refusal of a name that a project request's
+// proposed rates hold, without its first letter, which the API capitalizes in
+// some responses.
+const proposalHoldsNameMessage = "project request's proposed rates already have this name"
+
+// Every path that names a sheet refuses a proposal's name with the same
+// message, which says that a proposal has the name: a rename, another
+// request's proposed rates, and the rename of proposed rates when the job is
+// created. The fixture draft rsdraftsheet002 belongs to request
+// rsdraftreq00002, which time@test.com created.
+func TestAProposalsNameIsRefusedWithTheSameMessageEverywhere(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+
+	runOnApp(t, app, renameScenario(renameToken(t, "author@soup.com"), "rs_sheetb_r0", "PROPOSED FIXTURE RATES",
+		http.StatusConflict, `"rate_sheet_name_proposed"`, proposalHoldsNameMessage))
+
+	result := proposeRates(t, app, "rsdraftreq00002", draftFixtureCreator,
+		proposedRates("proposed fixture rates", "Client rate schedule", standardRates(t, app, 265)), http.StatusBadRequest)
+	nameErr, _ := result["data"].(map[string]any)["proposed_rates.name"].(map[string]any)
+	if nameErr["code"] != "rate_sheet_name_proposed" || !strings.Contains(nameErr["message"].(string), proposalHoldsNameMessage) {
+		t.Fatalf("the proposal save refused the name with %#v", result)
+	}
+
+	id, draftID := proposedRequest(t, app, 290, "Client MSA, schedule B")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", workflowAuthor, requestActionData(t, app, id), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/approve", workflowApprover, ratesApprovalData(t, app, id), http.StatusOK)
+	data := requestActionData(t, app, id)
+	data["rate_sheet_name"] = "Proposed Fixture Rates"
+	refused := requestJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, data, http.StatusBadRequest)
+	if message, _ := refused["message"].(string); !strings.Contains(message, proposalHoldsNameMessage) {
+		t.Fatalf("job creation refused the name with %#v", refused)
+	}
+	if workflowRecord(t, app, "rate_sheets", draftID).GetBool("active") {
+		t.Fatal("the refused job creation activated the proposed rates")
 	}
 }
 

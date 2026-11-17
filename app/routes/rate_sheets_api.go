@@ -504,20 +504,16 @@ func createRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
 			} else {
 				// Two sheets can't have the same name, in any letter case.
 				// Several sheets may have none. A request's proposed rates
-				// hold their name too.
+				// hold their name too, and the message says so.
 				holder, err := hooks.RateSheetNameHolder(txApp, req.Name, "")
 				if err != nil {
 					return err
 				}
-				if holder != nil && holder.Draft {
-					return hooks.RateSheetDraftError("name")
-				}
 				if holder != nil {
+					code, message := hooks.RateSheetNameHeld(holder)
 					return &uniqueConstraintError{
-						message: "another rate sheet already has this name",
-						data: validation.Errors{
-							"name": validation.NewError("validation_not_unique", "another rate sheet already has this name"),
-						},
+						message: message,
+						data:    validation.Errors{"name": validation.NewError(code, message)},
 					}
 				}
 			}

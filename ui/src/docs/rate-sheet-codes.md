@@ -8,7 +8,7 @@ Turbo gives each rate sheet a code when you save it, such as 2026-11-00004. The 
 
 ## The name of a rate sheet
 
-The name is optional. It describes the sheet, such as a client or a contract. Two sheets can't have the same name, in any letter case. Every revision has the name of its sheet.
+The name is optional. It describes the sheet, such as a client or a contract. Two sheets can't have the same name, in any letter case. The proposed rates in a project request have a name too. Every revision has the name of its sheet.
 
 ## Rename a rate sheet
 

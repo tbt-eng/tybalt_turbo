@@ -183,15 +183,25 @@ func RateSheetNameHolder(app core.App, name, exceptCode string) (*RateSheetNameU
 	return nil, nil
 }
 
-// RateSheetNameInUseError refuses a name that another sheet has. field is the
-// key the UI shows the error under.
-func RateSheetNameInUseError(field string) *errs.HookError {
-	message := "another rate sheet already has this name"
+// RateSheetNameHeld returns the error code and message that refuse a name
+// that holder has. A project request's proposed rates hold their name, and the
+// message says so, because people don't see them in the rate sheet list.
+func RateSheetNameHeld(holder *RateSheetNameUse) (code, message string) {
+	if holder != nil && holder.Draft {
+		return "rate_sheet_name_proposed", "a project request's proposed rates already have this name"
+	}
+	return "validation_not_unique", "another rate sheet already has this name"
+}
+
+// RateSheetNameInUseError refuses a name that holder has. field is the key
+// the UI shows the error under.
+func RateSheetNameInUseError(field string, holder *RateSheetNameUse) *errs.HookError {
+	code, message := RateSheetNameHeld(holder)
 	return &errs.HookError{
 		Status:  http.StatusConflict,
 		Message: message,
 		Data: map[string]errs.CodeError{
-			field: {Code: "validation_not_unique", Message: message},
+			field: {Code: code, Message: message},
 		},
 	}
 }
@@ -255,7 +265,7 @@ func checkNewRateSheet(app core.App, record *core.Record) error {
 		if holder, err := RateSheetNameHolder(app, name, issued); err != nil {
 			return err
 		} else if holder != nil {
-			return RateSheetNameInUseError("name")
+			return RateSheetNameInUseError("name", holder)
 		}
 		return nil
 	}
@@ -340,7 +350,7 @@ func checkRateSheetUpdate(app core.App, record *core.Record) (changed bool, oldC
 			return false, "", err
 		}
 		if holder != nil {
-			return false, "", RateSheetNameInUseError("name")
+			return false, "", RateSheetNameInUseError("name", holder)
 		}
 	}
 	return changed, oldCode, nil
