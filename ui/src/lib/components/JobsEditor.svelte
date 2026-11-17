@@ -25,6 +25,7 @@
   import ChangeClientPopover from "./jobs/ChangeClientPopover.svelte";
   import DSLocationPicker from "./DSLocationPicker.svelte";
   import DSHelp from "./DSHelp.svelte";
+  import DSPicker from "./DSPicker.svelte";
   import DSPopover from "./DSPopover.svelte";
   import { profiles } from "$lib/stores/profiles";
   import { clients } from "$lib/stores/clients";
@@ -287,7 +288,8 @@
     return statuses.map((status) => ({ id: status, name: status }));
   });
 
-  // Filter functions for autocomplete - applied to search results, not indices
+  // Filter functions for autocomplete - applied to search results, not indices.
+  // The rate sheet filter picks the sheets that the rate sheet picker offers.
   const proposalFilter = (job: JobApiResponse) => job.number?.startsWith("P") ?? false;
   const activeRateSheetFilter = (sheet: { active: boolean }) => sheet.active;
 
@@ -1378,22 +1380,23 @@
         {/if}
 
         {#if $rateSheets.index !== null}
-          <DsAutoComplete
+          <DSPicker
             bind:value={(item as Record<string, unknown>).rate_sheet as string}
+            items={$rateSheets.items.filter(activeRateSheetFilter)}
             index={$rateSheets.index}
-            filter={activeRateSheetFilter}
             {errors}
             fieldName="rate_sheet"
             uiName="Rate Sheet"
             disabled={rateSheetLocked}
+            empty
           >
-            {#snippet resultTemplate(sheet)}
+            {#snippet option(sheet)}
               {sheet.name} (rev. {sheet.revision}) - {sheet.effective_date}
             {/snippet}
             {#snippet help()}
               <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
             {/snippet}
-          </DsAutoComplete>
+          </DSPicker>
           {#if rateSheetLocked}
             <p class="self-start text-sm text-neutral-600">
               Change the rate sheet from the Rate sheets section of this job's details page.
@@ -1657,36 +1660,19 @@
 
   <div class="flex flex-col gap-1">
     {#if $busdevLeads.items.length > 0}
-      {#if $busdevLeads.items.length <= 10}
-        <DsSelector
-          bind:value={newClientBusdevLead}
-          items={[{ id: "", given_name: "", surname: "" }, ...$busdevLeads.items]}
-          errors={{}}
-          fieldName="new_client_busdev_lead"
-          uiName="Business Development Lead"
-        >
-          {#snippet optionTemplate(option)}
-            {#if option.id === ""}
-              -- select --
-            {:else}
-              {option.surname}{option.given_name ? `, ${option.given_name}` : ""}
-            {/if}
-          {/snippet}
-        </DsSelector>
-      {:else if $busdevLeads.index !== null}
-        <DsAutoComplete
-          bind:value={newClientBusdevLead}
-          index={$busdevLeads.index}
-          errors={{}}
-          fieldName="new_client_busdev_lead"
-          uiName="Business Development Lead"
-          idField="id"
-        >
-          {#snippet resultTemplate(option)}
-            {option.surname}{option.given_name ? `, ${option.given_name}` : ""}
-          {/snippet}
-        </DsAutoComplete>
-      {/if}
+      <DSPicker
+        bind:value={newClientBusdevLead}
+        items={$busdevLeads.items}
+        index={$busdevLeads.index}
+        errors={{}}
+        fieldName="new_client_busdev_lead"
+        uiName="Business Development Lead"
+        empty
+      >
+        {#snippet option(lead)}
+          {lead.surname}{lead.given_name ? `, ${lead.given_name}` : ""}
+        {/snippet}
+      </DSPicker>
     {:else if $busdevLeads.loading}
       <span class="text-sm font-semibold">Business Development Lead</span>
       <span class="text-sm text-neutral-500">Loading business development leads…</span>

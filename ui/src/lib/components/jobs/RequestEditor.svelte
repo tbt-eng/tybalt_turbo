@@ -10,6 +10,7 @@
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
+  import DSPicker from "$lib/components/DSPicker.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
@@ -535,19 +536,20 @@
         errors={proposalErrors}
       />
     {:else if $rateSheets.index !== null}
-      <DsAutoComplete
+      <DSPicker
         bind:value={item.rate_sheet}
+        items={$rateSheets.items.filter((sheet) => sheet.active)}
         index={$rateSheets.index}
-        filter={(sheet) => sheet.active}
         errors={noFieldErrors}
         fieldName="rate_sheet"
         uiName="Rate Sheet"
+        empty
       >
-        {#snippet resultTemplate(row)}{row.name} (rev. {row.revision}) - {row.effective_date}{/snippet}
+        {#snippet option(row)}{row.name} (rev. {row.revision}) - {row.effective_date}{/snippet}
         {#snippet help()}
           <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
         {/snippet}
-      </DsAutoComplete>
+      </DSPicker>
     {/if}
     {#if rateMatches?.length}
       {@const match = rateMatches[0]}

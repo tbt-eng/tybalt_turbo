@@ -22,6 +22,7 @@
     trailing,
     disabled = false,
     helperText = "",
+    help,
   }: {
     value: string | number;
     items: T[];
@@ -34,6 +35,8 @@
     disabled?: boolean;
     // A line under the field explaining it.
     helperText?: string;
+    // Field help (DSHelp) at the far right of the field row.
+    help?: Snippet;
   } = $props();
 
   function clearValue() {
@@ -46,7 +49,7 @@
     ? 'bg-red-200'
     : ''}"
 >
-  <span class="flex w-full gap-2">
+  <span class="flex w-full gap-2" class:items-center={help !== undefined}>
     <label for={`select-input-${thisId}`}>{uiName}</label>
     <select
       id={`select-input-${thisId}`}
@@ -66,6 +69,9 @@
     {/if}
     {#if clear === true && value !== undefined && value !== "" && !disabled}
       <DsActionButton action={clearValue} title="Clear">Clear</DsActionButton>
+    {/if}
+    {#if help}
+      <span class="ml-auto shrink-0">{@render help()}</span>
     {/if}
   </span>
   {#if errors[fieldName] !== undefined}

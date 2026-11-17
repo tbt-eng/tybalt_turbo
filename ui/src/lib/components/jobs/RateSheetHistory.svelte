@@ -9,7 +9,7 @@
   import DSActionButton from "$lib/components/DSActionButton.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
-  import DsSelector from "$lib/components/DSSelector.svelte";
+  import DSPicker from "$lib/components/DSPicker.svelte";
   import DSDateInput from "$lib/components/DSDateInput.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
 
@@ -219,16 +219,17 @@
         change.
       </p>
     {:else}
-      <DsSelector
+      <DSPicker
         bind:value={sheet}
         items={sheetOptions}
+        index={$rateSheets.index}
         {errors}
         fieldName="rate_sheet"
         uiName="Rate sheet"
         disabled={submitting}
       >
-        {#snippet optionTemplate(item)}{item.name} (rev. {item.revision}){/snippet}
-      </DsSelector>
+        {#snippet option(item)}{item.name} (rev. {item.revision}){/snippet}
+      </DSPicker>
       {#if !isOpening}
         <label class="flex flex-col gap-1">
           <span>Starts on</span>

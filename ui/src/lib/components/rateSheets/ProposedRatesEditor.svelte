@@ -1,6 +1,6 @@
 <script lang="ts">
   import { pb } from "$lib/pocketbase";
-  import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
+  import DSPicker from "$lib/components/DSPicker.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
@@ -125,19 +125,20 @@
 
 <div class="flex flex-col gap-2">
   {#if $rateSheets.index !== null}
-    <DsAutoComplete
+    <DSPicker
       bind:value={proposal.based_on}
+      items={$rateSheets.items.filter((sheet) => sheet.active)}
       index={$rateSheets.index}
-      filter={(sheet) => sheet.active}
       {errors}
       fieldName="proposed_rates.based_on"
       uiName="Start from"
+      empty
     >
-      {#snippet resultTemplate(row)}{row.name} (rev. {row.revision}){/snippet}
+      {#snippet option(row)}{row.name} (rev. {row.revision}){/snippet}
       {#snippet help()}
         <DSHelp doc="proposed-rates#propose-new-rates" iconOnly />
       {/snippet}
-    </DsAutoComplete>
+    </DSPicker>
   {/if}
   <DsTextInput bind:value={proposal.name} {errors} fieldName="proposed_rates.name" uiName="Name" />
   <DsTextInput

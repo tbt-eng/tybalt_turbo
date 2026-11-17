@@ -25,6 +25,7 @@
   import DSMenuItem from "$lib/components/DSMenuItem.svelte";
   import DSModal from "$lib/components/DSModal.svelte";
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
+  import DSPicker, { pickerDropdownLimit } from "$lib/components/DSPicker.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
   import DSSelector from "$lib/components/DSSelector.svelte";
@@ -37,6 +38,7 @@
   import DsEditingDisabledBanner from "$lib/components/DsEditingDisabledBanner.svelte";
   import DsFileLink from "$lib/components/DsFileLink.svelte";
   import DsLabel, { type LabelShade } from "$lib/components/DsLabel.svelte";
+  import MiniSearch from "minisearch";
 
   const isAdmin = $derived($globalStore.claims.includes("admin"));
 
@@ -72,6 +74,23 @@
     { id: "a", name: "Option A" },
     { id: "b", name: "Option B" },
   ];
+  // DSPicker: a short list is a dropdown, a long one is a search.
+  let picked = $state("");
+  let searched = $state("");
+  const shortPickerItems = [
+    { id: "s1", name: "Standard Rates" },
+    { id: "s2", name: "Municipal Rates" },
+    { id: "s3", name: "Contract Schedule B" },
+  ];
+  const longPickerItems = Array.from({ length: pickerDropdownLimit + 5 }, (_, i) => ({
+    id: `l${i + 1}`,
+    name: `Rate Sheet ${i + 1}`,
+  }));
+  const longPickerIndex = new MiniSearch<{ id: string; name: string }>({
+    fields: ["name"],
+    storeFields: ["id", "name"],
+  });
+  longPickerIndex.addAll(longPickerItems);
   let date = $state("2026-10-15");
   let checked = $state(true);
   let toggle = $state("week");
@@ -582,6 +601,28 @@
           >
             {#snippet optionTemplate(item)}{item.name}{/snippet}
           </DSSelector>
+        </DSCard>
+        <DSCard title="DSPicker" span={2}>
+          <DSPicker
+            bind:value={picked}
+            items={shortPickerItems}
+            {errors}
+            fieldName="sample_picker"
+            uiName="Short list"
+            empty
+          >
+            {#snippet option(item)}{item.name}{/snippet}
+          </DSPicker>
+          <DSPicker
+            bind:value={searched}
+            items={longPickerItems}
+            index={longPickerIndex}
+            {errors}
+            fieldName="sample_picker"
+            uiName="Long list"
+          >
+            {#snippet option(item)}{item.name}{/snippet}
+          </DSPicker>
         </DSCard>
         <DSCard title="DSDateInput">
           <DSDateInput bind:value={date} />
