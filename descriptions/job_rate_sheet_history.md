@@ -1,7 +1,8 @@
 # Job rate sheet history
 
 Status: Implemented and deployed (merged to `main` on 2026-11-13). Rate sheet
-codes (issue 207): built on the `rate-sheet-codes` branch, not deployed.
+codes (issue 207, step 1): implemented and deployed (merged to `main` on
+2026-11-17).
 Last updated: 2026-11-17
 
 ## Behaviour before this change
@@ -562,7 +563,7 @@ other. Existing sheets are not checked or changed.
 
 ## Rate sheet codes
 
-Status: Built on the `rate-sheet-codes` branch (issue 207), not deployed.
+Status: Implemented and deployed (issue 207, step 1, merged to `main` on 2026-11-17)
 The UI, printed pages and user docs are described at the end of this
 section.
 
