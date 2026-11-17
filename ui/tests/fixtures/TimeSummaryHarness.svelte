@@ -5,7 +5,9 @@
   let kind = $state<SummaryKind>("staff");
   let startDate = $state("2026-09-01");
   const rateSheet = $derived(
-    scenario === "no-sheet" ? undefined : { id: "sheet1", name: "Standard Rates", revision: 2 },
+    scenario === "no-sheet"
+      ? undefined
+      : { id: "sheet1", code: "2026-09-00001", name: "Standard Rates", revision: 2 },
   );
 </script>
 

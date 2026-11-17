@@ -1,6 +1,6 @@
 export type SummaryKind = "staff" | "divisions";
 export type SummaryColumn = "name" | "hours" | "value" | "percent";
-export type RateSheet = { id: string; name: string; revision: number };
+export type RateSheet = { id: string; code: string; name: string; revision: number };
 
 // Keep the API rows intact so CSV exports retain all pricing details.
 export type TimeSummaryRow = {

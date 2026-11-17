@@ -275,6 +275,16 @@ One map from record status to tone, shared by jobs, POs and expenses. Expenses h
 
 This removes the ternaries in `PurchaseOrdersList`, `pos/[poid]/details` and `pos/search`.
 
+#### `DSRecordLabel`
+
+A record named by an identifier, such as a code, with an optional description in muted text after it. It is inline, so it fits in a sentence, a list headline or a `DSField`.
+
+```ts
+{ label: string; description?: string; href?: string }
+```
+
+`rateSheets/RateSheetLabel` uses it for every rate sheet: the code and revision, linked to the sheet, then the name. Where only text fits, such as a dropdown option, use `rateSheetLabel()` from `$lib/rateSheetLabel`, which matches the server's label.
+
 ### Component gallery
 
 A `/dev/components` route, visible only to the admin claim, renders every `DS` component in each variant with sample data. People can see what exists. Models can be pointed at it, or at its source, as the reference.

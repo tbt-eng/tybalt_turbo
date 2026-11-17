@@ -60,7 +60,7 @@ export interface JobDetails {
   branch_id: string;
   branch_code: string;
   branch_name: string;
-  rate_sheet: { id: string; name: string; revision: number };
+  rate_sheet: { id: string; code: string; name: string; revision: number };
   fn_agreement: boolean;
   project_award_date: string;
   project_completion_date: string;

@@ -5,13 +5,14 @@
 
 export interface RateSheetAbsorbSheet {
   id: string;
+  code: string;
   name: string;
   revision: number;
   effective_date: string;
   active: boolean;
   job_count: number;
   request_count: number;
-  // The number of revisions of the sheet's name.
+  // The number of revisions of the sheet's code.
   revisions: number;
 }
 

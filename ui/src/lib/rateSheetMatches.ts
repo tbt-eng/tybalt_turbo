@@ -4,6 +4,7 @@
 
 export interface RateSheetMatch {
   id: string;
+  code: string;
   name: string;
   revision: number;
   effective_date: string;

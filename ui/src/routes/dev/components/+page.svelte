@@ -27,6 +27,7 @@
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import DSPicker, { pickerDropdownLimit } from "$lib/components/DSPicker.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSRecordLabel from "$lib/components/DSRecordLabel.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
   import DSSelector from "$lib/components/DSSelector.svelte";
   import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
@@ -229,6 +230,24 @@
           </DSFieldList>
         </DSCard>
       </DSCardGrid>
+    </DSSection>
+
+    <DSSection title="DSRecordLabel">
+      <DSFieldList>
+        <DSField label="Code with a description">
+          <DSRecordLabel label="2026-11-00004 (rev. 2)" description="Client Negotiated Rates" />
+        </DSField>
+        <DSField label="Linked, no description">
+          <DSRecordLabel label="2026-11-00005 (rev. 0)" href="/dev/components" />
+        </DSField>
+        <DSField label="In a sentence">
+          Priced by <DSRecordLabel
+            label="2026-11-00004 (rev. 2)"
+            description="Client Negotiated Rates"
+            href="/dev/components"
+          />.
+        </DSField>
+      </DSFieldList>
     </DSSection>
 
     <DSSection title="DSCallout">
