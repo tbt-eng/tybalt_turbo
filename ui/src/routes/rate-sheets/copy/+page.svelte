@@ -46,6 +46,12 @@
       .map((key) => errors[key]?.message)
       .filter((message): message is string => !!message),
   );
+  // Whether a field or callout on this page shows the server's error for this
+  // key. A key that none shows, such as previous_effective_date, needs the
+  // message beside Save.
+  const shownOnPage = (key: string) =>
+    ["name", "effective_date", "revision", "code", "entries"].includes(key) ||
+    /^entries\.\d+\.(rate|overtime_rate|role)$/.test(key);
 
   // The name is an optional description. A revision keeps its sheet's name
   // and code, and a new sheet gets its code when it is saved.
@@ -160,8 +166,11 @@
         errors = error.data.data;
       }
       // Field errors show at their fields; the message adds nothing to them.
+      // A refusal that no field shows keeps the message, so a refused save
+      // always shows something.
+      const keys = Object.keys(errors);
       saveError =
-        Object.keys(errors).length > 0
+        keys.length > 0 && keys.every(shownOnPage)
           ? ""
           : (error.data?.message ?? error.message ?? "Failed to create rate sheet");
       saving = false;
