@@ -1,132 +1,156 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/rate_sheets_rename.go","sha256":"d8c7120e124188122a57b614f45fd5c300f031171ec0c5bb6b17ccce2dab9547","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/rate_sheets_rename.go","sha256":"66273b71d23b05e0171cbf2729786e8a8ff7f38baba50a38997534eb76ea51cf","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/rate_sheets_rename.go
 
-## An empty name removes the rate sheet name
+## Rate sheet name is optional; empty name removes it
 
-Lines 29-31
+Lines 30-32
 
-Asked as: clear the sheet name; remove name from rate sheet; blank rate sheet name; delete the name of a sheet
+Asked as: remove rate sheet name; clear the name; blank rate sheet name; optional name empty
 
-The name is an optional description. A rename to an empty name is allowed and removes the name.
+Turbo trims spaces from the new name before it uses it. The name is an optional description, so renaming to an empty name removes the name.
 
 ## Rename applies to every revision of the sheet
 
-Lines 33-35
+Lines 34-38
 
-Asked as: rename all revisions; rename changes every version; name not updating on other revisions; same name on all revisions
+Asked as: rename all revisions; revisions renamed count; rename changes every version; does renaming reprice jobs
 
-Revisions of a sheet share its code and its name. A rename changes the name on every revision with that code in one transaction. If any save fails, no revision changes.
+Revisions of a sheet share its code and name. A rename changes the name on all revisions with that code in one transaction. The response gives the number as revisions_renamed. The code does not change, no rates change, and jobs keep their rate sheet, so nothing is repriced.
 
-## Rename records history and changes nothing else
+## Name already in use by another sheet is refused
 
-Lines 33-37
+Lines 40-42
 
-Asked as: rename history log; does renaming reprice jobs; rename audit trail; rename keeps rates and codes
+Asked as: name already taken; duplicate rate sheet name; name used by another sheet; rename refused name exists
 
-Each rename writes one name change record (rate_sheet_name_changes) with the old name, the new name, the person who renamed, and the revision in the URL. The code, the rates and the jobs' rate sheet links do not change, so nothing is repriced.
+Turbo refuses a rename when another rate sheet (with a different code) already has the new name. The message names the kind of holder, and it comes from RateSheetNameHeld. The check ignores case, so two sheets cannot differ only in capitals. A sheet can change the capitals of its own name.
 
-## Current names must be unique, ignoring case
+## Only current names block a rename
 
-Lines 39-41
+Lines 40-41
 
-Asked as: name already taken; duplicate rate sheet name; rate sheet name exists; same name different capitals
+Asked as: name used before; old name taken by other sheet; reuse a former name
 
-Turbo refuses a rename when another rate sheet already has the new name. The message is "another rate sheet already has this name". The check ignores case, so two sheets cannot differ only in capitals, but a sheet can change the capitals of its own name. Only current names count, so a sheet may take a name that another sheet used before.
+Turbo checks only the current names of other sheets. A sheet can take a name that another sheet used before.
 
 ## Who can rename a rate sheet
 
-Lines 46-56
+Lines 47-57
 
-Asked as: cannot rename rate sheet; no permission to rename; rename button missing; need revise claim
+Asked as: who can rename rate sheet; need admin to rename; rename permission rate sheet; cannot change rate sheet name
 
-Only holders of the admin claim or the rate sheet revise claim (rate_sheet_revise) can rename a rate sheet. Anyone else gets the message "you do not have permission to rename rate sheets".
+Only staff with the admin claim or the rate sheet revise claim (rate_sheet_revise) can rename a rate sheet. Anyone else gets the message "you do not have permission to rename rate sheets".
 
-## Rename removes spaces around the new name
+## Rename refusal message for missing permission
 
-Lines 62-62
+Lines 55-57
 
-Asked as: extra spaces in name; trailing spaces rate sheet; name with spaces trimmed; whitespace only name
+Asked as: no permission to rename; rename button not allowed; missing rate sheet revise claim; cannot rename, access denied
 
-Turbo trims spaces from both ends of the new name before it compares or saves it. A name of only spaces becomes an empty name.
+A person who holds neither the admin claim nor the rate sheet revise claim (rate_sheet_revise) gets the message "you do not have permission to rename rate sheets".
 
-## Proposed rates in a request cannot be renamed
+## Rename trims spaces around the new rate sheet name
 
-Lines 72-75
+Lines 63-63
 
-Asked as: rename blocked draft sheet; proposed rates cannot rename; project request rate sheet name; can't rename proposed sheet
+Asked as: extra spaces in name; whitespace rate sheet name; leading trailing spaces; spaces only name
 
-Turbo refuses to rename a rate sheet that is a draft (proposed rates in a project request). The error is the draft error for the field "name" (hooks.RateSheetDraftError). The requester names proposed rates in the request.
+When a person renames a rate sheet, Turbo trims leading and trailing spaces from the new name before it compares or saves it. A name of only spaces counts as an empty name.
+
+## Rename compares the new name to the current name after trimming
+
+Lines 63-83
+
+Asked as: only capitals changed; change case of name; fix capital letters in name; rename same name different case
+
+Turbo compares the trimmed new name with the sheet's current name (name). The comparison is exact, so a change of capitals alone counts as a change and is allowed.
+
+## Rename is all-or-nothing
+
+Lines 69-117
+
+Asked as: rename half done; rename failed partway; name not saved everywhere; rollback rename rate sheet
+
+Turbo renames every revision and writes the name history row in one transaction. If any step fails, no revision keeps the new name and no history row is written.
+
+## Renaming an unknown rate sheet is refused
+
+Lines 70-73
+
+Asked as: cannot find rate sheet; wrong rate sheet id; missing rate sheet rename; sheet does not exist
+
+When no rate sheet has the id in the rename request, Turbo refuses with the message "rate sheet not found".
+
+## Draft rate sheets cannot be renamed
+
+Lines 74-77
+
+Asked as: cannot rename draft; rename proposed rate sheet; draft rates in request; project request sheet rename
+
+Turbo refuses to rename a rate sheet that is a draft (proposed rates in a project request). It gives the draft error from RateSheetDraftError for "name". The requester names proposed rates in the request.
 
 ## New name must differ from current name
 
-Lines 76-81
+Lines 78-83
 
-Asked as: name same as before; rename no change; just changing capitals rejected; name unchanged error
+Asked as: name not changing; same name error; nothing changed on rename; rename to same name
 
-Turbo refuses a rename when the trimmed new name equals the sheet's current name. The message is "the new name is the same as the current name" (name_unchanged). This comparison is exact, so a change of capitals alone passes.
+If the trimmed new name equals the sheet's current name, Turbo refuses with the message "the new name is the same as the current name" (name_unchanged). The check is on the name after trimming and is case-sensitive, so a change of capitals alone is allowed.
 
-## Name-in-use check skips the sheet's own code
+## Rename checks the name against the code's other sheets
 
-Lines 83-90
+Lines 85-93
 
-Asked as: name used by another sheet; sheet with that name exists; own name conflict rename
+Asked as: how name clash is checked; name holder lookup; check other sheets for name
 
-The name-in-use check takes the sheet's code (hooks.RateSheetNameHolder with the code). A different sheet that holds the name blocks the rename.
+Before it renames, Turbo looks for a current holder of the new name, passing the sheet's code (hooks.RateSheetNameHolder). Which sheets count as another holder depends on that function in another file.
 
-## Rename saves every revision and the history row together
+## Rename is recorded in name history
 
-Lines 92-114
+Lines 107-116
 
-Asked as: partial rename failed; rename half applied; rename rolled back; some revisions not renamed
+Asked as: rename audit log; who renamed rate sheet; name change history; track rate sheet renames
 
-Turbo renames every revision of the rate sheet and writes the history row (rate_sheet_name_changes) in one transaction. If any save fails, no revision keeps the new name and no history row is written.
-
-## Rename history row records old name, new name and who renamed
-
-Lines 104-113
-
-Asked as: who renamed sheet; rename record user; log of old and new name
-
-Each rename writes one history row (rate_sheet_name_changes). It holds the revision in the URL (rate_sheet), the old name, the new name and the person who renamed (renamed_by, the signed-in user).
+Each rename writes one history row (rate_sheet_name_changes) with the old name, the new name and the person who renamed it. The row is anchored to the revision in the URL.
 
 ## Rename error responses
 
-Lines 115-135
+Lines 118-139
 
-Asked as: rate sheet missing error; rename conflict message; validation error on rename; sheet not found when renaming
+Asked as: rename error message; another sheet has this name; failed to rename rate sheet; validation error rename
 
-If the rate sheet does not exist, Turbo says "rate sheet not found". A unique-name validation error gives a conflict. Other validation errors give "Validation error".
+A rename of an unknown rate sheet gives "rate sheet not found". A name that clashes on a unique rule gives "another rate sheet already has this name". Other validation problems give "Validation error". Anything else gives "failed to rename rate sheet".
 
-## Rename result shows what changed
+## Rename response lists former names
 
-Lines 137-149
+Lines 141-153
 
-Asked as: rename response details; how many revisions changed; what did rename return
+Asked as: rename response fields; old name returned after rename; list of previous names after rename
 
-A successful rename returns the id, the code, the new name, the old name, the number of revisions renamed (revisions_renamed) and the former names.
+A successful rename returns the id, code, new name, old name, number of revisions renamed and the former names of the sheet.
 
 ## Any signed-in user can read former names and codes
 
-Lines 153-181
+Lines 157-184
 
-Asked as: previous names of sheet; old names of rate sheet; see earlier codes; rate sheet name history
+Asked as: view old names of sheet; see previous codes; rate sheet history lookup; former names endpoint
 
-Any signed-in user can read a rate sheet's current name, former names and former codes, newest first. An unknown sheet gives "rate sheet not found".
+The former-names endpoint returns a rate sheet's current name and code, its earlier names and its earlier codes. Any signed-in user can read it. An unknown sheet gives "rate sheet not found".
 
-## Former names list leaves out some names
+## Former names list rules
 
-Lines 183-212
+Lines 187-215
 
-Asked as: missing old names; previous name not listed; name history gaps; why is my old name gone
+Asked as: previous names list wrong; old names repeated; why name missing from history; former names order
 
-The former names list comes from the old names in the rename history of all revisions with the sheet's code, newest first. It leaves out the current name, empty names and repeats. A sheet renamed A to B and back to A shows only B.
+Former names come from the old names in the rename history of all revisions with the sheet's code, newest first. The list leaves out the current name, empty names and repeats. A sheet renamed A to B and back to A shows only B.
 
-## Former codes list
+## Former codes list rules
 
-Lines 214-239
+Lines 218-242
 
-Asked as: old code of sheet; previous code lookup; legacy code find sheet; code from printed document
+Asked as: old rate sheet code; previous code of sheet; legacy code lookup; printed document old code
 
-The former codes list gives the old codes from code changes (rate_sheet_code_changes) of sheets that have this code now, newest first. It leaves out the current code and repeats. Printed documents and the legacy system keep old codes, and this list leads back to the sheet.
+Former codes are the old codes from the code-change history of the sheet, newest first. The list leaves out the current code and repeats. Printed documents and the legacy system keep old codes, so this list leads back to the sheet.

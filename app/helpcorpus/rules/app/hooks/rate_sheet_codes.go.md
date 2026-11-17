@@ -1,5 +1,5 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/rate_sheet_codes.go","sha256":"1e02ac651a556c165aab0a3d1631826a35461709c3a661518fc9686c610f19a1","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/rate_sheet_codes.go","sha256":"4c98965fe96983075b8f9bf7eb337946e111f8811b6d0a7e23b8ecce7c1a446f","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/rate_sheet_codes.go
 
@@ -7,134 +7,190 @@
 
 Lines 41-58
 
-Asked as: rate sheet code format; what does a rate sheet code look like; invalid rate sheet code number; serial 00000 code
+Asked as: code looks wrong; rate sheet code format; code won't accept my input; what does the code look like
 
-A rate sheet code looks like 2026-11-00004: the UTC creation month of its first revision (YYYY-MM) and a five-digit serial. A serial of 00000 is not a valid code, and the month must be 01 to 12.
+A rate sheet code (code) has the form YYYY-MM-NNNNN, such as 2026-11-00004. The month must be 01 to 12 and the five-digit serial must be at least 00001. A code in any other form is not valid.
 
-## Rate sheet code limit per month
+## Month has at most 99999 rate sheet codes
 
-Lines 44-103
+Lines 43-44
 
-Asked as: no rate sheet code left; too many rate sheet codes this month; run out of codes in month; monthly rate sheet code limit
+Asked as: can't create more codes this month; out of codes for the month; month code limit reached; no codes left this month
 
-A month has at most 99999 rate sheet codes. When the serial would pass 99999, Turbo refuses with 'no rate sheet code is left in <month>'.
+When a month has used serial 99999, Turbo cannot issue another code. It fails with the error "no rate sheet code is left in <month>".
 
-## Rate sheet label format
+## Rate sheet label shows code, revision and name
 
-Lines 65-74
+Lines 65-79
 
-Asked as: how rate sheet is labelled; rate sheet name shown in quotes; rate sheet label with revision; sheet name display format
+Asked as: how is a rate sheet shown; sheet name in brackets; rev number shown on sheet; how do labels show rate sheets
 
-Turbo names a rate sheet in messages and labels as its code and revision, such as 2026-11-00004 (rev. 2). When the sheet has a name (after trimming spaces), the name follows in quotes.
+Turbo names a rate sheet in labels and messages by its code and revision, such as 2026-11-00004 (rev. 2). When the sheet has a name, the name follows in quotes. A blank name is left out.
 
-## How Turbo issues the next rate sheet code
+## Next rate sheet code is issued per month
 
-Lines 84-109
+Lines 81-109
 
-Asked as: next rate sheet number; which code will my new sheet get; code numbering restarts monthly; how new rate sheet code is picked
+Asked as: next code for new sheet; why did my new code skip a number; which number does the next sheet get; code numbering restarts monthly
 
-Turbo issues the next code of the current UTC month. The serial is the highest serial already issued or already used on a sheet in that month, plus 1. Serials restart at 00001 each month, and a code is recorded in rate_sheet_codes when it is issued.
+Turbo issues a new code for the current UTC month. The serial is one more than the highest serial already issued or already on a rate sheet in that month. The serial starts at 00001 in each month.
 
-## A rate sheet code is never reused
+## Rate sheet code month uses UTC
+
+Lines 84-85
+
+Asked as: which month is my code in; wrong month on rate sheet code; timezone for rate sheet code; code month doesn't match my date
+
+Turbo takes the month of a new rate sheet code from the current time in UTC. The serial counts up from 00001 in each month.
+
+## Issued codes include sheets saved outside Turbo
+
+Lines 92-100
+
+Asked as: code already used by imported sheet; duplicate code from outside import; sheet made outside app has same code; new code jumps past old sheets
+
+When Turbo issues the next code, it takes the highest serial of that month from both the registry (rate_sheet_codes) and the codes on existing rate sheets. It adds 1 to the higher of the two. So a code on a sheet written outside Turbo's hooks is never issued again.
+
+## Issued rate sheet codes are never reused
 
 Lines 111-138
 
-Asked as: reuse deleted rate sheet code; old rate sheet number again; code of deleted sheet came back; rate sheet code recycled
+Asked as: reuse a deleted sheet's code; old code came back; get a code back after delete; why isn't my deleted code free
 
-Turbo keeps every issued code in rate_sheet_codes and never clears it. A code is not issued again, even after its sheet is deleted or absorbed.
+Turbo records every code it issues in rate_sheet_codes and never clears it. A code is not issued again, even after its sheet is deleted or absorbed.
 
 ## Rate sheet names must be unique
 
-Lines 155-197
+Lines 155-184
 
-Asked as: rate sheet name already taken; duplicate rate sheet name; same name as another sheet; two sheets same title
+Asked as: sheet name already in use; two sheets same title; duplicate rate sheet title; name clash with another sheet
 
-Two rate sheets of different codes cannot have the same name. The comparison ignores capitals and surrounding spaces. Turbo refuses with 'another rate sheet already has this name'. An empty name is never in use, so several sheets can have no name. Revisions of one sheet share its name.
+A rate sheet name cannot equal the name of a sheet with another code. The comparison ignores capitals and surrounding spaces. An empty name is never in conflict, so several sheets may have no name. Revisions of one sheet share its name.
 
-## Undo of a rate sheet absorb restores the code
+## Message when a rate sheet name is taken
 
-Lines 209-284
+Lines 186-207
 
-Asked as: undo absorb rate sheet; restore deleted rate sheet; get back absorbed sheet old code; undo merge of rate sheet
+Asked as: name already taken error; project request has the same name; can't use this sheet title; name belongs to a proposal
 
-When the undo of a pending rate sheet absorb recreates a deleted sheet, Turbo accepts the sheet with its old code. The draft and name checks do not run for it.
+When another rate sheet has the name, Turbo refuses with "another rate sheet already has this name". When the name belongs to a project request's proposed rates, the message is "a project request's proposed rates already have this name".
 
-## Only a superuser can change a rate sheet code
+## Rate sheet code error message and fields
 
-Lines 223-233
+Lines 209-217
 
-Asked as: cannot edit rate sheet code; change code of rate sheet; who can change sheet number; rate sheet code locked
+Asked as: red error under code box; invalid code error message; where do code errors appear; code field shows an error
 
-A change of the code of a saved rate sheet needs a PocketBase superuser saving through the collection API. Anyone else gets 'only a superuser can change a rate sheet code'.
+When Turbo refuses a rate sheet code, it shows the error under the code field (invalid_rate_sheet_code) with the message of the specific refusal.
 
-## New rate sheet without a code gets one
+## Undo of a rate sheet absorb restores the original code
 
-Lines 246-261
+Lines 219-231
 
-Asked as: create rate sheet without code; new rate sheet assigned number; revision above zero new sheet; new sheet name trimmed
+Asked as: bring back absorbed sheet; undo merge keeps old code; restore sheet after absorb undo; undo absorb code rejected
 
-A new rate sheet with no code must be revision 0 and gets the next code automatically. If it has a revision above 0, Turbo refuses with 'a new revision takes the code of the sheet it revises'. Turbo trims the name and refuses a name that another sheet holds.
+A pending rate sheet absorb (absorb_actions on rate_sheets) records the code of each absorbed sheet. When undo recreates that sheet, Turbo accepts the code it carries. This holds even when no sheet with that code exists any more, and when the code's other revisions exist. Turbo then skips the draft and name checks for that sheet.
 
-## Nobody can choose a code for a new sheet
+## Only a superuser reaches the collection API update
 
-Lines 263-280
+Lines 233-243
 
-Asked as: pick my own rate sheet code; choose code for new sheet; wrong rate sheet code format; new sheet with existing code
+Asked as: edit sheet through API as non-admin; who can update rate sheets via API; API update refused for sheet; only admins can change sheet data
 
-A new sheet that carries a code must be a new revision of an existing sheet with that code. If no sheet has the code, Turbo refuses with 'a new rate sheet gets its code when it is saved'. A code that is not in the form YYYY-MM-00001 is refused with 'a rate sheet code has the form YYYY-MM-00001'.
+The collection API has no update rule for rate sheets, so only a superuser can update a sheet through it. Turbo marks that save as a superuser code edit, and the marker cannot come from a request body.
+
+## New rate sheet gets its code automatically
+
+Lines 251-271
+
+Asked as: how do I get a code for sheet; code missing on new sheet; sheet saved without a code; assign code when saving
+
+Nobody chooses a code. A new sheet with no code and revision 0 gets the next code when it is saved. Turbo trims spaces from its name, and refuses the name if another sheet holds it.
+
+## New revision needs the code of the sheet it revises
+
+Lines 256-259
+
+Asked as: new revision missing code; revision without original code; add revision to existing sheet; why won't my revision save
+
+A new sheet with no code and a revision other than 0 is refused with "a new revision takes the code of the sheet it revises".
+
+## New rate sheet cannot carry its own code
+
+Lines 273-294
+
+Asked as: I typed a code for new sheet; can't enter my own code; new sheet code rejected; preset code on new sheet
+
+A new sheet that carries a code in the wrong form is refused with "a rate sheet code has the form YYYY-MM-00001". A code in the right form that no sheet has is refused with "a new rate sheet gets its code when it is saved". The one exception is the undo of a rate sheet absorb, which recreates the sheet with its code.
 
 ## Cannot revise a draft rate sheet
 
-Lines 285-289
+Lines 295-299
 
-Asked as: revise a draft rate sheet; new revision of draft; draft sheet cannot be revised; draft error on code field
+Asked as: revise a draft sheet; draft blocks new revision; can't make revision of draft; draft error on code field
 
-When a sheet with a code is saved as a new revision, Turbo refuses if any revision of that sheet is a draft. It gives the draft error from RateSheetDraftError on the code field.
+A new revision is refused when any revision of that sheet is a draft. Turbo returns the draft error on the code field. This check is skipped when the undo of an absorb recreates the sheet.
 
 ## A revision keeps its sheet's name
 
-Lines 290-299
+Lines 300-309
 
-Asked as: revision different name; rename revision of rate sheet; revision name must match sheet; new revision name mismatch
+Asked as: revision name changed error; rename revision not allowed; why can't I rename this revision; revision name must match sheet
 
-A new revision must have the same name as the latest revision of its sheet. Otherwise Turbo refuses with 'a revision keeps the name of its rate sheet; rename the sheet instead'.
+A new revision must have the same name as the latest revision of its sheet. Otherwise Turbo refuses with "a revision keeps the name of its rate sheet; rename the sheet instead".
+
+## Only a superuser can change a rate sheet code
+
+Lines 320-323
+
+Asked as: change an existing sheet code; edit code of saved sheet; code is locked after saving; fix wrong code on sheet
+
+Changing the code of a saved rate sheet is refused for everyone but a PocketBase superuser who saves through the collection API. The message is "only a superuser can change a rate sheet code".
 
 ## Rules for a superuser's code change
 
-Lines 314-334
+Lines 324-341
 
-Asked as: change rate sheet number to old one; reuse code after superuser change; sheet with revisions code change; superuser code change rules
+Asked as: superuser changes code rules; code used before refused; change code of sheet with revisions; admin code change restrictions
 
-The new code must be in the form YYYY-MM-00001. It must never have been issued, or Turbo refuses with 'this code was issued before; a code is never used twice'. The sheet must have no other revisions, or Turbo refuses with 'the code of a rate sheet with revisions can't change'.
+A new code must be in the form YYYY-MM-00001, or Turbo refuses it. A code that was issued before is refused with "this code was issued before; a code is never used twice". A sheet that has other revisions is refused with "the code of a rate sheet with revisions can't change".
 
 ## Renaming a saved rate sheet
 
-Lines 335-345
+Lines 345-355
 
-Asked as: rename rate sheet; change rate sheet name; new name already used by sheet; edit sheet title
+Asked as: rename saved sheet; change sheet title after saving; saved sheet name won't change; edit name of existing sheet
 
-When the name of a saved sheet changes, Turbo trims it and refuses it if another sheet has it, with 'another rate sheet already has this name'.
+When a saved sheet's name changes, Turbo trims it and refuses it if another sheet holds the name. The same refusal messages as for a new sheet apply.
 
-## Code changes are logged and the new code is issued
+## Code changes are logged and the new code is reserved
 
-Lines 349-365
+Lines 359-375
 
-Asked as: log of code change; record of rate sheet number change; where code change is logged; rate_sheet_code_changes history
+Asked as: log of code changes; record of old and new code; where are code changes kept; new code reserved after change
 
-After a superuser changes a code, Turbo records the new code as issued so it is never used again. It logs the sheet, old code and new code in rate_sheet_code_changes.
+After a superuser changes a code, Turbo records the new code as issued. It also adds an entry in rate_sheet_code_changes with the sheet, the old code and the new code.
 
-## Code and name checks run on every save path
+## Hooks apply on every save path
 
-Lines 367-409
+Lines 377-409
 
-Asked as: checks on every save; save rate sheet via api bypass; collection api rate sheet save; superuser edit check bypass
+Asked as: checks skipped on API save; do name checks apply everywhere; save from another route ignores checks; transaction checks on sheet save
 
-Turbo checks a new sheet's code and name and a changed code or name on every path: the routes, the collection API and a superuser's edit. Each check and save runs in one transaction. Only a superuser reaches the collection API update.
+Code and name checks run inside a transaction on every save of a rate sheet, whether it comes from a route, the collection API or a superuser's edit.
 
-## Collection API errors keep their message and fields
+## Collection API update of rate sheets is for superusers only
 
-Lines 411-434
+Lines 410-418
 
-Asked as: generic error on rate sheet save; api error message unclear; which field rate sheet error; rate sheet save error details
+Asked as: API update fails for normal users; sheet edit via collection API; only admin hits update hook; non-admin editing sheet over API
 
-When a rate sheet save through the collection API fails a code or name check, the response carries the check's own message and the field it applies to, not a generic failure message.
+The collection API has no update rule for rate sheets, so only a superuser reaches the update request hook. Turbo then marks the save as a superuser code edit.
+
+## Hook errors on rate sheets reach the collection API as field errors
+
+Lines 421-444
+
+Asked as: generic failed to save message; API save error hides reason; field errors on sheet save; why no clear error from API
+
+When a rate sheet save through the collection API fails with one of Turbo's hook errors, Turbo returns that error's own status, message and per-field codes. It does not show PocketBase's generic "Failed to ..." message. Other errors pass through unchanged.

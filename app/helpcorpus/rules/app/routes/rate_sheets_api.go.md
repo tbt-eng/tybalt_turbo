@@ -1,332 +1,324 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/rate_sheets_api.go","sha256":"cc4ae278fd2f84f86a843bffa739fd27908851aee82427feda6592841116c110","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/rate_sheets_api.go","sha256":"5ea763e7f468c51c30bb9ea781d623de57cca753ad5b0b8653851311d819609d","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/rate_sheets_api.go
 
-## Only job claim holders can activate a rate sheet
+## Only procurement can activate a rate sheet
 
-Lines 29-42
+Lines 29-36
 
-Asked as: activate rate sheet no permission; can't turn on rate sheet; enable rates access denied; who can activate rates
+Asked as: can't activate rate sheet; no permission to turn on sheet; who can activate rates; activate button denied
 
-Activating a rate sheet requires the procurement claim (the job claim). Anyone else sees "you do not have permission to activate rate sheets". If the sheet id does not exist, Turbo says "rate sheet not found".
+Activating a rate sheet requires the job claim (procurement). Anyone else gets "you do not have permission to activate rate sheets".
 
-## Proposed rates of a project request cannot be activated
+## Proposed rates in a project request cannot be activated directly
 
 Lines 44-47
 
-Asked as: activate request proposed rates; turn on draft rates; proposed rates won't activate; draft rate sheet activation
+Asked as: activate proposed rates; project request rates won't activate; turn on draft rates; proposed rates activation
 
-If the rate sheet is a draft (hooks.IsRateSheetDraft), activation is refused with the error from hooks.RateSheetDraftError("active"). A request's proposed rates are activated when the job is created.
+If the rate sheet is a draft of a project request's proposed rates (hooks.IsRateSheetDraft), activation is refused with the draft error from hooks.RateSheetDraftError("active"). Those rates are activated when the job is created.
 
-## Activating an already active rate sheet changes nothing
+## Activating an already active rate sheet does nothing
 
 Lines 49-56
 
-Asked as: rate sheet already on; turn on again nothing happens; activate sheet already active
+Asked as: rate sheet already on; activate sheet twice; sheet is already live; activating active sheet
 
-If the rate sheet is already active, Turbo answers "rate sheet is already active" and does nothing else. It is not an error.
+If the rate sheet is already active, Turbo answers "rate sheet is already active" and changes nothing.
 
 ## An older revision cannot be activated
 
 Lines 58-67
 
-Asked as: old revision won't activate; activate previous version of rates; newer version exists error
+Asked as: old version won't activate; activate previous revision; newer version exists error; activate an old sheet
 
-If a newer revision of the same code exists, activation is refused with "cannot activate - a newer revision exists".
+Activation is refused with "cannot activate - a newer revision exists" when a newer revision of the same code exists.
 
-## Incomplete rate sheet cannot be activated
+## An incomplete rate sheet cannot be activated
 
 Lines 69-78
 
-Asked as: rate sheet missing roles; sheet won't activate missing role; roles missing before activating
+Asked as: missing roles on rate sheet; rate sheet won't activate; sheet missing a role; incomplete rate sheet error
 
-A rate sheet must have an entry for every role before activation. Otherwise Turbo says "rate sheet is incomplete - missing entries for some roles" and lists the missing roles (missing_roles).
+Activation is refused with "rate sheet is incomplete - missing entries for some roles" when the sheet lacks an entry for some role. The response lists the missing roles.
 
 ## Activation checks duplicates and deactivates other revisions atomically
 
 Lines 80-98
 
-Asked as: two identical rate sheets; same rates activated twice; duplicate rate sheet activation
+Asked as: activation failed duplicate; other revisions turned off; activate gives error; activation transaction error
 
-Activation runs in one transaction (hooks.ActivateRateSheet). The duplicate check, the deactivation of other revisions and the activation of this sheet succeed or fail together, so two identical sheets cannot both be activated. Errors from that step are returned with their own status and message. Turbo does not state here what counts as a duplicate.
+Activation runs in one transaction through hooks.ActivateRateSheet. That function checks for a duplicate sheet and deactivates the other revisions. If it fails with a hook error, Turbo returns that error. Otherwise the answer is "rate sheet activated".
 
-## Error responses when activating or editing a rate sheet fail
+## Only procurement can deactivate a rate sheet
 
-Lines 83-92
+Lines 108-115
 
-Asked as: activation failed generic error; rate sheet fails to save; why did activation fail
+Asked as: can't turn off rate sheet; deactivate button denied; who can disable rates; no permission deactivate sheet
 
-When a rate sheet activation fails a duplicate or other hook check, Turbo returns the error that the check gives, with its own status. Other failures return "failed to activate rate sheet". Entry edits likewise return "failed to update rate sheet entry" for unexpected failures.
+Deactivating a rate sheet requires the job claim (procurement). Anyone else gets "you do not have permission to deactivate rate sheets".
 
-## Only job claim holders can deactivate a rate sheet
-
-Lines 108-121
-
-Asked as: turn off rate sheet no permission; can't deactivate rate sheet; disable rate sheet access
-
-Deactivating a rate sheet requires the procurement claim (the job claim). Anyone else sees "you do not have permission to deactivate rate sheets". An unknown id gives "rate sheet not found".
-
-## Deactivating an inactive rate sheet changes nothing
+## Deactivating a rate sheet
 
 Lines 123-142
 
-Asked as: rate sheet already off; deactivate draft sheet; turn off inactive rates
+Asked as: turn off rate sheet; disable rate sheet; sheet already inactive; switch off rates
 
-If the rate sheet is already inactive, Turbo answers "rate sheet is already inactive". Otherwise it sets active to false and answers "rate sheet deactivated". Unlike activation, deactivation does not refuse draft sheets.
+Deactivation sets active to false and answers "rate sheet deactivated". If the sheet is already inactive, Turbo answers "rate sheet is already inactive" and changes nothing. Deactivation has no draft check and no check of jobs that use the sheet.
 
 ## Only admins can edit rate sheet entries
 
-Lines 152-166
+Lines 159-166
 
-Asked as: can't change entry rates; edit rate sheet entry permission; only admin change rates
+Asked as: can't change rates; edit rate entry denied; only admins edit rates; change rate permission
 
-Updating a rate sheet entry requires the admin claim. Others see "you do not have permission to update rate sheet entries". Only rate and overtime_rate can be changed.
+Updating a rate sheet entry requires the admin claim. Anyone else gets "you do not have permission to update rate sheet entries". Only rate and overtime_rate can change.
 
 ## Entry update needs rate or overtime rate
 
 Lines 174-183
 
-Asked as: empty entry update; change entry nothing sent; entry not found rate
+Asked as: nothing to update rate; rate entry not found; update rate blank; no rate sent
 
-An entry update must include at least one of rate or overtime_rate. Otherwise Turbo says "at least one of rate or overtime_rate must be provided". An unknown entry gives "rate sheet entry not found".
+An entry update must send at least one of rate or overtime_rate. Otherwise Turbo says "at least one of rate or overtime_rate must be provided". An unknown entry gives "rate sheet entry not found".
 
-## Entry rate limits on update
+## Entry rate limits
 
 Lines 185-201
 
-Asked as: rate below one; rate decimal not allowed; change only overtime rate
+Asked as: rate can't be zero; rate decimal not allowed; overtime rate decimals; rate too low
 
-A new rate must be at least 1 ("rate must be at least 1") and a whole number ("rate must be a whole number"). A new overtime rate must be at least 1 ("overtime_rate must be at least 1"), and it may have decimals. Only the fields sent are changed.
+A rate must be at least 1 ("rate must be at least 1") and a whole number ("rate must be a whole number"). An overtime rate must be at least 1 ("overtime_rate must be at least 1") but can have decimals. Only the fields sent are changed.
 
-## Entry update stores rate as whole number, overtime rate may be fractional
-
-Lines 186-201
-
-Asked as: rate with cents; overtime decimals allowed; fractional overtime rate
-
-On an entry edit, Turbo refuses a rate below 1 with "rate must be at least 1" and a rate with decimals with "rate must be a whole number". Overtime rate below 1 is refused with "overtime_rate must be at least 1", but a decimal overtime rate is allowed.
-
-## Entry edit on active sheet cannot duplicate another active sheet
+## Entry edit cannot duplicate another active sheet
 
 Lines 203-238
 
-Asked as: edit rate makes duplicate; rates match another active sheet; entry change duplicate error
+Asked as: rates same as another sheet; change rate duplicates sheet; rates match active sheet; edit makes duplicate rates
 
-When the entry's sheet is active, Turbo applies the change and compares the sheet's rates with other active sheets, excluding other revisions of the same code. If they would match exactly, the update is refused with the duplicate error. An inactive sheet is not checked here, because activation checks it.
+When the sheet is active, an entry change is refused if the resulting rates would exactly equal another active sheet's rates. The sheet's own revisions are excluded. Turbo returns the duplicate error from hooks.DuplicateRateSheetError. An inactive sheet is not checked, because activation checks it.
 
-## Entries of proposed rates cannot be edited directly
+## Entry edit blocked on draft sheets
 
 Lines 211-214
 
-Asked as: edit request rates directly; change proposed rate entry; project request rates locked
+Asked as: can't edit proposed rates; change project request rates; edit draft rate entry; draft rates locked
 
-If the entry belongs to a project request's proposed rates (a draft sheet), the update is refused with the error from hooks.RateSheetDraftError("entry"). The requester changes proposed rates through the request.
+An entry of a project request's proposed rates (a draft sheet) cannot be changed here. Turbo returns the draft error from hooks.RateSheetDraftError("entry"). The requester changes proposed rates through the request.
 
-## Only the first error per field is reported
+## Entry update errors from hooks are shown as given
+
+Lines 239-252
+
+Asked as: update rate entry failed; rate entry update error; saved rate entry message; entry update message
+
+When updating a rate sheet entry fails with a rule error (a draft sheet or a duplicate of another active sheet), Turbo shows that error with its own status. Any other failure shows 'failed to update rate sheet entry'. On success Turbo returns the message 'rate sheet entry updated' with the saved rate and overtime rate.
+
+## Only the first error for each field is reported
 
 Lines 288-295
 
-Asked as: only one error shown; hidden validation errors; fix one error another appears
+Asked as: only one error shown; missing other error messages; why only first error; hidden field errors
 
-When a rate sheet request breaks several rules on the same field, Turbo keeps only the first error for that field. The other errors on that field are dropped (setValidationError). Fixing it can reveal the next error on that field.
+When a rate sheet request has several problems with the same field, Turbo keeps the first error for that field and drops the later ones. The person fixes one problem at a time for each field.
 
-## Unique-error conflicts on rate sheet creation
+## Entry errors name the entry by position
 
-Lines 297-316
+Lines 331-337
 
-Asked as: code revision not unique; duplicate code error on save; unique validation error create
+Asked as: which row has error; entries error position; role must be unique error; entries field error
 
-A failed save is treated as a duplicate (code and revision) when any validation error is coded validation_not_unique or its text contains 'unique'. The error data then uses the key 'revision' with the message 'code and revision must be unique' (rateSheetUniqueValidationErrors).
+When saving an entry fails validation, Turbo reports the error under 'entries.N.field', where N is the entry's position in the list. A database unique-constraint failure on an entry is reported as 'entry role must be unique' for that entry.
 
-## Rate sheet entry validation
+## Rate sheet entry input rules
 
 Lines 339-366
 
-Asked as: need at least one entry; duplicate role in sheet; entry rate must be whole
+Asked as: rate sheet needs entry; entry without role; rate sheet save validation; entry input rules
 
-A new sheet or a request's proposed rates need at least one entry ("at least one entry is required"). Each entry needs a role ("entry role is required"), and a role may appear only once ("entry role must be unique"). Each rate must be at least 1 ("entry rate must be at least 1") and a whole number ("entry rate must be a whole number"). Each overtime rate must be at least 1 ("entry overtime_rate must be at least 1"), and it may have decimals.
+A new sheet needs at least one entry ("at least one entry is required"). Each entry needs a role ("entry role is required"), and each role may appear once ("entry role must be unique"). Each rate must be at least 1 and a whole number, and each overtime rate must be at least 1. Errors name the entry by position, such as entries.0.rate. Overtime rate may have decimals.
 
-## Creating a new rate sheet or copy needs job claim
+## Entry role must be unique within a rate sheet
 
-Lines 383-392
+Lines 343-356
 
-Asked as: create rate sheet no permission; copy rate sheet permission; new rate sheet denied
+Asked as: duplicate role on sheet; same role twice; role repeated in rate sheet; role listed again
 
-Creating a rate sheet with revision 0 (new or copy) requires the procurement claim (the job claim). Otherwise Turbo says "you do not have permission to create rate sheets".
+A rate sheet's entries may use each role once. When an entry repeats a role, Turbo refuses with 'entry role must be unique'. The error names the entry by its position, such as entries.2.role.
+
+## Entry rate must be whole and at least 1; overtime rate at least 1
+
+Lines 343-366
+
+Asked as: new sheet rate zero; overtime rate too low; sheet with no entries; new sheet rate decimal
+
+When creating a rate sheet, each entry's rate must be at least 1 ('entry rate must be at least 1') and a whole number ('entry rate must be a whole number'). The overtime rate must be at least 1 ('entry overtime_rate must be at least 1'), and it may have decimals. A sheet with no entries is refused with 'at least one entry is required'. An entry without a role is refused with 'entry role is required'.
+
+## Creating a new rate sheet needs the job claim
+
+Lines 384-392
+
+Asked as: can't create rate sheet; new rate sheet permission; copy rate sheet denied; create sheet not allowed
+
+Creating a rate sheet with revision 0 (new or copy) requires the job claim (procurement). Otherwise: "you do not have permission to create rate sheets".
 
 ## Revising a rate sheet needs revise or admin claim
 
 Lines 393-406
 
-Asked as: revise rate sheet no permission; make revision denied; can't create new revision
+Asked as: can't revise rate sheet; revision permission denied; make new revision not allowed; revise permission error
 
-Creating a revision (revision above 0) requires the rate_sheet_revise claim or the admin claim. Otherwise Turbo says "you do not have permission to revise rate sheets".
+Creating a revision (revision above 0) requires the rate_sheet_revise claim or the admin claim. Otherwise: "you do not have permission to revise rate sheets".
 
-## Rate sheet creation validation reports all errors together
+## Rate sheet validation errors returned together
 
 Lines 408-434
 
-Asked as: multiple validation errors at once; all field errors listed; validation error list create
+Asked as: validation error rate sheet; several errors at once; why validation error appears; rate sheet errors together
 
-Turbo checks the effective date, the revision number and the entries together. It refuses with "Validation error" listing every field that failed, before it checks the code or looks for the sheet to revise.
+Turbo collects the effective date, revision and entry errors and returns them together as 'Validation error' before it looks for the sheet to revise or saves anything.
 
-## New rate sheet cannot send a code
+## Rate sheet name is trimmed and optional
 
-Lines 410-442
+Lines 410-413
 
-Asked as: code not allowed on new sheet; why is code rejected; code assigned automatically
+Asked as: rate sheet name blank; revision name missing; trim sheet name; sheet name optional
 
-A sheet with revision 0 may not send a code. Turbo refuses with "a new rate sheet gets its code when it is saved" and assigns the code itself on save. Name is optional and trimmed.
+Turbo trims spaces from a new rate sheet's name. The name is an optional description. A revision with no name takes the name of the sheet it revises.
 
-## Effective date is required and must be valid
+## Effective date required and checked
 
 Lines 414-423
 
-Asked as: effective date blank error; wrong date format rate sheet; YYYY-MM-DD date error
+Asked as: effective date error; date format rate sheet; effective date required; wrong date format sheet
 
-A new rate sheet needs an effective date in YYYY-MM-DD format. A blank date gives "effective date is required". A wrong format gives "effective date must be in YYYY-MM-DD format". A date that fails utilities.IsValidDate also gives an error. Spaces around the date are trimmed.
+A new rate sheet or revision needs an effective date in YYYY-MM-DD format and it must be a valid date. Messages: "effective date is required" and "effective date must be in YYYY-MM-DD format". The date is trimmed of spaces first.
 
-## Revision cannot be negative
+## Revision number cannot be negative
 
 Lines 425-428
 
-Asked as: negative revision number; revision below zero; minus revision error
+Asked as: revision negative; revision minus number; revision below zero; negative revision number
 
 A revision below 0 is refused with "revision must be 0 or greater".
 
-## Revision finds its sheet by code, or by name if no code
+## New rate sheet cannot send a code
 
-Lines 443-454
+Lines 436-442
 
-Asked as: no rate sheet to revise; revise by name; which sheet gets revised
+Asked as: code not allowed new sheet; enter code for new rate sheet; new sheet code error; why no code field
 
-A revision takes the code of the latest revision of the sheet it revises. If no code is sent, Turbo finds the sheet by name instead. If no sheet is found, Turbo says "there is no rate sheet to revise". If the name is blank too, nothing is found.
+A new sheet (revision 0) cannot send a code. Turbo says "a new rate sheet gets its code when it is saved" and assigns the code on save.
+
+## Revision must find an existing sheet
+
+Lines 443-465
+
+Asked as: no rate sheet to revise; revision can't find sheet; which sheet to revise; sheet not found for revision
+
+A revision finds its sheet by code, or by name if no code is sent (using the latest revision). If none is found, Turbo says "there is no rate sheet to revise". The revision takes that sheet's code and, if no name is sent, its name.
 
 ## Proposed rates cannot be revised
 
 Lines 455-459
 
-Asked as: revise request rates; draft rates revision denied; new revision of proposed rates
+Asked as: revise proposed rates; change project request rates revision; draft rates can't revise; revise draft sheet
 
-A project request's proposed rates (a draft sheet) have no revisions. Revising one is refused with the error from hooks.RateSheetDraftError("name").
+A project request's proposed rates (a draft sheet) cannot be revised. Turbo refuses with the draft error from hooks.RateSheetDraftError("name").
 
-## Revision keeps the sheet's name
-
-Lines 460-465
-
-Asked as: revision name missing; revision loses its name; name carried over revision
-
-If a revision sends no name, it takes the name of the sheet it revises.
-
-## Revision effective date cannot be before the previous revision
+## Revision effective date cannot precede previous revision
 
 Lines 467-478
 
-Asked as: effective date earlier than previous; revision date too early; backdated revision date
+Asked as: date earlier than last revision; revision date too early; effective date before previous; date before last revision
 
-A revision's effective date must be on or after the previous revision's date. Otherwise Turbo says "effective date must be on or after the previous revision's effective date" and gives previous_effective_date. The same date is allowed.
+A revision's effective date must be on or after the previous revision's date. The same date is allowed. Otherwise Turbo says "effective date must be on or after the previous revision's effective date" and gives the previous date.
 
-## Revision effective date check error includes previous date
-
-Lines 468-478
-
-Asked as: previous effective date shown; date before last revision; same date revision allowed
-
-When a revision's effective date falls before the previous revision's, Turbo refuses with "effective date must be on or after the previous revision's effective date" and shows the previous effective date. A date equal to the previous one is allowed.
-
-## Duplicate revision number is refused
+## Duplicate revision number refused
 
 Lines 492-503
 
-Asked as: revision number already exists; revision conflict error; this revision exists already
+Asked as: revision number already exists; same revision twice; revision already there; duplicate revision number
 
-If the sheet already has a revision with the requested number, Turbo answers with a conflict: "this rate sheet already has this revision".
+Creating a revision whose number already exists for that code is refused with "this rate sheet already has this revision". A unique-constraint failure on code and revision gives "a rate sheet with this code and revision already exists".
 
-## New rate sheet name must be unique, ignoring letter case
+## Rate sheet names must be unique
 
-Lines 504-523
+Lines 504-519
 
-Asked as: rate sheet name taken; duplicate sheet name; same name different case
+Asked as: rate sheet name taken; name already used sheet; duplicate sheet name; name in use
 
-A new sheet (revision 0) cannot share a name with another rate sheet, in any letter case. Turbo says "another rate sheet already has this name". Several sheets may have no name. If the name is held by a request's proposed rates, Turbo refuses with the draft error from hooks.RateSheetDraftError("name").
+A new sheet (revision 0) cannot take a name another sheet holds, in any letter case. Several sheets may have no name. Proposed rates in a project request also hold their name. Turbo returns the message from hooks.RateSheetNameHeld.
 
 ## New sheet cannot match an active sheet's rates
 
-Lines 525-534
+Lines 521-530
 
-Asked as: same rates as active sheet; revision only changes date; duplicate rates blocked save
+Asked as: rates same as active sheet; sheet duplicates existing rates; save blocked duplicate rates; rates already exist
 
-A save is blocked when its rates are identical to another active sheet's, with the duplicate error. The other revisions of the revised sheet are excluded, so a revision that changes only the effective date is allowed.
+Saving a sheet is refused if its rates exactly match another active sheet. The sheet's own revisions are excluded, so a revision that changes only the effective date is allowed. Turbo returns the duplicate error from hooks.DuplicateRateSheetError.
 
-## New rate sheets start inactive and are created with entries atomically
+## Created sheet starts inactive and saves with entries atomically
 
-Lines 536-609
+Lines 532-613
 
-Asked as: new rate sheet inactive; why is new sheet off; sheet saved partly
+Asked as: new sheet inactive; sheet saved not active; entries failed nothing saved; sheet saved without entries
 
-Turbo creates the rate sheet with active set to false, together with all its entries, in one transaction. If any step fails, nothing is saved. A new sheet gets its code on save. Entry errors are reported with keys like entries.N.field, and a repeated role in the database gives "entry role must be unique".
+A new sheet or revision is saved inactive (active false) with all its entries in one transaction. If any entry fails, nothing is saved. The answer gives the id, code and number of entries created. Entry errors name the entry position.
 
-## Entry validation errors are tied to the entry position
+## Revision conflict and name conflict return a conflict error
 
-Lines 559-582
+Lines 583-605
 
-Asked as: error on entry row; which entry has the error; duplicate role row
+Asked as: revision conflict error; code revision already exists; name conflict sheet; sheet conflict message
 
-When an entry fails to save, Turbo reports the error against that entry's position in the list. A role repeated within the sheet gives "entry role must be unique".
+When a revision number already exists for the code, Turbo refuses with 'this rate sheet already has this revision'. A name already held by another sheet is refused with the message from the name check. A save that hits a database unique constraint on code and revision returns 'a rate sheet with this code and revision already exists'.
 
-## Duplicate revision or name returns conflict message
+## Successful creation returns new sheet details
 
-Lines 587-609
+Lines 607-613
 
-Asked as: already has this revision message; name already held conflict; code revision exists message
+Asked as: what does create return; sheet id after save; new sheet details; details after creating sheet
 
-A revision number that already exists on a sheet is refused with "this rate sheet already has this revision". A new sheet whose name another sheet holds is refused with "another rate sheet already has this name". A failed save on code and revision gives "a rate sheet with this code and revision already exists".
+After a rate sheet is created, Turbo returns its id, its code, its name, its revision and the number of entries created. A new sheet gets its code when it is saved.
 
-## Duplicate code and revision conflict
+## Compare treats the revised sheet's own revisions as not duplicates
 
-Lines 599-607
+Lines 641-686
 
-Asked as: code and revision already exists; unique constraint save failed; conflict on save code
+Asked as: compare includes own revisions; compare duplicates same sheet; which sheets compared; compare excludes revisions
 
-If saving fails on a unique constraint, Turbo says "a rate sheet with this code and revision already exists".
+When comparing rates, Turbo finds the sheet being revised by code, or by name if there is no code. It leaves that sheet's revisions out of the comparison. A new sheet sends neither code nor name, so it is compared with all active sheets.
 
-## Successful creation returns id, code and entry count
+## Compare rate sheets permission
 
-Lines 611-617
+Lines 658-671
 
-Asked as: what does create return; new sheet id response; entries created count
+Asked as: can't compare rates; compare rate sheets denied; compare button not allowed; compare permission error
 
-A successful create returns the new sheet's id, code, name, revision and entries_created.
+Comparing unsaved rates with active sheets requires the job, rate_sheet_revise or admin claim. Otherwise: "you do not have permission to compare rate sheets".
 
-## Comparing rate sheets needs a job, revise or admin claim
+## Compare returns exact and near matches and changes nothing
 
-Lines 655-675
+Lines 678-695
 
-Asked as: compare rates permission denied; can't compare rate sheets; comparison access needed
+Asked as: similar rate sheets; matching rates check; compare shows matches; rates close to other sheet
 
-Comparing unsaved entries with active rate sheets needs the job claim, the rate_sheet_revise claim or the admin claim. Otherwise Turbo says "you do not have permission to compare rate sheets". The comparison changes nothing.
+Compare skips the active revision of the sheet being revised, found by code or by name. It returns the exact matches, which would block a save or activation, and a few close sheets as information (the limits come from hooks.RateSheetNearMatchMaxRoles and hooks.RateSheetNearMatchLimit).
 
-## Compare excludes the revised sheet and returns exact and near matches
+## Compare is limited to near matches count
 
-Lines 682-698
+Lines 691-694
 
-Asked as: near matches shown; compare results exact matches; similar rate sheets list
+Asked as: how many similar sheets; compare list limit; near match count; how many matches shown
 
-A comparison excludes the revised sheet's own code, found by code or else by name. It returns exact matches, which a save would block, and a few near matches as information (limited by hooks.RateSheetNearMatchMaxRoles and RateSheetNearMatchLimit).
+Compare returns the exact matches and a short list of close sheets. The list size is set by hooks.RateSheetNearMatchMaxRoles and hooks.RateSheetNearMatchLimit.
 
-## Compare and save refuse rate sheets by exact rates only
+## Revision finds its sheet by code, or by name if no code
 
-Lines 690-698
+Lines 698-718
 
-Asked as: near match blocks save; similar rates allowed; only identical rates blocked
+Asked as: revise sheet by name; which code for revision; revise sheet without code; revision lookup by name
 
-Turbo treats a rate sheet as a duplicate only when its rates match another active sheet's exactly. Near matches are shown for information only and never block a save.
-
-## Finding the sheet a revision or comparison refers to
-
-Lines 702-722
-
-Asked as: latest revision by code; find sheet by name; empty code and name
-
-Turbo looks up the sheet by code and takes the latest revision of that code's sheets (revisedRateSheet). When the code is empty, it finds the sheet by exact name, takes the highest revision with that name, and uses that sheet's code. When code and name are both empty, no sheet is found. A revision then fails with 'there is no rate sheet to revise', and a comparison excludes no sheet.
+A revision looks up the latest revision of the sheet with the given code. If no code is sent, Turbo uses the sheet with the given name. With neither, it finds nothing and the revision is refused with 'there is no rate sheet to revise'. The new revision takes the code of the sheet it revises.
