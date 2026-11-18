@@ -289,6 +289,12 @@ A record named by an identifier, such as a code, with an optional description in
 
 A `/dev/components` route, visible only to the admin claim, renders every `DS` component in each variant with sample data. People can see what exists. Models can be pointed at it, or at its source, as the reference.
 
+### Print
+
+An ordinary page prints through the print rules in `ui/src/app.css`. They hide the app shell's sidebar and headers and make every `div` a plain block, so the content fills the paper. `data-print-hide` hides an element, and `DSPageHeader`'s `keepInPrint` keeps a header. The rules apply only while the shell (`data-app-shell` in `+layout.svelte`) is on the page.
+
+The print pages (`/print` routes: purchase order, rate sheet, project authorization) render without the shell, so those rules don't reach them. Chrome prints grid, flex, `break-inside: avoid` and repeated table headers correctly, so a print page can use them like any other page.
+
 ### Enforcement: `ui/scripts/check-ui.mjs`
 
 `npm run check:ui`, also the first step of `npm run lint`. It scans every `.svelte` file under `ui/src` except the `DS*` / `Ds*` components at the top of `src/lib/components/`, which own the styling.

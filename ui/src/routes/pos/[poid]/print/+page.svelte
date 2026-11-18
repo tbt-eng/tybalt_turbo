@@ -59,9 +59,7 @@
       <div class="mt-3 font-semibold uppercase">Status</div>
       <div class="mt-1">{po.status}</div>
     </div>
-    <div
-      style="display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.75rem; margin-right: 1.5rem;"
-    >
+    <div class="mr-6 grid grid-cols-[auto_1fr] items-center gap-3">
       <img src="/logo.svg" alt="TBT Engineering Limited" class="h-12 w-12" />
       <div>
         <div class="text-lg font-bold tracking-wide">TBT Engineering Limited</div>

@@ -333,19 +333,8 @@
     .screen-only {
       display: none !important;
     }
-    header {
-      display: flex !important;
-    }
     header img {
       filter: grayscale(1);
-    }
-    .columns {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr;
-    }
-    .signature-line {
-      height: 0.32in !important;
-      position: relative !important;
     }
     .print-page {
       margin: 0;

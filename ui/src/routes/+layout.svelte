@@ -111,7 +111,8 @@
 {#if isPrintRoute}
   {@render children()}
 {:else}
-  <div class="h-screen w-screen overflow-hidden">
+  <!-- data-app-shell scopes the print rules in app.css. Print routes render without it. -->
+  <div class="h-screen w-screen overflow-hidden" data-app-shell>
     <!-- Mobile header with hamburger -->
     <header
       class="relative flex h-10 w-full items-center justify-between bg-neutral-600 px-3 text-white lg:hidden"

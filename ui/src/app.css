@@ -52,20 +52,26 @@
   }
 }
 
-/* Print styles: hide app chrome when printing */
+/*
+  Print styles for pages in the app shell (+layout.svelte marks it
+  data-app-shell): hide the app chrome and let the content fill the paper.
+  The rules apply only while the shell is on the page, so they also reach
+  overlays mounted on <body>. The print routes (/print) render without the
+  shell and keep their own grid and flex layout. :where() keeps each
+  selector's specificity as it was before the scope, so [data-print-hide]
+  still wins over the div rule.
+*/
 @media print {
   /* Hide sidebar, mobile header, navigation bars, overlays */
-  aside.flex,
-  aside,
-  header.flex:not([data-print-keep]),
-  header:not([data-print-keep]),
+  :where(body:has([data-app-shell])) aside,
+  :where(body:has([data-app-shell])) header:not([data-print-keep]),
   [data-print-hide] {
     display: none !important;
   }
 
   /* Remove layout constraints so content fills the printed page */
-  body,
-  div {
+  body:where(:has([data-app-shell])),
+  :where(body:has([data-app-shell])) div {
     overflow: visible !important;
     height: auto !important;
     width: auto !important;
