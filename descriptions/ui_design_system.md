@@ -293,7 +293,7 @@ A `/dev/components` route, visible only to the admin claim, renders every `DS` c
 
 An ordinary page prints through the print rules in `ui/src/app.css`. They hide the app shell's sidebar and headers and make every `div` a plain block, so the content fills the paper. `data-print-hide` hides an element, and `DSPageHeader`'s `keepInPrint` keeps a header. The rules apply only while the shell (`data-app-shell` in `+layout.svelte`) is on the page.
 
-The print pages (`/print` routes: purchase order, rate sheet, project authorization) render without the shell, so those rules don't reach them. Chrome prints grid, flex, `break-inside: avoid` and repeated table headers correctly, so a print page can use them like any other page. `app.css` prints their body white, so the grey page background never prints, even with background graphics on.
+The print pages (`/print` routes: purchase order, rate sheet, project authorization) render without the shell, so those rules don't reach them. Chrome prints grid, flex, `break-inside: avoid` and repeated table headers correctly, so a print page can use them like any other page. `app.css` prints their body white, so the grey page background never prints, even with background graphics on. Each opens the print dialog with `printWhenReady()` (`ui/src/lib/printWhenReady.ts`), which waits for the render, the fonts and the images. The rate sheet and the project authorization repeat a reference line at the top of each printed page, from the `thead` of a table that holds the page.
 
 ### Enforcement: `ui/scripts/check-ui.mjs`
 

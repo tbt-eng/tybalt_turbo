@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
+  import { printWhenReady } from "$lib/printWhenReady";
   import {
     contactEmail,
     fullName,
@@ -17,18 +18,15 @@
     value === undefined || value === null || value === "" ? "Not provided" : value;
   const rate = (value: number) =>
     Number.isFinite(value) ? `$${value.toFixed(2)}` : "Not provided";
-  onMount(() => {
-    let cancelled = false;
-    (async () => {
-      await tick();
-      await document.fonts.ready;
-      await Promise.all(Array.from(document.images).map((img) => img.decode().catch(() => {})));
-      if (!cancelled) window.print();
-    })();
-    return () => {
-      cancelled = true;
-    };
-  });
+  const agreement = $derived(
+    "The client authorizes TBT Engineering Limited to perform the work described above on the " +
+      "stated fee basis and agrees to the stated project value and invoicing details. " +
+      (r.time_and_materials
+        ? "For time and materials work, the attached rate sheet applies. "
+        : "") +
+      "Applicable taxes are additional.",
+  );
+  onMount(printWhenReady);
 </script>
 
 <svelte:head
@@ -162,12 +160,7 @@
           </section>
           {#if !missing.length}<section class="keep">
               <h2>Agreement and signatures</h2>
-              <p>
-                The client authorizes TBT Engineering Limited to perform the work described above on
-                the stated fee basis and agrees to the stated project value and invoicing details. {#if r.time_and_materials}For
-                  time and materials work, the attached rate sheet applies.
-                {/if}Applicable taxes are additional.
-              </p>
+              <p>{agreement}</p>
               <div class="columns signatures">
                 {#each [`For the client: ${d.client.name}`, "For TBT Engineering Limited"] as title}<div
                     class="signature"

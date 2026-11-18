@@ -1,6 +1,7 @@
 <script lang="ts">
   import { shortDate } from "$lib/utilities";
   import { onMount } from "svelte";
+  import { printWhenReady } from "$lib/printWhenReady";
   import { untrack } from "svelte";
   import type { PageData } from "./$types";
 
@@ -19,56 +20,68 @@
     return `$${value.toFixed(2)}`;
   }
 
-  // Trigger print dialog on mount
-  onMount(() => {
-    // Small delay to ensure the page is fully rendered
-    const timer = setTimeout(() => window.print(), 300);
-    return () => clearTimeout(timer);
-  });
+  onMount(printWhenReady);
 </script>
 
 <!-- A saved PDF takes its file name from the title. -->
 <svelte:head><title>Rate Sheet {rateSheet.code} rev. {rateSheet.revision}</title></svelte:head>
 
 <div class="print-page mx-auto max-w-4xl p-8">
-  <!-- Header -->
-  <div class="mb-6 border-b-2 border-black pb-4">
-    <!-- The code identifies the sheet on paper; the name only describes it. -->
-    <h1 class="text-2xl font-bold text-black">
-      {rateSheet.code}
-      <span class="text-lg font-normal">— Rev. {rateSheet.revision}</span>
-    </h1>
-    {#if rateSheet.name}
-      <p class="mt-1 text-black">{rateSheet.name}</p>
-    {/if}
-    <p class="mt-1 text-sm text-black">
-      Effective: {shortDate(rateSheet.effective_date, true)}
-    </p>
-    {#if formerNames.length > 0}
-      <p class="mt-1 text-sm text-black">Formerly {formerNames.join(", ")}</p>
-    {/if}
-    {#if formerCodes.length > 0}
-      <p class="mt-1 text-sm text-black">Former codes {formerCodes.join(", ")}</p>
-    {/if}
-  </div>
-
-  <!-- Rate Entries Table -->
-  <table class="w-full border-collapse">
+  <!-- A table, so that its thead repeats the reference line at the top of each printed page. -->
+  <table class="document">
     <thead>
-      <tr class="border-b-2 border-black">
-        <th class="py-2 pr-4 text-left text-sm font-bold text-black uppercase">Role</th>
-        <th class="py-2 pr-4 text-right text-sm font-bold text-black uppercase">Rate</th>
-        <th class="py-2 text-right text-sm font-bold text-black uppercase">Overtime Rate</th>
+      <tr>
+        <td>
+          <div class="reference">Rate sheet: {rateSheet.code} · Rev. {rateSheet.revision}</div>
+        </td>
       </tr>
     </thead>
     <tbody>
-      {#each sortedEntries as entry (entry.id)}
-        <tr class="border-b border-neutral-400">
-          <td class="py-2 pr-4 text-black">{entry.expand?.role?.name ?? "Unknown"}</td>
-          <td class="py-2 pr-4 text-right text-black">{formatRate(entry.rate)}</td>
-          <td class="py-2 text-right text-black">{formatRate(entry.overtime_rate)}</td>
-        </tr>
-      {/each}
+      <tr>
+        <td>
+          <!-- Header -->
+          <div class="mb-6 border-b-2 border-black pb-4">
+            <!-- The code identifies the sheet on paper; the name only describes it. -->
+            <h1 class="text-2xl font-bold text-black">
+              {rateSheet.code}
+              <span class="text-lg font-normal">— Rev. {rateSheet.revision}</span>
+            </h1>
+            {#if rateSheet.name}
+              <p class="mt-1 text-black">{rateSheet.name}</p>
+            {/if}
+            <p class="mt-1 text-sm text-black">
+              Effective: {shortDate(rateSheet.effective_date, true)}
+            </p>
+            {#if formerNames.length > 0}
+              <p class="mt-1 text-sm text-black">Formerly {formerNames.join(", ")}</p>
+            {/if}
+            {#if formerCodes.length > 0}
+              <p class="mt-1 text-sm text-black">Former codes {formerCodes.join(", ")}</p>
+            {/if}
+          </div>
+
+          <!-- Rate Entries Table -->
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="border-b-2 border-black">
+                <th class="py-2 pr-4 text-left text-sm font-bold text-black uppercase">Role</th>
+                <th class="py-2 pr-4 text-right text-sm font-bold text-black uppercase">Rate</th>
+                <th class="py-2 text-right text-sm font-bold text-black uppercase">Overtime Rate</th
+                >
+              </tr>
+            </thead>
+            <tbody>
+              {#each sortedEntries as entry (entry.id)}
+                <tr class="border-b border-neutral-400">
+                  <td class="py-2 pr-4 text-black">{entry.expand?.role?.name ?? "Unknown"}</td>
+                  <td class="py-2 pr-4 text-right text-black">{formatRate(entry.rate)}</td>
+                  <td class="py-2 text-right text-black">{formatRate(entry.overtime_rate)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </td>
+      </tr>
     </tbody>
   </table>
 </div>
@@ -76,6 +89,21 @@
 <style>
   @page {
     margin: 2cm;
+  }
+
+  .document {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .document > thead {
+    display: table-header-group;
+  }
+  .reference {
+    border-bottom: 1px solid black;
+    padding-bottom: 0.08in;
+    margin-bottom: 0.14in;
+    font-size: 9pt;
+    color: black;
   }
 
   @media print {

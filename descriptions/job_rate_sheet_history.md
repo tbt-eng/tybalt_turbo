@@ -759,7 +759,8 @@ responses and messages; the review token; the writeback; and two imports.
   (`renameProposedRates` ignores an empty name), so the job creator can't
   clear a proposal's name there; the box says so.
 - The printed rate sheet shows the code and revision as its title, the name
-  under it, and former names and codes. The printed project authorization
+  under it, and former names and codes. A reference line with the code and
+  revision repeats at the top of each printed page. The printed project authorization
   shows the code and revision, without the name or the effective date.
 - User docs: `rate-sheet-codes.md` (code, name, rename), with changes to
   `rate-sheets.md`, `proposed-rates.md` and the glossary.

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { authorizedAmountText } from "$lib/poPrint";
+  import { printWhenReady } from "$lib/printWhenReady";
   import type { PageData } from "./$types";
   import { shortDate, trimmedOrEmpty } from "$lib/utilities";
 
@@ -31,9 +32,7 @@
 
   onMount(() => {
     document.title = po.po_number ? `Purchase Order ${po.po_number}` : "Purchase Order";
-
-    const timer = setTimeout(() => window.print(), 300);
-    return () => clearTimeout(timer);
+    return printWhenReady();
   });
 </script>
 
