@@ -27,10 +27,31 @@ export function rateSheetLabel(sheet: RateSheetLabelFields): string {
   return `${label} "${name}"`;
 }
 
-// The text that a list search matches: the code, the name, the revision and
-// the effective date.
+// The fields of rate_sheets_augmented that a search finds a sheet by. A job
+// number or a client name finds every revision of the code that the job used,
+// now or in its rate sheet history. The rateSheets store indexes these fields
+// for the pickers.
+export const rateSheetSearchFields = [
+  "code",
+  "name",
+  "effective_date",
+  "job_numbers",
+  "client_names",
+];
+
+// The text that a list search matches: the code, the name, the revision, the
+// effective date, the job numbers and the client names.
 export function rateSheetSearchText(
-  sheet: RateSheetLabelFields & { effective_date?: string | null },
+  sheet: RateSheetLabelFields & {
+    effective_date?: string | null;
+    job_numbers?: string | null;
+    client_names?: string | null;
+  },
 ): string {
-  return [rateSheetLabel(sheet), sheet.effective_date ?? ""].join(" ");
+  return [
+    rateSheetLabel(sheet),
+    sheet.effective_date ?? "",
+    sheet.job_numbers ?? "",
+    sheet.client_names ?? "",
+  ].join(" ");
 }

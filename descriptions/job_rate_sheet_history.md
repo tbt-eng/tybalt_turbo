@@ -765,6 +765,41 @@ responses and messages; the review token; the writeback; and two imports.
 - User docs: `rate-sheet-codes.md` (code, name, rename), with changes to
   `rate-sheets.md`, `proposed-rates.md` and the glossary.
 
+## Find a sheet by job or client
+
+Status: Implemented (issue 207, step 2)
+
+### Search
+
+- A job makes findable the sheet it uses now (`jobs.rate_sheet`) and every
+  sheet in its rate sheet history (`job_rate_sheets`), the same jobs that
+  `job_count` counts. A search matches the job's number and its client's
+  name, not the job's description.
+- A match is by code: a job or a client on any revision of a code finds every
+  revision of that code. So a job on rev. 0 finds the active rev. 1 in a
+  picker.
+- `rate_sheets_augmented` has two text fields for it, `job_numbers` and
+  `client_names` (migration `1795025548_rate_sheets_augmented_find_by_job.go`):
+  the distinct job numbers and client names of every revision of the
+  sheet's code, comma separated, or empty. A `CAST(... AS TEXT)` makes
+  PocketBase read them as text. `job_count` still counts the jobs of the
+  revision itself. A request's proposed rates stay out of the view.
+- `ui/src/lib/rateSheetLabel.ts` adds both fields to `rateSheetSearchText`,
+  which the Rate Sheets list matches as a substring, and lists the store's
+  search fields in `rateSheetSearchFields`. The `rateSheets` store indexes
+  them for every picker. The fields are not stored fields of the index,
+  since no option shows them. Pickers and dropdowns are otherwise unchanged:
+  a picker is a search above 10 sheets.
+- MiniSearch splits a term on punctuation, and the store's search needs every
+  part (AND, by prefix). "24-321" finds the sheets with the parts 24 and 321,
+  which may come from two jobs. "24-3" and "321" find 24-321.
+- Size: each revision carries the numbers of its code. A job number and its
+  comma are about 9 bytes, so 3,000 jobs on one code add about 27 KB to each
+  revision of it, and the client names a few KB more, before compression.
+- Staleness: the store subscribes to `rate_sheets` only, so a job that
+  changes sheet does not change these fields, or `job_count`, until the next
+  load of the store.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:

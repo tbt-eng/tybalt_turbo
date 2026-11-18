@@ -1,6 +1,7 @@
 import { createCollectionStore } from "./collectionStore";
 import { pb } from "$lib/pocketbase";
 import type { BaseSystemFields } from "$lib/pocketbase-types";
+import { rateSheetSearchFields } from "$lib/rateSheetLabel";
 
 export interface RateSheetResponse extends BaseSystemFields {
   // The sheet's label and identity, shared by its revisions.
@@ -11,6 +12,10 @@ export interface RateSheetResponse extends BaseSystemFields {
   revision: number;
   active: boolean;
   job_count: number;
+  // The job numbers and the client names of every revision of the code, now
+  // or in a job's rate sheet history, comma separated, for the search.
+  job_numbers: string;
+  client_names: string;
 }
 
 // Fetch from the augmented view which includes job_count
@@ -21,8 +26,9 @@ export const rateSheets = createCollectionStore<RateSheetResponse>(
   "rate_sheets", // Subscribe to the base collection for real-time updates
   { requestKey: "rate_sheets" },
   {
-    // A search finds a sheet by its code, its name or its effective date.
-    fields: ["code", "name", "effective_date"],
+    // A search finds a sheet by its code, its name, its effective date, or a
+    // job or client that used the code.
+    fields: rateSheetSearchFields,
     storeFields: ["id", "code", "name", "effective_date", "revision", "active", "job_count"],
   },
   // onCreate handler - refetch from augmented view
