@@ -800,6 +800,21 @@ Status: Implemented (issue 207, step 2)
   changes sheet does not change these fields, or `job_count`, until the next
   load of the store.
 
+### Sheet page
+
+- `GET /api/rate_sheets/{id}/jobs` (`app/routes/rate_sheets_jobs.go` and
+  `.sql`) returns the jobs of that exact revision, by client name and job
+  number: `id`, `number`, `description`, `client_id`, `client_name` and
+  `current`. `current` is true when `jobs.rate_sheet` is the revision, false
+  when only a period of the job's history is on it. Each job is listed once.
+  Any signed-in user can read it, as the list rules of `jobs` and `clients`
+  allow; an unknown sheet is 404.
+- The sheet's page shows them in **Jobs and clients**
+  (`rateSheets/RateSheetJobs.svelte`): a `DSList` with its search and pages
+  of 20, so a sheet with thousands of jobs renders one page at a time. Rows
+  are striped by client, each job links to its page and has a **Current** or
+  **Past** label. Other revisions show their own jobs.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:

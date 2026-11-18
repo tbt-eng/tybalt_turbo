@@ -388,6 +388,7 @@ func AddRoutes(app core.App) {
 		rateSheetsGroup.POST("/{id}/deactivate", createDeactivateRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/rename", createRenameRateSheetHandler(app))
 		rateSheetsGroup.GET("/{id}/former_names", createGetRateSheetFormerNamesHandler(app))
+		rateSheetsGroup.GET("/{id}/jobs", createGetRateSheetJobsHandler(app))
 		// Move projects to the latest revision (admin)
 		rateSheetsGroup.GET("/{id}/rollout", createGetRateSheetRolloutHandler(app))
 		rateSheetsGroup.POST("/{id}/rollout", createRateSheetRolloutHandler(app))

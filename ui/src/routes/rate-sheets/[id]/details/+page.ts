@@ -1,6 +1,7 @@
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
 import { error } from "@sveltejs/kit";
+import type { RateSheetJob } from "$lib/components/rateSheets/RateSheetJobs.svelte";
 
 export const load: PageLoad = async ({ params }) => {
   const rateSheetId = params.id;
@@ -24,12 +25,18 @@ export const load: PageLoad = async ({ params }) => {
       former_codes: string[];
     }>(`/api/rate_sheets/${rateSheetId}/former_names`, { method: "GET" });
 
+    // The jobs of this revision, now or in their rate sheet history
+    const jobs = await pb.send<RateSheetJob[]>(`/api/rate_sheets/${rateSheetId}/jobs`, {
+      method: "GET",
+    });
+
     return {
       rateSheet,
       entries,
       formerNames,
       formerCodes: formerCodes ?? [],
       allRoles,
+      jobs,
     };
   } catch (err) {
     console.error(`loading rate sheet details: ${err}`);

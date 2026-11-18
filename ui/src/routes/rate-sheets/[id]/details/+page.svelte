@@ -8,6 +8,7 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetMatchCallout from "$lib/components/rateSheets/RateSheetMatchCallout.svelte";
   import RateSheetRollout from "$lib/components/rateSheets/RateSheetRollout.svelte";
+  import RateSheetJobs from "$lib/components/rateSheets/RateSheetJobs.svelte";
   import { duplicateRateSheetMatches, type RateSheetMatch } from "$lib/rateSheetMatches";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSTextInput from "$lib/components/DSTextInput.svelte";
@@ -663,6 +664,10 @@
       {/if}
     </div>
   {/if}
+
+  <div class="mt-6">
+    <RateSheetJobs jobs={data.jobs} />
+  </div>
 
   <!-- Back link -->
   <div class="mt-6">

@@ -52,3 +52,7 @@ Turbo prices that period's time again. Past values can change.
 2. Select **Delete** again to confirm.
 
 The period before it then prices that time. You can't delete the first period.
+
+## See the jobs on a rate sheet
+
+Open a rate sheet. **Jobs and clients** lists the jobs on this revision and their clients. **Current** marks a job that uses the revision now. **Past** marks a job that used it in an earlier period. Each revision lists its own jobs.

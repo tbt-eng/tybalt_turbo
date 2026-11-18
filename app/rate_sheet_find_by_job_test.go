@@ -11,6 +11,7 @@ import (
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 )
 
 // Find a rate sheet by job or client (issue 207, step 2). The fixtures are
@@ -129,5 +130,87 @@ func TestRateSheetsAugmentedFindByJobAPI(t *testing.T) {
 		if _, ok := item["client_names"].(string); !ok {
 			t.Errorf("%s client_names = %#v; want text", id, item["client_names"])
 		}
+	}
+}
+
+type rateSheetJobRow struct {
+	ID         string `json:"id"`
+	Number     string `json:"number"`
+	ClientID   string `json:"client_id"`
+	ClientName string `json:"client_name"`
+	Current    bool   `json:"current"`
+}
+
+// rateSheetJobs returns the route's jobs by number, and fails if a job is
+// listed twice.
+func rateSheetJobs(t *testing.T, app *tests.TestApp, id string) map[string]rateSheetJobRow {
+	t.Helper()
+	status, body := absorbRequest(t, app, http.MethodGet, "/api/rate_sheets/"+id+"/jobs", "author@soup.com", nil)
+	if status != http.StatusOK {
+		t.Fatalf("%s status = %d; body %s", id, status, body)
+	}
+	var rows []rateSheetJobRow
+	if err := json.Unmarshal([]byte(body), &rows); err != nil {
+		t.Fatal(err)
+	}
+	byNumber := map[string]rateSheetJobRow{}
+	for _, row := range rows {
+		if _, ok := byNumber[row.Number]; ok {
+			t.Errorf("%s lists %s twice", id, row.Number)
+		}
+		byNumber[row.Number] = row
+	}
+	return byNumber
+}
+
+// The sheet page lists the jobs of its exact revision, each current or past,
+// with its client.
+func TestRateSheetJobsRoute(t *testing.T) {
+	app := testutils.SetupTestApp(t)
+	defer app.Cleanup()
+
+	// Each revision of Rollout Rates shows only its own jobs.
+	rev0 := rateSheetJobs(t, app, "rsrollout0r0001")
+	if len(rev0) != 5 {
+		t.Errorf("rev 0 jobs = %v; want 91-8930 to 91-8934", rev0)
+	}
+	rev1 := rateSheetJobs(t, app, "rsrollout1r0001")
+	if len(rev1) != 1 || !rev1["91-8935"].Current {
+		t.Errorf("rev 1 jobs = %v; want only 91-8935, current", rev1)
+	}
+	if rev1["91-8935"].ClientName != "BN Rail Corporation" || rev1["91-8935"].ClientID == "" {
+		t.Errorf("91-8935 client = %+v; want BN Rail Corporation", rev1["91-8935"])
+	}
+
+	// A job whose current sheet is another one, with a period on this one, is past.
+	standard := rateSheetJobs(t, app, "c41ofep525bcacj")
+	if row, ok := standard["91-8934"]; !ok || row.Current {
+		t.Errorf("91-8934 on the standard sheet = %+v, %v; want past", row, ok)
+	}
+	if row := standard["26-9876"]; !row.Current {
+		t.Errorf("26-9876 on the standard sheet = %+v; want current", row)
+	}
+	// A job on it now and in two periods is listed once, as current.
+	if row := standard["91-8914"]; !row.Current {
+		t.Errorf("91-8914 on the standard sheet = %+v; want current", row)
+	}
+
+	// Rev 0's past job is not listed on rev 1.
+	if got := rateSheetJobs(t, app, "rsabhistrev1r01"); len(got) != 0 {
+		t.Errorf("Absorb History Revised rev 1 jobs = %v; want none", got)
+	}
+	if row, ok := rateSheetJobs(t, app, "rsabhistrev0r01")["91-8916"]; !ok || row.Current {
+		t.Errorf("91-8916 on rev 0 = %+v, %v; want past", row, ok)
+	}
+}
+
+func TestRateSheetJobsRouteAuth(t *testing.T) {
+	app := testutils.SetupTestApp(t)
+	defer app.Cleanup()
+	if status, _ := absorbRequest(t, app, http.MethodGet, "/api/rate_sheets/rsrollout1r0001/jobs", "", nil); status != http.StatusUnauthorized {
+		t.Errorf("signed out status = %d; want 401", status)
+	}
+	if status, _ := absorbRequest(t, app, http.MethodGet, "/api/rate_sheets/nosuchsheet0001/jobs", "author@soup.com", nil); status != http.StatusNotFound {
+		t.Errorf("missing sheet status = %d; want 404", status)
 	}
 }
