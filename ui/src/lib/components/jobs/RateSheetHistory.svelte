@@ -165,7 +165,7 @@
     {#if history.periods.length}
       <DSList items={history.periods}>
         {#snippet headline(period: Period)}
-          <RateSheetLabel sheet={period.rate_sheet} />
+          <RateSheetLabel sheet={period.rate_sheet} copy />
         {/snippet}
         {#snippet line1(period: Period)}
           {periodDates(period)}

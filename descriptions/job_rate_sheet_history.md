@@ -877,6 +877,29 @@ Status: Implemented (issue 207, step 2)
   `jobs.rate_sheet` and `job_rate_sheets`, so the section follows both with
   no change to absorb.
 
+### Copy a code
+
+- A person who finds a sheet copies its code to paste in the rate sheet
+  search of a new job or project request. `RateSheetLabel` takes `copy`
+  (default false): a `DSCopyButton` right after the code and revision,
+  before the name, through `DSRecordLabel`'s `trailing`. It copies the code
+  alone, such as `2026-02-00001`, from `rateSheetCopyText()`; a sheet with no
+  code shows no button. Its name is "Copy code 2026-02-00001".
+- It is on in four places only: the Rate Sheets list, the client page's
+  **Rate sheets**, the job page's **Rate sheet** field and each row of its
+  **Rate sheets** history. Reports, time summaries, absorb pages, pickers and
+  print pages leave it off.
+- The button sits after the code, not after the name, so it is beside what it
+  copies and in the same place on rows with a name and without one. The
+  extra 20 pixels can wrap a long name to a second line, where it had just
+  fit; the button itself doesn't change the line's height.
+- Limit: a picker's search (MiniSearch) splits `2026-02-00001` into three
+  words and needs each one as the start of a word of a sheet, across the code
+  and the effective date. So a pasted code can also list another sheet, such
+  as `2026-03-00001` with an effective date in 2026-02. The right sheet is
+  always among the results. The Rate Sheets list matches the pasted code
+  exactly, as a substring.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:

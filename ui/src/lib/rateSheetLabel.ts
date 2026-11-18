@@ -18,6 +18,13 @@ export function rateSheetCodeRevision(sheet: RateSheetLabelFields): string {
   return `${code} (rev. ${sheet.revision ?? 0})`;
 }
 
+// The text that a copy of the sheet's code takes, such as "2026-11-00004":
+// the code alone, without the revision or the name, as a rate sheet search
+// takes it. Empty when the sheet has no code yet.
+export function rateSheetCopyText(sheet: RateSheetLabelFields): string {
+  return (sheet.code ?? "").trim();
+}
+
 // The sheet as plain text, the same as the server's label
 // (hooks.RateSheetLabel): the code and revision, then the name in quotes when
 // there is one, such as 2026-11-00004 (rev. 2) "Client Rates". Use it where

@@ -46,7 +46,7 @@
     {/snippet}
 
     {#snippet headline(sheet: RateSheetResponse)}
-      <RateSheetLabel {sheet} />
+      <RateSheetLabel {sheet} copy />
     {/snippet}
 
     {#snippet byline({ effective_date, job_count }: RateSheetResponse)}

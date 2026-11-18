@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import MiniSearch from "minisearch";
 import {
   rateSheetCodeRevision,
+  rateSheetCopyText,
   rateSheetLabel,
   rateSheetListMatch,
   rateSheetMatchGroups,
@@ -17,6 +18,16 @@ test("a sheet shows its code and revision", () => {
     rateSheetCodeRevision({ code: "2026-11-00004", name: "Client Rates", revision: 2 }),
     "2026-11-00004 (rev. 2)",
   );
+});
+
+test("a copy of a sheet takes its code alone", () => {
+  // No revision and no name, so it pastes into a rate sheet search.
+  assert.equal(
+    rateSheetCopyText({ code: " 2026-02-00001 ", name: "Client Rates", revision: 2 }),
+    "2026-02-00001",
+  );
+  assert.equal(rateSheetCopyText({ code: "", name: "Draft", revision: 0 }), "");
+  assert.equal(rateSheetCopyText({ name: "Draft" }), "");
 });
 
 test("the text label matches the server's label", () => {

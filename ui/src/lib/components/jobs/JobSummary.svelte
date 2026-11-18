@@ -104,7 +104,7 @@
           />
           {#if job.rate_sheet?.id}
             <DSField label="Rate sheet">
-              <RateSheetLabel sheet={job.rate_sheet} />
+              <RateSheetLabel sheet={job.rate_sheet} copy />
             </DSField>
           {/if}
           <DSField label="Client PO" value={job.client_po} />

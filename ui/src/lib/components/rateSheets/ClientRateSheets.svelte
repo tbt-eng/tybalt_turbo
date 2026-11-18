@@ -28,7 +28,7 @@
       : "No jobs of this client use a rate sheet."}
   >
     {#snippet headline(sheet)}
-      <RateSheetLabel {sheet} />
+      <RateSheetLabel {sheet} copy />
     {/snippet}
     {#snippet byline(sheet)}
       {shortDate(sheet.effective_date, true)}
