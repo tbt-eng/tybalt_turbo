@@ -1,68 +1,68 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/clientWorkspaceLoad.ts","sha256":"8e8548be953eaf44ebfc074de473926fd1762644aa3264d8c198952759d4520d","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/clientWorkspaceLoad.ts","sha256":"e643e9b496dd707bb86ca3d2cded14ef48fb28d3d89abb60438c3b6597086a83","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/clientWorkspaceLoad.ts
 
-## Only the details tab loads time divisions
+## Only the details tab loads divisions and rate sheets
 
-Lines 22-30
+Lines 23-38
 
-Asked as: time divisions empty; divisions not loading; jobs tab slow; details tab divisions
+Asked as: divisions empty on jobs tab; rate sheets missing; time divisions not showing; why are divisions blank; rate sheets not loading
 
-Turbo fetches the client's time divisions only when the details tab is open. On the jobs and notes tabs the list of time divisions is empty. The request starts together with the client request, so the tab waits for the slower of the two.
+Turbo loads a client's time divisions and rate sheets only on the details tab. On the jobs and notes tabs these lists are empty.
 
-## Client workspace shows 'Client not found.' for a missing client
+## Client page shows 'Client not found.' for a missing client
 
-Lines 33-45
+Lines 41-54
 
-Asked as: client not found; missing client error; client page error; can't open client
+Asked as: client not found error; client page error; can't open client; missing client message; client does not exist
 
-When Turbo loads a client's workspace and the client lookup returns not found, it shows the message "Client not found.". Any other failure while loading the client is passed on unchanged.
+When a client's page loads and the client record does not exist, Turbo shows the error 'Client not found.' Any other failure loading the client is passed on unchanged.
 
-## Each client workspace tab loads only its own data
+## Jobs tab loads job lists; notes tab loads notes
 
-Lines 46-60
+Lines 57-70
 
-Asked as: notes tab empty; jobs tab no notes; tab shows no data; client tab empty lists
+Asked as: notes tab empty; jobs tab no notes; notes not loading; client notes missing; why no jobs on notes tab
 
-The jobs tab loads job lists and no notes. The notes tab loads notes and no job lists. Other tabs load neither, so their jobs and notes lists are empty.
+Turbo loads the client's jobs only on the jobs tab and the client's notes only on the notes tab. The other tabs get empty job and note lists, so each tab loads only what it shows.
 
-## Job lists show 20 per page, newest number first
+## Jobs lists show 20 per page, highest number first
 
-Lines 53-96
+Lines 63-106
 
-Asked as: how many jobs per page; job list order; jobs sorted newest; page of jobs
+Asked as: how many jobs per page; job list order; jobs sorted wrong; page parameter jobs; jobs list paging
 
-The open view (projects, proposals or owner) shows 20 jobs per page, sorted by number in descending order. Each view has its own page parameter: projectsPage, proposalsPage or ownerPage.
+The open job list (view) shows 20 jobs per page, sorted by number from highest to lowest. Each of the other two lists is fetched with one job only, to give its count. Each list has its own page parameter: projectsPage, proposalsPage and ownerPage.
 
-## Client notes tab lists notes and the client's jobs
+## Notes tab also lists the client's jobs, newest first
 
-Lines 62-73
+Lines 72-83
 
-Asked as: client notes and jobs; notes tab job list; jobs listed under notes; client's jobs in notes
+Asked as: jobs showing on notes tab; job owner jobs on notes; why are jobs listed under notes; newest jobs first notes
 
-The notes tab loads the client's notes. It also loads every job where the client is the client or the job owner (job_owner), newest first, with only id, number and description.
+On the notes tab, Turbo also loads the jobs where the client is the client or the job owner (job_owner). They are sorted by newest created first, and only id, number and description are fetched.
 
-## Job lists split into projects, proposals and owner jobs
+## Client jobs split into projects, proposals and owner jobs
 
-Lines 81-85
+Lines 91-95
 
-Asked as: projects vs proposals; proposal jobs P number; owner jobs missing; jobs where client is owner
+Asked as: proposals vs projects; where are proposals listed; owner jobs list; jobs starting with P; client jobs categories
 
-Proposals are the client's jobs whose number starts with P. Projects are the client's jobs whose number does not start with P. Owner jobs are jobs where the client is the job owner (job_owner), whatever the number.
+The jobs tab has three lists. Proposals are the client's jobs whose number starts with P. Projects are the client's jobs whose number does not start with P. Owner jobs are jobs where the client is the job owner (job_owner).
 
-## Job tab counts cover all three lists
+## Page beyond the last page falls back to the last page
 
-Lines 86-118
+Lines 108-122
 
-Asked as: job counts wrong; number of projects shown; job tab totals; count of proposals
+Asked as: blank job page; page past the end; old bookmark shows wrong page; jobs page empty after deleting; last page of jobs
 
-Turbo shows the total number of projects, proposals and owner jobs for the client. It gets each count by loading one item for each view that is not open.
+If the requested page of a job list is past the last page, for example from an old bookmark or after a job is removed, Turbo shows the last page instead. The number of pages is at least 1, even with no jobs. The code rounds the number of pages up from the total divided by 20.
 
-## Out-of-range job page jumps to the last page
+## Job counts cover all three lists
 
-Lines 98-108
+Lines 119-128
 
-Asked as: jobs page blank; page past end; deleted job page error; old bookmark jobs page
+Asked as: job count wrong; total jobs number; how many projects shown; count of proposals; job totals on tab
 
-If the requested page is beyond the last page, for example after a job is removed or from an old bookmark, Turbo shows the last page instead. The number of pages is the total jobs divided by 20, rounded up, and never less than 1.
+The jobs tab shows the total number of projects, proposals and owner jobs, whichever list is open.
