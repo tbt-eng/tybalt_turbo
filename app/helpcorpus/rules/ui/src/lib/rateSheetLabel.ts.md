@@ -1,44 +1,36 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/rateSheetLabel.ts","sha256":"9a8895f9139b9b56ee29048287f455eacdbc99fdcdb1a97c5e34a8a7287b72e8","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/rateSheetLabel.ts","sha256":"31d391ac3900ee53e1208dc000b16d957ae3cfc71dc6860277be50567d64a43c","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/rateSheetLabel.ts
 
-## Rate sheet label shows code and revision
+## Rate sheet code and revision label shows name if no code
 
 Lines 12-17
 
-Asked as: rate sheet code and revision; rev number on rate sheet; rate sheet shows rev 0; missing revision on rate sheet
+Asked as: rate sheet shows name instead of code; rate sheet code missing; blank rate sheet code; rev. 0 rate sheet label; rate sheet revision shows 0
 
-Turbo labels a rate sheet with its code and revision, such as "2026-11-00004 (rev. 2)". Turbo treats a missing revision as 0 and shows "(rev. 0)" (rateSheetCodeRevision).
+Turbo labels a rate sheet as its code followed by the revision, such as "2026-11-00004 (rev. 2)". A sheet with no code, or a blank code, shows its name in place of the code. A missing revision shows as 0 (rev. 0).
 
-## Unsaved rate sheet shows its name instead of a code
-
-Lines 12-17
-
-Asked as: rate sheet no code; rate sheet shows name not code; blank code on rate sheet; unsaved rate sheet label
-
-When a rate sheet has no code, or its code is only spaces, Turbo shows its name in the code's place, followed by the revision. A sheet with neither code nor name shows only " (rev. N)" with no text before it.
-
-## Full rate sheet label adds the name in quotes
+## Rate sheet full text label adds name in quotes
 
 Lines 19-28
 
-Asked as: rate sheet name in quotes; full rate sheet label; rate sheet dropdown option text; rate sheet button label
+Asked as: rate sheet name in quotes; full rate sheet label dropdown; rate sheet name missing from dropdown; rate sheet button text name; quoted name not showing
 
-The plain-text label of a rate sheet is its code and revision, then the name in quotes, such as 2026-11-00004 (rev. 2) "Client Rates". Dropdown options and buttons use this label (rateSheetLabel).
+The full text label of a rate sheet is the code and revision, then the name in quotes, such as 2026-11-00004 (rev. 2) "Client Rates". Turbo adds no quoted name when the name is empty. It also adds none when the sheet has no code, because the name already stands in the code's place. Dropdown options and buttons use this label.
 
-## Rate sheet label omits the name when name or code is missing
+## Fields that a rate sheet search matches
 
-Lines 23-28
+Lines 30-40
 
-Asked as: rate sheet name repeated; rate sheet label without name; rate sheet no name shown; name appears twice rate sheet
+Asked as: find rate sheet by client; search rate sheet by job number; rate sheet not found by name; old revision of rate sheet search; find rate sheet from job
 
-When a rate sheet has no name, or no code, its plain-text label is only the code-and-revision form with no quoted name. A sheet without a code shows its name once, in the code's place, and does not repeat it in quotes.
+A search for a rate sheet looks in its code, name, effective date, job numbers and client names (rate_sheets_augmented fields). A job number or client name finds every revision of the code that the job used, now or in its rate sheet history.
 
-## Rate sheet list search matches label and effective date
+## Rate sheet list search text contents
 
-Lines 30-36
+Lines 42-57
 
-Asked as: search rate sheets by date; find rate sheet by effective date; rate sheet list search not working; search rate sheet by name
+Asked as: rate sheet list search results; search rate sheet by date; rate sheet search with no client; rate sheet list filter text; find rate sheet by effective date
 
-A search in a rate sheet list matches the full label (code, revision and name) and the effective date (effective_date). A missing effective date adds nothing to the searched text.
+The text that a rate sheet list search matches is the full label (code, revision and name), the effective date, the job numbers and the client names. A missing effective date, job numbers or client names counts as empty text.
