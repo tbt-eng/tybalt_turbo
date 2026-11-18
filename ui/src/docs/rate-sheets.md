@@ -1,6 +1,6 @@
 # Rate sheets
 
-A rate sheet lists the hourly rate and the overtime rate that a client pays for each role. A project uses one rate sheet at a time. Proposals don't use one.
+A rate sheet lists the hourly rate and the overtime rate that a client pays for each role. A project uses one rate sheet at a time. Proposals don't use one. A client's page lists [its sheets](/docs/rate-sheet-periods#see-the-rate-sheets-of-a-client).
 
 ## How Turbo uses a rate sheet
 

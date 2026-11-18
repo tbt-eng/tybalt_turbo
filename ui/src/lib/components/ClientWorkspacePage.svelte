@@ -13,6 +13,7 @@
   import ClientNotesSection from "$lib/components/ClientNotesSection.svelte";
   import ClientSaveNotice from "$lib/components/clients/ClientSaveNotice.svelte";
   import InvoicingInstructions from "$lib/components/clients/InvoicingInstructions.svelte";
+  import ClientRateSheets from "$lib/components/rateSheets/ClientRateSheets.svelte";
   import { shortDate, formatCurrency } from "$lib/utilities";
   import { globalStore } from "$lib/stores/global";
   import {
@@ -510,6 +511,7 @@
           </DsList>
         </section>
       </div>
+      <ClientRateSheets sheets={data.rateSheets} />
     {/if}
   {:else if data.tab === "jobs"}
     <section class="space-y-2" aria-label="Jobs">

@@ -56,3 +56,10 @@ The period before it then prices that time. You can't delete the first period.
 ## See the jobs on a rate sheet
 
 Open a rate sheet. **Jobs and clients** lists the jobs on this revision and their clients. **Current** marks a job that uses the revision now. **Past** marks a job that used it in an earlier period. Each revision lists its own jobs.
+
+## See the rate sheets of a client
+
+1. Open the client.
+2. Find **Rate sheets** on **Client details**.
+
+Each row is a revision that the client's jobs use now or used in an earlier period. It shows the effective date, the status and the number of jobs. Select the code to open the revision.

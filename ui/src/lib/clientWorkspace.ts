@@ -50,6 +50,30 @@ export type WorkspaceClient = WorkspaceAddress & {
 // A division with committed time on jobs whose client is this client.
 export type WorkspaceTimeDivision = { id: string; code: string; name: string; hours: number };
 
+// A rate sheet revision that jobs whose client is this client use now or used
+// in the past, from GET /api/clients/{id}/rate_sheets. current_jobs counts
+// the jobs on it now; past_jobs the ones that only their rate sheet history
+// put on it.
+export type WorkspaceRateSheet = {
+  id: string;
+  code: string;
+  name: string;
+  revision: number;
+  effective_date: string;
+  active: boolean;
+  current_jobs: number;
+  past_jobs: number;
+};
+
+// How many of the client's jobs use a sheet: "3 jobs now · 1 past", leaving
+// out a part that is zero, such as "1 job now" or "2 past jobs".
+export function rateSheetUsage(sheet: Pick<WorkspaceRateSheet, "current_jobs" | "past_jobs">) {
+  const now = sheet.current_jobs > 0 ? `${countLabel(sheet.current_jobs, "job")} now` : "";
+  if (sheet.past_jobs === 0) return now;
+  if (!now) return `${sheet.past_jobs} past ${sheet.past_jobs === 1 ? "job" : "jobs"}`;
+  return `${now} · ${sheet.past_jobs} past`;
+}
+
 export function positivePage(value: string | null): number {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : 1;

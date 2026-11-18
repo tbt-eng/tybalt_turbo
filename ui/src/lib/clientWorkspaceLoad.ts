@@ -8,6 +8,7 @@ import {
   parseClientWorkspaceQuery,
   positivePage,
   type WorkspaceClient,
+  type WorkspaceRateSheet,
   type WorkspaceTimeDivision,
   type ClientWorkspaceTab,
 } from "$lib/clientWorkspace";
@@ -19,8 +20,8 @@ export async function loadClientWorkspace(
   const clientId = params.cid;
   const { view } = parseClientWorkspaceQuery(url.searchParams);
   await globalStore.ensureClaims();
-  // Only the details tab shows divisions. Start the request with the client's so
-  // the tab waits for the slower of the two, not both in turn.
+  // Only the details tab shows divisions and rate sheets. Start their requests
+  // with the client's so the tab waits for the slowest, not each in turn.
   const timeDivisions =
     tab === "details"
       ? pb.send<WorkspaceTimeDivision[]>(`/api/clients/${clientId}/time_divisions`, {
@@ -28,6 +29,13 @@ export async function loadClientWorkspace(
           requestKey: null,
         })
       : Promise.resolve([] as WorkspaceTimeDivision[]);
+  const rateSheets =
+    tab === "details"
+      ? pb.send<WorkspaceRateSheet[]>(`/api/clients/${clientId}/rate_sheets`, {
+          method: "GET",
+          requestKey: null,
+        })
+      : Promise.resolve([] as WorkspaceRateSheet[]);
   // Route loads and hover preloads can read the same endpoint at once.
   // SvelteKit discards stale results; SDK cancellation must not cancel another load.
   let client: WorkspaceClient;
@@ -37,13 +45,15 @@ export async function loadClientWorkspace(
       requestKey: null,
     });
   } catch (failure) {
-    // The client error is the one to report; drop the divisions request.
+    // The client error is the one to report; drop the other requests.
     timeDivisions.catch(() => {});
+    rateSheets.catch(() => {});
     if (failure instanceof ClientResponseError && failure.status === 404)
       error(404, "Client not found.");
     throw failure;
   }
-  const base = { client, tab, view, timeDivisions: await timeDivisions };
+  const [divisions, sheets] = await Promise.all([timeDivisions, rateSheets]);
+  const base = { client, tab, view, timeDivisions: divisions, rateSheets: sheets };
   // Load only what the open tab shows, so switching tabs stays quick.
   if (tab === "jobs") return { ...base, ...(await loadJobLists(clientId, view, url)), ...noNotes };
   if (tab === "notes") return { ...base, ...noJobs, ...(await loadNotes(clientId)) };

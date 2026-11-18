@@ -850,6 +850,33 @@ Status: Implemented (issue 207, step 2)
   are striped by client, each job links to its page and has a **Current** or
   **Past** label. Other revisions show their own jobs.
 
+### Client page
+
+- `GET /api/clients/{id}/rate_sheets` (`app/routes/client_rate_sheets.go`
+  and `.sql`) is the reverse: every revision that a job whose `jobs.client`
+  is the client uses now or that a period of its history names, the same
+  rule as the sheet page and `job_count`. Jobs where the client is only the
+  job owner do not count. One row per revision: `id`, `code`, `name`,
+  `revision`, `effective_date`, `active`, `current_jobs` (the client's jobs on
+  it now) and `past_jobs` (the ones that only their history puts on it; a job
+  on it now and in a period counts once, as current). Sheets with current
+  jobs come first, then code and revision descending. One query; a request's
+  proposed rates stay out, as the `rate_sheets` read rule leaves them out.
+  Any signed-in user can read it; an unknown client is 404. It is separate
+  from `GET /api/clients/{id}`, so the client details query is unchanged, and
+  only the details tab loads it, in parallel with the client.
+- The client's details tab shows them in **Rate sheets**
+  (`rateSheets/ClientRateSheets.svelte`), under the contacts and invoicing
+  profiles: a `DSList` with its search and pages, as on the sheet page. Each
+  row has the sheet's label (`RateSheetLabel`, linked to the revision), its
+  effective date, "3 jobs now · 1 past" (`rateSheetUsage` in
+  `clientWorkspace.ts`, which leaves out a zero part) and an **Active** or
+  **Inactive** label. A client with no such sheets shows the section with an
+  empty message, as the contacts and invoicing profiles do.
+- Client absorb moves `jobs.client`, and rate sheet absorb moves
+  `jobs.rate_sheet` and `job_rate_sheets`, so the section follows both with
+  no change to absorb.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:
