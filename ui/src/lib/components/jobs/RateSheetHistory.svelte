@@ -12,7 +12,8 @@
   import DSDateInput from "$lib/components/DSDateInput.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
-  import { rateSheetLabel, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
+  import RateSheetOption from "$lib/components/rateSheets/RateSheetOption.svelte";
+  import { rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
 
   // A project's rate sheet history: which rate sheet prices its time from which
   // date. Each entry is priced by the period its date falls in, so a change
@@ -229,10 +230,7 @@
         placeholder={rateSheetSearchPlaceholder}
         disabled={submitting}
       >
-        {#snippet option(item)}{rateSheetLabel(item)} · {shortDate(
-            item.effective_date,
-            true,
-          )}{/snippet}
+        {#snippet option(item, match)}<RateSheetOption sheet={item} {match} />{/snippet}
       </DSPicker>
       {#if !isOpening}
         <label class="flex flex-col gap-1">

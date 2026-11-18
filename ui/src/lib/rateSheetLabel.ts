@@ -3,6 +3,8 @@
 // optional description. See the Rate sheet codes section of
 // descriptions/job_rate_sheet_history.md.
 
+import MiniSearch, { type MatchInfo } from "minisearch";
+
 export interface RateSheetLabelFields {
   code?: string | null;
   name?: string | null;
@@ -43,7 +45,9 @@ export const rateSheetSearchFields = [
 export const rateSheetSearchPlaceholder = "Code, name, date, job or client";
 
 // The text that a list search matches: the code, the name, the revision, the
-// effective date, the job numbers and the client names.
+// effective date, the job numbers and the client names. A line break
+// separates them, as it separates the entries of job_numbers and
+// client_names, so a search matches inside one of them and never spans two.
 export function rateSheetSearchText(
   sheet: RateSheetLabelFields & {
     effective_date?: string | null;
@@ -56,5 +60,54 @@ export function rateSheetSearchText(
     sheet.effective_date ?? "",
     sheet.job_numbers ?? "",
     sheet.client_names ?? "",
-  ].join(" ");
+  ].join("\n");
+}
+
+type RateSheetMatchFields = { job_numbers?: string | null; client_names?: string | null };
+
+// Whether a search matched an entry of job_numbers or client_names.
+export type RateSheetEntryMatch = (field: "job_numbers" | "client_names", entry: string) => boolean;
+
+// The Rate Sheets list's rule. The list keeps a sheet when its
+// rateSheetSearchText, lowercase, holds the search text, and that text can
+// only fall inside one entry, so an entry matches when it holds the search
+// text.
+export function rateSheetListMatch(searchTerm: string): RateSheetEntryMatch {
+  const term = searchTerm.toLowerCase();
+  return (_field, entry) => term !== "" && entry.toLowerCase().includes(term);
+}
+
+// A picker's rule. MiniSearch splits the search and each field into words and
+// keeps a sheet when every search word starts a word of the sheet. Each
+// result's match lists the sheet's words that it matched, by field. An entry
+// matches when one of its words is in that list for its field. So "24-321"
+// finds a sheet by the words 24 and 321, and on a sheet with 24-100 and
+// 25-321 it matches both.
+export function rateSheetPickerMatch(match: MatchInfo | undefined): RateSheetEntryMatch {
+  const tokenize = MiniSearch.getDefault("tokenize");
+  const processTerm = MiniSearch.getDefault("processTerm");
+  return (field, entry) =>
+    match !== undefined &&
+    tokenize(entry, field).some((word: string) => match[processTerm(word, field)]?.includes(field));
+}
+
+// Why a search found a sheet: the job numbers and client names that it
+// matched, such as "Job 24-321 • Client Mobilia SA". It shows three, then
+// "+N more". It is empty when none matched, so for an empty search or one
+// that matched only the code, the name or the date.
+export function rateSheetMatchLine(
+  sheet: RateSheetMatchFields,
+  matches: RateSheetEntryMatch,
+): string {
+  const entries = (text?: string | null) => (text ?? "").split("\n").filter((e) => e !== "");
+  const found = [
+    ...entries(sheet.job_numbers)
+      .filter((number) => matches("job_numbers", number))
+      .map((number) => `Job ${number}`),
+    ...entries(sheet.client_names)
+      .filter((name) => matches("client_names", name))
+      .map((name) => `Client ${name}`),
+  ];
+  const shown = found.slice(0, 3).join(" • ");
+  return found.length > 3 ? `${shown} +${found.length - 3} more` : shown;
 }

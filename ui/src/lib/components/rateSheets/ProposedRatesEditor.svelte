@@ -16,15 +16,11 @@
     withSourceRates,
   } from "$lib/proposedRates";
   import RateSheetMatchCallout from "./RateSheetMatchCallout.svelte";
+  import RateSheetOption from "./RateSheetOption.svelte";
   import { rateSheets } from "$lib/stores/rateSheets";
   import { rateRoles } from "$lib/stores/rateRoles";
   import type { RateSheetComparison } from "$lib/rateSheetMatches";
-  import {
-    rateSheetCodeRevision,
-    rateSheetLabel,
-    rateSheetSearchPlaceholder,
-  } from "$lib/rateSheetLabel";
-  import { shortDate } from "$lib/utilities";
+  import { rateSheetCodeRevision, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
 
   // Proposed rates in a project request: the requester starts from an active
   // sheet, may name the new sheet, says why it is needed and changes the rates.
@@ -177,7 +173,7 @@
       placeholder={rateSheetSearchPlaceholder}
       empty
     >
-      {#snippet option(row)}{rateSheetLabel(row)} · {shortDate(row.effective_date, true)}{/snippet}
+      {#snippet option(row, match)}<RateSheetOption sheet={row} {match} />{/snippet}
       {#snippet help()}
         <DSHelp doc="proposed-rates#propose-new-rates" iconOnly />
       {/snippet}

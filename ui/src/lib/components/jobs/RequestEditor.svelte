@@ -20,14 +20,11 @@
   import { divisions } from "$lib/stores/divisions";
   import { jobs } from "$lib/stores/jobs";
   import { rateSheets } from "$lib/stores/rateSheets";
-  import { formatJobLabel, shortDate } from "$lib/utilities";
-  import {
-    rateSheetCodeRevision,
-    rateSheetLabel,
-    rateSheetSearchPlaceholder,
-  } from "$lib/rateSheetLabel";
+  import { formatJobLabel } from "$lib/utilities";
+  import { rateSheetCodeRevision, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
   import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
+  import RateSheetOption from "$lib/components/rateSheets/RateSheetOption.svelte";
   import {
     type ProposedRate,
     type ProposedRates,
@@ -579,10 +576,7 @@
         placeholder={rateSheetSearchPlaceholder}
         empty
       >
-        {#snippet option(row)}{rateSheetLabel(row)} · {shortDate(
-            row.effective_date,
-            true,
-          )}{/snippet}
+        {#snippet option(row, match)}<RateSheetOption sheet={row} {match} />{/snippet}
         {#snippet help()}
           <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
         {/snippet}

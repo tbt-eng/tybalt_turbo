@@ -3,7 +3,12 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
-  import { rateSheetSearchPlaceholder, rateSheetSearchText } from "$lib/rateSheetLabel";
+  import {
+    rateSheetListMatch,
+    rateSheetMatchLine,
+    rateSheetSearchPlaceholder,
+    rateSheetSearchText,
+  } from "$lib/rateSheetLabel";
   import { canCreateRateSheets, canReviseRateSheets } from "$lib/rateSheetPermissions";
   import { globalStore } from "$lib/stores/global";
   import type { RateSheetResponse } from "$lib/stores/rateSheets";
@@ -16,12 +21,16 @@
   // Revise and Use as Template show only to the users that the server allows.
   const canRevise = $derived(canReviseRateSheets($globalStore.claims));
   const canCreate = $derived(canCreateRateSheets($globalStore.claims));
+
+  let searchTerm = $state("");
+  const matches = $derived(rateSheetListMatch(searchTerm));
 </script>
 
 {#if $rateSheets.items.length > 0 || $rateSheets.initialized}
   <DsList
     items={$rateSheets.items}
     search={true}
+    bind:searchTerm
     searchText={rateSheetSearchText}
     searchPlaceholder={rateSheetSearchPlaceholder}
     inListHeader="Rate Sheets"
@@ -60,6 +69,10 @@
           Inactive
         </span>
       {/if}
+    {/snippet}
+
+    {#snippet line2(sheet: RateSheetResponse)}
+      {rateSheetMatchLine(sheet, matches)}
     {/snippet}
 
     {#snippet actions({ id, active }: RateSheetResponse)}

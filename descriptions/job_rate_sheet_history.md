@@ -793,9 +793,9 @@ Status: Implemented (issue 207, step 2)
 - `ui/src/lib/rateSheetLabel.ts` adds both fields to `rateSheetSearchText`,
   which the Rate Sheets list matches as a substring, and lists the store's
   search fields in `rateSheetSearchFields`. The `rateSheets` store indexes
-  them for every picker. The fields are not stored fields of the index,
-  since no option shows them. Pickers and dropdowns are otherwise unchanged:
-  a picker is a search above 10 sheets.
+  them for every picker. A picker is a search above 10 sheets. The fields
+  are not stored fields of the index: `DSPicker` renders a result from its
+  `items`, the store's full records.
 - The search box of the list and of each picker in search mode says what it
   finds: `rateSheetSearchPlaceholder`, "Code, name, date, job or client".
   `DSPicker` and `DSAutoComplete` take an optional `placeholder` for it;
@@ -803,8 +803,22 @@ Status: Implemented (issue 207, step 2)
 - MiniSearch splits a term on punctuation, and the store's search needs every
   part (AND, by prefix). "24-321" finds the sheets with the parts 24 and 321,
   which may come from two jobs. "24-3" and "321" find 24-321.
+- Match line: a result found by a job or a client names it, such as "Job
+  24-321 • Client Mobilia SA": three entries, then "+N more", and nothing
+  when no job number or client name matched. `rateSheetMatchLine` builds it
+  with the rule of the search that found the row, so the line agrees with
+  it. `rateSheetListMatch`: the list joins the fields and entries of
+  `rateSheetSearchText` with line breaks, so a match falls inside one entry,
+  and an entry matches when it holds the search text, lowercase.
+  `rateSheetPickerMatch`: an entry matches when one of its words, split and
+  lowercased by MiniSearch's defaults, is in the result's `match` for its
+  field. So "24-321" on a sheet with 24-100 and 25-321 names both jobs. The
+  list shows it as `line2`; a picker in search mode shows it under the
+  option (`rateSheets/RateSheetOption.svelte`), since `DSPicker` passes a
+  result's `match` to `option` (undefined in a dropdown and for the current
+  choice). It does not pair a job with its client.
 - Size: each revision carries the numbers of its code. A job number and its
-  comma are about 9 bytes, so 3,000 jobs on one code add about 27 KB to each
+  line break are about 9 bytes, so 3,000 jobs on one code add about 27 KB to each
   revision of it, and the client names a few KB more, before compression.
 - Staleness: the store subscribes to `rate_sheets` only, so a job that
   changes sheet does not change these fields, or `job_count`, until the next

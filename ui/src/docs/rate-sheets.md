@@ -22,7 +22,11 @@ A project must have a rate sheet. Choose the sheet with the rates in the client'
 2. Search for a code, name, effective date, job number or client.
 3. Select the [code](/docs/rate-sheet-codes) of a sheet.
 
-A job finds each revision of its sheets, now or past. A long **Rate Sheet** list searches the same way. To share rates, select **Print** or **Download CSV**. To combine identical sheets, [absorb them](/docs/rate-sheet-absorb).
+A job finds each revision of its sheets, now or past. Results show the jobs and clients that match. A long **Rate Sheet** list searches the same way. To combine identical sheets, [absorb them](/docs/rate-sheet-absorb).
+
+## Share a rate sheet
+
+Select **Print** or **Download CSV** on the sheet.
 
 ## Create a rate sheet
 

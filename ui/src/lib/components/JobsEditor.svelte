@@ -5,7 +5,6 @@
     formatJobLabel,
     formatContactName,
     invoicingProfileLabel,
-    shortDate,
   } from "$lib/utilities";
   import { globalStore } from "$lib/stores/global";
   import InvoicingProfileEmptyState from "./clients/InvoicingProfileEmptyState.svelte";
@@ -35,7 +34,8 @@
   import { branches as branchesStore } from "$lib/stores/branches";
   import { divisions } from "$lib/stores/divisions";
   import { rateSheets } from "$lib/stores/rateSheets";
-  import { rateSheetLabel, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
+  import { rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
+  import RateSheetOption from "./rateSheets/RateSheetOption.svelte";
   import { jobsEditingEnabled, jobRequestsEnabled } from "$lib/stores/appConfig";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
   import DsCheck from "$lib/components/DsCheck.svelte";
@@ -1421,8 +1421,8 @@
             disabled={rateSheetLocked}
             empty
           >
-            {#snippet option(sheet)}
-              {rateSheetLabel(sheet)} · {shortDate(sheet.effective_date, true)}
+            {#snippet option(sheet, match)}
+              <RateSheetOption {sheet} {match} />
             {/snippet}
             {#snippet help()}
               <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
