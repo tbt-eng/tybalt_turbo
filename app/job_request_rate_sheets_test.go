@@ -10,6 +10,7 @@ import (
 	"tybalt/utilities"
 
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 )
 
@@ -766,5 +767,56 @@ func TestRatesApprovalIsStaleAfterASourceRateChanges(t *testing.T) {
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+id+"/create", workflowAuthor, requestActionData(t, app, id), http.StatusConflict)
 	if workflowRecord(t, app, "rate_sheets", draftID).GetBool("active") {
 		t.Fatal("a stale approval activated the proposed sheet")
+	}
+}
+
+// The printed authorization of a request with proposed rates is signable when
+// the proposal has a rate for every role, by the check that submission makes.
+// The print data names the roles without a rate. A request that chose an
+// active sheet has no such list; the print page checks that its sheet is
+// active. The list is left out of the review token.
+func TestRequestPrintNamesTheRolesThatProposedRatesLack(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	printDetail := func(id string) map[string]any {
+		t.Helper()
+		return clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id+"/print", draftFixtureCreator, nil, http.StatusOK)
+	}
+	missingRoles := func(detail map[string]any) any {
+		return detail["related"].(map[string]any)["rate_sheet_missing_roles"]
+	}
+	complete := printDetail(draftFixtureRequest)
+	if got, ok := missingRoles(complete).([]any); !ok || len(got) != 0 {
+		t.Fatalf("a complete proposal lists missing roles: %#v", got)
+	}
+	got, ok := missingRoles(printDetail("rsdraftreq00002")).([]any)
+	if !ok || len(got) != 1 || got[0] != missingDraftRoleName {
+		t.Fatalf("the missing role is not named: %#v", got)
+	}
+
+	// A new role makes the complete proposal lack a rate, but does not change
+	// its review token, so a submitted request keeps its approval. This test
+	// adds a rate_roles row at test time; the test app is discarded after.
+	roles, err := app.FindCollectionByNameOrId("rate_roles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	role := core.NewRecord(roles)
+	role.Set("name", "Print Test Role")
+	if err := app.Save(role); err != nil {
+		t.Fatal(err)
+	}
+	changed := printDetail(draftFixtureRequest)
+	if got, ok := missingRoles(changed).([]any); !ok || len(got) != 1 || got[0] != "Print Test Role" {
+		t.Fatalf("the new role is not named: %#v", got)
+	}
+	if changed["review_token"] != complete["review_token"] || complete["review_token"] == "" {
+		t.Fatalf("the missing roles changed the review token: %v, %v", complete["review_token"], changed["review_token"])
+	}
+
+	id := createWorkflowRequest(t, app)
+	completeWorkflowRequest(t, app, id)
+	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id+"/print", workflowAuthor, nil, http.StatusOK)
+	if _, ok := detail["related"].(map[string]any)["rate_sheet_missing_roles"]; ok {
+		t.Fatal("a request that chose an active sheet lists missing roles")
 	}
 }

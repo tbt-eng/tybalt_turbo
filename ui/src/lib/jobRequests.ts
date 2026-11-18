@@ -73,7 +73,14 @@ export function printMissing(detail: RequestDetail): string[] {
     missing.push("Positive whole-dollar project value");
   if (r.time_and_materials_set !== true || typeof r.time_and_materials !== "boolean")
     missing.push("Fee basis");
-  if (!d.rate_sheet?.id || d.rate_sheet.active !== true) missing.push("Rate sheet");
+  // Proposed rates stay inactive until the job is created. They are ready
+  // when the server finds a rate for every role, as at submission. A chosen
+  // sheet must be active.
+  const sheetReady =
+    d.rate_sheet_proposed === true
+      ? Array.isArray(d.rate_sheet_missing_roles) && d.rate_sheet_missing_roles.length === 0
+      : d.rate_sheet?.active === true;
+  if (!d.rate_sheet?.id || !sheetReady) missing.push("Rate sheet");
   if (
     r.time_and_materials === true &&
     (!Array.isArray(d.rate_sheet_entries) ||

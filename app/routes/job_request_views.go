@@ -117,6 +117,9 @@ func requestReviewToken(app core.App, r *core.Record) (string, error) {
 	// a rename, a newer revision) does not change what was approved.
 	delete(related, "rate_sheet_rates_approver")
 	delete(related, "rate_sheet_source")
+	// The missing roles follow from the rates, which the digest holds, and
+	// from the list of roles, which is not part of the request.
+	delete(related, "rate_sheet_missing_roles")
 	// The request binds the sheet by its id, so the sheet's code, name and
 	// updated time are left out: a rename or a code change does not change
 	// what was approved. Every other field stays, so a change to the revision,

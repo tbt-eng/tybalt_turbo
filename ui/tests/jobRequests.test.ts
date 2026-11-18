@@ -95,6 +95,25 @@ test("T&M requires matching available billing rates", () => {
   d.related.rate_sheet_entries[0].rate = undefined;
   assert.deepEqual(printMissing(d), ["Client billing rates"]);
 });
+test("complete proposed rates are ready for signature while the sheet is inactive", () => {
+  const d = complete();
+  d.related.rate_sheet = { id: "draft1", active: false, code: "2026-11-00025", revision: 0 };
+  d.related.rate_sheet_proposed = true;
+  d.related.rate_sheet_missing_roles = [];
+  assert.deepEqual(printMissing(d), []);
+  d.related.rate_sheet_missing_roles = ["Survey Drone Pilot"];
+  assert.deepEqual(printMissing(d), ["Rate sheet"]);
+  delete d.related.rate_sheet_missing_roles;
+  assert.deepEqual(printMissing(d), ["Rate sheet"]);
+});
+test("a chosen rate sheet must be active for signature", () => {
+  const d = complete();
+  d.related.rate_sheet.active = false;
+  assert.deepEqual(printMissing(d), ["Rate sheet"]);
+  // A missing-roles list does not make an inactive chosen sheet ready.
+  d.related.rate_sheet_missing_roles = [];
+  assert.deepEqual(printMissing(d), ["Rate sheet"]);
+});
 test("billing address selects one complete source without mixing partial addresses", () => {
   const client = { address: "1 Main Street", city: "Thunder Bay", province_state: "ON" };
   assert.equal(billingAddress({}, client), "1 Main Street, Thunder Bay, ON");

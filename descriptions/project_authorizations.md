@@ -159,6 +159,16 @@ they do not prevent a document from being ready for signature. A complete
 client document can be ready for signature before internal submission checks,
 PDF upload, approver selection, or approval are complete.
 
+A selected rate sheet is valid when it is active. A request's proposed rates
+are a draft sheet that stays inactive until the job is created, so they are
+valid instead when the proposal has a rate and an overtime rate for every rate
+role: the completeness check that submission makes
+(`hooks.ValidateRateSheetComplete`). The print data carries the result as
+`related.rate_sheet_missing_roles`, the names of the roles without a rate,
+which the review token leaves out. An incomplete proposal prints as a draft
+with **Rate sheet** as the missing item. The printout does not say that the
+rates are proposed.
+
 Exclude internal allocations, approval limits, checklist versions, rejection
 reasons, audit history, and workflow status from the client document. Exclude
 request notes unless staff choose to include them. A request version and

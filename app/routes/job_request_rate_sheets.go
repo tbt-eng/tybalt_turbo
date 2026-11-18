@@ -271,13 +271,23 @@ func renameProposedRates(app core.App, r *core.Record, name, renamedBy string) e
 // requestProposedRates adds the proposal to a request's related records, so
 // the editor and the approver see it: the draft's reason, the sheet it
 // started from, and each rate beside the source's, with changes marked.
-// It does nothing when the request uses an active sheet.
+// rate_sheet_missing_roles names the roles without a rate, by the check that
+// submission makes, so the printed authorization is signable only when it is
+// empty. It does nothing when the request uses an active sheet.
 func requestProposedRates(app core.App, r *core.Record, result map[string]any, rates []map[string]any) error {
 	draft, err := hooks.RequestRateSheetDraft(app, r)
 	if err != nil || draft == nil {
 		return err
 	}
 	result["rate_sheet_proposed"] = true
+	missing, err := hooks.ValidateRateSheetComplete(app, draft.Id)
+	if err != nil {
+		return err
+	}
+	if missing == nil {
+		missing = []string{}
+	}
+	result["rate_sheet_missing_roles"] = missing
 	if id := draft.GetString("rates_approver"); id != "" {
 		if approver, err := app.FindRecordById("users", id); err == nil {
 			result["rate_sheet_rates_approver"] = workflowPerson(app, approver)
