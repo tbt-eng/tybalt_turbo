@@ -14,6 +14,7 @@ import {
   withOvertimeMultiplier,
   withSourceRates,
   missingRateLabel,
+  overtimeMultiplierChanges,
   withoutShownErrors,
 } from "../src/lib/proposedRates.ts";
 
@@ -291,4 +292,21 @@ test("the review lists each role with no rate as an empty row with the source ra
   assert.equal(rateMissing(rows[1]), false);
   // A complete proposal, or a response without the list, has only its rates.
   assert.equal(reviewRows(entries).length, 1);
+});
+
+test("the multiplier's changes leave out the rows it does not change", () => {
+  const rows = [
+    { id: "a", rate: 100, overtime_rate: 130 },
+    { id: "b", rate: 200, overtime_rate: 250 },
+    { id: "c", rate: null, overtime_rate: 99 },
+  ];
+  // a is already 1.3 times its rate and c has no rate, so only b changes.
+  assert.deepEqual(overtimeMultiplierChanges(rows, 1.3), [
+    { id: "b", rate: 200, overtime_rate: 260 },
+  ]);
+  assert.deepEqual(overtimeMultiplierChanges(rows, null), []);
+  assert.deepEqual(
+    overtimeMultiplierChanges(rows, 1.5).map((row) => row.id),
+    ["a", "b"],
+  );
 });

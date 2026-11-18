@@ -13,6 +13,7 @@
   import DSTextInput from "$lib/components/DSTextInput.svelte";
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import { rateSheetCodeRevision } from "$lib/rateSheetLabel";
+  import { overtimeMultiplierChanges } from "$lib/proposedRates";
   import {
     canActivateRateSheets,
     canCorrectRateSheets,
@@ -226,20 +227,20 @@
     clearEntryError(entryId);
   }
 
-  // Apply overtime multiplier to all entries
+  // Set every overtime rate to the rate times the multiplier. A row whose
+  // overtime rate changes loses its refusal, as when it is edited; a row
+  // that stays as it was keeps it.
   function applyOvertimeMultiplier() {
-    const newEdits: Record<string, { rate: number; overtime_rate: number }> = { ...editedEntries };
-
-    for (const entry of entries) {
-      const currentRate = editedEntries[entry.id]?.rate ?? entry.rate;
-      const calculatedOvertime = Math.round(currentRate * overtimeMultiplier * 100) / 100;
-
-      newEdits[entry.id] = {
-        rate: currentRate,
-        overtime_rate: calculatedOvertime,
-      };
+    const current = entries.map((entry) => ({
+      id: entry.id as string,
+      rate: getEntryValue(entry, "rate"),
+      overtime_rate: getEntryValue(entry, "overtime_rate"),
+    }));
+    const newEdits = { ...editedEntries };
+    for (const row of overtimeMultiplierChanges(current, overtimeMultiplier)) {
+      newEdits[row.id] = { rate: row.rate, overtime_rate: row.overtime_rate };
+      clearEntryError(row.id);
     }
-
     editedEntries = newEdits;
   }
 

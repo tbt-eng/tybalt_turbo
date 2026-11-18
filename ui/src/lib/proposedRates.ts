@@ -63,6 +63,16 @@ export function withOvertimeMultiplier<
   });
 }
 
+// The rows whose overtime rate the multiplier changes, with the new overtime
+// rate (see withOvertimeMultiplier). A row it leaves as it was is left out,
+// so its state, such as a refused save, can stay.
+export function overtimeMultiplierChanges<
+  T extends { rate: number | null; overtime_rate: number | null },
+>(rows: T[], multiplier: number | null): T[] {
+  const applied = withOvertimeMultiplier(rows, multiplier);
+  return applied.filter((row, i) => row.overtime_rate !== rows[i].overtime_rate);
+}
+
 // A rate is changed when it differs from the source sheet's, or when the
 // source sheet has no rate for the role.
 export function rateChanged(row: ProposedRate): boolean {
