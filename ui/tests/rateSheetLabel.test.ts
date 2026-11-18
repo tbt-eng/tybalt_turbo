@@ -5,8 +5,9 @@ import {
   rateSheetCodeRevision,
   rateSheetLabel,
   rateSheetListMatch,
-  rateSheetMatchLine,
+  rateSheetMatchGroups,
   rateSheetPickerMatch,
+  type RateSheetMatchGroup,
   rateSheetSearchFields,
   rateSheetSearchText,
 } from "../src/lib/rateSheetLabel.ts";
@@ -118,6 +119,16 @@ test("a picker's search finds a sheet by a job number or a client name", () => {
 // search text holds the term; a picker keeps the results of the store's index.
 type Sheet = (typeof sheets)[number];
 
+// The groups as RateSheetMatchLine.svelte shows them, with " | " for the gap
+// between two groups.
+function text(groups: RateSheetMatchGroup[]): string {
+  return groups
+    .map(({ label, shown, more }) =>
+      [label, shown.join(" · "), more > 0 ? `+${more} more` : ""].filter((p) => p).join(" "),
+    )
+    .join(" | ");
+}
+
 const matchSheets = [
   {
     id: "jobs",
@@ -135,7 +146,7 @@ function listLines(term: string): Record<string, string> {
   const lines: Record<string, string> = {};
   for (const sheet of matchSheets) {
     if (!rateSheetSearchText(sheet).toLowerCase().includes(term.toLowerCase())) continue;
-    lines[sheet.id] = rateSheetMatchLine(sheet, rateSheetListMatch(term));
+    lines[sheet.id] = text(rateSheetMatchGroups(sheet, rateSheetListMatch(term)));
   }
   return lines;
 }
@@ -150,7 +161,7 @@ function pickerLines(term: string, list: Sheet[] = matchSheets): Record<string, 
   const lines: Record<string, string> = {};
   for (const result of index.search(term, { prefix: true })) {
     const sheet = byId.get(result.id)!;
-    lines[result.id] = rateSheetMatchLine(sheet, rateSheetPickerMatch(sheet, result));
+    lines[result.id] = text(rateSheetMatchGroups(sheet, rateSheetPickerMatch(sheet, result)));
   }
   return lines;
 }
@@ -158,6 +169,9 @@ function pickerLines(term: string, list: Sheet[] = matchSheets): Record<string, 
 test("a job match names the job", () => {
   assert.deepEqual(listLines("24-321"), { rev0: "Job 24-321", rev1: "Job 24-321" });
   assert.deepEqual(pickerLines("P25-0"), { rev0: "Job P25-007", rev1: "Job P25-007" });
+  assert.deepEqual(rateSheetMatchGroups(sheets[0], rateSheetListMatch("24-321")), [
+    { label: "Job", shown: ["24-321"], more: 0 },
+  ]);
 });
 
 test("a client match names the client", () => {
@@ -179,28 +193,39 @@ test("a client name with a comma is one entry", () => {
   // Lakehead Surveys, Inc. has both words, so Inc Partners is left out.
   assert.deepEqual(pickerLines("Surveys, Inc"), { jobs: "Client Lakehead Surveys, Inc." });
   assert.deepEqual(pickerLines("inc"), {
-    jobs: "Client Lakehead Surveys, Inc. • Client Inc Partners",
+    jobs: "Clients Lakehead Surveys, Inc. · Inc Partners",
   });
 });
 
 test("a search can match a job and a client at once", () => {
   assert.deepEqual(pickerLines("24-321 mobilia"), {
-    jobs: "Job 24-100 • Job 25-321 • Client Mobilia SA",
-    rev0: "Job 24-321 • Client Mobilia SA",
-    rev1: "Job 24-321 • Client Mobilia SA",
+    jobs: "Jobs 24-100 · 25-321 | Client Mobilia SA",
+    rev0: "Job 24-321 | Client Mobilia SA",
+    rev1: "Job 24-321 | Client Mobilia SA",
   });
-  const line = rateSheetMatchLine(
-    { job_numbers: "24-321", client_names: "Client 24 Ltd" },
+  // Jobs come first, then clients, each group with its own label and count.
+  const groups = rateSheetMatchGroups(
+    {
+      job_numbers: "24-321\n24-322\n24-323\n24-324\n24-325",
+      client_names: "Client 24 Ltd\nOther Co",
+    },
     rateSheetListMatch("24"),
   );
-  assert.equal(line, "Job 24-321 • Client Client 24 Ltd");
+  assert.deepEqual(groups, [
+    { label: "Jobs", shown: ["24-321", "24-322", "24-323"], more: 2 },
+    { label: "Client", shown: ["Client 24 Ltd"], more: 0 },
+  ]);
 });
 
 test("more than three matches show three, then +N more", () => {
   assert.deepEqual(listLines("91-893"), {
-    jobs: "Job 91-8930 • Job 91-8931 • Job 91-8932 +2 more",
+    jobs: "Jobs 91-8930 · 91-8931 · 91-8932 +2 more",
   });
-  assert.deepEqual(pickerLines("91"), { jobs: "Job 91-8930 • Job 91-8931 • Job 91-8932 +2 more" });
+  assert.deepEqual(pickerLines("91"), { jobs: "Jobs 91-8930 · 91-8931 · 91-8932 +2 more" });
+  // The label is plural by every match, not by the three shown.
+  assert.deepEqual(rateSheetMatchGroups(matchSheets[0], rateSheetListMatch("91-893")), [
+    { label: "Jobs", shown: ["91-8930", "91-8931", "91-8932"], more: 2 },
+  ]);
 });
 
 test("a match on the code, the name or the date shows no line", () => {
@@ -214,8 +239,8 @@ test("a match on the code, the name or the date shows no line", () => {
 
 test("an empty search shows no line", () => {
   for (const sheet of matchSheets) {
-    assert.equal(rateSheetMatchLine(sheet, rateSheetListMatch("")), "");
-    assert.equal(rateSheetMatchLine(sheet, rateSheetPickerMatch(sheet, undefined)), "");
+    assert.deepEqual(rateSheetMatchGroups(sheet, rateSheetListMatch("")), []);
+    assert.deepEqual(rateSheetMatchGroups(sheet, rateSheetPickerMatch(sheet, undefined)), []);
   }
 });
 
@@ -239,7 +264,7 @@ test("a picker names only the entries that have every search word", () => {
   // A job and a client with every word are named, jobs first.
   const both = { ...valuation, client_names: "91 Holdings\nLakehead Rail" };
   assert.deepEqual(pickerLines("91", [both]), {
-    valuation: "Job 91-8801 • Job 91-8803 • Job 91-8901 +1 more",
+    valuation: "Jobs 91-8801 · 91-8803 · 91-8901 | Client 91 Holdings",
   });
 });
 
@@ -247,7 +272,7 @@ test("a picker's split term names each job that it matched", () => {
   // MiniSearch finds "24-321" by the words 24 and 321, here of 24-100 and
   // 25-321, so the line names both jobs. The list needs the whole text, so it
   // does not find the sheet.
-  assert.deepEqual(pickerLines("24-321").jobs, "Job 24-100 • Job 25-321");
+  assert.deepEqual(pickerLines("24-321").jobs, "Jobs 24-100 · 25-321");
   assert.equal(listLines("24-321").jobs, undefined);
 });
 

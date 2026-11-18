@@ -3,9 +3,9 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
+  import RateSheetMatchLine from "$lib/components/rateSheets/RateSheetMatchLine.svelte";
   import {
     rateSheetListMatch,
-    rateSheetMatchLine,
     rateSheetSearchPlaceholder,
     rateSheetSearchText,
   } from "$lib/rateSheetLabel";
@@ -72,7 +72,7 @@
     {/snippet}
 
     {#snippet line2(sheet: RateSheetResponse)}
-      {rateSheetMatchLine(sheet, matches)}
+      <RateSheetMatchLine {sheet} {matches} />
     {/snippet}
 
     {#snippet actions({ id, active }: RateSheetResponse)}

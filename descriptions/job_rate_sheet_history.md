@@ -803,11 +803,18 @@ Status: Implemented (issue 207, step 2)
 - MiniSearch splits a term on punctuation, and the store's search needs every
   part (AND, by prefix). "24-321" finds the sheets with the parts 24 and 321,
   which may come from two jobs. "24-3" and "321" find 24-321.
-- Match line: a result found by a job or a client names it, such as "Job
-  24-321 • Client Mobilia SA": three entries, then "+N more", and nothing
-  when no job number or client name matched. `rateSheetMatchLine` builds it
-  with the rule of the search that found the row, so the line agrees with
-  it. `rateSheetListMatch`: the list joins the fields and entries of
+- Match line: a result found by a job or a client names it, in one group
+  for each kind, jobs first, such as "Jobs 91-8901 · 91-8902 · 91-8903 +5
+  more", then "Client Lakehead Surveys, Inc.". Each group says its label once,
+  plural by the number of entries of its kind that matched, not the number
+  shown, and shows three entries, then its own "+N more". The line is empty
+  when no job number or client name matched. `rateSheetMatchGroups` returns
+  the groups as data (`{ label, shown, more }[]`) with the rule of the search
+  that found the row, so the line agrees with it.
+  `rateSheets/RateSheetMatchLine.svelte` shows them in `text-sm`: the label
+  and "+N more" in `text-neutral-500`, the entries in `text-neutral-800`, so
+  the values stand out, and a gap between groups, which may wrap. It renders
+  nothing when there are no groups. `rateSheetListMatch`: the list joins the fields and entries of
   `rateSheetSearchText` with line breaks, so a match falls inside one entry,
   and an entry matches when it holds the search text, lowercase.
   `rateSheetPickerMatch`: words are split and lowercased by MiniSearch's
@@ -816,8 +823,8 @@ Status: Implemented (issue 207, step 2)
   words, only such entries match, jobs first: "91-89" names 91-8901, not
   91-8801. Otherwise an entry matches when one of its words is in the
   result's `match` for its field, so "24-321" on a sheet with 24-100 and
-  25-321 names both jobs. The list shows the line as `line2`; a picker in
-  search mode shows it under the option
+  25-321 names both jobs. The list shows the component as `line2`; a picker
+  in search mode shows it under the option
   (`rateSheets/RateSheetOption.svelte`), since `DSPicker` passes the
   MiniSearch result to `option` (undefined in a dropdown and for the
   current choice). It does not pair a job with its client.

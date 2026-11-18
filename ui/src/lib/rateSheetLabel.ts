@@ -111,22 +111,38 @@ export function rateSheetPickerMatch(
   return anyHasEvery ? hasEvery : hasOne;
 }
 
-// Why a search found a sheet: the job numbers and client names that it
-// matched, such as "Job 24-321 • Client Mobilia SA". It shows three, then
-// "+N more". It is empty when none matched, so for an empty search or one
-// that matched only the code, the name or the date.
-export function rateSheetMatchLine(
+// One kind of match in why a search found a sheet: the label, said once and
+// plural when more than one entry of the kind matched, such as "Jobs"; the
+// first three entries; and how many more matched.
+export interface RateSheetMatchGroup {
+  label: string;
+  shown: string[];
+  more: number;
+}
+
+const matchKinds = [
+  { field: "job_numbers", one: "Job", many: "Jobs" },
+  { field: "client_names", one: "Client", many: "Clients" },
+] as const;
+
+// Why a search found a sheet: the job numbers that it matched, then the client
+// names, as one group for each kind that matched, such as Jobs 91-8901 ·
+// 91-8902 · 91-8903 +5 more, then Client Lakehead Surveys, Inc. It is empty
+// when none matched, so for an empty search or one that matched only the
+// code, the name or the date. RateSheetMatchLine.svelte shows it.
+export function rateSheetMatchGroups(
   sheet: RateSheetMatchFields,
   matches: RateSheetEntryMatch,
-): string {
-  const found = [
-    ...entries(sheet.job_numbers)
-      .filter((number) => matches("job_numbers", number))
-      .map((number) => `Job ${number}`),
-    ...entries(sheet.client_names)
-      .filter((name) => matches("client_names", name))
-      .map((name) => `Client ${name}`),
-  ];
-  const shown = found.slice(0, 3).join(" • ");
-  return found.length > 3 ? `${shown} +${found.length - 3} more` : shown;
+): RateSheetMatchGroup[] {
+  return matchKinds.flatMap(({ field, one, many }) => {
+    const found = entries(sheet[field]).filter((entry) => matches(field, entry));
+    if (found.length === 0) return [];
+    return [
+      {
+        label: found.length === 1 ? one : many,
+        shown: found.slice(0, 3),
+        more: Math.max(0, found.length - 3),
+      },
+    ];
+  });
 }
