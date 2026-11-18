@@ -6,7 +6,7 @@
 <script lang="ts" generics="T extends { id: string }">
   import type { Snippet } from "svelte";
   import type MiniSearch from "minisearch";
-  import type { MatchInfo, SearchResult } from "minisearch";
+  import type { SearchResult } from "minisearch";
   import DsSelector from "./DSSelector.svelte";
   import DsAutoComplete from "./DSAutoComplete.svelte";
 
@@ -14,10 +14,10 @@
   // DSAutoComplete for a long one. items is the list the user may choose from,
   // already filtered; index is the search index that holds them, needed for a
   // long list only, and the search offers only the items. option renders a
-  // record in either mode. In a search result it also gets the result's match
-  // (the record's words that the search matched, by field), so it can say why
-  // the record was found; it gets undefined in the dropdown and for the
-  // current choice. With empty, the dropdown starts with a
+  // record in either mode. In a search result it also gets the MiniSearch
+  // result (its queryTerms and match say which words of the record the search
+  // matched), so it can say why the record was found; it gets undefined in
+  // the dropdown and for the current choice. With empty, the dropdown starts with a
   // "-- select --" choice so the value can be cleared, as the search's Clear
   // button does. A value that is not in items, such as a sheet deactivated
   // since it was chosen, still shows as the current choice. placeholder is the
@@ -38,7 +38,7 @@
     value: string;
     items: T[];
     index?: MiniSearch<T> | null;
-    option: Snippet<[T, MatchInfo | undefined]>;
+    option: Snippet<[T, SearchResult | undefined]>;
     errors: Record<string, { message: string }>;
     fieldName: string;
     uiName: string;
@@ -81,6 +81,9 @@
     {disabled}
     {help}
   >
-    {#snippet resultTemplate(result)}{@render option(record(result), result.match)}{/snippet}
+    {#snippet resultTemplate(result)}{@render option(
+        record(result),
+        result.match ? result : undefined,
+      )}{/snippet}
   </DsAutoComplete>
 {/if}

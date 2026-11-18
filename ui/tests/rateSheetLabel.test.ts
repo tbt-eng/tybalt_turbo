@@ -140,16 +140,17 @@ function listLines(term: string): Record<string, string> {
   return lines;
 }
 
-function pickerLines(term: string): Record<string, string> {
+function pickerLines(term: string, list: Sheet[] = matchSheets): Record<string, string> {
   const index = new MiniSearch<Sheet>({
     fields: rateSheetSearchFields,
     searchOptions: { combineWith: "AND" },
   });
-  index.addAll(matchSheets);
-  const byId = new Map(matchSheets.map((s) => [s.id, s]));
+  index.addAll(list);
+  const byId = new Map(list.map((s) => [s.id, s]));
   const lines: Record<string, string> = {};
   for (const result of index.search(term, { prefix: true })) {
-    lines[result.id] = rateSheetMatchLine(byId.get(result.id)!, rateSheetPickerMatch(result.match));
+    const sheet = byId.get(result.id)!;
+    lines[result.id] = rateSheetMatchLine(sheet, rateSheetPickerMatch(sheet, result));
   }
   return lines;
 }
@@ -175,7 +176,9 @@ test("a client name with a comma is one entry", () => {
   assert.deepEqual(listLines("surveys, inc"), { jobs: "Client Lakehead Surveys, Inc." });
   // The picker matches by word, and "inc" is a word of two clients.
   assert.deepEqual(pickerLines("Surveys"), { jobs: "Client Lakehead Surveys, Inc." });
-  assert.deepEqual(pickerLines("Surveys, Inc"), {
+  // Lakehead Surveys, Inc. has both words, so Inc Partners is left out.
+  assert.deepEqual(pickerLines("Surveys, Inc"), { jobs: "Client Lakehead Surveys, Inc." });
+  assert.deepEqual(pickerLines("inc"), {
     jobs: "Client Lakehead Surveys, Inc. • Client Inc Partners",
   });
 });
@@ -212,8 +215,32 @@ test("a match on the code, the name or the date shows no line", () => {
 test("an empty search shows no line", () => {
   for (const sheet of matchSheets) {
     assert.equal(rateSheetMatchLine(sheet, rateSheetListMatch("")), "");
-    assert.equal(rateSheetMatchLine(sheet, rateSheetPickerMatch(undefined)), "");
+    assert.equal(rateSheetMatchLine(sheet, rateSheetPickerMatch(sheet, undefined)), "");
   }
+});
+
+// A sheet whose jobs and clients share some words but not others.
+const valuation = {
+  id: "valuation",
+  code: "2026-09-00001",
+  name: "Summary valuation fixture",
+  revision: 0,
+  effective_date: "2034-01-01",
+  job_numbers: "91-8801\n91-8803\n91-8901",
+  client_names: "Lakehead Surveys, Inc.\nLakehead Rail\nNorth Survey Co",
+};
+
+test("a picker names only the entries that have every search word", () => {
+  // 91-8801 has the word 91 but no word that starts with 89.
+  assert.deepEqual(pickerLines("91-89", [valuation]), { valuation: "Job 91-8901" });
+  assert.deepEqual(pickerLines("lakehead surv", [valuation]), {
+    valuation: "Client Lakehead Surveys, Inc.",
+  });
+  // A job and a client with every word are named, jobs first.
+  const both = { ...valuation, client_names: "91 Holdings\nLakehead Rail" };
+  assert.deepEqual(pickerLines("91", [both]), {
+    valuation: "Job 91-8801 • Job 91-8803 • Job 91-8901 +1 more",
+  });
 });
 
 test("a picker's split term names each job that it matched", () => {

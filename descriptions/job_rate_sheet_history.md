@@ -810,13 +810,17 @@ Status: Implemented (issue 207, step 2)
   it. `rateSheetListMatch`: the list joins the fields and entries of
   `rateSheetSearchText` with line breaks, so a match falls inside one entry,
   and an entry matches when it holds the search text, lowercase.
-  `rateSheetPickerMatch`: an entry matches when one of its words, split and
-  lowercased by MiniSearch's defaults, is in the result's `match` for its
-  field. So "24-321" on a sheet with 24-100 and 25-321 names both jobs. The
-  list shows it as `line2`; a picker in search mode shows it under the
-  option (`rateSheets/RateSheetOption.svelte`), since `DSPicker` passes a
-  result's `match` to `option` (undefined in a dropdown and for the current
-  choice). It does not pair a job with its client.
+  `rateSheetPickerMatch`: words are split and lowercased by MiniSearch's
+  defaults, as the store indexes them. When any job or client entry has
+  every search word (the result's `queryTerms`) as the start of one of its
+  words, only such entries match, jobs first: "91-89" names 91-8901, not
+  91-8801. Otherwise an entry matches when one of its words is in the
+  result's `match` for its field, so "24-321" on a sheet with 24-100 and
+  25-321 names both jobs. The list shows the line as `line2`; a picker in
+  search mode shows it under the option
+  (`rateSheets/RateSheetOption.svelte`), since `DSPicker` passes the
+  MiniSearch result to `option` (undefined in a dropdown and for the
+  current choice). It does not pair a job with its client.
 - Size: each revision carries the numbers of its code. A job number and its
   line break are about 9 bytes, so 3,000 jobs on one code add about 27 KB to each
   revision of it, and the client names a few KB more, before compression.

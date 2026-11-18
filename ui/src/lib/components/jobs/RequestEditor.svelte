@@ -576,7 +576,7 @@
         placeholder={rateSheetSearchPlaceholder}
         empty
       >
-        {#snippet option(row, match)}<RateSheetOption sheet={row} {match} />{/snippet}
+        {#snippet option(row, result)}<RateSheetOption sheet={row} {result} />{/snippet}
         {#snippet help()}
           <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
         {/snippet}

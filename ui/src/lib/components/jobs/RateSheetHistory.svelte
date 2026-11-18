@@ -230,7 +230,7 @@
         placeholder={rateSheetSearchPlaceholder}
         disabled={submitting}
       >
-        {#snippet option(item, match)}<RateSheetOption sheet={item} {match} />{/snippet}
+        {#snippet option(item, result)}<RateSheetOption sheet={item} {result} />{/snippet}
       </DSPicker>
       {#if !isOpening}
         <label class="flex flex-col gap-1">

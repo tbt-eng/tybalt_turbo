@@ -3,7 +3,7 @@
 // optional description. See the Rate sheet codes section of
 // descriptions/job_rate_sheet_history.md.
 
-import MiniSearch, { type MatchInfo } from "minisearch";
+import MiniSearch, { type SearchResult } from "minisearch";
 
 export interface RateSheetLabelFields {
   code?: string | null;
@@ -65,6 +65,11 @@ export function rateSheetSearchText(
 
 type RateSheetMatchFields = { job_numbers?: string | null; client_names?: string | null };
 
+// The entries of job_numbers or client_names, which a line break separates.
+function entries(text?: string | null): string[] {
+  return (text ?? "").split("\n").filter((e) => e !== "");
+}
+
 // Whether a search matched an entry of job_numbers or client_names.
 export type RateSheetEntryMatch = (field: "job_numbers" | "client_names", entry: string) => boolean;
 
@@ -78,17 +83,32 @@ export function rateSheetListMatch(searchTerm: string): RateSheetEntryMatch {
 }
 
 // A picker's rule. MiniSearch splits the search and each field into words and
-// keeps a sheet when every search word starts a word of the sheet. Each
-// result's match lists the sheet's words that it matched, by field. An entry
-// matches when one of its words is in that list for its field. So "24-321"
-// finds a sheet by the words 24 and 321, and on a sheet with 24-100 and
-// 25-321 it matches both.
-export function rateSheetPickerMatch(match: MatchInfo | undefined): RateSheetEntryMatch {
+// keeps a sheet when every search word starts a word of the sheet. A result's
+// queryTerms are the search words, and its match lists the sheet's words that
+// they matched, by field. When an entry has every search word, as the start
+// of one of its words, only such entries match: "91-89" names 91-8901, not
+// 91-8801. When none has them all, an entry matches when one of its words is
+// in match for its field: "24-321" on a sheet with 24-100 and 25-321 names
+// both, since together they are why the search found it.
+export function rateSheetPickerMatch(
+  sheet: RateSheetMatchFields,
+  result: SearchResult | undefined,
+): RateSheetEntryMatch {
+  if (result === undefined) return () => false;
   const tokenize = MiniSearch.getDefault("tokenize");
   const processTerm = MiniSearch.getDefault("processTerm");
-  return (field, entry) =>
-    match !== undefined &&
-    tokenize(entry, field).some((word: string) => match[processTerm(word, field)]?.includes(field));
+  const words = (field: string, entry: string): string[] =>
+    tokenize(entry, field).map((word: string) => processTerm(word, field));
+  const hasEvery: RateSheetEntryMatch = (field, entry) => {
+    const own = words(field, entry);
+    return result.queryTerms.every((term) => own.some((word) => word.startsWith(term)));
+  };
+  const hasOne: RateSheetEntryMatch = (field, entry) =>
+    words(field, entry).some((word) => result.match[word]?.includes(field));
+  const anyHasEvery =
+    entries(sheet.job_numbers).some((n) => hasEvery("job_numbers", n)) ||
+    entries(sheet.client_names).some((c) => hasEvery("client_names", c));
+  return anyHasEvery ? hasEvery : hasOne;
 }
 
 // Why a search found a sheet: the job numbers and client names that it
@@ -99,7 +119,6 @@ export function rateSheetMatchLine(
   sheet: RateSheetMatchFields,
   matches: RateSheetEntryMatch,
 ): string {
-  const entries = (text?: string | null) => (text ?? "").split("\n").filter((e) => e !== "");
   const found = [
     ...entries(sheet.job_numbers)
       .filter((number) => matches("job_numbers", number))

@@ -173,7 +173,7 @@
       placeholder={rateSheetSearchPlaceholder}
       empty
     >
-      {#snippet option(row, match)}<RateSheetOption sheet={row} {match} />{/snippet}
+      {#snippet option(row, result)}<RateSheetOption sheet={row} {result} />{/snippet}
       {#snippet help()}
         <DSHelp doc="proposed-rates#propose-new-rates" iconOnly />
       {/snippet}

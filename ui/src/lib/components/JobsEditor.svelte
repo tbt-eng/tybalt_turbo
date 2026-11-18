@@ -1421,8 +1421,8 @@
             disabled={rateSheetLocked}
             empty
           >
-            {#snippet option(sheet, match)}
-              <RateSheetOption {sheet} {match} />
+            {#snippet option(sheet, result)}
+              <RateSheetOption {sheet} {result} />
             {/snippet}
             {#snippet help()}
               <DSHelp doc="rate-sheets#choose-a-rate-sheet-for-a-project" iconOnly />
