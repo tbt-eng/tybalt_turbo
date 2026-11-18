@@ -5,6 +5,9 @@
   import { goto } from "$app/navigation";
   import { getAbsorbRedirectUrl } from "$lib/utilities";
   import { jobsEditingEnabled, expensesEditingEnabled } from "$lib/stores/appConfig";
+  import RateSheetLabel from "./rateSheets/RateSheetLabel.svelte";
+  import { absorbedRateSheets } from "$lib/rateSheetAbsorb";
+  import { rateSheets } from "$lib/stores/rateSheets";
 
   // Helper: check if actions are disabled for a given absorb item
   function isAbsorbActionDisabled(item: AbsorbActionsResponse): boolean {
@@ -51,6 +54,8 @@
         ...(collectionName ? { filter: `collection_name='${collectionName}'` } : {}),
       });
       items = list;
+      // A rate sheet absorb names its sheets by code, so load the sheets.
+      if (list.some((item) => item.collection_name === "rate_sheets")) rateSheets.init();
     } catch (error: unknown) {
       if (error instanceof Error) {
         errors = { global: { message: error.message } };
@@ -106,6 +111,13 @@
     if (name === "vendors") return "Vendors";
     if (name === "rate_sheets") return "Rate Sheets";
     return name;
+  }
+
+  // The target of a rate sheet absorb, from the rate sheets store. It is
+  // undefined until the store loads, and for any other collection.
+  function rateSheetTarget(item: AbsorbActionsResponse) {
+    if (item.collection_name !== "rate_sheets") return undefined;
+    return $rateSheets.items.find((sheet) => sheet.id === item.target_id);
   }
 
   function countAbsorbed(records: unknown): number | null {
@@ -181,13 +193,20 @@
   {:else}
     <ul class="flex flex-col gap-4">
       {#each items as item}
+        {@const target = rateSheetTarget(item)}
         <li class="rounded-lg border-2 border-yellow-500 bg-yellow-50 p-4">
           <div class="mb-2 flex items-center justify-between">
             <div>
               <h2 class="text-lg font-bold text-yellow-800">
                 Pending Absorb — {formatCollectionLabel(item.collection_name)}
               </h2>
-              <p class="text-sm text-yellow-800/80">Target ID: {item.target_id}</p>
+              {#if target}
+                <p class="text-sm text-yellow-800/80">
+                  Target: <RateSheetLabel sheet={target} />
+                </p>
+              {:else}
+                <p class="text-sm text-yellow-800/80">Target ID: {item.target_id}</p>
+              {/if}
             </div>
             <div class="text-xs text-yellow-800/70">
               Created: {new Date(item.created).toLocaleString()}
@@ -205,9 +224,19 @@
               <div class="mt-1 grid grid-cols-1 gap-2 md:grid-cols-2">
                 <div>
                   <div class="text-xs font-medium">Absorbed Records</div>
-                  <pre class="mt-1 max-h-48 overflow-auto rounded-sm bg-yellow-200/50 p-2 text-xs">
+                  {#if item.collection_name === "rate_sheets"}
+                    <!-- The absorbed sheets are deleted, so they have no page to link to. -->
+                    <ul class="mt-1 flex flex-col gap-1">
+                      {#each absorbedRateSheets(item.absorbed_records) as sheet (sheet.id)}
+                        <li><RateSheetLabel {sheet} link={false} /></li>
+                      {/each}
+                    </ul>
+                  {:else}
+                    <pre
+                      class="mt-1 max-h-48 overflow-auto rounded-sm bg-yellow-200/50 p-2 text-xs">
 {JSON.stringify(item.absorbed_records, null, 2)}
                   </pre>
+                  {/if}
                 </div>
                 <div>
                   <div class="text-xs font-medium">Updated References</div>

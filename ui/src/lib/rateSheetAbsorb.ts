@@ -47,3 +47,30 @@ export function canAbsorbRateSheets(claims: string[]): boolean {
     claims.includes("admin") || (claims.includes("absorb") && claims.includes("rate_sheet_revise"))
   );
 }
+
+// An absorbed sheet as the absorb_actions record stores it: every field of
+// the sheet, with its entries. The Absorb Actions page names each one.
+export interface AbsorbedRateSheet {
+  id: string;
+  code: string;
+  name: string;
+  revision: number;
+}
+
+// The sheets in an absorb action's absorbed_records, by code and revision.
+// Anything that is not a stored sheet is left out.
+export function absorbedRateSheets(records: unknown): AbsorbedRateSheet[] {
+  if (!Array.isArray(records)) return [];
+  return records
+    .filter(
+      (record): record is Record<string, unknown> =>
+        !!record && typeof record === "object" && typeof record.id === "string",
+    )
+    .map((record) => ({
+      id: record.id as string,
+      code: typeof record.code === "string" ? record.code : "",
+      name: typeof record.name === "string" ? record.name : "",
+      revision: typeof record.revision === "number" ? record.revision : 0,
+    }))
+    .sort((a, b) => a.code.localeCompare(b.code) || a.revision - b.revision);
+}

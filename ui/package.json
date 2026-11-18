@@ -40,6 +40,7 @@
     "test:proposed-rates": "node --test --experimental-strip-types tests/proposedRates.test.ts",
     "test:rate-sheet-label": "node --test --experimental-strip-types tests/rateSheetLabel.test.ts",
     "test:rate-sheet-permissions": "node --test --experimental-strip-types tests/rateSheetPermissions.test.ts",
+    "test:rate-sheet-absorb": "node --test --experimental-strip-types tests/rateSheetAbsorb.test.ts",
     "test:job-request-permissions": "node --experimental-vm-modules --test tests/jobRequestPermissions.test.mjs",
     "test:manager-allocations-browser": "node tests/managerAllocations.browser.mjs",
     "test:job-requests-browser": "node tests/projectRequests.browser.mjs",
