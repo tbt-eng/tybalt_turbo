@@ -249,11 +249,11 @@ test("creator display uses recorded attribution without inventing legacy identit
   assert.equal(profileCreatorName({ creator: "deleted-user", creator_name: "" }), "");
 });
 
-test("rate sheet usage counts jobs now and in the past, leaving out a zero part", () => {
+test("rate sheet usage says now only against a past count, leaving out a zero part", () => {
   assert.equal(rateSheetUsage({ current_jobs: 3, past_jobs: 1 }), "3 jobs now · 1 past");
   assert.equal(rateSheetUsage({ current_jobs: 1, past_jobs: 2 }), "1 job now · 2 past");
-  assert.equal(rateSheetUsage({ current_jobs: 1, past_jobs: 0 }), "1 job now");
-  assert.equal(rateSheetUsage({ current_jobs: 5, past_jobs: 0 }), "5 jobs now");
+  assert.equal(rateSheetUsage({ current_jobs: 1, past_jobs: 0 }), "1 job");
+  assert.equal(rateSheetUsage({ current_jobs: 5, past_jobs: 0 }), "5 jobs");
   assert.equal(rateSheetUsage({ current_jobs: 0, past_jobs: 1 }), "1 past job");
   assert.equal(rateSheetUsage({ current_jobs: 0, past_jobs: 4 }), "4 past jobs");
 });

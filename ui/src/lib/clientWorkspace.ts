@@ -65,13 +65,14 @@ export type WorkspaceRateSheet = {
   past_jobs: number;
 };
 
-// How many of the client's jobs use a sheet: "3 jobs now · 1 past", leaving
-// out a part that is zero, such as "1 job now" or "2 past jobs".
+// How many of the client's jobs use a sheet: "3 jobs now · 1 past" when it
+// has both, "5 jobs" with no past jobs, and "2 past jobs" with no current
+// ones. "now" is said only when a past count contrasts with it.
 export function rateSheetUsage(sheet: Pick<WorkspaceRateSheet, "current_jobs" | "past_jobs">) {
-  const now = sheet.current_jobs > 0 ? `${countLabel(sheet.current_jobs, "job")} now` : "";
-  if (sheet.past_jobs === 0) return now;
-  if (!now) return `${sheet.past_jobs} past ${sheet.past_jobs === 1 ? "job" : "jobs"}`;
-  return `${now} · ${sheet.past_jobs} past`;
+  const current = sheet.current_jobs > 0 ? countLabel(sheet.current_jobs, "job") : "";
+  if (sheet.past_jobs === 0) return current;
+  if (!current) return `${sheet.past_jobs} past ${sheet.past_jobs === 1 ? "job" : "jobs"}`;
+  return `${current} now · ${sheet.past_jobs} past`;
 }
 
 export function positivePage(value: string | null): number {

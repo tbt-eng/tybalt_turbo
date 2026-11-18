@@ -869,9 +869,9 @@ Status: Implemented (issue 207, step 2)
   (`rateSheets/ClientRateSheets.svelte`), under the contacts and invoicing
   profiles: a `DSList` with its search and pages, as on the sheet page. Each
   row has the sheet's label (`RateSheetLabel`, linked to the revision), its
-  effective date, "3 jobs now · 1 past" (`rateSheetUsage` in
-  `clientWorkspace.ts`, which leaves out a zero part) and an **Active** or
-  **Inactive** label. A client with no such sheets shows the section with an
+  effective date, its job counts (`rateSheetUsage` in `clientWorkspace.ts`:
+  "3 jobs now · 1 past" with both, "5 jobs" with no past jobs, "2 past jobs"
+  with no current ones) and an **Active** or **Inactive** label. A client with no such sheets shows the section with an
   empty message, as the contacts and invoicing profiles do.
 - Client absorb moves `jobs.client`, and rate sheet absorb moves
   `jobs.rate_sheet` and `job_rate_sheets`, so the section follows both with
