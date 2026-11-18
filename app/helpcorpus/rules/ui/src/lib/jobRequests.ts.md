@@ -1,108 +1,92 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/jobRequests.ts","sha256":"fb409b9143dc0120615cf402e6538c76c7b5a641ebb08975c002c3866502906e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/jobRequests.ts","sha256":"dc623e169494fb069fa1eaaeb02e4862132dc3d91e73a323200af6d038949ce9","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/jobRequests.ts
 
-## Request checklist starts with every question unanswered
+## Print check lists missing project request details
 
-Lines 14-22
+Lines 1-95
 
-Asked as: checklist all unchecked; approval checklist questions unanswered; cannot continue request stage; questions default to false; request checklist stuck
+Asked as: can't print project request; what's missing before printing; print blocked missing fields; list of missing items
 
-A new checklist marks every question false. Each question must be answered true to continue at the request's stage, either approval or job creation once approved.
+Before printing a project request, Turbo builds a list of missing items. The list can contain: Client name, Description, Valid Plus Code location, Project contact name and email, Billing contact name and email, Positive whole-dollar project value, Fee basis, Rate sheet and Client billing rates. The server checks the rules again on each action.
 
-## Contact with no email shows a 'No email address' note
+## Contact email shows a note when the client has none
 
 Lines 23-26
 
-Asked as: no email note; contact shows no email; email missing message; contact has no email address; why does contact say no email
+Asked as: no email address showing; contact email blank message; why says no email; contact has no email
 
-A contact's email address is shown when the contact has one. If the contact has no email but is marked as having none (no_email), Turbo shows "No email address". Otherwise it shows nothing.
-
-## Contact or record name falls back to given name and surname
-
-Lines 27-29
-
-Asked as: contact name blank; name shows only surname; record name missing; full name not showing; name built from first and last
-
-Turbo shows a record's name when it has one. If not, it joins the given name and surname (given_name, surname) with a space, leaving out any that is empty.
+A contact's email address shows as written when it exists. If the contact has no email and is marked no email (no_email), Turbo shows "No email address". Otherwise it shows nothing.
 
 ## Billing address falls back to the client's address
 
 Lines 30-43
 
-Asked as: billing address empty; invoice address wrong; billing address missing; address taken from client; which address is used for billing
+Asked as: billing address blank; invoice address missing; address taken from client; empty billing address
 
-Turbo shows the invoicing profile's address when it has one. If that address is empty, it shows the client's address. An address joins address, city, province/state, postal code and country with commas, leaving out empty parts.
+The billing address of a project request is the invoicing profile's address when that has any address part. If the invoicing profile has none, Turbo uses the client's address. An address joins the parts (address, city, province/state, postal code, country) with commas and skips empty parts.
 
-## Project value shows as whole Canadian dollars or 'Not provided'
+## Project value shows as whole Canadian dollars or Not provided
 
 Lines 44-52
 
-Asked as: project value shows not provided; value displays as not provided; project amount missing cents; why is value not provided; dollar value showing blank
+Asked as: project value says not provided; dollar amount blank; why value not showing; value shows zero
 
-Turbo shows a project value as Canadian dollars with no cents only when it is a whole number greater than 0. Zero, negative, fractional or non-number values show "Not provided".
+A project value shows as Canadian dollars with no cents only when it is a positive whole number. Zero, negative, fractional and non-number values show "Not provided".
 
-## Print check: client name and description are required
-
-Lines 57-58
-
-Asked as: print check client name missing; description missing on print; authorization print warning; client name blank in print check; print blocked description
-
-The project authorization print check lists "Client name" as missing when the client's name is empty or only spaces. It lists "Description" as missing when the request's description is empty or only spaces.
-
-## Print check: location must be a valid Plus Code
+## Location must be a valid Plus Code
 
 Lines 59-63
 
-Asked as: plus code invalid; location code wrong; print check location error; open location code not accepted; location format rejected
+Asked as: location rejected; plus code not accepted; site location wrong format; location format error
 
-The print check lists "Valid Plus Code location" as missing when the location is empty or does not match a Plus Code. The code is 8 characters, then "+", then 2 or 3 characters, from the Plus Code alphabet 23456789CFGHJMPQRVWX. Case is ignored and surrounding spaces are trimmed.
+A project request's location must be a Plus Code, or Turbo lists "Valid Plus Code location" as missing. It has 8 characters, a plus sign, then 2 or 3 characters, from the Plus Code alphabet (2-9, C, F, G, H, J, M, P, Q, R, V, W, X), in either case. Blank space around it is ignored.
 
-## Print check: project and billing contacts need name and email
+## Contact email required unless the contact has no email
 
 Lines 64-71
 
-Asked as: contact email invalid print; billing contact name missing; project contact flagged on print; print check contact error; contact email not accepted
+Asked as: contact email rejected; billing contact incomplete; invalid contact email; contact name missing
 
-The print check requires a name for both the project contact and the billing contact. It lists "Project contact name" or "Billing contact name" when the name is empty. It lists the matching "email" item when the email does not look like a valid address, unless the contact is marked as having no email (no_email).
+The project contact and the billing contact each need a name, or Turbo lists "Project contact name" or "Billing contact name". Each also needs a valid email (text@text.text, no spaces), or Turbo lists "... email". A contact marked no email (no_email) skips the email check.
 
-## Print check: project value must be a positive whole number
+## Project value must be a positive whole number
 
 Lines 72-73
 
-Asked as: project value print error; value must be whole dollars; project amount rejected on print; zero project value print; decimal value print check
+Asked as: cents in project value; decimal project value error; value must be whole dollars; project value not accepted
 
-The print check lists "Positive whole-dollar project value" as missing when the project value is not a whole number or is 0 or less.
+A project request's project value must be a whole number above zero. Otherwise Turbo lists "Positive whole-dollar project value" as missing.
 
-## Print check: fee basis must be set explicitly
+## Fee basis must be explicitly chosen
 
 Lines 74-75
 
-Asked as: fee basis not set; choose time and materials; print check fee type missing; billing type unset; pricing basis missing
+Asked as: fee basis not set; time and materials not chosen; billing type missing; can't pick fee type
 
-The print check lists "Fee basis" as missing unless the time-and-materials choice has been set (time_and_materials_set is true) and is a true/false value.
+A project request needs its fee basis chosen (time_and_materials_set is true) and the time-and-materials value must be true or false. Otherwise Turbo lists "Fee basis" as missing.
 
-## Print check: an active rate sheet is required
+## Rate sheet readiness depends on whether rates are proposed
 
-Lines 76-76
+Lines 76-83
 
-Asked as: rate sheet missing; no active rates; rate sheet inactive print; print check rates error; request has no rate card
+Asked as: rate sheet error; rate sheet not active; role missing a rate; rate sheet not ready
 
-The print check lists "Rate sheet" as missing when the request has no rate sheet or the rate sheet is not active.
+For proposed rates, the rate sheet is ready when no role lacks a rate (rate_sheet_missing_roles is empty). For a chosen existing rate sheet, it must be active. A request with no rate sheet, or one that is not ready, gets "Rate sheet" in the missing list.
 
-## Print check: time-and-materials needs complete client billing rates
+## Time-and-materials needs complete client billing rates
 
-Lines 77-86
+Lines 84-93
 
-Asked as: client rates incomplete; time and materials rates missing; overtime rate missing print; billing rates not filled in; rate entries blank
+Asked as: billing rates missing overtime; no rates on time and materials; rate entries incomplete; client rates not complete
 
-When the fee basis is time and materials, the print check lists "Client billing rates" as missing if there are no rate sheet entries or any entry lacks a numeric rate or overtime rate. Other fee bases skip this check.
+Only for a time-and-materials request, Turbo checks the rate sheet entries. It lists "Client billing rates" as missing when there are no entries or any entry has no valid rate or overtime rate.
 
-## Job creation queue is visible only to job holders when requests are enabled
+## Job creation queue visibility
 
-Lines 89-96
+Lines 96-103
 
-Asked as: cannot see job creation queue; creation queue hidden; job queue not showing; no job requests tab; missing queue for job holders
+Asked as: can't see creation queue; job creation queue missing; procurement queue not showing; no queue for job requests
 
-Turbo shows the job creation queue only when job requests are enabled, the person holds the job claim, and the server has sent a count for the creation queue (/job-requests?queue=creation).
+A person sees the job creation queue only when project requests are enabled, they hold the job claim (procurement), and the server has sent the count for "/job-requests?queue=creation".
