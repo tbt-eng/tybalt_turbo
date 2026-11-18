@@ -95,7 +95,10 @@ name and logo from the PO print page. Default to Letter paper in portrait,
 black text on white, with clear section headings and generous signature space.
 Aim for one main page for a short request. Let long content continue onto more
 pages without truncation or reduced text size. Keep each signature block
-together. Use this section order:
+together. Page breaks: a heading never ends a page; the agreement heading and
+text stay on the page of the signature blocks; the short sections (client,
+references, contacts, fees, invoicing) move to the next page whole; the scope of
+work may break across pages. Use this section order:
 
 | Section | Content and defaults |
 | --- | --- |

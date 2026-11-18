@@ -65,14 +65,14 @@
             </div>
           </header>
           <p>Project number: To be assigned</p>
-          {#if missing.length}<section class="draft">
+          {#if missing.length}<section class="draft keep">
               <h2>DRAFT - NOT FOR SIGNATURE</h2>
               <p>Complete or correct these items before signature:</p>
               <ul>
                 {#each missing as value}<li>{value}</li>{/each}
               </ul>
             </section>{/if}
-          <section>
+          <section class="keep">
             <h2>Client</h2>
             <p><strong>{shown(d.client && clientLabel(d.client))}</strong></p>
             {#if address(d.client)}<p>
@@ -88,7 +88,9 @@
               <p class="preserve">{r.notes}</p>{/if}
             <p><strong>Location (Plus Code):</strong> {shown(r.location)}</p>
           </section>
-          {#if d.proposal || d.parent || r.client_po || r.client_reference_number}<section>
+          {#if d.proposal || d.parent || r.client_po || r.client_reference_number}<section
+              class="keep"
+            >
               <h2>References</h2>
               {#if d.proposal}<p>
                   Proposal: {d.proposal.number} — {d.proposal.description}
@@ -100,7 +102,7 @@
                   Client reference number: {r.client_reference_number}
                 </p>{/if}
             </section>{/if}
-          <section>
+          <section class="keep">
             <h2>Project contacts</h2>
             <div class="columns">
               <div>
@@ -119,7 +121,7 @@
               </div>
             </div>
           </section>
-          <section>
+          <section class="keep">
             <h2>Fees</h2>
             <p class="value">
               <strong>Project value (CAD, before tax): {wholeCAD(r.project_value)}</strong>
@@ -136,7 +138,7 @@
               Rate sheet: {shown(d.rate_sheet?.code)} · Revision: {shown(d.rate_sheet?.revision)}
             </p>
           </section>
-          <section>
+          <section class="keep">
             <h2>Invoicing</h2>
             <div class="columns">
               <div>
@@ -158,7 +160,7 @@
               </div>
             </div>
           </section>
-          {#if !missing.length}<section>
+          {#if !missing.length}<section class="keep">
               <h2>Agreement and signatures</h2>
               <p>
                 The client authorizes TBT Engineering Limited to perform the work described above on
@@ -258,6 +260,18 @@
   }
   section {
     margin-top: 0.1in;
+  }
+  /* Page breaks: a heading stays with what follows it, and a short section
+     (and the agreement with its signatures) moves to the next page whole.
+     The scope of work may break across pages. */
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .keep {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   p {
     margin: 0.035in 0;
