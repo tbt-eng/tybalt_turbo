@@ -13,6 +13,13 @@
   import DSTextInput from "$lib/components/DSTextInput.svelte";
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import { rateSheetCodeRevision } from "$lib/rateSheetLabel";
+  import {
+    canActivateRateSheets,
+    canCorrectRateSheets,
+    canCreateRateSheets,
+    canReviseRateSheets,
+  } from "$lib/rateSheetPermissions";
+  import DsLabel from "$lib/components/DsLabel.svelte";
   import Icon from "@iconify/svelte";
   import type { ClientResponseError } from "pocketbase";
   import type { PageData } from "./$types";
@@ -27,15 +34,18 @@
   let formerNames = $state(untrack(() => data.formerNames));
   const formerCodes = $derived(data.formerCodes);
 
-  // Admin check for editing capability
-  const isAdmin = $derived($globalStore.claims.includes("admin"));
-
-  // Rename: admins and holders of rate_sheet_revise, as the server allows.
-  // The server renames every revision of the sheet. The name is optional, so
-  // an empty name removes it.
-  const canRename = $derived(
-    $globalStore.claims.includes("admin") || $globalStore.claims.includes("rate_sheet_revise"),
-  );
+  // Each control shows only to the users that the server allows.
+  // Correct a rate and move projects to a revision: admins.
+  const isAdmin = $derived(canCorrectRateSheets($globalStore.claims));
+  // Use as Template and Add Entry: procurement (the job claim).
+  const canCreate = $derived(canCreateRateSheets($globalStore.claims));
+  // Active and Inactive: procurement. Others see the status as a label.
+  const canActivate = $derived(canActivateRateSheets($globalStore.claims));
+  // Revise and Rename: admins and holders of rate_sheet_revise. The server
+  // renames every revision of the sheet. The name is optional, so an empty
+  // name removes it.
+  const canRevise = $derived(canReviseRateSheets($globalStore.claims));
+  const canRename = $derived(canRevise);
   let showRename = $state(false);
   let renameName = $state("");
   let renaming = $state(false);
@@ -349,6 +359,13 @@
       title={rateSheetCodeRevision({ code: rateSheet.code, revision: rateSheet.revision })}
       subtitle={rateSheet.name}
     >
+      {#snippet badges()}
+        {#if !canActivate}
+          <DsLabel tone={rateSheet.active ? "success" : "neutral"}>
+            {rateSheet.active ? "Active" : "Inactive"}
+          </DsLabel>
+        {/if}
+      {/snippet}
       {#snippet context()}
         Effective {shortDate(rateSheet.effective_date, true)}
         {#if formerNames.length > 0}· Formerly {formerNames.join(", ")}{/if}
@@ -373,42 +390,50 @@
   </div>
 
   <!-- Action Buttons -->
-  <div class="mb-4 flex gap-2">
-    {#if rateSheet.active}
-      <DsActionButton action={`/rate-sheets/copy?revise=${rateSheet.id}`}>Revise</DsActionButton>
-    {/if}
-    <DsActionButton action={`/rate-sheets/copy?from=${rateSheet.id}`}>
-      Use as Template
-    </DsActionButton>
-    {#if canRename}
-      <DsActionButton action={openRename}>Rename</DsActionButton>
-    {/if}
-  </div>
+  {#if (canRevise && rateSheet.active) || canCreate || canRename}
+    <div class="mb-4 flex gap-2">
+      {#if canRevise && rateSheet.active}
+        <DsActionButton action={`/rate-sheets/copy?revise=${rateSheet.id}`}>Revise</DsActionButton>
+      {/if}
+      {#if canCreate}
+        <DsActionButton action={`/rate-sheets/copy?from=${rateSheet.id}`}>
+          Use as Template
+        </DsActionButton>
+      {/if}
+      {#if canRename}
+        <DsActionButton action={openRename}>Rename</DsActionButton>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Active Toggle -->
-  <div class="mb-6 flex flex-wrap items-center gap-3">
-    <div
-      class:opacity-50={!isComplete || isToggling}
-      class:pointer-events-none={!isComplete || isToggling}
-    >
-      <DsToggle
-        bind:value={activeToggleValue}
-        ariaLabel="Rate sheet status"
-        options={[
-          { id: "inactive", label: "Inactive" },
-          { id: "active", label: "Active" },
-        ]}
-      />
+  {#if canActivate}
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+      <div
+        class:opacity-50={!isComplete || isToggling}
+        class:pointer-events-none={!isComplete || isToggling}
+      >
+        <DsToggle
+          bind:value={activeToggleValue}
+          ariaLabel="Rate sheet status"
+          options={[
+            { id: "inactive", label: "Inactive" },
+            { id: "active", label: "Active" },
+          ]}
+        />
+      </div>
+      {#if !isComplete}
+        <span class="text-sm text-neutral-500">
+          (Cannot activate - missing {missingRoles.length} role{missingRoles.length === 1
+            ? ""
+            : "s"})
+        </span>
+      {/if}
+      {#if toggleError}
+        <span class="text-sm text-red-600">{toggleError}</span>
+      {/if}
     </div>
-    {#if !isComplete}
-      <span class="text-sm text-neutral-500">
-        (Cannot activate - missing {missingRoles.length} role{missingRoles.length === 1 ? "" : "s"})
-      </span>
-    {/if}
-    {#if toggleError}
-      <span class="text-sm text-red-600">{toggleError}</span>
-    {/if}
-  </div>
+  {/if}
   {#if activationMatches && activationMatches.length > 0}
     <div class="mb-6">
       <RateSheetMatchCallout
@@ -578,12 +603,14 @@
         <ObjectTable {tableData} />
       {/if}
     {:else}
-      <p class="text-neutral-500">No entries yet. Add entries below to complete this rate sheet.</p>
+      <p class="text-neutral-500">
+        No entries yet.{canCreate ? " Add entries below to complete this rate sheet." : ""}
+      </p>
     {/if}
   </div>
 
   <!-- Add Entry Form (when incomplete) -->
-  {#if !isComplete}
+  {#if !isComplete && canCreate}
     <div class="rounded-sm border border-neutral-300 bg-neutral-50 p-4">
       <h3 class="mb-3 font-semibold">Add Entry</h3>
       <form onsubmit={saveEntry} class="flex flex-wrap items-end gap-4">

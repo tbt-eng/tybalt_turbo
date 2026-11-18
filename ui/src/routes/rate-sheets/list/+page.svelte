@@ -4,12 +4,18 @@
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
   import { rateSheetSearchText } from "$lib/rateSheetLabel";
+  import { canCreateRateSheets, canReviseRateSheets } from "$lib/rateSheetPermissions";
+  import { globalStore } from "$lib/stores/global";
   import type { RateSheetResponse } from "$lib/stores/rateSheets";
   import { rateSheets } from "$lib/stores/rateSheets";
   import { shortDate } from "$lib/utilities";
 
   // initialize the store, noop if already initialized
   rateSheets.init();
+
+  // Revise and Use as Template show only to the users that the server allows.
+  const canRevise = $derived(canReviseRateSheets($globalStore.claims));
+  const canCreate = $derived(canCreateRateSheets($globalStore.claims));
 </script>
 
 {#if $rateSheets.items.length > 0 || $rateSheets.initialized}
@@ -56,7 +62,7 @@
     {/snippet}
 
     {#snippet actions({ id, active }: RateSheetResponse)}
-      {#if active}
+      {#if active && canRevise}
         <DsActionButton
           action={`/rate-sheets/copy?revise=${id}`}
           icon="mdi:file-replace-outline"
@@ -64,12 +70,14 @@
           color="blue"
         />
       {/if}
-      <DsActionButton
-        action={`/rate-sheets/copy?from=${id}`}
-        icon="mdi:content-copy"
-        title="Use as Template"
-        color="green"
-      />
+      {#if canCreate}
+        <DsActionButton
+          action={`/rate-sheets/copy?from=${id}`}
+          icon="mdi:content-copy"
+          title="Use as Template"
+          color="green"
+        />
+      {/if}
     {/snippet}
   </DsList>
 {:else if $rateSheets.loading}
