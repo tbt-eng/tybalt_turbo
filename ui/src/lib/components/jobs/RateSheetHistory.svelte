@@ -12,7 +12,7 @@
   import DSDateInput from "$lib/components/DSDateInput.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
-  import { rateSheetLabel } from "$lib/rateSheetLabel";
+  import { rateSheetLabel, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
 
   // A project's rate sheet history: which rate sheet prices its time from which
   // date. Each entry is priced by the period its date falls in, so a change
@@ -226,6 +226,7 @@
         {errors}
         fieldName="rate_sheet"
         uiName="Rate sheet"
+        placeholder={rateSheetSearchPlaceholder}
         disabled={submitting}
       >
         {#snippet option(item)}{rateSheetLabel(item)} · {shortDate(

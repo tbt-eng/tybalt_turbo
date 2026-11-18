@@ -796,6 +796,10 @@ Status: Implemented (issue 207, step 2)
   them for every picker. The fields are not stored fields of the index,
   since no option shows them. Pickers and dropdowns are otherwise unchanged:
   a picker is a search above 10 sheets.
+- The search box of the list and of each picker in search mode says what it
+  finds: `rateSheetSearchPlaceholder`, "Code, name, date, job or client".
+  `DSPicker` and `DSAutoComplete` take an optional `placeholder` for it;
+  without one they show `uiName`, as before.
 - MiniSearch splits a term on punctuation, and the store's search needs every
   part (AND, by prefix). "24-321" finds the sheets with the parts 24 and 321,
   which may come from two jobs. "24-3" and "321" find 24-321.

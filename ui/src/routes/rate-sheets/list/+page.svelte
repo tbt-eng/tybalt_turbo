@@ -3,7 +3,7 @@
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RateSheetLabel from "$lib/components/rateSheets/RateSheetLabel.svelte";
-  import { rateSheetSearchText } from "$lib/rateSheetLabel";
+  import { rateSheetSearchPlaceholder, rateSheetSearchText } from "$lib/rateSheetLabel";
   import { canCreateRateSheets, canReviseRateSheets } from "$lib/rateSheetPermissions";
   import { globalStore } from "$lib/stores/global";
   import type { RateSheetResponse } from "$lib/stores/rateSheets";
@@ -23,6 +23,7 @@
     items={$rateSheets.items}
     search={true}
     searchText={rateSheetSearchText}
+    searchPlaceholder={rateSheetSearchPlaceholder}
     inListHeader="Rate Sheets"
   >
     {#snippet searchBarExtra()}

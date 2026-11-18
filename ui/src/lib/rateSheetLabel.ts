@@ -39,6 +39,9 @@ export const rateSheetSearchFields = [
   "client_names",
 ];
 
+// The hint in a rate sheet search box: what the search finds a sheet by.
+export const rateSheetSearchPlaceholder = "Code, name, date, job or client";
+
 // The text that a list search matches: the code, the name, the revision, the
 // effective date, the job numbers and the client names.
 export function rateSheetSearchText(

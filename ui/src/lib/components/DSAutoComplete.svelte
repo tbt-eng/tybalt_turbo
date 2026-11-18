@@ -27,6 +27,7 @@
     multi = false,
     choose,
     helperText = "", // a line under the field explaining it
+    placeholder, // the hint in the empty search box, defaults to uiName
     help, // field help (DSHelp) at the far right of the field row
   }: {
     value: string;
@@ -42,6 +43,7 @@
     multi?: boolean;
     choose?: (id: string | number) => void;
     helperText?: string;
+    placeholder?: string;
     help?: Snippet;
   } = $props();
 
@@ -197,7 +199,7 @@
           type="text"
           id={`autocomplete-input-${thisId}`}
           name={fieldName}
-          placeholder={uiName}
+          placeholder={placeholder ?? uiName}
           oninput={updateResults}
           {disabled}
           bind:this={inputElement}

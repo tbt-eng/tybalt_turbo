@@ -19,7 +19,11 @@
   import { rateSheets } from "$lib/stores/rateSheets";
   import { rateRoles } from "$lib/stores/rateRoles";
   import type { RateSheetComparison } from "$lib/rateSheetMatches";
-  import { rateSheetCodeRevision, rateSheetLabel } from "$lib/rateSheetLabel";
+  import {
+    rateSheetCodeRevision,
+    rateSheetLabel,
+    rateSheetSearchPlaceholder,
+  } from "$lib/rateSheetLabel";
   import { shortDate } from "$lib/utilities";
 
   // Proposed rates in a project request: the requester starts from an active
@@ -170,6 +174,7 @@
       {errors}
       fieldName="proposed_rates.based_on"
       uiName="Start from"
+      placeholder={rateSheetSearchPlaceholder}
       empty
     >
       {#snippet option(row)}{rateSheetLabel(row)} · {shortDate(row.effective_date, true)}{/snippet}

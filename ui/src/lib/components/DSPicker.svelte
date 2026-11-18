@@ -17,7 +17,8 @@
   // record in either mode. With empty, the dropdown starts with a
   // "-- select --" choice so the value can be cleared, as the search's Clear
   // button does. A value that is not in items, such as a sheet deactivated
-  // since it was chosen, still shows as the current choice.
+  // since it was chosen, still shows as the current choice. placeholder is the
+  // hint in the empty search box (uiName when not given).
   let {
     value = $bindable(),
     items,
@@ -28,6 +29,7 @@
     uiName,
     disabled = false,
     empty = false,
+    placeholder,
     help,
   }: {
     value: string;
@@ -39,6 +41,7 @@
     uiName: string;
     disabled?: boolean;
     empty?: boolean;
+    placeholder?: string;
     help?: Snippet;
   } = $props();
 
@@ -71,6 +74,7 @@
     {errors}
     {fieldName}
     {uiName}
+    {placeholder}
     {disabled}
     {help}
   >

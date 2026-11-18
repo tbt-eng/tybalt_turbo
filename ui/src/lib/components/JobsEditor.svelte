@@ -35,7 +35,7 @@
   import { branches as branchesStore } from "$lib/stores/branches";
   import { divisions } from "$lib/stores/divisions";
   import { rateSheets } from "$lib/stores/rateSheets";
-  import { rateSheetLabel } from "$lib/rateSheetLabel";
+  import { rateSheetLabel, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
   import { jobsEditingEnabled, jobRequestsEnabled } from "$lib/stores/appConfig";
   import DsEditingDisabledBanner from "./DsEditingDisabledBanner.svelte";
   import DsCheck from "$lib/components/DsCheck.svelte";
@@ -1417,6 +1417,7 @@
             {errors}
             fieldName="rate_sheet"
             uiName="Rate Sheet"
+            placeholder={rateSheetSearchPlaceholder}
             disabled={rateSheetLocked}
             empty
           >

@@ -21,7 +21,11 @@
   import { jobs } from "$lib/stores/jobs";
   import { rateSheets } from "$lib/stores/rateSheets";
   import { formatJobLabel, shortDate } from "$lib/utilities";
-  import { rateSheetCodeRevision, rateSheetLabel } from "$lib/rateSheetLabel";
+  import {
+    rateSheetCodeRevision,
+    rateSheetLabel,
+    rateSheetSearchPlaceholder,
+  } from "$lib/rateSheetLabel";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
   import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
   import {
@@ -572,6 +576,7 @@
         errors={noFieldErrors}
         fieldName="rate_sheet"
         uiName="Rate Sheet"
+        placeholder={rateSheetSearchPlaceholder}
         empty
       >
         {#snippet option(row)}{rateSheetLabel(row)} · {shortDate(
