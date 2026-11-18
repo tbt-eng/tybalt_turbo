@@ -576,7 +576,11 @@ other. Existing sheets are not checked or changed.
   sheet. `POST /api/job_requests/compare_rates` returns them to anyone who can
   start a request (the `time` claim); `/api/rate_sheets/compare` needs a claim
   that most requesters lack. Rates with no change are not compared. The
-  approver is not shown near matches.
+  approver is not shown near matches. The editor compares 400 ms after the
+  last change and shows a result only while the source and the rates are
+  still those it was made for (`comparisonKey` in
+  `ui/src/lib/proposedRates.ts`), so a changed rate hides the old result at
+  once. The name and the reason are not part of it.
 
 ## Rate sheet codes
 

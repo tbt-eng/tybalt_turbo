@@ -8,7 +8,8 @@
   import RateSheetRatesTable from "./RateSheetRatesTable.svelte";
   import {
     type ProposedRates,
-    proposedRatesPayload,
+    comparisonFor,
+    comparisonKey,
     rateChanged,
     rateMissing,
     withEveryRole,
@@ -123,29 +124,37 @@
   // role with no rate is left out of the comparison as it is of a save. The
   // server leaves the source out of the close sheets, since the table already
   // compares the rates with it.
+  // The result is stored with the key of the rates it describes and shown
+  // only while the rates still have that key, so a changed rate hides the
+  // old result at once instead of 400 ms later. The name and the reason are
+  // not in the key: typing them neither compares again nor hides the result.
   const noComparison: RateSheetComparison = { exact: [], near: [] };
-  let comparison = $state<RateSheetComparison>(noComparison);
+  const compareKey = $derived(comparisonKey(proposal));
+  let stored = $state<{ key: string; result: RateSheetComparison }>({
+    key: "",
+    result: noComparison,
+  });
+  const comparison = $derived(comparisonFor(stored, compareKey, noComparison));
   let compareSequence = 0;
   $effect(() => {
-    // The reason is left out so that typing it does not compare again.
-    const body = JSON.stringify({ ...proposedRatesPayload(proposal), reason: "" });
+    const key = compareKey;
     const sequence = ++compareSequence;
     if (!proposal.rows.some((row) => !rateMissing(row) && rateChanged(row))) {
-      comparison = noComparison;
+      stored = { key, result: noComparison };
       return;
     }
     const timer = setTimeout(async () => {
       try {
         const response = await pb.send("/api/job_requests/compare_rates", {
           method: "POST",
-          body,
+          body: key,
           requestKey: null,
         });
         if (sequence !== compareSequence) return;
-        comparison = { exact: response.exact ?? [], near: response.near ?? [] };
+        stored = { key, result: { exact: response.exact ?? [], near: response.near ?? [] } };
       } catch (error) {
         console.error("Failed to compare the proposed rates:", error);
-        if (sequence === compareSequence) comparison = noComparison;
+        if (sequence === compareSequence) stored = { key, result: noComparison };
       }
     }, 400);
     return () => clearTimeout(timer);

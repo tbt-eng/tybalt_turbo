@@ -103,6 +103,22 @@ export function proposedRatesPayload(proposal: ProposedRates) {
   };
 }
 
+// What the live comparison with the active sheets reads: the sheet the
+// proposal started from and the rates a save sends. Proposals with the same
+// key get the same comparison, so typing the name or the reason keeps it,
+// and a changed rate makes it stale. It is also the body of the comparison.
+export function comparisonKey(proposal: ProposedRates): string {
+  const { based_on, entries } = proposedRatesPayload(proposal);
+  return JSON.stringify({ based_on, entries });
+}
+
+// The comparison to show for the rates under key: the stored one when it
+// was made for them, otherwise none. A result for rates that have since
+// changed is never shown, even while the new comparison is on its way.
+export function comparisonFor<T>(stored: { key: string; result: T }, key: string, none: T): T {
+  return stored.key === key ? stored.result : none;
+}
+
 // A rate of a role in the rates table: its rate, its overtime rate, or the
 // role itself.
 export type RateField = "rate" | "overtime_rate" | "role";

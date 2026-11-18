@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   type ProposedRate,
   type ProposedRates,
+  comparisonFor,
+  comparisonKey,
   incompleteRateErrors,
   proposedRatesFieldErrors,
   proposedRatesPayload,
@@ -309,4 +311,33 @@ test("the multiplier's changes leave out the rows it does not change", () => {
     overtimeMultiplierChanges(rows, 1.5).map((row) => row.id),
     ["a", "b"],
   );
+});
+
+test("the comparison key changes with a rate or the source, not with the name or the reason", () => {
+  const proposal: ProposedRates = {
+    name: "Client rates",
+    reason: "Contract",
+    based_on: "standard",
+    rows: [sourceRow("principal", "Principal", 250)],
+  };
+  const key = comparisonKey(proposal);
+  assert.equal(comparisonKey({ ...proposal, name: "Other", reason: "Contract schedule B" }), key);
+  assert.notEqual(comparisonKey({ ...proposal, rows: [{ ...proposal.rows[0], rate: 260 }] }), key);
+  assert.notEqual(
+    comparisonKey({ ...proposal, rows: [{ ...proposal.rows[0], overtime_rate: 330 }] }),
+    key,
+  );
+  assert.notEqual(comparisonKey({ ...proposal, based_on: "other" }), key);
+  // The key is the body of the comparison: the source and the rates a save sends.
+  assert.deepEqual(JSON.parse(key), {
+    based_on: "standard",
+    entries: [{ role: "principal", rate: 250, overtime_rate: 325 }],
+  });
+});
+
+test("a comparison shows only for the rates it was made for", () => {
+  const none = { exact: [], near: [] };
+  const result = { exact: [{ id: "a" }], near: [] };
+  assert.equal(comparisonFor({ key: "k1", result }, "k1", none), result);
+  assert.equal(comparisonFor({ key: "k1", result }, "k2", none), none);
 });
