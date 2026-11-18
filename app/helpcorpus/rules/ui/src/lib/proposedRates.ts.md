@@ -1,84 +1,116 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/proposedRates.ts","sha256":"a84c798e80032234484e75d1198a96febf501355a2928b9aa9aeccb0999b6140","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/proposedRates.ts","sha256":"3b479e89dc71406fcb8bf6ff92edbb80323fb20a45552eac7b7284a5acb23b2d","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/proposedRates.ts
 
-## A role has no rate when either rate is empty
+## A role has no rate if either rate is empty
 
-Lines 33-40
+Lines 37-40
 
-Asked as: role shows no rate; rate left empty; overtime rate blank; role has no rate; rate missing
+Asked as: role has no rate; rate left blank; empty rate field; role missing rate; incomplete rates row
 
-In the proposed rates table, a role counts as having no rate (rateMissing) when its rate or its overtime rate is empty. An empty value is null, undefined or an empty string. A role needs both rates to count as having a rate.
+In the proposed rates table, a role counts as having no rate when its rate or its overtime rate is empty (null, undefined or an empty string). The role needs both rates to count as complete (rateMissing).
 
-## Label for a role with a missing rate
+## Missing-rate label: No overtime rate or No rate
 
 Lines 42-48
 
-Asked as: no overtime rate label; why does it say no overtime rate; rate label on role; missing rate label; no rate tag
+Asked as: no overtime rate label; why says no rate; missing rate tag; overtime rate blank label; role labelled no rate
 
-The rates table labels a role "No overtime rate" when the rate is entered and only the overtime rate is empty. In every other case where a rate is missing, it shows "No rate", including when both are empty. A role with both rates has no label.
+The table labels a role "No overtime rate" when only its overtime rate is empty. It labels the role "No rate" when the rate is empty, or when both rates are empty. A role with both rates has no label (missingRateLabel).
 
 ## Overtime multiplier sets overtime rate from the rate
 
 Lines 50-64
 
-Asked as: overtime multiplier; apply multiplier to overtime; overtime rate from rate; multiply overtime rate; set overtime by multiplier
+Asked as: overtime multiplier not working; apply multiplier to rates; multiply rates for overtime; rate times multiplier; multiplier fills overtime rate
 
-Applying an overtime multiplier sets each row's overtime rate to the rate times the multiplier, rounded to the cent. A row with no rate keeps its overtime rate, so an empty row stays empty. A multiplier that is empty, not a number or not above 0 changes nothing. The proposed rates editor and the rate sheet copy page both use it.
+Applying an overtime multiplier sets each row's overtime rate to the rate times the multiplier, rounded to the cent. A row with no rate keeps its overtime rate, so an empty row stays empty. A multiplier that is empty, not a number or not above 0 changes nothing. The proposed rates editor and the rate sheet copy page both use it (withOvertimeMultiplier).
 
-## When a proposed rate counts as changed
+## Multiplier changes list leaves out unchanged rows
 
 Lines 66-74
 
-Asked as: rate marked as changed; why is rate changed; differs from source sheet; changed rate highlight; rate changed from sheet
+Asked as: multiplier list missing rows; rows not changed by multiplier; unchanged overtime rows hidden; multiplier skipped row; refused save after multiplier
 
-A role's rate counts as changed (rateChanged) when the source sheet has no rate for the role. It also counts as changed when the rate or the overtime rate differs from the source sheet's.
+The list of rows that the multiplier changes leaves out any row whose overtime rate stays the same. Such a row keeps its state, such as a refused save (overtimeMultiplierChanges).
 
-## Saving proposed rates leaves out roles with no rate
+## When a rate counts as changed from the source sheet
 
-Lines 76-94
+Lines 76-84
 
-Asked as: save with missing rates; save incomplete proposal; roles left out on save; submit missing rate roles; save request without rates
+Asked as: rate differs from source sheet; why marked changed; rate highlighted as changed; no source rate for role; overtime differs from sheet
 
-A save of a project request sends only the roles that have both rates. A role with a missing rate is left out, so an incomplete proposal can still be saved. Submission names the roles that have no rate. The save sends the name, reason and based_on fields with the rates.
+A role's rate counts as changed when the source sheet has no rate for the role. It also counts as changed when the rate or the overtime rate differs from the source sheet's (rateChanged).
+
+## Saving a request leaves out roles with no rate
+
+Lines 86-104
+
+Asked as: save request with missing rate; save incomplete proposal; roles without rate dropped; request saved without some roles; payload missing rates
+
+When a project request is saved, the proposed rates payload carries the name, reason and based_on, and only the roles that have both rates. A role with no rate is left out, so an incomplete proposal can still be saved. Submission names the roles that have no rate (proposedRatesPayload).
+
+## Comparison with active sheets depends on sheet and rates only
+
+Lines 106-113
+
+Asked as: comparison not updating; active sheets comparison stale; typing name changes comparison; rate change comparison refresh; compare with active sheets
+
+The live comparison with the active rate sheets reads the sheet the proposal is based on (based_on) and the rates that a save would send. Typing the name or the reason keeps the comparison. Changing a rate makes it stale (comparisonKey).
+
+## A stale comparison is never shown
+
+Lines 115-120
+
+Asked as: old comparison showing; comparison wrong after edit; stale comparison shown; comparison still loading old result; comparison from previous rates
+
+The editor shows the stored comparison only when it was made for the current rates. Otherwise it shows none, even while the new comparison is loading (comparisonFor).
 
 ## Editor refuses a save when a role has only one rate
 
-Lines 106-122
+Lines 132-148
 
-Asked as: cannot save one rate; enter the rate error; enter overtime rate error; only one rate entered; save blocked rate error
+Asked as: cannot save one rate; enter the rate error; enter overtime rate error; save refused missing rate; only one rate entered
 
-The request editor refuses a save while a role has one of its two rates but not the other. It shows "Enter the rate." on the rate when only the overtime rate is entered. It shows "Enter the overtime rate." when only the rate is entered. A role with both rates empty gives no error.
+The request editor refuses a save when a role has a rate but no overtime rate, and shows "Enter the overtime rate." on that role. It shows "Enter the rate." when the role has an overtime rate but no rate. A role with both rates empty gets no error and the save leaves it out. The refusal stops a typed rate from being lost (incompleteRateErrors).
 
 ## Editor adds an empty row for each missing role
 
-Lines 124-144
+Lines 150-170
 
-Asked as: role missing from rates table; empty row for role; add missing role row; role not listed in editor; rows missing for roles
+Asked as: role missing from proposal; role not in rates table; empty row for every role; added role missing rows; source sheet lacks role
 
-The editor adds an empty row, with no rate and no overtime rate, for each rate role that has no row. This covers a source sheet, or a proposal saved before a role was added, that lacks the role. The rows are sorted by role name. Nothing changes when every role has a row.
+A proposal needs a rate for every rate role. The editor adds an empty row for each role that has no row, sorted by role name. It adds nothing when every role already has a row. The source sheet, or a proposal saved before a role was added, can lack a role (withEveryRole).
 
-## Source rates fill rows that have none
+## Source rates fill empty rows without changing rates
 
-Lines 146-163
+Lines 172-189
 
-Asked as: source rate not showing; empty row shows sheet rate; fill rate from source sheet; source sheet rate in row; rates copied from sheet
+Asked as: fill rates from source sheet; empty rows copy sheet rates; source rates not filled; prefill rates from sheet; rates copied without overwriting
 
-The editor adds the source sheet's rates to each row that has no source rate, so an empty row for another role shows the source sheet's rates. It changes only the source rates and never the entered rates. A row with no matching source entry stays as it is.
+For a row that has no source rates, the editor fills in the source sheet's rate and overtime rate when the source sheet has the role. It never changes the proposed rates. A row that already has source rates, or a role the source sheet lacks, stays as it is (withSourceRates).
 
-## Refused save shows server errors on the rates table
+## Review of proposed rates shows saved and missing roles
 
-Lines 165-224
+Lines 203-220
 
-Asked as: server error on rate row; save error next to rate; error shown on wrong row; rate error after refused save; save errors on fields
+Asked as: review shows missing roles; review rates list empty; roles without rate in review; review table blank rows; saved rates review order
 
-After a refused save, errors on name, reason and based_on show on their own fields. An error on one rate of a sent entry goes on that role's row. The entry is matched by its place in the save, not in the table. The row message drops the "entry " prefix, writes "overtime rate" with a space, and ends with a capital letter and a full stop.
+The review of a request lists each saved rate and an empty row for each role with no rate, sorted by role name. Each row shows the source sheet's rates where it has them. The rates table marks an empty row "No rate" (reviewRows).
 
-## General error message leaves out errors shown in the editor
+## Server rate errors are placed on the role's row
 
-Lines 226-241
+Lines 222-281
 
-Asked as: duplicate error message on save; general error message repeated; error shown twice on save; top error message rates; too many errors on save
+Asked as: error on wrong role row; server rate error location; overtime rate error message; save error next to rate; which role has the error
 
-The general error message of a refused save leaves out the errors that the rates editor already shows on its fields and on the rate rows. The other errors stay.
+When a request save is refused, an error on an entry's rate, overtime rate or role goes on that role's row in the rates table. The server numbers entries by their place in the save, not in the table, so Turbo maps the number back to the role. The message is reworded: the "entry " prefix is dropped, "overtime_rate" becomes "overtime rate", the first letter is capitalised and a full stop is added. For example, "Overtime rate must be at least 1." Errors on name, reason and based_on show on their own fields (proposedRatesFieldErrors).
+
+## General error message leaves out errors shown on fields
+
+Lines 283-298
+
+Asked as: duplicate error message; general error repeats field error; error shown twice on save; top error message clutter; save error text repeated
+
+The general error message for a refused save leaves out the errors that the editor already shows on the name, reason and based_on fields or on a rate row. The other errors stay in it (withoutShownErrors).
