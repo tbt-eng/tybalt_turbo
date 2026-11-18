@@ -421,7 +421,12 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
   and clears approval like any edit, so a review page goes stale.
 - Entries follow the new-sheet rules (`validateRateSheetEntryInputs`, shared
   with `POST /api/rate_sheets`): each role once, a whole rate of at least 1,
-  an overtime rate of at least 1. `based_on` must be an active sheet that is
+  an overtime rate of at least 1 with at most two decimal places
+  (`hooks.HasAtMostTwoDecimals`, which compares in cents with a small
+  tolerance). `PUT /api/rate_sheet_entries/{id}` and a create through the
+  `rate_sheet_entries` collection API (a request hook) refuse more decimals
+  with the same message, `overtime_rate must have at most two decimal
+  places`; the browser's `step="0.01"` is not the only check. `based_on` must be an active sheet that is
   not a draft; a saved draft may keep a source that has since been
   deactivated. The name is optional; when given, it may not equal any other
   sheet's name in any letter case, as for a rename.

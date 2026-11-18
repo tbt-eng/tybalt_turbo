@@ -197,6 +197,9 @@ func createUpdateRateSheetEntryHandler(app core.App) func(e *core.RequestEvent) 
 			if *req.OvertimeRate < 1 {
 				return e.Error(http.StatusBadRequest, "overtime_rate must be at least 1", nil)
 			}
+			if !hooks.HasAtMostTwoDecimals(*req.OvertimeRate) {
+				return e.Error(http.StatusBadRequest, hooks.OvertimeRateDecimalsMessage, nil)
+			}
 			record.Set("overtime_rate", *req.OvertimeRate)
 		}
 
@@ -339,7 +342,7 @@ func prefixEntryErrors(index int, errs validation.Errors) validation.Errors {
 // validateRateSheetEntryInputs adds an error to validationErrors for each
 // invalid entry of a new sheet or of a request's proposed rates: at least one
 // entry, each role once, a whole rate of at least 1 and an overtime rate of at
-// least 1. prefix goes before each key, such as "proposed_rates.".
+// least 1 with at most two decimal places. prefix goes before each key, such as "proposed_rates.".
 func validateRateSheetEntryInputs(entries []CreateRateSheetEntry, prefix string, validationErrors validation.Errors) {
 	if len(entries) == 0 {
 		setValidationError(validationErrors, prefix+"entries", validation.NewError("value_required", "at least one entry is required"))
@@ -361,6 +364,8 @@ func validateRateSheetEntryInputs(entries []CreateRateSheetEntry, prefix string,
 		}
 		if entry.OvertimeRate < 1 {
 			setValidationError(validationErrors, entryPrefix+"overtime_rate", validation.NewError("validation_negative_number", "entry overtime_rate must be at least 1"))
+		} else if !hooks.HasAtMostTwoDecimals(entry.OvertimeRate) {
+			setValidationError(validationErrors, entryPrefix+"overtime_rate", validation.NewError(hooks.OvertimeRateDecimalsCode, "entry "+hooks.OvertimeRateDecimalsMessage))
 		}
 	}
 }

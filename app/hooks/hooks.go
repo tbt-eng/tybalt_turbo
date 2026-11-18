@@ -408,6 +408,7 @@ func AddHooks(app core.App) {
 	AddJobRateSheetHooks(app)
 	addRateSheetDraftHooks(app)
 	addRateSheetCodeHooks(app)
+	addRateSheetEntryHooks(app)
 	app.OnRecordCreateRequest("jobs").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ProcessJob(app, e); err != nil {
 			return AnnotateHookError(app, e, err)
