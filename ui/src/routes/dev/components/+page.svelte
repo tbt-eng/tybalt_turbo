@@ -28,6 +28,7 @@
   import DSPicker, { pickerDropdownLimit } from "$lib/components/DSPicker.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSRecordLabel from "$lib/components/DSRecordLabel.svelte";
+  import DSCopyButton from "$lib/components/DSCopyButton.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
   import DSSelector from "$lib/components/DSSelector.svelte";
   import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
@@ -246,6 +247,26 @@
             description="Client Negotiated Rates"
             href="/dev/components"
           />.
+        </DSField>
+        <DSField label="With a trailing control">
+          <DSRecordLabel
+            label="2026-11-00004 (rev. 2)"
+            description="Client Negotiated Rates"
+            href="/dev/components"
+          >
+            {#snippet trailing()}
+              <DSCopyButton text="2026-11-00004" label="Copy code 2026-11-00004" />
+            {/snippet}
+          </DSRecordLabel>
+        </DSField>
+      </DSFieldList>
+    </DSSection>
+
+    <DSSection title="DSCopyButton">
+      <DSFieldList>
+        <DSField label="In a sentence">
+          Code 2026-11-00004 <DSCopyButton text="2026-11-00004" label="Copy code 2026-11-00004" />
+          prices this job.
         </DSField>
       </DSFieldList>
     </DSSection>

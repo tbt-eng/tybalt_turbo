@@ -280,10 +280,30 @@ This removes the ternaries in `PurchaseOrdersList`, `pos/[poid]/details` and `po
 A record named by an identifier, such as a code, with an optional description in muted text after it. It is inline, so it fits in a sentence, a list headline or a `DSField`.
 
 ```ts
-{ label: string; description?: string; href?: string }
+{ label: string; description?: string; href?: string; trailing?: Snippet }
 ```
 
+`trailing` is a small control right after the identifier, before the description, such as a `DSCopyButton`. The identifier and the control stay on one line.
+
 `rateSheets/RateSheetLabel` uses it for every rate sheet: the code and revision, linked to the sheet, then the name. Where only text fits, such as a dropdown option, use `rateSheetLabel()` from `$lib/rateSheetLabel`, which matches the server's label.
+
+#### `DSCopyButton`
+
+A small icon button that copies a value, such as a code, to the clipboard. It sits inline beside the value, in a sentence, a list row or a `DSField`, and doesn't change the line's height.
+
+```ts
+{
+  text: string; // what to copy: "2026-02-00001"
+  label: string; // the accessible name and tooltip: "Copy code 2026-02-00001"
+}
+```
+
+- The icon is `mdi:clipboard-text-outline` in muted grey, 16px. `mdi:content-copy` is taken: it means **Use as Template**.
+- After a copy, a green check mark shows for 1.5 seconds and a live region says "Copied". With no clipboard, or when the browser refuses, a red mark and "Copy failed" show instead. It never throws.
+- A wider box behind the icon makes the touch target about 24 by 32 pixels without moving the line.
+- The click stops at the button, so a row or a link around it does not react.
+- It has `data-print-hide`, so it never prints.
+- `copyText()` in `ui/src/lib/clipboard.ts` does the copy and returns whether it worked. Use it for any other copy control.
 
 ### Component gallery
 
