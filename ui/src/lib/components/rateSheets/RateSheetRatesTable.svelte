@@ -15,7 +15,8 @@
   // started from, with each changed role marked. With editable, the rate and
   // the overtime rate of each role are inputs, with a multiplier above the
   // overtime rates. errors holds the errors of the last save under
-  // rateErrorKey, and each shows under the rate it belongs to.
+  // rateErrorKey, and each shows under the rate it belongs to. Read only, a
+  // role with no rate shows no amount, and the page says what to do.
   let {
     rows = $bindable(),
     editable = false,
@@ -41,7 +42,7 @@
     {changedCount === 0
       ? "No rate differs from the source sheet."
       : `${changedCount} ${changedCount === 1 ? "role differs" : "roles differ"} from ${sourceName || "the source sheet"}.`}
-    {#if missingCount > 0}
+    {#if missingCount > 0 && editable}
       {`${missingCount} ${missingCount === 1 ? "role is missing a rate" : "roles are missing rates"}. Enter ${missingCount === 1 ? "its" : "their"} rates before you submit.`}
     {/if}
   </p>
@@ -94,7 +95,7 @@
                 {#if errorOf(row, "rate")}
                   <div class="mt-1 text-xs text-red-600">{errorOf(row, "rate")}</div>
                 {/if}
-              {:else}
+              {:else if row.rate !== null}
                 {formatCurrency(row.rate)}
               {/if}
             </td>
@@ -114,7 +115,7 @@
                 {#if errorOf(row, "overtime_rate")}
                   <div class="mt-1 text-xs text-red-600">{errorOf(row, "overtime_rate")}</div>
                 {/if}
-              {:else}
+              {:else if row.overtime_rate !== null}
                 {formatCurrency(row.overtime_rate)}
               {/if}
             </td>

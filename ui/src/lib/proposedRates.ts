@@ -162,6 +162,37 @@ export function withSourceRates(
   return changed ? result : null;
 }
 
+// A saved rate or a role with no rate, as the request detail sends them
+// (related.rate_sheet_entries and related.rate_sheet_missing_rates). A
+// missing role has no rate and no overtime rate.
+type ReviewRate = {
+  role_id: string;
+  role_name: string;
+  rate?: number;
+  overtime_rate?: number;
+  source_rate?: number;
+  source_overtime_rate?: number;
+};
+
+// The rows of the review of proposed rates, in role order: each saved rate,
+// and an empty row for each role with no rate, with the source sheet's rates
+// where it has them. The rates table marks an empty row No rate.
+export function reviewRows(entries: ReviewRate[], missing: ReviewRate[] = []): ProposedRate[] {
+  const toRow = (entry: ReviewRate, saved: boolean): ProposedRate => ({
+    role: entry.role_id,
+    roleName: entry.role_name,
+    rate: saved ? (entry.rate ?? null) : null,
+    overtime_rate: saved ? (entry.overtime_rate ?? null) : null,
+    ...(entry.source_rate === undefined
+      ? {}
+      : { source_rate: entry.source_rate, source_overtime_rate: entry.source_overtime_rate }),
+  });
+  return [
+    ...entries.map((entry) => toRow(entry, true)),
+    ...missing.map((entry) => toRow(entry, false)),
+  ].sort((a, b) => a.roleName.localeCompare(b.roleName));
+}
+
 // The fields of the rates editor that show their own error after a refused
 // save, under the server's keys.
 const proposedRatesFields = ["name", "reason", "based_on"].map(

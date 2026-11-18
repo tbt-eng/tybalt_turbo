@@ -8,7 +8,8 @@
   import RateSheetRatesTable from "./RateSheetRatesTable.svelte";
   import RateSheetLabel from "./RateSheetLabel.svelte";
   import { rateSheetCodeRevision } from "$lib/rateSheetLabel";
-  import type { ProposedRate } from "$lib/proposedRates";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import { type ProposedRate, rateMissing, reviewRows } from "$lib/proposedRates";
   import type { WorkflowRecord } from "$lib/clientEditors";
 
   // A project request's proposed rates, read only, as the approver and
@@ -24,18 +25,13 @@
   }: { related: WorkflowRecord; canApprove?: boolean; approved?: boolean } = $props();
 
   const source = $derived(related.rate_sheet_source);
+  // Every role: the saved rates, and each role with no rate, marked No rate.
+  // Submission needs a rate for every role, but a role can be added after
+  // submission.
   const rows = $derived<ProposedRate[]>(
-    (related.rate_sheet_entries ?? [])
-      .map((entry: WorkflowRecord) => ({
-        role: entry.role_id,
-        roleName: entry.role_name,
-        rate: entry.rate,
-        overtime_rate: entry.overtime_rate,
-        source_rate: entry.source_rate,
-        source_overtime_rate: entry.source_overtime_rate,
-      }))
-      .sort((a: ProposedRate, b: ProposedRate) => a.roleName.localeCompare(b.roleName)),
+    reviewRows(related.rate_sheet_entries ?? [], related.rate_sheet_missing_rates ?? []),
   );
+  const missingCount = $derived(rows.filter(rateMissing).length);
   const sheet = $derived(related.rate_sheet);
   const approver = $derived(related.rate_sheet_rates_approver);
   const approvedBy = $derived(
@@ -72,6 +68,15 @@
     <DSField label="Reason" value={related.rate_sheet?.reason} />
     <DSField label="Rates approved by" value={approvedBy} />
   </DSFieldList>
+  {#if missingCount > 0}
+    <DSCallout
+      tone="warning"
+      title={`${missingCount} ${missingCount === 1 ? "role has" : "roles have"} no rate`}
+    >
+      Approval and job creation fail until every role has a rate. After a recall or a rejection, the
+      requester can enter the rates.
+    </DSCallout>
+  {/if}
   <RateSheetRatesTable {rows} sourceName={source ? rateSheetCodeRevision(source) : ""} />
   {#if canApprove}
     <DsCheck

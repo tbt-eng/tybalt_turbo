@@ -40,9 +40,9 @@ As you change rates, Turbo lists up to three active sheets that differ in five r
 
 ## Approve proposed rates
 
-The approver sees each rate beside the rate of the starting sheet. Changed roles show **Changed**.
+The approver sees each rate beside the starting sheet's rate. Changed roles show **Changed**. Turbo won't approve the request while a role shows **No rate**.
 
-Below the rates, the approver selects **I approve the creation of this new rate sheet and its rates**. Approval needs it. Turbo keeps the approver's name and the date.
+Below the rates, the approver selects **I approve the creation of this new rate sheet and its rates**. Approval needs it.
 
 After a recall or a rejection, the approver must approve the rates again.
 

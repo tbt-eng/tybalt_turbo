@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -818,5 +819,88 @@ func TestRequestPrintNamesTheRolesThatProposedRatesLack(t *testing.T) {
 	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id+"/print", workflowAuthor, nil, http.StatusOK)
 	if _, ok := detail["related"].(map[string]any)["rate_sheet_missing_roles"]; ok {
 		t.Fatal("a request that chose an active sheet lists missing roles")
+	}
+}
+
+// The request detail lists each role that the proposed rates lack, with the
+// role's id and the source sheet's rates, so the approver's review shows it
+// as a row. rsdraftsheet002 lacks the Survey Drone Pilot, which the standard
+// sheet it started from has.
+func TestRequestDetailListsTheRatesThatProposedRatesLack(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	missingRates := func(id string) []any {
+		t.Helper()
+		detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, draftFixtureCreator, nil, http.StatusOK)
+		rows, ok := detail["related"].(map[string]any)["rate_sheet_missing_rates"].([]any)
+		if !ok {
+			t.Fatalf("no rate_sheet_missing_rates: %#v", detail["related"])
+		}
+		return rows
+	}
+	if rows := missingRates(draftFixtureRequest); len(rows) != 0 {
+		t.Fatalf("a complete proposal lists missing rates: %#v", rows)
+	}
+	var source hooks.RateSheetEntryValues
+	values, err := hooks.LoadRateSheetEntryValues(app, standardRateSheet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range values {
+		if value.Role == missingDraftRole {
+			source = value
+		}
+	}
+	rows := missingRates("rsdraftreq00002")
+	if len(rows) != 1 {
+		t.Fatalf("missing rates: %#v", rows)
+	}
+	row := rows[0].(map[string]any)
+	if row["role_id"] != missingDraftRole || row["role_name"] != missingDraftRoleName ||
+		row["source_rate"] != source.Rate || row["source_overtime_rate"] != source.OvertimeRate || source.Rate == 0 {
+		t.Fatalf("missing rate row: %#v; want the source rates %v / %v", row, source.Rate, source.OvertimeRate)
+	}
+}
+
+// A role added after submission leaves the proposed rates without a rate for
+// it. Approval and job creation both refuse the request and name the role,
+// and the review token does not change. This test adds a rate_roles row at
+// test time; the test app is discarded after.
+func TestARoleAddedAfterSubmissionBlocksApprovalAndCreation(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	approved, approvedDraft := proposedRequest(t, app, 290, "Client MSA")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+approved+"/submit", workflowAuthor, requestActionData(t, app, approved), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+approved+"/approve", workflowApprover, ratesApprovalData(t, app, approved), http.StatusOK)
+
+	submitted := createWorkflowRequest(t, app)
+	completeWorkflowRequest(t, app, submitted)
+	proposeRates(t, app, submitted, workflowAuthor, proposedRates("Other Negotiated Rates", "Client MSA", standardRates(t, app, 295)), http.StatusOK)
+	// Another PDF, since one PDF can't authorize two requests.
+	workflowUpload(t, app, "/api/job_requests/"+submitted+"/document", workflowAuthor, "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Late true >>\nendobj\n%%EOF", map[string]string{"version": fmt.Sprint(workflowRecord(t, app, "job_requests", submitted).GetInt("version"))}, http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+submitted+"/submit", workflowAuthor, requestActionData(t, app, submitted), http.StatusOK)
+
+	roles, err := app.FindCollectionByNameOrId("rate_roles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	role := core.NewRecord(roles)
+	role.Set("name", "Late Review Role")
+	if err := app.Save(role); err != nil {
+		t.Fatal(err)
+	}
+
+	refused := requestJSON(t, app, http.MethodPost, "/api/job_requests/"+submitted+"/approve", workflowApprover, ratesApprovalData(t, app, submitted), http.StatusBadRequest)
+	if !strings.Contains(fmt.Sprint(refused["message"]), "no rate for Late Review Role") {
+		t.Fatalf("approval refusal: %#v", refused)
+	}
+	if status := workflowRecord(t, app, "job_requests", submitted).GetString("status"); status != "Awaiting approval" {
+		t.Fatalf("a refused approval changed the request: %s", status)
+	}
+
+	refused = requestJSON(t, app, http.MethodPost, "/api/job_requests/"+approved+"/create", workflowAuthor, requestActionData(t, app, approved), http.StatusBadRequest)
+	if !strings.Contains(fmt.Sprint(refused["message"]), "no rate for Late Review Role") {
+		t.Fatalf("creation refusal: %#v", refused)
+	}
+	if draft := workflowRecord(t, app, "rate_sheets", approvedDraft); draft.GetBool("active") || draft.GetString("request") != approved {
+		t.Fatal("a refused creation activated the draft")
 	}
 }

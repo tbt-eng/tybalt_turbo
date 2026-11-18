@@ -273,7 +273,10 @@ func renameProposedRates(app core.App, r *core.Record, name, renamedBy string) e
 // started from, and each rate beside the source's, with changes marked.
 // rate_sheet_missing_roles names the roles without a rate, by the check that
 // submission makes, so the printed authorization is signable only when it is
-// empty. It does nothing when the request uses an active sheet.
+// empty. rate_sheet_missing_rates has a row for each of them, with the role's
+// id and the source sheet's rates when it has them, so the review can list
+// them. Both are for display and stay out of the review token. It does
+// nothing when the request uses an active sheet.
 func requestProposedRates(app core.App, r *core.Record, result map[string]any, rates []map[string]any) error {
 	draft, err := hooks.RequestRateSheetDraft(app, r)
 	if err != nil || draft == nil {
@@ -307,6 +310,11 @@ func requestProposedRates(app core.App, r *core.Record, result map[string]any, r
 			}
 		}
 	}
+	missingRates, err := requestMissingRates(app, draft.Id, sourceRates)
+	if err != nil {
+		return err
+	}
+	result["rate_sheet_missing_rates"] = missingRates
 	for _, rate := range rates {
 		role, _ := rate["role_id"].(string)
 		source, ok := sourceRates[role]
@@ -319,6 +327,37 @@ func requestProposedRates(app core.App, r *core.Record, result map[string]any, r
 		rate["changed"] = source.Rate != rate["rate"] || source.OvertimeRate != rate["overtime_rate"]
 	}
 	return nil
+}
+
+// requestMissingRates returns a row for each rate role that the draft has no
+// rate for, in the order of ValidateRateSheetComplete: role_id, role_name and,
+// when the source sheet has a rate for the role, source_rate and
+// source_overtime_rate.
+func requestMissingRates(app core.App, draftID string, sourceRates map[string]hooks.RateSheetEntryValues) ([]map[string]any, error) {
+	roles := []struct {
+		ID   string `db:"id"`
+		Name string `db:"name"`
+	}{}
+	if err := app.DB().NewQuery(`
+		SELECT r.id, r.name
+		FROM rate_roles r
+		WHERE r.id NOT IN (
+			SELECT rse.role FROM rate_sheet_entries rse WHERE rse.rate_sheet = {:sheet}
+		)
+		ORDER BY r.name
+	`).Bind(dbx.Params{"sheet": draftID}).All(&roles); err != nil {
+		return nil, err
+	}
+	rows := []map[string]any{}
+	for _, role := range roles {
+		row := map[string]any{"role_id": role.ID, "role_name": role.Name}
+		if source, ok := sourceRates[role.ID]; ok {
+			row["source_rate"] = source.Rate
+			row["source_overtime_rate"] = source.OvertimeRate
+		}
+		rows = append(rows, row)
+	}
+	return rows, nil
 }
 
 // The approver of a request with proposed rates approves the creation of the

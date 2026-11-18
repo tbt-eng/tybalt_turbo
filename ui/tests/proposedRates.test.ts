@@ -9,6 +9,7 @@ import {
   rateChanged,
   rateErrorKey,
   rateMissing,
+  reviewRows,
   withEveryRole,
   withOvertimeMultiplier,
   withSourceRates,
@@ -248,4 +249,46 @@ test("an empty row of a saved proposal gets the source rates, not the rates", ()
   assert.equal(filled?.find((row) => row.role === "drone")?.source_rate, undefined);
   // Once filled, nothing changes.
   assert.equal(withSourceRates(filled ?? [], source), null);
+});
+
+test("the review lists each role with no rate as an empty row with the source rates", () => {
+  const entries = [
+    {
+      role_id: "principal",
+      role_name: "Principal",
+      rate: 260,
+      overtime_rate: 338,
+      source_rate: 250,
+      source_overtime_rate: 325,
+    },
+  ];
+  const missing = [
+    {
+      role_id: "drone",
+      role_name: "Survey Drone Pilot",
+      source_rate: 90,
+      source_overtime_rate: 117,
+    },
+    { role_id: "biologist", role_name: "Biologist" },
+  ];
+  const rows = reviewRows(entries, missing);
+  assert.deepEqual(
+    rows.map((row) => row.role),
+    ["biologist", "principal", "drone"],
+  );
+  assert.deepEqual(rows[2], {
+    role: "drone",
+    roleName: "Survey Drone Pilot",
+    rate: null,
+    overtime_rate: null,
+    source_rate: 90,
+    source_overtime_rate: 117,
+  });
+  assert.equal(missingRateLabel(rows[2]), "No rate");
+  // A role the source sheet lacks has no source rates.
+  assert.equal("source_rate" in rows[0], false);
+  assert.equal(missingRateLabel(rows[0]), "No rate");
+  assert.equal(rateMissing(rows[1]), false);
+  // A complete proposal, or a response without the list, has only its rates.
+  assert.equal(reviewRows(entries).length, 1);
 });

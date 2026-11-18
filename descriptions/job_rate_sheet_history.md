@@ -425,10 +425,10 @@ overtime_rate}]}` (`app/routes/job_request_rate_sheets.go`).
   (`hooks.HasAtMostTwoDecimals`, which compares in cents with a small
   tolerance). `PUT /api/rate_sheet_entries/{id}` and a create through the
   `rate_sheet_entries` collection API (a request hook) refuse more decimals
-  with the same message, `overtime_rate must have at most two decimal
-  places`; the browser's `step="0.01"` is not the only check. `based_on` must be an active sheet that is
-  not a draft; a saved draft may keep a source that has since been
-  deactivated. The name is optional; when given, it may not equal any other
+  with the same message (overtime_rate must have at most two decimal
+  places); the browser's `step="0.01"` is not the only check. `based_on`
+  must be an active sheet that is not a draft; a saved draft may keep a
+  source that has since been deactivated. The name is optional; when given, it may not equal any other
   sheet's name in any letter case, as for a rename.
 - Turbo refuses rates identical to an active sheet with 409
   `duplicate_rate_sheet` under `proposed_rates`, listing the matches
@@ -458,6 +458,18 @@ through `based_on` and `rates_approver` on the draft's record, which are ids.
 So a rename or a newer revision of the source, or an edit of the approver's
 profile, does not make an approval stale. A changed rate on the source does,
 since the approver compared with it. The request options leave drafts out.
+
+`rate_sheet_missing_roles` names the roles without a rate, and
+`rate_sheet_missing_rates` has a row for each (`role_id`, `role_name`, and
+`source_rate` and `source_overtime_rate` when the source sheet has the role).
+Both are for display and stay out of the review token. Submission refuses a
+proposal without a rate for every role, but a role can be added later, so the
+review (`ProposedRatesReview.svelte`, through `reviewRows` in
+`ui/src/lib/proposedRates.ts`) lists each missing role as a **No rate** row
+with the source rates, under a warning that names the count. Approval and job
+creation refuse such a request (`ValidateRequestRateSheetDraft`, through
+`validateRequestComplete`), and job creation checks again in
+`ActivateRequestRateSheet`.
 
 ### Approval
 
