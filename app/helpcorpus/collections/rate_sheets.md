@@ -27,11 +27,10 @@
 @request.body.rates_approver:isset = false &&
 @request.body.rates_approved:isset = false &&
 // The server gives a new sheet its code.
-@request.body.code:isset = false && (
-  @request.auth.user_claims_via_uid.cid.name ?= 'rate_sheet_revise' ||
-  @request.auth.user_claims_via_uid.cid.name ?= 'admin' ||
-  (@request.auth.user_claims_via_uid.cid.name ?= 'job' && @request.body.revision = 0)
-)
+@request.body.code:isset = false &&
+// Only a new sheet, by Procurement. A revision goes through the create route.
+@request.auth.user_claims_via_uid.cid.name ?= 'job' &&
+@request.body.revision = 0
 ```
 
 ## Who can update a record (update rule): rate_sheets

@@ -597,7 +597,12 @@ The name is an optional description.
   name, and may not revise a draft. No other new sheet may carry a code,
   except one that the undo of a pending rate sheet absorb recreates with its
   own code. The create rule refuses `code` in the body, so the collection API
-  can create only revision 0 with a generated code.
+  can create only revision 0 with a generated code. It also needs the `job`
+  claim and `revision` 0 in the body, as `POST /api/rate_sheets` does for a
+  new sheet (migration `1795012495_rate_sheets_create_rule_job_only.go`).
+  Before it, a `rate_sheet_revise` or `admin` holder without `job` could
+  create a new sheet there, which the route refuses. A revision goes through
+  the route, with `rate_sheet_revise` or `admin`.
 - A proposal (a request's draft) gets its code on its first save, like any
   new sheet.
 - Absorb: the target keeps its code; the absorbed sheet's code is retired.

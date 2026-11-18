@@ -45,7 +45,7 @@ func TestNothingCanReviseAProposal(t *testing.T) {
 			Body:            strings.NewReader(`{"name":"Another Revision","revision":1,"effective_date":"2026-11-20"}`),
 			Headers:         map[string]string{"Authorization": token},
 			ExpectedStatus:  http.StatusBadRequest,
-			ExpectedContent: []string{"A new revision takes the code"},
+			ExpectedContent: []string{"Failed to create record"},
 		},
 		{
 			Name:            "the create route refuses a revision of a draft by code",
