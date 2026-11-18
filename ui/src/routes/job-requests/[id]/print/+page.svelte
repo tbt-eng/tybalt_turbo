@@ -15,7 +15,6 @@
   const missing = $derived(printMissing(data.detail));
   const shown = (value: any) =>
     value === undefined || value === null || value === "" ? "Not provided" : value;
-  const date = (value: string) => (value ? value.slice(0, 10) : "Not provided");
   const rate = (value: number) =>
     Number.isFinite(value) ? `$${value.toFixed(2)}` : "Not provided";
   onMount(() => {
@@ -134,8 +133,7 @@
             </p>
             <p>Applicable taxes are additional.</p>
             <p>
-              Rate sheet: {shown(d.rate_sheet?.code)} · Revision: {shown(d.rate_sheet?.revision)} · Effective:
-              {date(d.rate_sheet?.effective_date)}
+              Rate sheet: {shown(d.rate_sheet?.code)} · Revision: {shown(d.rate_sheet?.revision)}
             </p>
           </section>
           <section>
@@ -184,7 +182,6 @@
           {#if r.time_and_materials}<section class="appendix">
               <h2>Client billing rate sheet — CAD</h2>
               <h3>{shown(d.rate_sheet?.code)} — Revision {shown(d.rate_sheet?.revision)}</h3>
-              <p>Effective: {date(d.rate_sheet?.effective_date)}</p>
               <table class="rates">
                 <thead
                   ><tr><th>Role</th><th>Regular hourly rate</th><th>Overtime hourly rate</th></tr

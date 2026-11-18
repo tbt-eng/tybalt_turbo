@@ -549,7 +549,9 @@ other. Existing sheets are not checked or changed.
   `rate_sheet_name` keeps the requester's name. The general rename action is
   for `admin` and, since issue 207, `rate_sheet_revise` holders.
 - The draft's effective date is the save date, and becomes the activation
-  date at job creation.
+  date at job creation. The stored date of a draft is a placeholder and is
+  never printed: the project authorization prints no effective date for any
+  sheet.
 - The reason is required on every save of proposed rates, as the starting
   sheet is. It is at most 500 characters.
 - The proposal is checked for duplicates on every save and again at
@@ -758,7 +760,7 @@ responses and messages; the review token; the writeback; and two imports.
   clear a proposal's name there; the box says so.
 - The printed rate sheet shows the code and revision as its title, the name
   under it, and former names and codes. The printed project authorization
-  shows the code, revision and effective date, without the name.
+  shows the code and revision, without the name or the effective date.
 - User docs: `rate-sheet-codes.md` (code, name, rename), with changes to
   `rate-sheets.md`, `proposed-rates.md` and the glossary.
 
