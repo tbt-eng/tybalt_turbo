@@ -355,12 +355,10 @@
       padding: 0;
       max-width: none;
     }
-    :global(body) {
-      background: white !important;
-    }
+    /* Transparent, so a label does not cover the start of its signature line. */
     * {
       color: black !important;
-      background: white !important;
+      background: transparent !important;
     }
   }
 </style>

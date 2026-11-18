@@ -80,4 +80,9 @@
     position: static !important;
     display: block !important;
   }
+
+  /* The print routes: white paper, even with background graphics on. */
+  body:not(:has([data-app-shell])) {
+    background: white !important;
+  }
 }

@@ -88,7 +88,7 @@
     /* Force B&W - remove any color */
     * {
       color: black !important;
-      background: white !important;
+      background: transparent !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
