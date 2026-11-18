@@ -38,18 +38,30 @@ LEFT JOIN (
   SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
 ) u ON u.rate_sheet = rs.id
 LEFT JOIN (
-  SELECT s.code AS code,
-    GROUP_CONCAT(DISTINCT cj.number) AS job_numbers,
-    GROUP_CONCAT(DISTINCT c.name) AS client_names
-  FROM rate_sheets s
-  JOIN (
-    SELECT j.rate_sheet AS rate_sheet, j.id AS job FROM jobs j WHERE j.rate_sheet != ''
+  SELECT d.code AS code,
+    GROUP_CONCAT(CASE WHEN d.kind = 'job' THEN d.value END, char(10)) AS job_numbers,
+    GROUP_CONCAT(CASE WHEN d.kind = 'client' THEN d.value END, char(10)) AS client_names
+  FROM (
+    SELECT s.code AS code, 'job' AS kind, cj.number AS value
+    FROM rate_sheets s
+    JOIN (
+      SELECT j.rate_sheet AS rate_sheet, j.id AS job FROM jobs j WHERE j.rate_sheet != ''
+      UNION
+      SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
+    ) cu ON cu.rate_sheet = s.id
+    JOIN jobs cj ON cj.id = cu.job
     UNION
-    SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
-  ) cu ON cu.rate_sheet = s.id
-  JOIN jobs cj ON cj.id = cu.job
-  LEFT JOIN clients c ON c.id = cj.client
-  GROUP BY s.code
+    SELECT s.code AS code, 'client' AS kind, c.name AS value
+    FROM rate_sheets s
+    JOIN (
+      SELECT j.rate_sheet AS rate_sheet, j.id AS job FROM jobs j WHERE j.rate_sheet != ''
+      UNION
+      SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
+    ) cu ON cu.rate_sheet = s.id
+    JOIN jobs cj ON cj.id = cu.job
+    JOIN clients c ON c.id = cj.client
+  ) d
+  GROUP BY d.code
 ) f ON f.code = rs.code
 WHERE COALESCE(rs.request, '') = ''
 GROUP BY rs.id, rs.code, rs.name, rs.effective_date, rs.revision, rs.active, rs.created, rs.updated, f.job_numbers, f.client_names

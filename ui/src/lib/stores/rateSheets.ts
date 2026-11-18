@@ -13,7 +13,7 @@ export interface RateSheetResponse extends BaseSystemFields {
   active: boolean;
   job_count: number;
   // The job numbers and the client names of every revision of the code, now
-  // or in a job's rate sheet history, comma separated, for the search.
+  // or in a job's rate sheet history, one to a line, for the search.
   job_numbers: string;
   client_names: string;
 }

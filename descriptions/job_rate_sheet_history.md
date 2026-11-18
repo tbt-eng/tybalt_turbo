@@ -781,9 +781,15 @@ Status: Implemented (issue 207, step 2)
 - `rate_sheets_augmented` has two text fields for it, `job_numbers` and
   `client_names` (migration `1795025548_rate_sheets_augmented_find_by_job.go`):
   the distinct job numbers and client names of every revision of the
-  sheet's code, comma separated, or empty. A `CAST(... AS TEXT)` makes
-  PocketBase read them as text. `job_count` still counts the jobs of the
-  revision itself. A request's proposed rates stay out of the view.
+  sheet's code, or empty. A `CAST(... AS TEXT)` makes PocketBase read them
+  as text. `job_count` still counts the jobs of the revision itself. A
+  request's proposed rates stay out of the view.
+- A line break (`char(10)`) separates the entries, since a client name can
+  have a comma (migration `1795028532_rate_sheets_augmented_line_lists.go`).
+  SQLite's `GROUP_CONCAT` takes no separator with `DISTINCT`, so a `UNION`
+  of (code, kind, value) rows makes the values distinct first. MiniSearch
+  splits on a line break as on a space, and no search term holds one, so a
+  term never spans two entries.
 - `ui/src/lib/rateSheetLabel.ts` adds both fields to `rateSheetSearchText`,
   which the Rate Sheets list matches as a substring, and lists the store's
   search fields in `rateSheetSearchFields`. The `rateSheets` store indexes

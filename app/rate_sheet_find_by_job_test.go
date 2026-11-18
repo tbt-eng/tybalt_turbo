@@ -23,7 +23,9 @@ import (
 //   - Absorb History Revised (2026-11-00022): only a past period of 91-8916
 //     is on rev 0 (rsabhistrev0r01); rev 1 (rsabhistrev1r01) has no jobs.
 //   - 2025 Standard Rates (c41ofep525bcacj) is the current sheet of jobs of
-//     three clients, and a past one of 91-8934, whose opening period is on it.
+//     four clients, and a past one of 91-8934, whose opening period is on it.
+//     One client, of 91-8940, is "Lakehead Surveys, Inc.", a name with a
+//     comma.
 //   - Sheet A rev 1 (rs_sheeta_r1) has no jobs in any revision.
 //   - rsdraftsheet001 is a request's proposed rates.
 
@@ -44,11 +46,13 @@ func rateSheetFindRow(t *testing.T, app core.App, id string) rateSheetFindFields
 	return row
 }
 
-func commaList(s string) []string {
+// lineList splits a field of the view, whose entries are joined by a line
+// break.
+func lineList(s string) []string {
 	if s == "" {
 		return []string{}
 	}
-	list := strings.Split(s, ",")
+	list := strings.Split(s, "\n")
 	slices.Sort(list)
 	return list
 }
@@ -78,20 +82,21 @@ func TestRateSheetsAugmentedFindByJob(t *testing.T) {
 		if row.JobCount != want.count {
 			t.Errorf("%s job_count = %d; want %d", id, row.JobCount, want.count)
 		}
-		if got := commaList(row.JobNumbers); !slices.Equal(got, want.numbers) {
+		if got := lineList(row.JobNumbers); !slices.Equal(got, want.numbers) {
 			t.Errorf("%s job_numbers = %v; want %v", id, got, want.numbers)
 		}
-		if got := commaList(row.ClientNames); !slices.Equal(got, want.clients) {
+		if got := lineList(row.ClientNames); !slices.Equal(got, want.clients) {
 			t.Errorf("%s client_names = %v; want %v", id, got, want.clients)
 		}
 	}
 
-	// A sheet with jobs of several clients lists each client once.
+	// A sheet with jobs of several clients lists each client once, and a
+	// comma stays inside its name.
 	standard := rateSheetFindRow(t, app, "c41ofep525bcacj")
-	if got, want := commaList(standard.ClientNames), []string{"BN Rail Corporation", "Mobilia SA", "Sepulchi & Co"}; !slices.Equal(got, want) {
+	if got, want := lineList(standard.ClientNames), []string{"BN Rail Corporation", "Lakehead Surveys, Inc.", "Mobilia SA", "Sepulchi & Co"}; !slices.Equal(got, want) {
 		t.Errorf("standard client_names = %v; want %v", got, want)
 	}
-	if !slices.Contains(commaList(standard.JobNumbers), "91-8934") {
+	if !slices.Contains(lineList(standard.JobNumbers), "91-8934") {
 		t.Errorf("standard job_numbers = %q; want the past job 91-8934", standard.JobNumbers)
 	}
 }

@@ -53,8 +53,8 @@ const sheets = [
     name: "Client Rates",
     revision: 0,
     effective_date: "2026-01-01",
-    job_numbers: "24-321,P25-007",
-    client_names: "Mobilia SA,BN Rail Corporation",
+    job_numbers: "24-321\nP25-007",
+    client_names: "Mobilia SA\nBN Rail Corporation",
   },
   {
     id: "rev1",
@@ -62,8 +62,8 @@ const sheets = [
     name: "Client Rates",
     revision: 1,
     effective_date: "2026-12-01",
-    job_numbers: "24-321,P25-007",
-    client_names: "Mobilia SA,BN Rail Corporation",
+    job_numbers: "24-321\nP25-007",
+    client_names: "Mobilia SA\nBN Rail Corporation",
   },
   {
     id: "other",
