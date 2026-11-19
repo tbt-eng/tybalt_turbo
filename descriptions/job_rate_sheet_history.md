@@ -966,9 +966,14 @@ an active user with the `time` claim (403). It changes nothing.
   is kept with the key of the rates it was made for (`findRatesKey`) and shown
   only while the rates still have that key.
 - Matches are a `DSList`: "3 sheets match", each sheet's `RateSheetLabel` with
-  `copy`, its effective date, its job count and **Use**. With no match: "No
-  active sheet has these rates." and a primary **Propose new rates with these
-  rates**. With matches, the same button sits under the list.
+  `copy`, its effective date, its job count and **Use**. Under the list, a
+  muted line (`findCarryHint`): "Need new rates? Choose Propose new rates
+  above. The rates you entered come with you." With no match: an info
+  callout, "No active sheet has these rates.", whose text is that same line,
+  so it is not shown twice. There is no button to propose: an earlier
+  **Propose new rates with these rates** button, blue in the callout and a
+  chip under the list, read as an action on the results and did not match
+  the app, so the choice above does the carrying.
 - `DSToggle` takes `narrowGrid`: below lg, three or more options become a
   full-width grid of two columns, so the three choices fit a phone; the last
   of an odd count spans both columns, so no cell is empty. From lg up it
@@ -993,13 +998,13 @@ an active user with the `time` claim (403). It changes nothing.
 
 - Nothing about the search is stored on the request. It ends in one of two
   ways. **Use** switches to **Choose a sheet** with that sheet chosen; the
-  requester saves. **Propose new rates with these rates** switches to
-  **Propose new rates** with the rates carried.
+  requester saves. A switch to **Propose new rates** in the choice of rates
+  carries the rates.
 - While Find by rates is open, the request keeps the state it had before.
   The unsaved check and a draft kept for the client page use that state, so
   opening the tool alone makes nothing unsaved. **Save request** is refused in
   the browser with "Not saved. Find by rates only searches. Select Use on a
-  sheet, or Propose new rates with these rates." Submission acts on the saved
+  sheet, or choose Propose new rates." Submission acts on the saved
   request, which is always in one of the two real states, so a reopened
   request shows **Choose a sheet** or **Propose new rates**.
 - The rates entered stay while the requester looks at another choice, until
@@ -1014,9 +1019,20 @@ an active user with the `time` claim (403). It changes nothing.
   starting sheet's, which the requester can change or set with the
   multiplier. A role the sheet lacks gets a row with the carried rate; its
   overtime rate stays empty when none was entered.
-- With a starting sheet already chosen, the rates apply at once. Each new
-  starting sheet chosen afterwards takes them again, until the requester
-  leaves **Propose new rates**.
+- Each switch to **Propose new rates**, from **Find by rates** or from
+  **Choose a sheet** (`carryFoundRates` in `RequestEditor.svelte`), carries
+  the rates entered in Find by rates, until the editor closes. Only rows with
+  no input error are carried (`carriedFindRates`); a row with an error stays
+  behind whole, rate and overtime rate. With nothing entered, the switch
+  changes nothing.
+- With a starting sheet already chosen, the carried rates apply at once, but
+  only those that differ from the rates carried at the last switch
+  (`changedCarriedRates`). So a visit to Find by rates that changes no rate
+  keeps the edits made in the proposal since. A rate entered or changed in
+  Find by rates does replace that role's rate in the proposal, also one the
+  requester edited there or one a saved proposal had. Each new starting
+  sheet chosen afterwards takes all the carried rates again, until the
+  requester leaves **Propose new rates**.
 
 ## Migration
 

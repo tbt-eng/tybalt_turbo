@@ -16,7 +16,7 @@ Note: Rejected? Change the rates and submit the request again.
 3. Select **Use** beside a sheet.
 4. Select **Save request**.
 
-Turbo lists the active sheets that have all your rates. If none fits, select **Propose new rates with these rates**. Then select the sheet in **Start from**. Your rates replace its rates.
+Turbo lists the active sheets that have all your rates. If none fits, select **Propose new rates**. Your rates come with you. Then select the sheet in **Start from**. Your rates replace its rates.
 
 ## Propose new rates
 

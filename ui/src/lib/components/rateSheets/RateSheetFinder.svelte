@@ -8,13 +8,12 @@
   import { rateRoles } from "$lib/stores/rateRoles";
   import { type ProposedRate, withEveryRole } from "$lib/proposedRates";
   import {
-    type FoundRate,
     type FoundRateSheet,
+    findCarryHint,
     findRatesErrors,
     findRatesKey,
     findResultMessage,
     findStatusText,
-    foundRates,
     rateEntered,
   } from "$lib/findRates";
   import { countLabel } from "$lib/clientWorkspace";
@@ -22,18 +21,17 @@
 
   // Find by rates in a project request: a rate and an optional overtime rate
   // for each role, and the active sheets that have every rate entered. It
-  // stores nothing. onUse chooses a sheet; onPropose carries the rates into
-  // proposed rates. Enter in a rate searches at once and never submits the
-  // request form. rows is bindable so the rates stay while the requester
-  // looks at another choice.
+  // stores nothing. onUse chooses a sheet. The choice of Propose new rates,
+  // above, carries the rates (RequestEditor), and the line under the results
+  // says so. Enter in a rate searches at once and never submits the request
+  // form. rows is bindable so the rates stay while the requester looks at
+  // another choice.
   let {
     rows = $bindable(),
     onUse,
-    onPropose,
   }: {
     rows: ProposedRate[];
     onUse: (id: string) => void;
-    onPropose: (rates: FoundRate[]) => void;
   } = $props();
 
   rateRoles.init();
@@ -88,8 +86,6 @@
     return () => clearTimeout(timer);
   });
 
-  const propose = () => onPropose(foundRates(rows));
-
   const entered = $derived(rows.some(rateEntered));
   const invalid = $derived(Object.keys(errors).length > 0);
   const count = $derived(current?.matches ? current.matches.length : null);
@@ -110,8 +106,8 @@
 <!-- Below lg: a status line of fixed height under the choice of rates, then the
   table, then the results. From lg up: the table and, beside it, the results in
   a column that stays in view while the page scrolls. The results column is at
-  least 18rem wide, so a code with its copy button and the Propose button each
-  fit on one line; near lg the table gives up the width. -->
+  least 18rem wide, so a code with its copy button fits on one line; near lg
+  the table gives up the width. -->
 <div class="flex flex-col gap-2">
   <p class="sr-only" aria-live="polite">{announced}</p>
   <div class="flex min-h-8 items-center lg:hidden">
@@ -136,13 +132,10 @@
       {:else if current?.failed}
         <DSCallout tone="danger">Turbo could not search the rate sheets. Try again.</DSCallout>
       {:else if current?.matches && current.matches.length === 0}
+        <!-- The callout holds the line under the results, so it is not shown
+          twice. -->
         <DSCallout tone="info" title={findResultMessage(0)}>
-          <p>Propose new rates, starting from the sheet that is closest to the contract.</p>
-          {#snippet actions()}
-            <DSActionButton variant="primary" action={propose}
-              >Propose new rates with these rates</DSActionButton
-            >
-          {/snippet}
+          <p>{findCarryHint}</p>
         </DSCallout>
       {:else if current?.matches}
         <DSList items={current.matches} inListHeader={findResultMessage(current.matches.length)}>
@@ -159,9 +152,7 @@
             <DSActionButton action={() => onUse(sheet.id)}>Use</DSActionButton>
           {/snippet}
         </DSList>
-        <div>
-          <DSActionButton action={propose}>Propose new rates with these rates</DSActionButton>
-        </div>
+        <p class="text-sm text-neutral-600">{findCarryHint}</p>
       {:else}
         <p class="text-sm text-neutral-600 max-lg:hidden">Searching…</p>
       {/if}

@@ -1,8 +1,8 @@
 // Find by rates in a project request: the requester enters the rates they know
 // and Turbo lists the active sheets that have every one of them. It is a tool,
 // not a state of the request: it ends with Use on a sheet, which chooses it,
-// or with the rates carried into proposed rates. See the Find a sheet by rates
-// section of descriptions/job_rate_sheet_history.md.
+// or with a switch to Propose new rates, which carries the rates. See the
+// Find a sheet by rates section of descriptions/job_rate_sheet_history.md.
 
 import { type ProposedRate, rateErrorKey } from "./proposedRates.ts";
 
@@ -116,6 +116,35 @@ export function findRatesKey(rows: ProposedRate[]): string {
 export function findResultMessage(count: number): string {
   if (count === 0) return "No active sheet has these rates.";
   return `${count} ${count === 1 ? "sheet matches" : "sheets match"}`;
+}
+
+// The line under the results, with matches or with none: the choice of
+// Propose new rates carries the rates entered.
+export const findCarryHint =
+  "Need new rates? Choose Propose new rates above. The rates you entered come with you.";
+
+// The rates that a switch to Propose new rates carries: each row entered
+// whose rates have no error, in row order. A row with an error stays in Find
+// by rates and is not carried, in part or in whole.
+export function carriedFindRates(rows: ProposedRate[]): FoundRate[] {
+  const errors = findRatesErrors(rows);
+  return foundRates(
+    rows.filter(
+      (row) =>
+        !errors[rateErrorKey(row.role, "rate")] && !errors[rateErrorKey(row.role, "overtime_rate")],
+    ),
+  );
+}
+
+// The carried rates that differ, role by role, from the rates carried at the
+// last switch. Only these replace the proposal's rates, so a visit to Find by
+// rates that changes no rate keeps the changes made in the proposal since.
+export function changedCarriedRates(rates: FoundRate[], last: FoundRate[]): FoundRate[] {
+  const before = new Map(last.map((rate) => [rate.role, rate]));
+  return rates.filter((rate) => {
+    const earlier = before.get(rate.role);
+    return !earlier || earlier.rate !== rate.rate || earlier.overtime_rate !== rate.overtime_rate;
+  });
 }
 
 // The rows of proposed rates with the carried rates in place: each carried

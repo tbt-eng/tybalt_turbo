@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  carriedFindRates,
+  changedCarriedRates,
+  findCarryHint,
   findRatesBody,
   findRatesErrors,
   findRatesKey,
@@ -116,6 +119,57 @@ test("a carried role that the starting sheet lacks gets a row, in role order", (
     ],
   );
   assert.equal(withCarriedRates(rows, []), rows);
+});
+
+test("a switch to Propose new rates carries only the rows with no error", () => {
+  const rows = [
+    row("admin", "Administration Staff", 111),
+    // A rate that is not a whole number stays behind.
+    row("designer", "Senior Designer", 110.5),
+    // A good rate with a bad overtime rate stays behind whole.
+    row("drone", "Survey Drone Pilot", 140, 0.5),
+    // An overtime rate without its rate stays behind.
+    row("engineer", "Engineer", null, 150),
+    row("principal", "Principal", 4321, 5617.3),
+    row("tech", "Technician", null),
+  ];
+  assert.deepEqual(carriedFindRates(rows), [
+    { role: "admin", roleName: "Administration Staff", rate: 111, overtime_rate: null },
+    { role: "principal", roleName: "Principal", rate: 4321, overtime_rate: 5617.3 },
+  ]);
+  // Nothing entered carries nothing, and nothing carried changes no row.
+  assert.deepEqual(carriedFindRates([row("admin", "Administration Staff", null)]), []);
+  assert.deepEqual(carriedFindRates([]), []);
+});
+
+test("a switch replaces only the rates changed since the last switch", () => {
+  const admin = { role: "admin", roleName: "Administration Staff", rate: 111, overtime_rate: null };
+  const principal = { role: "principal", roleName: "Principal", rate: 4321, overtime_rate: null };
+  // The first switch carries every rate.
+  assert.deepEqual(changedCarriedRates([admin, principal], []), [admin, principal]);
+  // A visit that changes nothing replaces nothing, so edits in the proposal stay.
+  assert.deepEqual(changedCarriedRates([admin, principal], [admin, principal]), []);
+  // A changed rate, a changed overtime rate and a new role are carried again.
+  const changed = { ...principal, rate: 5000 };
+  const overtime = { ...admin, overtime_rate: 144.3 };
+  const drone = { role: "drone", roleName: "Survey Drone Pilot", rate: 140, overtime_rate: null };
+  assert.deepEqual(changedCarriedRates([overtime, drone, changed], [admin, principal]), [
+    overtime,
+    drone,
+    changed,
+  ]);
+  // A rate cleared in Find by rates leaves the proposal as it is.
+  assert.deepEqual(changedCarriedRates([admin], [admin, principal]), []);
+  // Applied to a proposal the requester edited, the unchanged visit keeps the edit.
+  const edited = [sourceRow("principal", "Principal", 250, 325)].map((r) => ({ ...r, rate: 4400 }));
+  assert.equal(withCarriedRates(edited, changedCarriedRates([principal], [principal])), edited);
+});
+
+test("the line under the results points at the choice above", () => {
+  assert.equal(
+    findCarryHint,
+    "Need new rates? Choose Propose new rates above. The rates you entered come with you.",
+  );
 });
 
 test("the status line says where the search stands", () => {

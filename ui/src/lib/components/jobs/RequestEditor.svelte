@@ -26,7 +26,12 @@
   import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
   import RateSheetOption from "$lib/components/rateSheets/RateSheetOption.svelte";
   import RateSheetFinder from "$lib/components/rateSheets/RateSheetFinder.svelte";
-  import { type FoundRate, withCarriedRates } from "$lib/findRates";
+  import {
+    type FoundRate,
+    carriedFindRates,
+    changedCarriedRates,
+    withCarriedRates,
+  } from "$lib/findRates";
   import {
     type ProposedRate,
     type ProposedRates,
@@ -77,9 +82,10 @@
   );
   // The request either chooses an active rate sheet or proposes new rates.
   // Find by rates is a tool between the two, not a state of the request: it
-  // ends with Use on a sheet (choose) or with the rates carried into a
-  // proposal (propose). While it is open, the request keeps the state it had
-  // before, findFrom, which a save would not send, so a save is refused.
+  // ends with Use on a sheet (choose) or with a switch to Propose new rates,
+  // which carries the rates into the proposal (propose). While it is open,
+  // the request keeps the state it had before, findFrom, which a save would
+  // not send, so a save is refused.
   const rateModeOptions = [
     { id: "choose", label: "Choose a sheet" },
     { id: "find", label: "Find by rates" },
@@ -99,6 +105,9 @@
   // sheet chosen in the proposal takes them in place of its own rates for
   // those roles, until the requester leaves Propose new rates.
   let carried = $state<FoundRate[]>([]);
+  // The rates carried at the last switch to Propose new rates, so that a
+  // switch replaces only the rates changed in Find by rates since.
+  let lastCarried: FoundRate[] = [];
   let proposal = $state<ProposedRates>(
     untrack(
       () =>
@@ -266,9 +275,23 @@
     if (mode === "find") findFrom = rateMode;
     rateMode = mode;
     refusal = null;
-    if (mode !== "propose") carried = [];
+    if (mode === "propose") carryFoundRates();
+    else carried = [];
     if (mode === "choose" && related.rate_sheet_proposed && item.rate_sheet === request.rate_sheet)
       item.rate_sheet = "";
+  }
+  // A switch to Propose new rates, from Find by rates or from Choose a sheet,
+  // carries the rates entered in Find by rates that have no error. With a
+  // starting sheet already chosen, the rates changed since the last switch
+  // replace the proposal's rates for their roles at once; otherwise the
+  // editor puts all of them in place when the requester chooses one. With
+  // nothing entered, nothing changes.
+  function carryFoundRates() {
+    const rates = carriedFindRates(findRows);
+    const changed = changedCarriedRates(rates, lastCarried);
+    lastCarried = rates;
+    carried = rates;
+    if (proposal.based_on) proposal.rows = withCarriedRates(proposal.rows, changed);
   }
   // Choose a sheet that Find by rates found. The requester saves the request.
   function useFoundSheet(id: string) {
@@ -276,15 +299,6 @@
     item.rate_sheet = id;
     refusal = null;
     carried = [];
-  }
-  // Propose new rates with the rates found by. With a starting sheet already
-  // chosen, they replace its rates at once; otherwise the editor puts them in
-  // place when the requester chooses one.
-  function proposeFoundRates(rates: FoundRate[]) {
-    carried = rates;
-    if (proposal.based_on) proposal.rows = withCarriedRates(proposal.rows, rates);
-    rateMode = "propose";
-    refusal = null;
   }
   // Choose an active sheet that has the proposed rates, or rates close to
   // them, instead.
@@ -360,7 +374,7 @@
     // Find by rates only searches. The requester chooses what it leads to.
     if (rateMode === "find") {
       error =
-        "Not saved. Find by rates only searches. Select Use on a sheet, or Propose new rates with these rates.";
+        "Not saved. Find by rates only searches. Select Use on a sheet, or choose Propose new rates.";
       return false;
     }
     const proposing = rateMode === "propose";
@@ -619,7 +633,7 @@
         errors={proposalErrors}
       />
     {:else if rateMode === "find"}
-      <RateSheetFinder bind:rows={findRows} onUse={useFoundSheet} onPropose={proposeFoundRates} />
+      <RateSheetFinder bind:rows={findRows} onUse={useFoundSheet} />
     {:else if $rateSheets.index !== null}
       <DSPicker
         bind:value={item.rate_sheet}

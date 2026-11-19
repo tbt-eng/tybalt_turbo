@@ -43,8 +43,55 @@ await runBrowserHarness(
         window.printCalled = true;
       };
     });
+    // Find by rates and Propose new rates: two roles, one active sheet. Only
+    // Principal 4321 finds the sheet.
+    const findSearches = [];
+    const roles = [
+      { id: "admin", name: "Administration Staff" },
+      { id: "principal", name: "Principal" },
+    ];
+    const sheetEntries = [
+      { role: "admin", rate: 90, overtime_rate: 117 },
+      { role: "principal", rate: 250, overtime_rate: 325 },
+    ].map((entry) => ({
+      ...entry,
+      expand: { role: roles.find((role) => role.id === entry.role) },
+    }));
+    const activeSheet = {
+      id: "rate1",
+      code: "RS-0001",
+      name: "Standard",
+      revision: 1,
+      effective_date: "2026-01-01",
+      active: true,
+      job_count: 0,
+    };
     await page.route("**/api/**", (route) => {
       const path = new URL(route.request().url()).pathname;
+      const list = (items) =>
+        route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ page: 1, perPage: 1000, totalPages: 1, items }),
+        });
+      if (path === "/api/collections/rate_roles/records") return list(roles);
+      if (path === "/api/collections/rate_sheets_augmented/records") return list([activeSheet]);
+      if (path === "/api/collections/rate_sheet_entries/records") return list(sheetEntries);
+      if (path === "/api/job_requests/compare_rates")
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ exact: [], near: [] }),
+        });
+      if (path === "/api/job_requests/find_rates") {
+        const body = route.request().postDataJSON();
+        findSearches.push(body);
+        const found = body.entries.some(
+          (entry) => entry.role === "principal" && entry.rate === 4321,
+        );
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ matches: found ? [activeSheet] : [] }),
+        });
+      }
       const legacyJob = {
         id: "job1",
         updated: "2026-09-30 12:00:00.000Z",
@@ -540,6 +587,92 @@ await runBrowserHarness(
       await page.getByRole("link", { name: "Edit the project", exact: true }).count(),
       1,
     );
+    // Find by rates has no button to propose. The choice of Propose new rates
+    // carries the rates entered, and the line under the results says so.
+    const carryHint =
+      "Need new rates? Choose Propose new rates above. The rates you entered come with you.";
+    const rateChoice = (name) =>
+      page
+        .getByRole("radiogroup", { name: "Rates", exact: true })
+        .getByRole("radio", { name, exact: true });
+    const roleRow = (name) => page.locator("tbody tr").filter({ hasText: name });
+    const proposeButton = page.getByRole("button", { name: /with these rates/ });
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&profiles`);
+    await page.getByRole("button", { name: "Save request", exact: true }).waitFor();
+    // Nothing entered: the switch changes nothing, and no sheet is chosen yet.
+    await rateChoice("Find by rates").click();
+    await page.getByLabel("Rate for Principal", { exact: true }).waitFor();
+    await rateChoice("Propose new rates").click();
+    await page.getByLabel("Start from", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("Start from", { exact: true }).inputValue(), "");
+    assert.equal(await page.locator("tbody tr").count(), 0);
+    // No match: the callout says it in the same words, with no button.
+    await rateChoice("Find by rates").click();
+    await page.getByLabel("Rate for Principal", { exact: true }).fill("9999");
+    const noMatch = page.getByText("No active sheet has these rates.").last();
+    await noMatch.waitFor();
+    assert.equal(await page.getByText(carryHint, { exact: true }).count(), 1);
+    assert.equal(await proposeButton.count(), 0);
+    // A match: the same line under the list, with no button.
+    await page.getByLabel("Rate for Principal", { exact: true }).fill("4321");
+    await page.getByRole("button", { name: "Use", exact: true }).waitFor();
+    assert.equal(await page.getByText(carryHint, { exact: true }).count(), 1);
+    assert.equal(await proposeButton.count(), 0);
+    // A save while Find by rates is open is refused, and says what to do.
+    await page.getByRole("button", { name: "Save request", exact: true }).click();
+    await page
+      .getByRole("alert")
+      .filter({
+        hasText:
+          "Not saved. Find by rates only searches. Select Use on a sheet, or choose Propose new rates.",
+      })
+      .waitFor();
+    // A rate with an error stays behind; the good one is carried.
+    await page.getByLabel("Rate for Administration Staff", { exact: true }).fill("111.5");
+    await page.getByText("Rate must be a whole number.").waitFor();
+    await rateChoice("Propose new rates").click();
+    await page.getByLabel("Start from", { exact: true }).selectOption("rate1");
+    await page.getByLabel("Rate for Principal", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("Rate for Principal", { exact: true }).inputValue(), "4321");
+    // No overtime rate was entered, so the starting sheet's stays.
+    assert.equal(
+      await page.getByLabel("Overtime rate for Principal", { exact: true }).inputValue(),
+      "325",
+    );
+    assert.equal(await roleRow("Principal").getByText("Changed", { exact: true }).count(), 1);
+    assert.equal(
+      await page.getByLabel("Rate for Administration Staff", { exact: true }).inputValue(),
+      "90",
+    );
+    assert.equal(
+      await roleRow("Administration Staff").getByText("Changed", { exact: true }).count(),
+      0,
+    );
+    // An edit in the proposal survives a visit to Find by rates that changes
+    // no rate, also by way of Choose a sheet.
+    await page.getByLabel("Rate for Principal", { exact: true }).fill("4400");
+    await rateChoice("Find by rates").click();
+    await page.getByLabel("Rate for Principal", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("Rate for Principal", { exact: true }).inputValue(), "4321");
+    await rateChoice("Choose a sheet").click();
+    await rateChoice("Propose new rates").click();
+    await page.getByLabel("Start from", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("Rate for Principal", { exact: true }).inputValue(), "4400");
+    // A rate corrected in Find by rates is carried into the proposal at once.
+    await rateChoice("Find by rates").click();
+    await page.getByLabel("Rate for Administration Staff", { exact: true }).fill("111");
+    await rateChoice("Propose new rates").click();
+    await page.getByLabel("Start from", { exact: true }).waitFor();
+    assert.equal(
+      await page.getByLabel("Rate for Administration Staff", { exact: true }).inputValue(),
+      "111",
+    );
+    assert.equal(
+      await roleRow("Administration Staff").getByText("Changed", { exact: true }).count(),
+      1,
+    );
+    assert.equal(await page.getByLabel("Rate for Principal", { exact: true }).inputValue(), "4400");
+    assert.ok(findSearches.length > 0);
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?billing`);
     await page.getByRole("button", { name: "Same as project contact", exact: true }).click();
     assert.equal(
