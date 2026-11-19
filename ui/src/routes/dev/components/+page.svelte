@@ -96,6 +96,7 @@
   let date = $state("2026-10-15");
   let checked = $state(true);
   let toggle = $state("week");
+  let rateChoice = $state("choose");
   let tokens = $state(["civil", "survey"]);
   let amount = $state<number | string>(1250);
   let currency = $state("");
@@ -680,14 +681,15 @@
               { id: "year", label: "Year" },
             ]}
           />
+          <!-- narrowGrid: below lg, a two-column grid; the last of an odd count spans both. -->
           <DSToggle
-            bind:value={toggle}
-            ariaLabel="Period, narrowGrid"
+            bind:value={rateChoice}
+            ariaLabel="Rates, narrowGrid"
             narrowGrid
             options={[
-              { id: "week", label: "Week" },
-              { id: "month", label: "Month" },
-              { id: "year", label: "Year" },
+              { id: "choose", label: "Choose a sheet" },
+              { id: "find", label: "Find by rates" },
+              { id: "propose", label: "Propose new rates" },
             ]}
           />
         </DSCard>

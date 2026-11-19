@@ -21,8 +21,9 @@
         showOptionDescriptions?: false;
         fullWidth?: boolean;
         // Below lg, three or more options become a full-width grid of two
-        // columns, as with fullWidth, so a row of long labels fits a phone.
-        // From lg up the toggle stays compact.
+        // columns, as with fullWidth, so a row of long labels fits a phone;
+        // the last of an odd count spans both columns. From lg up the toggle
+        // stays compact.
         narrowGrid?: boolean;
       })
     | (AccessibleName & {
@@ -31,8 +32,9 @@
         showOptionDescriptions: true;
         fullWidth?: boolean;
         // Below lg, three or more options become a full-width grid of two
-        // columns, as with fullWidth, so a row of long labels fits a phone.
-        // From lg up the toggle stays compact.
+        // columns, as with fullWidth, so a row of long labels fits a phone;
+        // the last of an odd count spans both columns. From lg up the toggle
+        // stays compact.
         narrowGrid?: boolean;
       });
 
@@ -140,7 +142,8 @@
   {#if label}<span class="mb-1 text-sm text-neutral-800 max-lg:text-base">{label}</span>{/if}
   <!-- Options rail:
     - Desktop: horizontal segmented buttons
-    - Mobile (max-lg) for full-width or narrowGrid 3+ options: 2-column grid -->
+    - Mobile (max-lg) for full-width or narrowGrid 3+ options: 2-column grid,
+      where the last of an odd count spans both columns, so no cell is empty -->
   <div
     bind:this={optionsRailRef}
     class="overflow-hidden rounded-sm border border-neutral-300 bg-neutral-300 {widthClass} {useResponsiveGrid
@@ -163,6 +166,8 @@
           ? useResponsiveGrid
             ? 'lg:border-l lg:border-neutral-300'
             : 'border-l border-neutral-300'
+          : ''} {useResponsiveGrid && options.length % 2 === 1 && index === options.length - 1
+          ? 'max-lg:col-span-2'
           : ''} text-center whitespace-nowrap {value === option.id
           ? 'bg-blue-500 text-white'
           : 'bg-white text-gray-700 hover:bg-neutral-100'}"
