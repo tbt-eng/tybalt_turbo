@@ -605,7 +605,30 @@ func merge(rules, more []helpcorpus.Rule) []helpcorpus.Rule {
 // search phrases of the file failed on every run, because no phrase fits "x".
 // minRuleChars is the fewest characters of a title or a text that can be a
 // rule. The shortest real title in the repo has two words.
+//
+// A longer placeholder is an error too. A model once wrote a rule with the
+// title "placeholder" and the text "placeholder" among 59 real rules. A rule
+// is a placeholder when its text is its title, or when its title or its text
+// is only one of placeholderWords. Case and the punctuation at the end do not
+// count.
 const minRuleChars = 3
+
+var placeholderWords = map[string]bool{
+	"placeholder": true, "todo": true, "tbd": true, "n/a": true, "none": true,
+	"rule": true, "title": true, "text": true, "xxx": true,
+}
+
+// isPlaceholder reports whether a rule is a placeholder (see minRuleChars).
+func isPlaceholder(rule helpcorpus.Rule) bool {
+	words := func(s string) string {
+		return strings.TrimRight(strings.ToLower(strings.TrimSpace(s)), ".,;:!?… ")
+	}
+	title, text := words(rule.Title), words(rule.Text)
+	return len([]rune(strings.TrimSpace(rule.Title))) < minRuleChars ||
+		len([]rune(strings.TrimSpace(rule.Text))) < minRuleChars ||
+		title == "" || text == "" || title == text ||
+		placeholderWords[title] || placeholderWords[text]
+}
 
 func parseRules(reply string, lines int) ([]helpcorpus.Rule, error) {
 	from := strings.Index(reply, "{")
@@ -622,7 +645,7 @@ func parseRules(reply string, lines int) ([]helpcorpus.Rule, error) {
 		switch {
 		case strings.TrimSpace(rule.Title) == "" || strings.TrimSpace(rule.Text) == "":
 			return nil, fmt.Errorf("rule %d has no title or no text", i+1)
-		case len([]rune(strings.TrimSpace(rule.Title))) < minRuleChars || len([]rune(strings.TrimSpace(rule.Text))) < minRuleChars:
+		case isPlaceholder(rule):
 			return nil, fmt.Errorf("rule %d is a placeholder: its title is %q and its text is %q", i+1, rule.Title, rule.Text)
 		case rule.Start < 1 || rule.End < rule.Start || rule.End > lines:
 			return nil, fmt.Errorf("rule %d names the lines %d-%d of a file with %d lines", i+1, rule.Start, rule.End, lines)
