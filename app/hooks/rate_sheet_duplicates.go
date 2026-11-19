@@ -119,16 +119,17 @@ func RateSheetRatesKey(entries []RateSheetEntryValues) string {
 	return key.String()
 }
 
-// CompareWithActiveRateSheets compares entries with every active rate sheet
-// except the revisions of excludeCode, so that a revision is never compared
-// with its own earlier revisions. Pass "" for a sheet that has no code yet. Two sheets are identical when they have the same
-// set of roles and every role's rate and overtime rate are equal. Inactive
-// sheets are never compared. app may be a transaction app.
-func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, excludeCode string) (RateSheetComparison, error) {
-	result := RateSheetComparison{Exact: []RateSheetMatch{}, Near: []RateSheetMatch{}}
+// activeRateSheet is an active rate sheet with its rates in cents, by role.
+type activeRateSheet struct {
+	match   RateSheetMatch
+	entries map[string]rateCents
+}
 
-	wanted := rateCentsByRole(entries)
-
+// loadActiveRateSheets returns every active rate sheet except the revisions of
+// excludeCode, with its rates, in one query. A request's draft is inactive, and
+// the query leaves out any sheet that a request owns as well. app may be a
+// transaction app.
+func loadActiveRateSheets(app core.App, excludeCode string) ([]*activeRateSheet, error) {
 	rows := []rateSheetEntryRow{}
 	err := app.DB().NewQuery(`
 		SELECT
@@ -142,25 +143,21 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 			COALESCE(rse.overtime_rate, 0) AS overtime_rate
 		FROM rate_sheets rs
 		LEFT JOIN rate_sheet_entries rse ON rse.rate_sheet = rs.id
-		WHERE rs.active = true AND rs.code != {:excludeCode}
+		WHERE rs.active = true AND COALESCE(rs.request, '') = '' AND rs.code != {:excludeCode}
 		ORDER BY rs.id
 	`).Bind(dbx.Params{
 		"excludeCode": excludeCode,
 	}).All(&rows)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
-	type sheet struct {
-		match   RateSheetMatch
-		entries map[string]rateCents
-	}
-	sheets := []*sheet{}
-	byID := map[string]*sheet{}
+	sheets := []*activeRateSheet{}
+	byID := map[string]*activeRateSheet{}
 	for _, row := range rows {
 		s, ok := byID[row.SheetID]
 		if !ok {
-			s = &sheet{
+			s = &activeRateSheet{
 				match: RateSheetMatch{
 					ID:            row.SheetID,
 					Code:          row.Code,
@@ -176,6 +173,23 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 		if row.Role != "" {
 			s.entries[row.Role] = toRateCents(row.Rate, row.OvertimeRate)
 		}
+	}
+	return sheets, nil
+}
+
+// CompareWithActiveRateSheets compares entries with every active rate sheet
+// except the revisions of excludeCode, so that a revision is never compared
+// with its own earlier revisions. Pass "" for a sheet that has no code yet. Two sheets are identical when they have the same
+// set of roles and every role's rate and overtime rate are equal. Inactive
+// sheets are never compared. app may be a transaction app.
+func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, excludeCode string) (RateSheetComparison, error) {
+	result := RateSheetComparison{Exact: []RateSheetMatch{}, Near: []RateSheetMatch{}}
+
+	wanted := rateCentsByRole(entries)
+
+	sheets, err := loadActiveRateSheets(app, excludeCode)
+	if err != nil {
+		return result, err
 	}
 
 	for _, s := range sheets {
@@ -201,6 +215,68 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 	sortMatches(result.Exact)
 	sortMatches(result.Near)
 	return result, nil
+}
+
+// RateSheetRateQuery is one role's rate that a person knows, for
+// FindActiveRateSheetsByRates. OvertimeRate is nil when they entered no
+// overtime rate for the role.
+type RateSheetRateQuery struct {
+	Role         string
+	Rate         float64
+	OvertimeRate *float64
+}
+
+// FindActiveRateSheetsByRates returns the active rate sheets that have every
+// rate in wanted: for each role, the sheet has the role with the same rate in
+// cents, and the same overtime rate when wanted gives one. Roles that wanted
+// leaves out are ignored, so a sheet may have any rate for them. A request's
+// draft is never returned. The matches are newest code first; DifferingRoles
+// is 0. No wanted rate gives no match, not every sheet. app may be a
+// transaction app.
+func FindActiveRateSheetsByRates(app core.App, wanted []RateSheetRateQuery) ([]RateSheetMatch, error) {
+	matches := []RateSheetMatch{}
+	if len(wanted) == 0 {
+		return matches, nil
+	}
+	sheets, err := loadActiveRateSheets(app, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range sheets {
+		if sheetHasRates(s.entries, wanted) {
+			matches = append(matches, s.match)
+		}
+	}
+	sort.SliceStable(matches, func(i, j int) bool {
+		a, b := matches[i], matches[j]
+		if a.Code != b.Code {
+			return a.Code > b.Code
+		}
+		return a.Revision > b.Revision
+	})
+	return matches, nil
+}
+
+// sheetHasRates reports whether entries has every rate in wanted, in cents.
+func sheetHasRates(entries map[string]rateCents, wanted []RateSheetRateQuery) bool {
+	for _, want := range wanted {
+		have, ok := entries[want.Role]
+		if !ok {
+			return false
+		}
+		overtime := 0.0
+		if want.OvertimeRate != nil {
+			overtime = *want.OvertimeRate
+		}
+		cents := toRateCents(want.Rate, overtime)
+		if have.rate != cents.rate {
+			return false
+		}
+		if want.OvertimeRate != nil && have.overtime != cents.overtime {
+			return false
+		}
+	}
+	return true
 }
 
 func sortMatches(matches []RateSheetMatch) {

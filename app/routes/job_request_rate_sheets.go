@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -450,5 +452,183 @@ func requestCompareRatesHandler(app core.App) func(*core.RequestEvent) error {
 			"exact": comparison.Exact,
 			"near":  comparison.Closest(hooks.RateSheetNearMatchMaxRoles, hooks.RateSheetNearMatchLimit),
 		})
+	}
+}
+
+// findRatesEntry is one role's rate that the requester knows, in the body of
+// POST /api/job_requests/find_rates. OvertimeRate is optional: without it, a
+// sheet matches on the rate alone.
+type findRatesEntry struct {
+	Role         string   `json:"role"`
+	Rate         *float64 `json:"rate"`
+	OvertimeRate *float64 `json:"overtime_rate"`
+}
+
+// foundRateSheet is an active sheet that has every rate searched for.
+// JobCount counts the jobs that use the revision now or in their rate sheet
+// history, as job_count in rate_sheets_augmented does.
+type foundRateSheet struct {
+	ID            string `json:"id"`
+	Code          string `json:"code"`
+	Name          string `json:"name"`
+	Revision      int    `json:"revision"`
+	EffectiveDate string `json:"effective_date"`
+	JobCount      int    `json:"job_count"`
+}
+
+// validateFindRatesEntries checks the rates of a find: at least one, each
+// role once and known, a whole rate of at least 1, and an overtime rate, when
+// given, of at least 1 with at most two decimal places, as for a new sheet. An
+// overtime rate needs the role's rate. Keys are entries.N.field.
+func validateFindRatesEntries(app core.App, entries []findRatesEntry) (validation.Errors, error) {
+	errs := validation.Errors{}
+	if len(entries) == 0 {
+		setValidationError(errs, "entries", validation.NewError("value_required", "enter at least one rate"))
+		return errs, nil
+	}
+	roles := []struct {
+		ID string `db:"id"`
+	}{}
+	if err := app.DB().NewQuery("SELECT id FROM rate_roles").All(&roles); err != nil {
+		return nil, err
+	}
+	known := map[string]bool{}
+	for _, role := range roles {
+		known[role.ID] = true
+	}
+	seen := map[string]bool{}
+	for i, entry := range entries {
+		prefix := fmt.Sprintf("entries.%d.", i)
+		switch {
+		case entry.Role == "":
+			setValidationError(errs, prefix+"role", validation.NewError("value_required", "entry role is required"))
+		case !known[entry.Role]:
+			setValidationError(errs, prefix+"role", validation.NewError("validation_invalid_role", "entry role is unknown"))
+		case seen[entry.Role]:
+			setValidationError(errs, prefix+"role", validation.NewError("validation_not_unique", "entry role must be unique"))
+		default:
+			seen[entry.Role] = true
+		}
+		switch {
+		case entry.Rate == nil && entry.OvertimeRate != nil:
+			setValidationError(errs, prefix+"rate", validation.NewError("value_required", "enter the rate of a role that has an overtime rate"))
+		case entry.Rate == nil:
+			setValidationError(errs, prefix+"rate", validation.NewError("value_required", "entry rate is required"))
+		case *entry.Rate < 1:
+			setValidationError(errs, prefix+"rate", validation.NewError("validation_negative_number", "entry rate must be at least 1"))
+		case *entry.Rate != math.Floor(*entry.Rate):
+			setValidationError(errs, prefix+"rate", validation.NewError("validation_not_whole_number", "entry rate must be a whole number"))
+		}
+		if entry.OvertimeRate != nil {
+			if *entry.OvertimeRate < 1 {
+				setValidationError(errs, prefix+"overtime_rate", validation.NewError("validation_negative_number", "entry overtime_rate must be at least 1"))
+			} else if !hooks.HasAtMostTwoDecimals(*entry.OvertimeRate) {
+				setValidationError(errs, prefix+"overtime_rate", validation.NewError(hooks.OvertimeRateDecimalsCode, "entry "+hooks.OvertimeRateDecimalsMessage))
+			}
+		}
+	}
+	return errs, nil
+}
+
+// rateSheetJobCounts returns the number of jobs of each sheet in ids that a
+// job uses now or in its rate sheet history, in one query. A sheet with no
+// job is left out.
+func rateSheetJobCounts(app core.App, ids []string) (map[string]int, error) {
+	counts := map[string]int{}
+	if len(ids) == 0 {
+		return counts, nil
+	}
+	params := dbx.Params{}
+	placeholders := make([]string, 0, len(ids))
+	for i, id := range ids {
+		name := fmt.Sprintf("sheet%d", i)
+		params[name] = id
+		placeholders = append(placeholders, "{:"+name+"}")
+	}
+	rows := []struct {
+		ID       string `db:"id"`
+		JobCount int    `db:"job_count"`
+	}{}
+	err := app.DB().NewQuery(`
+		SELECT u.rate_sheet AS id, COUNT(u.job) AS job_count
+		FROM (
+			SELECT j.rate_sheet AS rate_sheet, j.id AS job FROM jobs j WHERE j.rate_sheet != ''
+			UNION
+			SELECT h.rate_sheet AS rate_sheet, h.job AS job FROM job_rate_sheets h
+		) u
+		WHERE u.rate_sheet IN (` + strings.Join(placeholders, ", ") + `)
+		GROUP BY u.rate_sheet
+	`).Bind(params).All(&rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.ID] = row.JobCount
+	}
+	return counts, nil
+}
+
+// requestFindRatesHandler finds the active rate sheets that have the rates a
+// requester knows, for POST /api/job_requests/find_rates. The body is
+// {entries: [{role, rate, overtime_rate}]}, with overtime_rate optional. A
+// sheet matches when, for every entry, it has the role with the same rate,
+// and the same overtime rate when one is given; roles the body leaves out are
+// ignored (hooks.FindActiveRateSheetsByRates). It returns {matches: [{id,
+// code, name, revision, effective_date, job_count}]}, newest code first. A
+// request's draft is never returned. It changes nothing. It has the
+// permission checks of the compare route: project requests on, and the time
+// claim that starting a request needs.
+func requestFindRatesHandler(app core.App) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		if err := requestEnabled(app); err != nil {
+			return err
+		}
+		if err := workflowClaim(app, e.Auth, "time"); err != nil {
+			return err
+		}
+		var input struct {
+			Entries []findRatesEntry `json:"entries"`
+		}
+		if err := e.BindBody(&input); err != nil {
+			return workflowError("Invalid request data.")
+		}
+		for i := range input.Entries {
+			input.Entries[i].Role = strings.TrimSpace(input.Entries[i].Role)
+		}
+		errs, err := validateFindRatesEntries(app, input.Entries)
+		if err != nil {
+			return err
+		}
+		if len(errs) > 0 {
+			return errs
+		}
+		wanted := make([]hooks.RateSheetRateQuery, 0, len(input.Entries))
+		for _, entry := range input.Entries {
+			wanted = append(wanted, hooks.RateSheetRateQuery{Role: entry.Role, Rate: *entry.Rate, OvertimeRate: entry.OvertimeRate})
+		}
+		matches, err := hooks.FindActiveRateSheetsByRates(app, wanted)
+		if err != nil {
+			return err
+		}
+		ids := make([]string, 0, len(matches))
+		for _, match := range matches {
+			ids = append(ids, match.ID)
+		}
+		counts, err := rateSheetJobCounts(app, ids)
+		if err != nil {
+			return err
+		}
+		found := make([]foundRateSheet, 0, len(matches))
+		for _, match := range matches {
+			found = append(found, foundRateSheet{
+				ID:            match.ID,
+				Code:          match.Code,
+				Name:          match.Name,
+				Revision:      match.Revision,
+				EffectiveDate: match.EffectiveDate,
+				JobCount:      counts[match.ID],
+			})
+		}
+		return e.JSON(http.StatusOK, map[string]any{"matches": found})
 	}
 }

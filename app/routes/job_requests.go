@@ -60,6 +60,7 @@ func registerJobRequestRoutes(se *core.ServeEvent, app core.App) {
 	r.GET("/options", requestOptionsHandler(app))
 	r.POST("", requestSaveHandler(app))
 	r.POST("/compare_rates", requestCompareRatesHandler(app))
+	r.POST("/find_rates", requestFindRatesHandler(app))
 	r.GET("/{id}", requestDetailHandler(app))
 	r.PATCH("/{id}", requestSaveHandler(app))
 	r.GET("/{id}/print", requestDetailHandler(app))
