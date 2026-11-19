@@ -1,116 +1,84 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/rate_sheet_duplicates.go","sha256":"338d1935bbea0b1a187ebe5ef3377c317beae56eaef8e111d263fcce331d87c8","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/rate_sheet_duplicates.go","sha256":"8e21cb8e04e5a7a7631835d72491634e7badb737e4829d1b88706bf9c3664287","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/rate_sheet_duplicates.go
 
-## Near-match limits for similar rate sheets
+## Near-match limits: at most 5 roles, 3 sheets shown
 
 Lines 16-21
 
-Asked as: similar sheets not shown; why only three matches; too many differences hidden; sheet differs in many roles
+Asked as: how many roles can differ; similar rate sheets shown; close rate sheet limit; how many similar sheets
 
-Callers that show "differs from X in N roles" use two constants (RateSheetNearMatchMaxRoles and RateSheetNearMatchLimit). A rate sheet that differs in more than 5 roles is not shown as close. At most 3 near matches are shown.
+When Turbo shows rate sheets that are close to a set of rates, it counts a sheet as close only if it differs in at most 5 roles (RateSheetNearMatchMaxRoles). It shows at most 3 such sheets (RateSheetNearMatchLimit).
 
-## Differing roles counts changed and one-sided roles
+## Closest near matches are trimmed by role count and limit
 
-Lines 31-41
+Lines 54-68
 
-Asked as: differs in N roles count; roles count looks wrong; missing role counted as difference; what does differs in mean
+Asked as: closest rate sheets list; stops after few matches; sheets with too many differences; near match cutoff
 
-For a rate sheet compared with a set of entries, the differing roles (DifferingRoles) count every role whose rate or overtime rate differs. They also count every role that is on one side only. An exact match has 0.
+Closest returns near-match rate sheets in order, closest first. It stops at the given limit. It also stops at the first sheet that differs in more roles than the maximum. A sheet that differs in exactly the maximum number of roles is kept.
 
-## Comparison result separates exact matches from near matches
+## Roles missing from the entries can be ignored in near matches
 
-Lines 43-49
+Lines 70-84
 
-Asked as: which sheets are identical; list of similar rate sheets; exact versus near matches; comparison results list
+Asked as: missing role ignored; role with no rate yet; proposed rates missing role; ignore empty roles in match
 
-The comparison (CompareWithActiveRateSheets) returns two lists. Exact (Exact) holds the active sheets with identical entries. Near (Near) holds every other active sheet that was compared, closest first.
+IgnoringRolesLeftOut removes from each near sheet's difference count the roles that the sheet has and the entries lack, such as a role with no rate yet in proposed rates. Turbo then sorts the near matches again. Exact matches stay unchanged.
 
-## Closest near matches are trimmed and sorted
+## Rates are compared in whole cents
 
-Lines 51-65
+Lines 99-111
 
-Asked as: why matches list cut short; only closest sheets shown; sheet dropped from similar list; limit on similar sheets
+Asked as: rate rounding cents; same rate looks different; float rounding rates; decimal rate mismatch
 
-The closest-matches helper (Closest) returns at most the given limit of near matches, closest first. It stops at the first sheet that differs in more roles than the maximum. A sheet that differs in exactly the maximum number of roles is still included.
+Turbo rounds each rate and overtime rate to whole cents (rate times 100, rounded) before it compares them. Float rounding on input does not make two sheets differ.
 
-## Sheet with no entries compares as empty
+## Rates key identifies identical rates on sheets of any state
 
-Lines 67-69
+Lines 122-139
 
-Asked as: rate sheet with no roles; empty rate sheet duplicate check; blank rate sheet compared; sheet without any entries
+Asked as: same rates key; rate sheets same key; compare inactive sheet rates; empty rates no key
 
-An active rate sheet with no entries is compared as a sheet with no roles. Its empty role row is ignored.
+RateSheetRatesKey gives two sets of entries the same key only when they have the same roles and the same rate and overtime rate in cents for each role. It works on sheets of any state, active or inactive. It gives an empty key for no entries.
 
-## Rates compare in whole cents
+## Only active sheets not owned by a request are compared
 
-Lines 80-92
+Lines 147-197
 
-Asked as: rates flagged as same wrongly; decimal rate shows as different; rounding causes duplicate warning; cents rounding rate difference
+Asked as: which sheets are compared; draft sheet excluded from check; inactive sheets not checked; request draft ignored in matching
 
-Turbo rounds each rate and overtime rate to whole cents before it compares them. Float rounding on the way in does not make two rates differ.
+Comparison loads only active rate sheets (active = true) and leaves out any sheet that a request owns, such as a request's draft. It also leaves out every revision of the excluded code. A sheet with no entries is still loaded, with no roles.
 
-## Identical rates key ignores order and state
+## Identical means same roles and same rates; differences are counted
 
-Lines 103-120
+Lines 199-240
 
-Asked as: same rates different order; rates key; same roles listed differently; identical rates different row order
+Asked as: exact match same rates; what counts as different; sheet has extra role; differing roles counted
 
-Two sets of entries share a rates key (RateSheetRatesKey) when they have the same roles and the same rate and overtime rate in cents for each role. The key does not depend on the order of the entries. It works for sheets of any state, active or inactive. It is an empty string for no entries.
+CompareWithActiveRateSheets compares entries with each active sheet. A role counts as differing if the sheet lacks it or has a different rate or overtime rate. A role that only the sheet has also counts as differing. A sheet with 0 differing roles is an exact match. Every other sheet is a near match. Inactive sheets are never compared. Pass an empty code for a sheet with no code yet. Otherwise the revisions of that code are skipped.
 
-## Comparison covers only active rate sheets
+## Lookup of active sheets by known rates
 
-Lines 122-149
+Lines 242-302
 
-Asked as: inactive rate sheet not flagged; old sheet not matched; revision matched to earlier revision; why old rates not checked
+Asked as: find sheet by my rates; look up rate sheet; sheets with these rates; overtime rate any match
 
-Turbo compares entries only with active rate sheets (CompareWithActiveRateSheets). It never compares with inactive sheets. It leaves out every revision of the excluded code, so a revision is not compared with its own earlier revisions. A sheet with no code yet passes an empty exclude code.
+FindActiveRateSheetsByRates returns the active sheets that have every wanted role at the same rate in cents. If the person gave an overtime rate for a role, the sheet must match it too. If they gave none, any overtime rate matches. Roles not listed are ignored. With no wanted rate, Turbo returns no match. The result is newest code first, then highest revision first.
 
-## Failure to load active sheets stops the comparison
+## Match lists are sorted by difference, then code, then revision
 
-Lines 150-152
+Lines 304-315
 
-Asked as: duplicate check fails to load; rate sheet check error; no matches returned on error; cannot read active rate sheets
+Asked as: order of matching sheets; sort rate sheet results; which match comes first; newest revision first
 
-If Turbo cannot read the active rate sheets, the comparison returns the error and no matches.
+Exact and near matches are sorted by fewest differing roles first, then by code ascending, then by revision ascending.
 
-## Comparison query reads a sheet's code, name, revision and effective date
+## Duplicate rate sheet error message
 
-Lines 154-175
+Lines 331-351
 
-Asked as: which existing sheet matched; match shows no name; sheet code and revision shown; effective date of matching sheet
+Asked as: duplicate rate sheet refused; rates already active error; identical rates error message; sheet already exists same rates
 
-Each match carries the sheet's code, name, revision and effective date, so that a person can identify the existing sheet.
-
-## Roles with a blank name are ignored when comparing
-
-Lines 176-178
-
-Asked as: blank role row ignored; role with no name; empty role line in rates; unnamed role in rate sheet
-
-A row with an empty role adds no entry to the sheet. A sheet with no entries therefore compares as having no roles.
-
-## Exact and near match definition
-
-Lines 181-199
-
-Asked as: when are rates identical; what counts as same rates; how close is near match; sheet counts as duplicate
-
-An active sheet is an exact match when it has the same set of roles and the same rate and overtime rate in cents for every role. The differing-roles count adds the roles whose rate or overtime rate differ and the roles on one side only. A count of 0 is an exact match. Any other count is a near match.
-
-## Match ordering
-
-Lines 206-217
-
-Asked as: order of similar sheets; which match listed first; closest sheet sorted first; matches sorted by code
-
-Exact and near matches are sorted by the number of differing roles, then by code, then by revision. The closest sheet comes first.
-
-## Duplicate rate sheet error
-
-Lines 233-253
-
-Asked as: a rate sheet with identical rates is already active; rates identical to active sheet; duplicate rate sheet error; use existing sheet instead
-
-When a rate sheet has rates identical to an active sheet, Turbo refuses with "a rate sheet with identical rates is already active". The field error (duplicate_rate_sheet) says "the rates are identical to active rate sheet <label>; use that sheet instead". It names the first match and lists every match so the UI can link to the existing sheet.
+When a rate sheet's rates are identical to an active sheet, Turbo refuses it with "a rate sheet with identical rates is already active". The field error reads "the rates are identical to active rate sheet <label>; use that sheet instead". The label comes from the first match, and the error lists every match (code duplicate_rate_sheet).
