@@ -133,7 +133,8 @@
     {:else if isIconContent}
       <Icon icon={iconName!} width="24px" class="flex h-6 items-center" />
     {:else if isTextContent}
-      <span class="flex h-6 items-center">
+      <!-- min-h-6, not h-6: text that wraps makes the chip taller. -->
+      <span class="flex min-h-6 items-center">
         {@render children!()}
       </span>
     {/if}
