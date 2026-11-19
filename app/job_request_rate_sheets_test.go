@@ -711,6 +711,53 @@ func TestRequesterComparesProposedRatesWithActiveSheets(t *testing.T) {
 	}
 }
 
+// A role with no rate is left out of the entries, as the request editor
+// leaves out an empty row. The close sheets don't count it as a difference
+// (issue 207), but a sheet with that role is still not identical, so the save
+// is not refused. The entries are the standard rates without the Survey Drone
+// Pilot.
+func TestComparingProposedRatesIgnoresRolesWithNoRate(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	withoutRole := func(principal float64) []map[string]any {
+		entries := []map[string]any{}
+		for _, entry := range standardRates(t, app, principal) {
+			if entry["role"] != missingDraftRole {
+				entries = append(entries, entry)
+			}
+		}
+		return entries
+	}
+	standardIn := func(result map[string]any, key string) map[string]any {
+		for _, match := range result[key].([]any) {
+			if m := match.(map[string]any); m["id"] == standardRateSheet {
+				return m
+			}
+		}
+		return nil
+	}
+
+	// One changed rate and one role with no rate differ in one role.
+	result := requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, map[string]any{"entries": withoutRole(260)}, http.StatusOK)
+	if len(result["exact"].([]any)) != 0 {
+		t.Fatalf("exact matches: %v", result["exact"])
+	}
+	if near := standardIn(result, "near"); near == nil || near["differing_roles"] != float64(1) {
+		t.Fatalf("the standard sheet as a close sheet: %v", near)
+	}
+
+	// With no changed rate, the standard sheet differs in no entered role but
+	// is not identical: it is a close sheet, and the save goes through.
+	result = requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, map[string]any{"entries": withoutRole(0)}, http.StatusOK)
+	if len(result["exact"].([]any)) != 0 {
+		t.Fatalf("a sheet with an extra role is identical: %v", result["exact"])
+	}
+	if near := standardIn(result, "near"); near == nil || near["differing_roles"] != float64(0) {
+		t.Fatalf("the standard sheet as a close sheet: %v", near)
+	}
+	id := createWorkflowRequest(t, app)
+	proposeRates(t, app, id, workflowAuthor, proposedRates("", "Client rate schedule", withoutRole(0)), http.StatusOK)
+}
+
 func TestComparingProposedRatesNeedsProjectRequests(t *testing.T) {
 	app := newWorkflowTestApp(t, false)
 	requestJSON(t, app, http.MethodPost, "/api/job_requests/compare_rates", workflowAuthor, map[string]any{"name": "X", "entries": standardRates(t, app, 260)}, http.StatusForbidden)

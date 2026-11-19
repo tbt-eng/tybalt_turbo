@@ -577,7 +577,14 @@ other. Existing sheets are not checked or changed.
   differ in at most `RateSheetNearMatchMaxRoles` roles, without the source
   sheet. `POST /api/job_requests/compare_rates` returns them to anyone who can
   start a request (the `time` claim); `/api/rate_sheets/compare` needs a claim
-  that most requesters lack. Rates with no change are not compared. The
+  that most requesters lack. Since issue 207 (step 3) the close sheets count only
+  the roles that have a rate: a role left empty, such as one the source
+  sheet lacks, is left out of the entries and is not a difference
+  (`RateSheetComparison.IgnoringRolesLeftOut`, which the field
+  `LeftOutRoles` feeds). A sheet with every entered rate and more roles is a
+  close sheet that differs in 0 roles; the callout then shows its label
+  alone. The exact matches, and so the refusal of a save, still need the same
+  set of roles. Rates with no change are not compared. The
   approver is not shown near matches. The editor compares 400 ms after the
   last change and shows a result only while the source and the rates are
   still those it was made for (`comparisonKey` in

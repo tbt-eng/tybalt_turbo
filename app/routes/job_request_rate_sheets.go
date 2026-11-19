@@ -421,7 +421,10 @@ func requireProposedRatesApproval(app core.App, r *core.Record) error {
 // matches, which a save would refuse, and a few close sheets, so the requester
 // can choose one of them instead of proposing a new sheet. The sheet in
 // based_on is left out of the close sheets: the requester started from it and
-// already sees how the rates differ from it. It changes nothing.
+// already sees how the rates differ from it. A role with no rate is left out
+// of the entries, and the close sheets do not count it as a difference
+// (IgnoringRolesLeftOut); the exact matches are those a save refuses. It
+// changes nothing.
 // Anyone who can start a request can call it; the rate sheets compare route
 // needs a claim that most requesters lack.
 func requestCompareRatesHandler(app core.App) func(*core.RequestEvent) error {
@@ -441,6 +444,7 @@ func requestCompareRatesHandler(app core.App) func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
+		comparison = comparison.IgnoringRolesLeftOut()
 		near := []hooks.RateSheetMatch{}
 		for _, match := range comparison.Near {
 			if match.ID != strings.TrimSpace(input.BasedOn) {

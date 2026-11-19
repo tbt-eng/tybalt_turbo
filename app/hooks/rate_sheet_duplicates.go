@@ -38,6 +38,9 @@ type RateSheetMatch struct {
 	Revision       int    `json:"revision"`
 	EffectiveDate  string `json:"effective_date"`
 	DifferingRoles int    `json:"differing_roles"`
+	// LeftOutRoles counts the roles of the sheet that the compared entries
+	// do not have, which DifferingRoles includes. It is not sent.
+	LeftOutRoles int `json:"-"`
 }
 
 // RateSheetComparison is the result of CompareWithActiveRateSheets. Exact holds
@@ -62,6 +65,22 @@ func (c RateSheetComparison) Closest(maxRoles int, limit int) []RateSheetMatch {
 		result = append(result, match)
 	}
 	return result
+}
+
+// IgnoringRolesLeftOut returns the comparison with the near matches counted
+// only on the roles of the entries: a role of the sheet that the entries leave
+// out, such as a role with no rate yet in proposed rates, is not a difference.
+// Near is sorted again. Exact is unchanged: an identical sheet still has the
+// same set of roles, so the save rules do not change.
+func (c RateSheetComparison) IgnoringRolesLeftOut() RateSheetComparison {
+	near := make([]RateSheetMatch, 0, len(c.Near))
+	for _, match := range c.Near {
+		match.DifferingRoles -= match.LeftOutRoles
+		match.LeftOutRoles = 0
+		near = append(near, match)
+	}
+	sortMatches(near)
+	return RateSheetComparison{Exact: c.Exact, Near: near}
 }
 
 // rateSheetEntryRow is one row of the active sheets query. A sheet with no
@@ -199,12 +218,15 @@ func CompareWithActiveRateSheets(app core.App, entries []RateSheetEntryValues, e
 				differing++
 			}
 		}
+		leftOut := 0
 		for role := range s.entries {
 			if _, ok := wanted[role]; !ok {
 				differing++
+				leftOut++
 			}
 		}
 		s.match.DifferingRoles = differing
+		s.match.LeftOutRoles = leftOut
 		if differing == 0 {
 			result.Exact = append(result.Exact, s.match)
 		} else {

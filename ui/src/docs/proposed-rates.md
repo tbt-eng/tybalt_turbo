@@ -45,7 +45,7 @@ Turbo won't save rates that match an active sheet. It shows the code of that she
 
 ## Rates close to a sheet
 
-As you change rates, Turbo lists up to three active sheets that differ in five roles or fewer. Select a sheet's code to see its rates. If one fits the client's contract, select **Use** and its code. Turbo then saves the request with that sheet, without the proposed rates.
+As you change rates, Turbo lists up to three active sheets that differ in five roles or fewer. A role with no rate doesn't count. Select a sheet's code to see its rates. If one fits the client's contract, select **Use** and its code. Turbo then saves the request with that sheet, without the proposed rates.
 
 ## Approve proposed rates
 
