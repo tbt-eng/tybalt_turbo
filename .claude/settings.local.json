@@ -34,6 +34,15 @@
       "Bash(/usr/local/go/bin/go test:*)",
       "Bash(sed -n '2p' profiles.csv)",
       "Bash(sed -n '2p' users.csv)"
+    ],
+    "deny": [
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_copy_item",
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_create_folder",
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_delete_item",
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_move_item",
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_rename_item",
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_update_file",
+      "mcp__2d1b460d-dc2c-45c5-8459-d27ab0174f66__sharepoint_upload_file"
     ]
   }
 }
