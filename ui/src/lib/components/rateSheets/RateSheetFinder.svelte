@@ -109,7 +109,9 @@
 
 <!-- Below lg: a status line of fixed height under the choice of rates, then the
   table, then the results. From lg up: the table and, beside it, the results in
-  a column that stays in view while the page scrolls. -->
+  a column that stays in view while the page scrolls. The results column is at
+  least 18rem wide, so a code with its copy button and the Propose button each
+  fit on one line; near lg the table gives up the width. -->
 <div class="flex flex-col gap-2">
   <p class="sr-only" aria-live="polite">{announced}</p>
   <div class="flex min-h-8 items-center lg:hidden">
@@ -119,7 +121,7 @@
       <p class="text-sm text-neutral-600" aria-hidden="true">{statusText}</p>
     {/if}
   </div>
-  <div class="grid gap-4 lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] lg:items-start">
+  <div class="grid gap-4 lg:grid-cols-[minmax(0,30rem)_minmax(18rem,1fr)] lg:items-start">
     <RateSheetRatesTable bind:rows find {errors} onEnter={() => searchNow?.()} />
     <div bind:this={results} class="flex scroll-mt-4 flex-col gap-2 lg:sticky lg:top-4">
       {#if !entered}
