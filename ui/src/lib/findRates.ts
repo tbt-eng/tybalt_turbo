@@ -147,3 +147,25 @@ export function withCarriedRates(rows: ProposedRate[], carried: FoundRate[]): Pr
   }
   return result.sort((a, b) => a.roleName.localeCompare(b.roleName));
 }
+
+// Where a search stands, for the status line under the choice of rates.
+export interface FindStatus {
+  // The rates have no rate entered.
+  empty: boolean;
+  // A rate entered has an error to correct first.
+  invalid: boolean;
+  // The last search for these rates failed.
+  failed: boolean;
+  // The number of matches for these rates, or null until the search answers.
+  count: number | null;
+}
+
+// The status line's text. It is always one short line, so the line keeps
+// its height as the search goes on.
+export function findStatusText(status: FindStatus): string {
+  if (status.empty) return "Enter the rates you know.";
+  if (status.invalid) return "Correct the rates marked below.";
+  if (status.failed) return "Turbo could not search the rate sheets.";
+  if (status.count === null) return "Searching…";
+  return findResultMessage(status.count);
+}

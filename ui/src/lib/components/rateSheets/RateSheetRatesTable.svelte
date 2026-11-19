@@ -19,20 +19,30 @@
   // role with no rate shows no amount, and the page says what to do.
   // With find, the table is the input of Find by rates: a rate and an
   // optional overtime rate for each role, with no source rates, no summary,
-  // no multiplier and no labels. find implies editable.
+  // no multiplier and no labels. find implies editable. With find, Enter in a
+  // rate does not submit the form around the table; it calls onEnter, such as
+  // a search at once.
   let {
     rows = $bindable(),
     editable = false,
     find = false,
     sourceName = "",
     errors = {},
+    onEnter,
   }: {
     rows: ProposedRate[];
     editable?: boolean;
     find?: boolean;
     sourceName?: string;
     errors?: Record<string, { message: string }>;
+    onEnter?: () => void;
   } = $props();
+
+  function findKeydown(event: KeyboardEvent) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onEnter?.();
+  }
 
   const inputs = $derived(editable || find);
 
@@ -100,6 +110,7 @@
                   class="{find ? 'w-20' : 'w-24'} rounded-sm border px-1 {errorOf(row, 'rate')
                     ? 'border-red-500'
                     : 'border-neutral-300'}"
+                  onkeydown={find ? findKeydown : undefined}
                   bind:value={rows[i].rate}
                 />
                 {#if errorOf(row, "rate")}
@@ -124,6 +135,7 @@
                   )
                     ? 'border-red-500'
                     : 'border-neutral-300'}"
+                  onkeydown={find ? findKeydown : undefined}
                   bind:value={rows[i].overtime_rate}
                 />
                 {#if errorOf(row, "overtime_rate")}

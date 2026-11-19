@@ -970,8 +970,24 @@ an active user with the `time` claim (403). It changes nothing.
   active sheet has these rates." and a primary **Propose new rates with these
   rates**. With matches, the same button sits under the list.
 - `DSToggle` takes `narrowGrid`: below lg, three or more options become a
-  full-width grid of two columns, so the three choices fit a phone. From lg up
-  it stays compact.
+  full-width grid of two columns, so the three choices fit a phone; the last
+  of an odd count spans both columns, so no cell is empty. From lg up it
+  stays compact. Below lg the help icon sits beside the **Rates** label.
+- Layout. There are 34 roles, so the results must stay in sight without
+  moving the inputs while someone types. From lg up the table (at most 30rem)
+  and the results sit side by side, and the results column is sticky
+  (`lg:sticky lg:top-4`), so it stays in view while the table scrolls. Below
+  lg the results are under the table, and a status line of fixed height sits
+  under the choice of rates: "Enter the rates you know.", "Correct the rates
+  marked below.", "Searching…", or the result ("3 sheets match", "No active
+  sheet has these rates."), which is a button that scrolls to the results
+  (`findStatusText`). One `aria-live="polite"` line, read at every width,
+  says only a result or a failure. The layout is plain grid classes inside
+  `RateSheetFinder.svelte`, not a new component.
+- Enter in a rate or overtime box of Find by rates searches at once and does
+  not submit the request form (`onEnter` of `RateSheetRatesTable` with
+  `find`). The boxes of Propose new rates are unchanged: Enter there saves
+  the request, as before.
 
 ### A tool, not a state
 

@@ -594,14 +594,20 @@
     />
     <div class="flex w-full flex-wrap items-center gap-2">
       <span id="request-rate-mode">Rates</span>
-      <DSToggle
-        bind:value={() => rateMode, setRateMode}
-        options={rateModeOptions}
-        ariaLabelledBy="request-rate-mode"
-        narrowGrid
-      />
+      <!-- Below lg the toggle takes its own full-width line, so the help sits
+        beside the label instead of on a line of its own. -->
+      <div class="max-lg:order-2 max-lg:w-full">
+        <DSToggle
+          bind:value={() => rateMode, setRateMode}
+          options={rateModeOptions}
+          ariaLabelledBy="request-rate-mode"
+          narrowGrid
+        />
+      </div>
       {#if rateMode === "find"}
-        <DSHelp doc="proposed-rates#find-a-sheet-by-rates" iconOnly />
+        <span class="max-lg:order-1">
+          <DSHelp doc="proposed-rates#find-a-sheet-by-rates" iconOnly />
+        </span>
       {/if}
     </div>
     {#if rateMode === "propose"}

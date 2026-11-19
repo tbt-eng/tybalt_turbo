@@ -5,6 +5,7 @@ import {
   findRatesErrors,
   findRatesKey,
   findResultMessage,
+  findStatusText,
   foundRates,
   rateEntered,
   withCarriedRates,
@@ -115,4 +116,17 @@ test("a carried role that the starting sheet lacks gets a row, in role order", (
     ],
   );
   assert.equal(withCarriedRates(rows, []), rows);
+});
+
+test("the status line says where the search stands", () => {
+  const none = { empty: false, invalid: false, failed: false, count: null };
+  assert.equal(findStatusText({ ...none, empty: true }), "Enter the rates you know.");
+  assert.equal(findStatusText({ ...none, invalid: true }), "Correct the rates marked below.");
+  assert.equal(
+    findStatusText({ ...none, failed: true }),
+    "Turbo could not search the rate sheets.",
+  );
+  assert.equal(findStatusText(none), "Searching…");
+  assert.equal(findStatusText({ ...none, count: 0 }), "No active sheet has these rates.");
+  assert.equal(findStatusText({ ...none, count: 3 }), "3 sheets match");
 });
