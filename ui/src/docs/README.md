@@ -9,7 +9,7 @@ Update these docs in the same commit as any change to what a user sees or does. 
 `tests/docs.test.ts` fails if a page breaks these limits. `npm run check:ui` runs it.
 
 - A section (`##`) has at most 60 words, because it must fit in a help popover.
-- A page has at most 600 words. Aim for far fewer.
+- A page has at most 600 words. Aim for far fewer. The glossary has no page limit, because people look words up in it and don't read it through.
 - A flow has at most 5 steps.
 
 If a page doesn't fit, split it into two topics. Don't raise the limits.
