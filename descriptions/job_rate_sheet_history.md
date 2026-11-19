@@ -900,6 +900,101 @@ Status: Implemented (issue 207, step 2)
   always among the results. The Rate Sheets list matches the pasted code
   exactly, as a substring.
 
+## Find a sheet by rates
+
+Status: Implemented (issue 207, step 3)
+
+A requester often knows only a few of a client's agreed rates. **Find by
+rates** is a third choice in a project request's **Rates**, between **Choose
+a sheet** and **Propose new rates**: they enter the rates they know and see
+the active sheets that already have them.
+
+### Rule
+
+- A sheet matches when it is active and, for every role entered, it has that
+  role with the same rate. Roles left empty are ignored. A sheet that lacks
+  an entered role does not match.
+- The overtime rate is optional for each role. Without it, the rate alone
+  decides; with it, both must be equal.
+- Rates are compared in whole cents (`toRateCents`), so 100 and 100.00 are
+  equal and 144.30 and 144.31 are not.
+- Exact matches only: there are no close sheets in this mode.
+- Input follows the rules of a sheet's rates: a whole rate of at least 1, an
+  overtime rate of at least 1 with at most two decimal places. An overtime
+  rate without its role's rate is an input error, not ignored.
+
+### Route
+
+`POST /api/job_requests/find_rates` (`requestFindRatesHandler` in
+`app/routes/job_request_rate_sheets.go`), in the job request group beside
+`compare_rates`, with its checks: signed in (401), project requests on, and
+an active user with the `time` claim (403). It changes nothing.
+
+- Body: `{entries: [{role, rate, overtime_rate?}]}`. No entry, an unknown,
+  empty or repeated role, a bad rate or an overtime rate without a rate is a
+  400 with a field error under `entries` or `entries.N.role|rate|overtime_rate`.
+- Response: `{matches: [{id, code, name, revision, effective_date,
+  job_count}]}`, newest code first, then newest revision. `job_count`
+  counts the jobs that use the revision now or in their history, as in
+  `rate_sheets_augmented`.
+- `hooks.FindActiveRateSheetsByRates` does the matching. It shares
+  `loadActiveRateSheets` with `CompareWithActiveRateSheets`: one query of the
+  active sheets and their entries, matched in memory. The loader also leaves
+  out any sheet with `request` set, so a request's draft is never returned (a
+  draft is always inactive as well). The compare route and the identical-sheet
+  check that refuses a save return what they did before. A second query
+  counts the jobs of the matched sheets only. No N+1.
+- Cost: every active sheet's entries are read on each search, as for the live
+  comparison of proposed rates. The editor searches 400 ms after the last
+  change.
+
+### UI
+
+- `rateSheets/RateSheetFinder.svelte`, pure logic in `ui/src/lib/findRates.ts`.
+  The input is `RateSheetRatesTable` with `find`: a row per rate role (the
+  `rateRoles` store, in role order), a rate and an overtime rate marked
+  **Optional**, without the source rates, summary, multiplier or labels.
+  Errors show on their row before any search.
+- With no rate entered, a short hint shows and nothing is searched. A result
+  is kept with the key of the rates it was made for (`findRatesKey`) and shown
+  only while the rates still have that key.
+- Matches are a `DSList`: "3 sheets match", each sheet's `RateSheetLabel` with
+  `copy`, its effective date, its job count and **Use**. With no match: "No
+  active sheet has these rates." and a primary **Propose new rates with these
+  rates**. With matches, the same button sits under the list.
+- `DSToggle` takes `narrowGrid`: below lg, three or more options become a
+  full-width grid of two columns, so the three choices fit a phone. From lg up
+  it stays compact.
+
+### A tool, not a state
+
+- Nothing about the search is stored on the request. It ends in one of two
+  ways. **Use** switches to **Choose a sheet** with that sheet chosen; the
+  requester saves. **Propose new rates with these rates** switches to
+  **Propose new rates** with the rates carried.
+- While Find by rates is open, the request keeps the state it had before.
+  The unsaved check and a draft kept for the client page use that state, so
+  opening the tool alone makes nothing unsaved. **Save request** is refused in
+  the browser with "Not saved. Find by rates only searches. Select Use on a
+  sheet, or Propose new rates with these rates." Submission acts on the saved
+  request, which is always in one of the two real states, so a reopened
+  request shows **Choose a sheet** or **Propose new rates**.
+- The rates entered stay while the requester looks at another choice, until
+  the editor closes (a save or leaving the page).
+
+### Carried rates
+
+- There is no standard sheet. The requester picks the starting sheet in
+  **Start from**, as before. The carried rates replace that sheet's rates for
+  their roles (`withCarriedRates`) and show as **Changed** where they differ.
+  Where no overtime rate was entered, the row keeps its overtime rate, the
+  starting sheet's, which the requester can change or set with the
+  multiplier. A role the sheet lacks gets a row with the carried rate; its
+  overtime rate stays empty when none was entered.
+- With a starting sheet already chosen, the rates apply at once. Each new
+  starting sheet chosen afterwards takes them again, until the requester
+  leaves **Propose new rates**.
+
 ## Migration
 
 Migration `1794579748_job_rate_sheets.go`:

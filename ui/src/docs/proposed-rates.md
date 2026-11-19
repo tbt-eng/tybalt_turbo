@@ -9,6 +9,15 @@ Procurement | Create the job | Turbo activates the new rate sheet for the job.
 Note: Rejected? Change the rates and submit the request again.
 ```
 
+## Find a sheet by rates
+
+1. In the project request, select **Find by rates**.
+2. Enter the rates you know. The overtime rate is optional.
+3. Select **Use** beside a sheet.
+4. Select **Save request**.
+
+Turbo lists the active sheets that have all your rates. If none fits, select **Propose new rates with these rates**. Then select the sheet in **Start from**. Your rates replace its rates.
+
 ## Propose new rates
 
 1. In the project request, select **Propose new rates**.

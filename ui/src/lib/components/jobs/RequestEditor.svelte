@@ -25,6 +25,8 @@
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
   import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
   import RateSheetOption from "$lib/components/rateSheets/RateSheetOption.svelte";
+  import RateSheetFinder from "$lib/components/rateSheets/RateSheetFinder.svelte";
+  import { type FoundRate, withCarriedRates } from "$lib/findRates";
   import {
     type ProposedRate,
     type ProposedRates,
@@ -74,13 +76,29 @@
     }>(`request:${request.id || "new"}`, pb.authStore.record?.id || ""),
   );
   // The request either chooses an active rate sheet or proposes new rates.
+  // Find by rates is a tool between the two, not a state of the request: it
+  // ends with Use on a sheet (choose) or with the rates carried into a
+  // proposal (propose). While it is open, the request keeps the state it had
+  // before, findFrom, which a save would not send, so a save is refused.
   const rateModeOptions = [
     { id: "choose", label: "Choose a sheet" },
+    { id: "find", label: "Find by rates" },
     { id: "propose", label: "Propose new rates" },
   ];
   let rateMode = $state(
     untrack(() => restored?.rateMode ?? (related.rate_sheet_proposed ? "propose" : "choose")),
   );
+  let findFrom = $state(untrack(() => rateMode));
+  // The state of the request: choose or propose, also while Find by rates is
+  // open.
+  const requestRateMode = () => (rateMode === "find" ? findFrom : rateMode);
+  // The rates entered in Find by rates. They stay while the requester looks
+  // at another choice, until the editor closes.
+  let findRows = $state<ProposedRate[]>([]);
+  // The rates carried from Find by rates into the proposal. Each starting
+  // sheet chosen in the proposal takes them in place of its own rates for
+  // those roles, until the requester leaves Propose new rates.
+  let carried = $state<FoundRate[]>([]);
   let proposal = $state<ProposedRates>(
     untrack(
       () =>
@@ -146,7 +164,7 @@
       item,
       allocations,
       fee,
-      rateMode,
+      rateMode: requestRateMode(),
       proposal: {
         ...proposal,
         rows: proposal.rows.filter((row) => row.rate !== null || row.overtime_rate !== null),
@@ -245,10 +263,28 @@
   // starts from an empty choice.
   function setRateMode(mode: string) {
     if (mode === rateMode) return;
+    if (mode === "find") findFrom = rateMode;
     rateMode = mode;
     refusal = null;
+    if (mode !== "propose") carried = [];
     if (mode === "choose" && related.rate_sheet_proposed && item.rate_sheet === request.rate_sheet)
       item.rate_sheet = "";
+  }
+  // Choose a sheet that Find by rates found. The requester saves the request.
+  function useFoundSheet(id: string) {
+    rateMode = "choose";
+    item.rate_sheet = id;
+    refusal = null;
+    carried = [];
+  }
+  // Propose new rates with the rates found by. With a starting sheet already
+  // chosen, they replace its rates at once; otherwise the editor puts them in
+  // place when the requester chooses one.
+  function proposeFoundRates(rates: FoundRate[]) {
+    carried = rates;
+    if (proposal.based_on) proposal.rows = withCarriedRates(proposal.rows, rates);
+    rateMode = "propose";
+    refusal = null;
   }
   // Choose an active sheet that has the proposed rates, or rates close to
   // them, instead.
@@ -295,7 +331,7 @@
       const href = keepClientWorkflowDraft(
         `request:${request.id || "new"}`,
         pb.authStore.record?.id || "",
-        $state.snapshot({ item, allocations, fee, rateMode, proposal, saved }),
+        $state.snapshot({ item, allocations, fee, rateMode: requestRateMode(), proposal, saved }),
         item.client,
         item.contact || "",
         target,
@@ -321,6 +357,12 @@
     error = "";
     refusal = null;
     proposalErrors = {};
+    // Find by rates only searches. The requester chooses what it leads to.
+    if (rateMode === "find") {
+      error =
+        "Not saved. Find by rates only searches. Select Use on a sheet, or Propose new rates with these rates.";
+      return false;
+    }
     const proposing = rateMode === "propose";
     // A save leaves out a role with no rate, so a role with only one of its
     // rates would lose it. Refuse the save and mark the empty rate instead.
@@ -550,21 +592,28 @@
       fieldName="client_reference_number"
       uiName="Client Reference Number"
     />
-    <div class="flex w-full items-center gap-2">
+    <div class="flex w-full flex-wrap items-center gap-2">
       <span id="request-rate-mode">Rates</span>
       <DSToggle
         bind:value={() => rateMode, setRateMode}
         options={rateModeOptions}
         ariaLabelledBy="request-rate-mode"
+        narrowGrid
       />
+      {#if rateMode === "find"}
+        <DSHelp doc="proposed-rates#find-a-sheet-by-rates" iconOnly />
+      {/if}
     </div>
     {#if rateMode === "propose"}
       <ProposedRatesEditor
         bind:proposal
+        {carried}
         onUse={useMatchingSheet}
         blocked={!!rateMatches?.length}
         errors={proposalErrors}
       />
+    {:else if rateMode === "find"}
+      <RateSheetFinder bind:rows={findRows} onUse={useFoundSheet} onPropose={proposeFoundRates} />
     {:else if $rateSheets.index !== null}
       <DSPicker
         bind:value={item.rate_sheet}

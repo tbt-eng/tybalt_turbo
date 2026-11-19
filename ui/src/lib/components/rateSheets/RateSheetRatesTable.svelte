@@ -17,17 +17,24 @@
   // overtime rates. errors holds the errors of the last save under
   // rateErrorKey, and each shows under the rate it belongs to. Read only, a
   // role with no rate shows no amount, and the page says what to do.
+  // With find, the table is the input of Find by rates: a rate and an
+  // optional overtime rate for each role, with no source rates, no summary,
+  // no multiplier and no labels. find implies editable.
   let {
     rows = $bindable(),
     editable = false,
+    find = false,
     sourceName = "",
     errors = {},
   }: {
     rows: ProposedRate[];
     editable?: boolean;
+    find?: boolean;
     sourceName?: string;
     errors?: Record<string, { message: string }>;
   } = $props();
+
+  const inputs = $derived(editable || find);
 
   const errorOf = (row: ProposedRate, field: RateField) =>
     errors[rateErrorKey(row.role, field)]?.message;
@@ -38,18 +45,18 @@
 </script>
 
 <div class="flex flex-col gap-2">
-  <p class="text-sm text-neutral-600">
-    {changedCount === 0
-      ? "No rate differs from the source sheet."
-      : `${changedCount} ${changedCount === 1 ? "role differs" : "roles differ"} from ${sourceName || "the source sheet"}.`}
-    {#if missingCount > 0 && editable}
-      {`${missingCount} ${missingCount === 1 ? "role is missing a rate" : "roles are missing rates"}. Enter ${missingCount === 1 ? "its" : "their"} rates before you submit.`}
-    {/if}
-  </p>
+  {#if !find}<p class="text-sm text-neutral-600">
+      {changedCount === 0
+        ? "No rate differs from the source sheet."
+        : `${changedCount} ${changedCount === 1 ? "role differs" : "roles differ"} from ${sourceName || "the source sheet"}.`}
+      {#if missingCount > 0 && editable}
+        {`${missingCount} ${missingCount === 1 ? "role is missing a rate" : "roles are missing rates"}. Enter ${missingCount === 1 ? "its" : "their"} rates before you submit.`}
+      {/if}
+    </p>{/if}
   <div class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
-        {#if editable}
+        {#if editable && !find}
           <tr>
             <th></th>
             <th></th>
@@ -61,7 +68,7 @@
           <th class="px-2 py-1">Role</th>
           <th class="px-2 py-1">Rate</th>
           <th class="px-2 py-1">Overtime Rate</th>
-          <th class="px-2 py-1">Source rates</th>
+          {#if !find}<th class="px-2 py-1">Source rates</th>{/if}
         </tr>
       </thead>
       <tbody>
@@ -70,24 +77,27 @@
             <td class="px-2 py-1">
               <span class="flex items-center gap-2">
                 {row.roleName}
-                {#if rateMissing(row)}<DsLabel tone="danger" size="sm"
-                    >{missingRateLabel(row)}</DsLabel
-                  >
-                {:else if rateChanged(row)}<DsLabel tone="warning" size="sm">Changed</DsLabel>{/if}
+                {#if !find}
+                  {#if rateMissing(row)}<DsLabel tone="danger" size="sm"
+                      >{missingRateLabel(row)}</DsLabel
+                    >
+                  {:else if rateChanged(row)}<DsLabel tone="warning" size="sm">Changed</DsLabel
+                    >{/if}
+                {/if}
               </span>
               {#if errorOf(row, "role")}
                 <div class="mt-1 text-xs text-red-600">{errorOf(row, "role")}</div>
               {/if}
             </td>
             <td class="px-2 py-1">
-              {#if editable}
+              {#if inputs}
                 <input
                   type="number"
                   min="1"
                   step="1"
                   aria-label={`Rate for ${row.roleName}`}
                   aria-invalid={errorOf(row, "rate") ? true : undefined}
-                  class="w-24 rounded-sm border px-1 {errorOf(row, 'rate')
+                  class="{find ? 'w-20' : 'w-24'} rounded-sm border px-1 {errorOf(row, 'rate')
                     ? 'border-red-500'
                     : 'border-neutral-300'}"
                   bind:value={rows[i].rate}
@@ -100,14 +110,18 @@
               {/if}
             </td>
             <td class="px-2 py-1">
-              {#if editable}
+              {#if inputs}
                 <input
                   type="number"
                   min="1"
                   step="0.01"
+                  placeholder={find ? "Optional" : undefined}
                   aria-label={`Overtime rate for ${row.roleName}`}
                   aria-invalid={errorOf(row, "overtime_rate") ? true : undefined}
-                  class="w-24 rounded-sm border px-1 {errorOf(row, 'overtime_rate')
+                  class="{find ? 'w-20' : 'w-24'} rounded-sm border px-1 {errorOf(
+                    row,
+                    'overtime_rate',
+                  )
                     ? 'border-red-500'
                     : 'border-neutral-300'}"
                   bind:value={rows[i].overtime_rate}
@@ -119,11 +133,13 @@
                 {formatCurrency(row.overtime_rate)}
               {/if}
             </td>
-            <td class="px-2 py-1 text-neutral-600">
-              {#if row.source_rate !== undefined}
-                {formatCurrency(row.source_rate)} / {formatCurrency(row.source_overtime_rate)}
-              {/if}
-            </td>
+            {#if !find}
+              <td class="px-2 py-1 text-neutral-600">
+                {#if row.source_rate !== undefined}
+                  {formatCurrency(row.source_rate)} / {formatCurrency(row.source_overtime_rate)}
+                {/if}
+              </td>
+            {/if}
           </tr>
         {/each}
       </tbody>

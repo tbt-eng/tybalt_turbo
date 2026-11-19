@@ -20,12 +20,20 @@
         options: ToggleOption[];
         showOptionDescriptions?: false;
         fullWidth?: boolean;
+        // Below lg, three or more options become a full-width grid of two
+        // columns, as with fullWidth, so a row of long labels fits a phone.
+        // From lg up the toggle stays compact.
+        narrowGrid?: boolean;
       })
     | (AccessibleName & {
         value: string;
         options: ToggleOptionWithDescription[];
         showOptionDescriptions: true;
         fullWidth?: boolean;
+        // Below lg, three or more options become a full-width grid of two
+        // columns, as with fullWidth, so a row of long labels fits a phone.
+        // From lg up the toggle stays compact.
+        narrowGrid?: boolean;
       });
 
   let {
@@ -33,6 +41,7 @@
     options,
     showOptionDescriptions = false,
     fullWidth = false,
+    narrowGrid = false,
     label,
     ariaLabel,
     ariaLabelledBy,
@@ -59,7 +68,10 @@
   const computedAriaLabelledBy = $derived.by(() =>
     label ? undefined : (ariaLabelledBy ?? undefined),
   );
-  const useResponsiveGrid = $derived.by(() => fullWidth && options.length > 2);
+  const useResponsiveGrid = $derived.by(() => (fullWidth || narrowGrid) && options.length > 2);
+  const widthClass = $derived(
+    fullWidth ? "w-full" : useResponsiveGrid ? "max-lg:w-full lg:w-fit" : "w-fit",
+  );
 
   // Guard misuse in development: when descriptions are enabled, every option
   // must define a description key for consistent layout semantics.
@@ -118,7 +130,7 @@
   When label or descriptions are present, we render an integrated field shell.
   Otherwise the control stays compact for list/header use cases. -->
 <div
-  class="inline-flex flex-col rounded-sm {fullWidth ? 'w-full' : 'w-fit'} {hasIntegratedMeta
+  class="inline-flex flex-col rounded-sm {widthClass} {hasIntegratedMeta
     ? 'overflow-hidden border border-neutral-300 bg-neutral-100 p-2'
     : ''}"
   role="radiogroup"
@@ -128,12 +140,10 @@
   {#if label}<span class="mb-1 text-sm text-neutral-800 max-lg:text-base">{label}</span>{/if}
   <!-- Options rail:
     - Desktop: horizontal segmented buttons
-    - Mobile (max-lg) for full-width 3+ options: 2-column grid -->
+    - Mobile (max-lg) for full-width or narrowGrid 3+ options: 2-column grid -->
   <div
     bind:this={optionsRailRef}
-    class="overflow-hidden rounded-sm border border-neutral-300 bg-neutral-300 {fullWidth
-      ? 'w-full'
-      : 'w-fit'} {useResponsiveGrid
+    class="overflow-hidden rounded-sm border border-neutral-300 bg-neutral-300 {widthClass} {useResponsiveGrid
       ? 'max-lg:grid max-lg:auto-rows-fr max-lg:grid-cols-2 max-lg:gap-px lg:flex'
       : 'flex'}"
   >

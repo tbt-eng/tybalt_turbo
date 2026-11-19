@@ -680,6 +680,16 @@
               { id: "year", label: "Year" },
             ]}
           />
+          <DSToggle
+            bind:value={toggle}
+            ariaLabel="Period, narrowGrid"
+            narrowGrid
+            options={[
+              { id: "week", label: "Week" },
+              { id: "month", label: "Month" },
+              { id: "year", label: "Year" },
+            ]}
+          />
         </DSCard>
         <DSCard title="DSTokenInput">
           <DSTokenInput bind:value={tokens} {errors} fieldName="sample" uiName="Tags" />

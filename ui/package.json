@@ -38,6 +38,7 @@
     "test:po-print-browser": "node tests/poPrint.browser.mjs",
     "test:job-requests": "node --test --experimental-strip-types tests/jobRequests.test.ts",
     "test:proposed-rates": "node --test --experimental-strip-types tests/proposedRates.test.ts",
+    "test:find-rates": "node --test --experimental-strip-types tests/findRates.test.ts",
     "test:clipboard": "node --test --experimental-strip-types tests/clipboard.test.ts",
     "test:rate-sheet-label": "node --test --experimental-strip-types tests/rateSheetLabel.test.ts",
     "test:rate-sheet-permissions": "node --test --experimental-strip-types tests/rateSheetPermissions.test.ts",

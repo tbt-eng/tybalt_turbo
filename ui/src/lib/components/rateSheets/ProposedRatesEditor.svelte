@@ -20,6 +20,7 @@
   import { rateSheets } from "$lib/stores/rateSheets";
   import { rateRoles } from "$lib/stores/rateRoles";
   import type { RateSheetComparison } from "$lib/rateSheetMatches";
+  import { type FoundRate, withCarriedRates } from "$lib/findRates";
   import { rateSheetCodeRevision, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
 
   // Proposed rates in a project request: the requester starts from an active
@@ -31,17 +32,20 @@
   // change; then this editor's live comparison is the only notice. errors
   // holds the field errors of the last save, under the server's keys
   // (proposed_rates.name and so on), and the errors of single rates under
-  // rateErrorKey.
+  // rateErrorKey. carried holds rates from Find by rates: each new source
+  // takes them in place of its own rates for those roles (withCarriedRates).
   let {
     proposal = $bindable(),
     onUse,
     blocked = false,
     errors = {},
+    carried = [],
   }: {
     proposal: ProposedRates;
     onUse?: (id: string) => void;
     blocked?: boolean;
     errors?: Record<string, { message: string }>;
+    carried?: FoundRate[];
   } = $props();
 
   rateSheets.init();
@@ -61,7 +65,7 @@
   } | null>(null);
 
   // Load the rates of the source. A new source replaces the rates with its
-  // rates; a saved proposal keeps its own.
+  // rates, and then with the carried rates; a saved proposal keeps its own.
   $effect(() => {
     const source = proposal.based_on;
     if (!source || sourceRates?.source === source) return;
@@ -87,7 +91,7 @@
         };
         if (source === loadedSource) return;
         loadedSource = source;
-        proposal.rows = rows;
+        proposal.rows = withCarriedRates(rows, carried);
       })
       .catch(() => {
         if (current) loadError = "Turbo could not load the rates of that sheet.";
