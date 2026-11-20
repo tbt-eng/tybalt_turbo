@@ -401,6 +401,9 @@
         <DSField label="Unknown status">
           <DSStatusLabel status="Something else" />
         </DSField>
+        <DSField label="Small, for compact list rows">
+          <DSStatusLabel status="Active" kind="job" size="sm" />
+        </DSField>
       </DSFieldList>
     </DSSection>
 

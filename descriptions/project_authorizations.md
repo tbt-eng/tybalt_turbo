@@ -490,20 +490,50 @@ advance the business-data `version` or reset `last_edited`, so resubmission does
 not reset the abandoned-request clock. A timestamp cannot replace this field:
 timestamps can tie, and the same business data can be submitted more than once.
 
-Refuse a request that duplicates work already represented by a job. Show the
-client's projects and the projects linked to the selected proposal. Show number, description,
-client, status, manager, and parent, with links to details. Also show possible
-matches by description, location, and client PO/reference number. For subjobs,
-show the parent and existing subjobs. Show this review to the `job` holder, who
-confirms the request does not duplicate an existing job. Do not show it to the
-approver.
+Refuse a request that duplicates work already represented by a job. Show this
+review to the `job` holder, who confirms the request does not duplicate an
+existing job. Do not show it to the approver. Proposals (numbers starting with
+`P`) are never listed. A project is listed when either holds:
 
-Identify why each result appears. A possible match is not proof of duplication.
-Do not block approval merely because a proposal has another linked job.
+- **Exact match, at any age or status:** the same proposal, the same client PO
+  or the same client reference number (blank never matches; case and
+  surrounding spaces do not count), the request's parent project, or a subjob
+  with the same parent (a sibling).
+- **The same client, recent and open:** status not `Closed` and not
+  `Cancelled`, and the project is recent. Recent means its
+  `project_award_date` or its latest time entry falls within
+  `JOB_REQUEST_DUPLICATE_RECENT_DAYS` (365 days, in
+  `app/utilities/project_authorization.go`) of the review date. The jobs'
+  `created` column is the import date, about half the projects have no award
+  date, and most projects stay `Active`, so neither creation nor status alone
+  shows whether a project is current.
+
+Nothing else lists a project. The same location is a supporting reason on a
+listed row only. A similar description is compared only for the same client
+and is also a supporting reason. Two descriptions are similar when they share
+at least half of the meaningful words of the shorter one, and at least two
+words; when the shorter one has a single meaningful word, that word must be
+shared. Meaningful words are lower-cased, split on anything but letters and
+digits, without a short stopword list and without words of fewer than three
+characters (a two-character word with a digit, such as `17`, counts).
+
+The list is in three tiers: exact matches, then the client's recent open
+projects with a similar description, then the client's other recent open
+projects. Within a tier, the newest last activity (the later of the award date
+and the latest time entry) comes first. Each row shows number, description,
+status, manager, parent, last activity and the reasons it appears, with a link
+to details. The response also counts the client's projects that the rules leave
+out (closed, cancelled, or not recent), and the page states that count, because
+procurement scans the whole list and must know what it does not hold.
+
+A possible match is not proof of duplication. Do not block approval merely
+because a proposal has another linked job.
 
 Before creation, the `job` holder checks existing jobs and does not create
 a job that duplicates an existing job. Other pending requests are listed for
-information, and no confirmation covers them: a request does not represent work
+information when they have the same client, proposal, parent, client PO or
+client reference, with location and description as supporting reasons and no
+date rule, and no confirmation covers them: a request does not represent work
 until it becomes a job, so whichever overlapping request is created first appears
 as an existing job when the next one is reviewed. The holder can coordinate an
 overlap with the creators. A possible match in another request does not cause

@@ -7,3 +7,5 @@ _imported,business_development_lead,created,id,name,updated,address,city,provinc
 ,f2j5a8vk006baub,2026-10-01 00:00:00.000Z,cwclient0000001,Workspace Test Client,2026-10-01 00:00:00.000Z,100 Test Street,Thunder Bay,ON,P7A 1A1,Canada,807-555-0100,
 ,f2j5a8vk006baub,2026-10-01 00:00:00.000Z,cwclient0000002,Empty Workspace Test Client,2026-10-01 00:00:00.000Z,,,,,,,
 ,f2j5a8vk006baub,2026-11-18 00:00:00.000Z,clientcomma0001,"Lakehead Surveys, Inc.",2026-11-18 00:00:00.000Z,,,,,,,
+,f2j5a8vk006baub,2026-11-20 00:00:00.000Z,dupclient000001,Duplicate Review Test Client,2026-11-20 00:00:00.000Z,,,,,,,
+,f2j5a8vk006baub,2026-11-20 00:00:00.000Z,dupclient000002,Duplicate Review Other Client,2026-11-20 00:00:00.000Z,,,,,,,

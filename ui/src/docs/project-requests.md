@@ -55,13 +55,15 @@ Requests that you approved stay below your list, under **Approved By Me, Awaitin
 ## Create the job
 
 1. Open **Job Create Queue**. Open the request.
-2. Check the request, the PDF and existing jobs.
-3. Confirm all checklist statements.
-4. Select **Create Job**. Turbo assigns the job number.
+2. Check the request, PDF and **Duplicate-work review**.
+3. Confirm the checklist.
+4. Select **Create Job**.
+
+The review lists exact matches and the client's open projects with an award or time in the last year.
 
 For [proposed rates](proposed-rates#after-approval), you can change **Rate sheet name** first.
 
-If the request duplicates a job, enter a rejection reason and select **Reject**.
+To reject a duplicate, enter a reason. Select **Reject**.
 
 ## Change a request
 

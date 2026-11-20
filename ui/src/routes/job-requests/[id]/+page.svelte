@@ -13,7 +13,63 @@
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { clientLabel } from "$lib/clientWorkspace";
   import { rateSheetLabel } from "$lib/rateSheetLabel";
+  import DSSection from "$lib/components/DSSection.svelte";
+  import DSList from "$lib/components/DSList.svelte";
+  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
+  import DsLabel from "$lib/components/DsLabel.svelte";
+  import { shortDate } from "$lib/utilities";
+  import { resolve } from "$app/paths";
+  // The duplicate-work review (GET /api/job_requests/{id}/duplicates). The
+  // server orders each list by tier, so the groups appear exact matches first.
+  type DuplicateTier = "exact" | "similar" | "client";
+  type DuplicateJob = {
+    id: string;
+    number: string;
+    description: string;
+    status: string;
+    manager_name: string;
+    parent_number: string;
+    reasons: string[];
+    tier: DuplicateTier;
+    last_activity: string;
+  };
+  type DuplicateRequest = {
+    id: string;
+    description: string;
+    status: string;
+    reasons: string[];
+    tier: DuplicateTier;
+  };
+  type RequestDuplicates = {
+    jobs: DuplicateJob[];
+    hidden_client_jobs: number;
+    requests: DuplicateRequest[];
+  };
+  const duplicateTierLabels: Record<string, string> = {
+    exact: "Exact matches",
+    similar: "Same client, similar description",
+    client: "The client's other recent open projects",
+  };
+  const duplicateJobSearchText = (job: DuplicateJob) =>
+    [job.number, job.description, job.manager_name, ...job.reasons].join(" ");
+  // Outside the exact matches, the group heading already says "same client".
+  const shownReasons = (row: { tier: DuplicateTier; reasons: string[] }) =>
+    row.tier === "exact" ? row.reasons : row.reasons.filter((reason) => reason !== "Same client");
+  let duplicateFilter = $state("");
   let { data } = $props();
+  const duplicates = $derived<RequestDuplicates>({
+    jobs: data.duplicates?.jobs ?? [],
+    hidden_client_jobs: data.duplicates?.hidden_client_jobs ?? 0,
+    requests: data.duplicates?.requests ?? [],
+  });
+  // Procurement scans the whole list, so say plainly what it leaves out.
+  const hiddenClientJobsNote = $derived.by(() => {
+    const hidden = duplicates.hidden_client_jobs;
+    if (hidden === 0) return "";
+    return hidden === 1
+      ? "1 other project of the client is not shown because it is closed, cancelled, or has no award and no time in the last year."
+      : `${hidden} other projects of the client are not shown because they are closed, cancelled, or have no award and no time in the last year.`;
+  });
   let busy = $state(false),
     error = $state(""),
     dirty = $state(false),
@@ -303,29 +359,61 @@
       </p>{/if}
   </section>
   {#if permission.can_create}
-    <section class="space-y-3 rounded border p-4">
-      <h2 class="font-semibold">Duplicate-work review</h2>
-      <p class="text-sm">
+    <DSSection title="Duplicate-work review">
+      <p>
         Possible matches require review. A match alone does not prove that the work is duplicated.
       </p>
-      {#each data.duplicates.jobs || [] as job}<div class="border-t py-2">
-          <a href={`/jobs/${job.id}/details`} class="font-semibold text-blue-700 underline"
-            >{job.number} — {job.description}</a
-          >
-          <p>
-            {job.client_name} · {job.status} · {job.manager_name}
-            {job.parent_number ? `· Parent ${job.parent_number}` : ""}
-          </p>
-          <p class="text-sm text-neutral-600">{(job.reasons || []).join("; ")}</p>
-        </div>{:else}<p>No possible matching jobs found.</p>{/each}
-      <h3 class="font-semibold">Other pending requests</h3>
-      {#each data.duplicates.requests || [] as other}<div>
-          <a class="text-blue-700 underline" href={`/job-requests/${other.id}`}
-            >{other.id} — {other.description}</a
-          >
-          <p>{(other.reasons || []).join("; ")}</p>
-        </div>{:else}<p>No possible matching requests found.</p>{/each}
-    </section>
+      <p>
+        The list shows exact matches of any age or status (same proposal, parent, client PO or
+        client reference) and the client's open projects with an award or time in the last year.
+        {hiddenClientJobsNote}
+      </p>
+      <DSList
+        items={duplicates.jobs}
+        search
+        searchText={duplicateJobSearchText}
+        bind:searchTerm={duplicateFilter}
+        searchPlaceholder="Filter by number, description, manager or reason"
+        groupField="tier"
+        emptyMessage={duplicateFilter
+          ? "No listed job matches this filter."
+          : "No possible matching jobs found."}
+      >
+        {#snippet groupHeader(tier: string)}{duplicateTierLabels[tier] ?? tier}{/snippet}
+        {#snippet headline(job: DuplicateJob)}<a
+            class="link"
+            href={resolve("/jobs/[jid]/details", { jid: job.id })}>{job.number}</a
+          >{/snippet}
+        {#snippet byline(job: DuplicateJob)}
+          <span class="flex flex-wrap items-center gap-2">
+            <span>{job.description}</span>
+            <DSStatusLabel kind="job" status={job.status} size="sm" />
+            {#if job.manager_name}<span>{job.manager_name}</span>{/if}
+            {#if job.parent_number}<span>Parent {job.parent_number}</span>{/if}
+            {#if job.last_activity}<span>Last activity {shortDate(job.last_activity, true)}</span
+              >{/if}
+            {#each shownReasons(job) as reason (reason)}<DsLabel size="sm">{reason}</DsLabel>{/each}
+          </span>
+        {/snippet}
+      </DSList>
+      <DSList
+        items={duplicates.requests}
+        inListHeader="Other pending requests"
+        emptyMessage="No possible matching requests found."
+      >
+        {#snippet headline(other: DuplicateRequest)}<a
+            class="link"
+            href={resolve("/job-requests/[id]", { id: other.id })}>{other.id}</a
+          >{/snippet}
+        {#snippet byline(other: DuplicateRequest)}
+          <span class="flex flex-wrap items-center gap-2">
+            <span>{other.description}</span>
+            <DSStatusLabel kind="request" status={other.status} size="sm" />
+            {#each other.reasons as reason (reason)}<DsLabel size="sm">{reason}</DsLabel>{/each}
+          </span>
+        {/snippet}
+      </DSList>
+    </DSSection>
   {/if}
   {#if $jobRequestsEnabled}<section class="space-y-4 rounded border p-4">
       <div class="flex flex-wrap items-center justify-between gap-2">

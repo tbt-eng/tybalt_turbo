@@ -15,6 +15,11 @@ import (
 
 const JOB_REQUEST_ABANDONMENT_DAYS = 60
 
+// JOB_REQUEST_DUPLICATE_RECENT_DAYS is the window of the duplicate-work
+// review on a project request. A project of the request's client is listed
+// only when its award date or its latest time entry falls in this window.
+const JOB_REQUEST_DUPLICATE_RECENT_DAYS = 365
+
 // MaxProjectAuthorizationValue is the largest whole dollar value that JSON clients retain exactly.
 const MaxProjectAuthorizationValue = 9007199254740991
 

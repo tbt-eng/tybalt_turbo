@@ -41,8 +41,8 @@
     page?: number;
     perPage?: number;
     onStateChange?: (state: { searchTerm: string; page: number; perPage: number }) => void;
-    // Shown when nothing matches. Paginated lists fall back to a default; other
-    // lists show nothing unless given a message.
+    // Shown when nothing matches, grouped or not. Paginated lists fall back to
+    // a default; other lists show nothing unless given a message.
     emptyMessage?: string;
     highlightId?: string;
     inListHeader?: string;
@@ -309,6 +309,9 @@
         </li>
       {/if}
     {/each}
+    {#if groupKeys.length === 0 && emptyMessage !== undefined}
+      <li class="col-span-3 p-3 text-neutral-600">{emptyMessage}</li>
+    {/if}
   {:else}
     {@render itemList(visibleItems)}
     {#if processedItems.length === 0 && (canPaginate || emptyMessage !== undefined)}

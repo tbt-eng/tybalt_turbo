@@ -6,7 +6,13 @@
   let {
     status,
     kind,
-  }: { status: string; kind?: "job" | "po" | "expense" | "request" | "uncommit" } = $props();
+    size = "md",
+  }: {
+    status: string;
+    kind?: "job" | "po" | "expense" | "request" | "uncommit";
+    // "sm" for compact list rows.
+    size?: "md" | "sm";
+  } = $props();
 
   const tonesByKind: Record<
     "job" | "po" | "expense" | "request" | "uncommit",
@@ -57,4 +63,4 @@
   const tone = $derived((kind ? tonesByKind[kind] : allTones)[status] ?? "neutral");
 </script>
 
-<DsLabel {tone}>{status}</DsLabel>
+<DsLabel {tone} {size}>{status}</DsLabel>

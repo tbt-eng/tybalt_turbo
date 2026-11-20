@@ -265,8 +265,10 @@ An anchored panel that closes on outside click or Escape. It replaces the four h
 One map from record status to tone, shared by jobs, POs and expenses. Expenses have no status field; pass the display status the page already derives from the submitted, approved, committed and rejected timestamps.
 
 ```ts
-{ status: string; kind?: "job" | "po" | "expense" }
+{ status: string; kind?: "job" | "po" | "expense"; size?: "md" | "sm" }
 ```
+
+`size="sm"` is for compact list rows, such as the duplicate-work review on a project request.
 
 - **Success:** Active, Awarded (jobs); Active (POs); Approved, Committed (expenses).
 - **Warning:** Submitted, In Progress (jobs); Unapproved (POs); Submitted (expenses).
