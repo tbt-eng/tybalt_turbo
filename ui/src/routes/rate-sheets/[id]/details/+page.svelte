@@ -436,7 +436,7 @@
         <DsActionButton action={openRename}>Rename</DsActionButton>
       {/if}
       {#if canDelete && !rateSheet.active}
-        <DsActionButton variant="danger" action={openDelete}>Delete</DsActionButton>
+        <DsActionButton color="red" action={openDelete}>Delete</DsActionButton>
       {/if}
     </div>
   {/if}
