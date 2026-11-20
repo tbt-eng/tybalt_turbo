@@ -1,0 +1,3 @@
+computer_name,created,error,id,report
+FAKE-PC-0001,2026-10-15 13:00:00.000Z,upn: is required,cmprawlogin0001,"{""computerName"":""FAKE-PC-0001"",""serial"":""FAKESERIAL0001"",""mfg"":""Fake Computers Inc.""}"
+FAKE-PC-0099,2026-10-16 13:00:00.000Z,mfg: is required,cmprawlogin0002,"{""computerName"":""FAKE-PC-0099"",""serial"":""FAKESERIAL0099""}"

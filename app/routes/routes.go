@@ -135,6 +135,9 @@ func AddRoutes(app core.App) {
 		se.Router.GET("/api/export_legacy/jobs/{updatedAfter}", createJobsExportLegacyHandler(app))
 		se.Router.GET("/api/export_legacy/expenses/{updatedAfter}", createExpensesExportLegacyHandler(app))
 
+		// Radiator login reports (custom auth via machine_secrets, role radiator)
+		bindRadiatorRoutes(app, se)
+
 		expensesGroup := se.Router.Group("/api/expenses")
 		expensesGroup.Bind(apis.RequireAuth("users"))
 		expensesGroup.POST("", createCreateExpenseHandler(app))

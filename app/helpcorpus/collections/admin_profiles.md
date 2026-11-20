@@ -57,6 +57,7 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `default_branch` | relation | required; maxSelect 1; to `branches` |
 | `legacy_uid` | text |  |
 | `active` | bool |  |
+| `user_source_anchor` | text | max 32; pattern "^[0-9a-f]{32}$" |
 
 ## Indexes: admin_profiles
 
@@ -64,3 +65,4 @@ A unique index means that two records can't have the same values in its fields.
 
 - `CREATE UNIQUE INDEX `idx_UpEVC7E` ON `admin_profiles` (`uid`)`
 - `CREATE UNIQUE INDEX `idx_XnQ4v11` ON `admin_profiles` (`payroll_id`)`
+- `CREATE UNIQUE INDEX `idx_admin_profiles_user_source_anchor` ON `admin_profiles` (`user_source_anchor`) WHERE `user_source_anchor` != ''`

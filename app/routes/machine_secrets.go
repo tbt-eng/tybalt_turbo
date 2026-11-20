@@ -18,6 +18,7 @@ const alphanumericAlphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn
 // Valid roles for machine_secrets
 var validRoles = map[string]bool{
 	"legacy_writeback": true,
+	"radiator":         true,
 }
 
 type CreateMachineSecretRequest struct {

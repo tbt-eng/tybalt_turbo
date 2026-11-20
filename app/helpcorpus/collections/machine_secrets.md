@@ -33,7 +33,7 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `id` | text | required; min 15; max 15; pattern "^[a-z0-9]+$" |
 | `sha256_hash` | text | required; pattern "^[a-fA-F0-9]{64}$" |
 | `salt` | text | required; pattern "^[a-zA-Z0-9]{16,128}$" |
-| `role` | select | required; values ["legacy_writeback"]; maxSelect 1 |
+| `role` | select | required; values ["legacy_writeback","radiator"]; maxSelect 1 |
 | `expiry` | date | required |
 | `created` | autodate | onCreate |
 | `updated` | autodate | onCreate; onUpdate |

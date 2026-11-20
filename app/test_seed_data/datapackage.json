@@ -531,6 +531,11 @@
             "x-sqlite-type": "TEXT"
           },
           {
+            "name": "user_source_anchor",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
             "name": "work_week_hours",
             "type": "number",
             "x-sqlite-type": "NUMERIC"
@@ -3832,6 +3837,253 @@
       "x-groups": [
         "test-full",
         "test-minimal"
+      ]
+    },
+    {
+      "name": "computers",
+      "path": "data/computers.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "assigned_time",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "assigned_to",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "boot_drive",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "boot_drive_cap",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "boot_drive_free",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "boot_drive_fs",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "computer_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "email",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "last_login",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "last_user",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "mfg",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "model",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "network_config",
+            "type": "string",
+            "x-sqlite-type": "JSON"
+          },
+          {
+            "name": "os_arch",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "os_sku",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "os_version",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "radiator_version",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "ram",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "retired",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "serial",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "slug",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "system_type",
+            "type": "number",
+            "x-sqlite-type": "NUMERIC"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "upn",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "user_given_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "user_source_anchor",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "user_surname",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "computer_logins",
+      "path": "data/computer_logins.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "computer",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "given_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "surname",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "user_source_anchor",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "computer_raw_logins",
+      "path": "data/computer_raw_logins.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "computer_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "error",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "report",
+            "type": "string",
+            "x-sqlite-type": "JSON"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
       ]
     }
   ]
