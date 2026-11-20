@@ -1,76 +1,76 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/machine_secrets.go","sha256":"d4c585d92caf89384ccb39d89892576d283d8dc34cda6f4cae33c80a42d2416a","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/machine_secrets.go","sha256":"33d3e7241407adb32c5f42d2f375c297e2caba74a5bd4f76da868936efc1ba23","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/machine_secrets.go
 
-## Machine secret role must be a valid role
+## Machine secret role must be legacy_writeback or radiator
 
-Lines 18-21
+Lines 18-22
 
-Asked as: invalid role; wrong role for machine secret; which role can a machine secret have; legacy_writeback role
+Asked as: invalid role; wrong machine secret role; role not allowed; which roles can a secret have; legacy_writeback or radiator
 
-The only valid role for a machine secret is legacy_writeback. Any other role is refused with "invalid role".
+A machine secret can have only the role legacy_writeback or radiator. Any other role gives "invalid role".
 
-## Only signed-in admins can create machine secrets
+## Only admins can create a machine secret
 
-Lines 43-55
+Lines 44-56
 
-Asked as: unauthorized when creating secret; admin claim required; not an admin create secret; can't make machine secret
+Asked as: not an admin; admin claim required; who can create machine secret; no permission to make secret; unauthorized secret creation
 
-Creating a machine secret requires a signed-in user. Without a sign-in, Turbo refuses with "unauthorized". A signed-in user without the admin claim gets "admin claim required".
+Creating a machine secret requires a signed-in user who holds the admin claim. A user without the admin claim gets "admin claim required". A request with no signed-in user gets "unauthorized".
 
 ## Machine secret days must be a positive number
 
-Lines 63-66
+Lines 64-67
 
-Asked as: days must be positive; zero days secret; negative days expiry; secret days value rejected
+Asked as: days must be positive; zero days secret; negative expiry days; secret days number wrong; days must be a positive integer
 
-When an admin creates a machine secret, the number of days (days) must be greater than 0. Zero or a negative number is refused with "days must be a positive integer".
+Creating a machine secret refuses a number of days (days) of 0 or less. Turbo shows "days must be a positive integer".
 
 ## Machine secret role check on creation
 
-Lines 68-71
+Lines 69-72
 
-Asked as: role refused on secret; secret role not accepted; bad role when adding secret; role check failed secret
+Asked as: role rejected on create; secret creation role error; wrong role when making secret; can't create secret with this role; invalid role on new secret
 
-When an admin creates a machine secret, Turbo checks the role against the valid roles. A role that is not valid is refused with "invalid role".
+Creating a machine secret refuses any role other than legacy_writeback or radiator. Turbo shows "invalid role". The days check runs before the role check.
 
-## Machine secret is generated and stored only as a salted hash
+## New machine secret is generated and stored only as a hash
 
-Lines 73-104
+Lines 74-109
 
-Asked as: how secret is stored; is secret saved in plain text; salted hash secret; where is the secret kept
+Asked as: how secrets are stored; is the secret saved in plain text; secret hashed in database; where is the secret kept; salt and hash for secret
 
-Turbo generates a random 32-character secret and a random 21-character alphanumeric salt. It stores the SHA-256 hash of the salt followed by the secret, plus the salt, and does not store the secret itself.
+Turbo generates a random 32-character secret and a random 21-character alphanumeric salt. It stores the SHA-256 hash of the salt followed by the secret, with the salt, the role and the expiry. It does not store the secret itself.
 
-## Machine secret expiry is days from now in UTC
+## Machine secret expires after the given number of days
 
-Lines 91-116
+Lines 92-93
 
-Asked as: when does secret expire; secret expiry date; expiry in UTC; how long secret lasts
+Asked as: when does secret expire; secret expiry time; how long secret stays valid; expiry in RFC3339; secret lifetime in days
 
-The expiry of a new machine secret is the current UTC time plus the requested number of days. Turbo saves it as a date and time. The response gives the expiry in RFC3339 format.
+Turbo sets the expiry of a new machine secret to the current UTC time plus the requested number of days. It returns the expiry in RFC3339 format.
 
-## Secret is shown only once at creation
+## Secret is shown once at creation
 
-Lines 110-116
+Lines 111-117
 
-Asked as: secret shown only once; lost my machine secret; can't see secret again; copy secret after creating
+Asked as: secret only shown once; lost my secret; can't see secret again; copy secret after creating; secret missing from list
 
-The response that creates a machine secret returns the plain secret together with the id, expiry and role. The list of secrets never shows the secret, so an admin cannot see it again.
+The response to a successful creation returns the id, the unhashed secret, the expiry and the role, with a created result. The secret appears only in this response, and the list never shows it.
 
-## Only signed-in admins can list machine secrets
+## Only admins can list machine secrets
 
-Lines 122-134
+Lines 123-135
 
-Asked as: can't list machine secrets; list secrets unauthorized; admin claim needed to view secrets; view machine secrets access
+Asked as: who can see secrets; can't view machine secrets; list secrets not allowed; admin claim needed to view; view secrets unauthorized
 
-Listing machine secrets requires a signed-in user. Without a sign-in, Turbo refuses with "unauthorized". A signed-in user without the admin claim gets "admin claim required".
+Listing machine secrets requires a signed-in user who holds the admin claim. A user without it gets "admin claim required". A request with no signed-in user gets "unauthorized".
 
-## Machine secret list shows all secrets, newest first, without hash or salt
+## Machine secret list shows id, role and expiry, newest first
 
-Lines 136-158
+Lines 137-159
 
-Asked as: list of machine secrets; expired secrets still showing; show all secrets newest first; secrets list hides hash
+Asked as: list of machine secrets; secrets sorted by date; which fields show in secret list; secret list newest first; does list show the secret value
 
-The list returns every machine secret, with no limit, sorted by created date with the newest first. Each item shows only the id, role and expiry, never the hash or salt. Expired secrets are not filtered out.
+The list returns all machine secrets, with no limit, sorted by creation date with the newest first. Each item shows only the id, the role and the expiry. It never shows the hash, the salt or the secret.
