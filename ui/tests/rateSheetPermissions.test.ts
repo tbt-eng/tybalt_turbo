@@ -4,6 +4,7 @@ import {
   canActivateRateSheets,
   canCorrectRateSheets,
   canCreateRateSheets,
+  canDeleteRateSheets,
   canReviseRateSheets,
 } from "../src/lib/rateSheetPermissions.ts";
 
@@ -13,6 +14,7 @@ test("a user with only the time claim can change no rate sheet", () => {
   assert.equal(canActivateRateSheets(claims), false);
   assert.equal(canReviseRateSheets(claims), false);
   assert.equal(canCorrectRateSheets(claims), false);
+  assert.equal(canDeleteRateSheets(claims), false);
 });
 
 test("procurement creates, activates and deactivates sheets, but does not revise", () => {
@@ -21,6 +23,7 @@ test("procurement creates, activates and deactivates sheets, but does not revise
   assert.equal(canActivateRateSheets(claims), true);
   assert.equal(canReviseRateSheets(claims), false);
   assert.equal(canCorrectRateSheets(claims), false);
+  assert.equal(canDeleteRateSheets(claims), false);
 });
 
 test("rate_sheet_revise revises and renames only", () => {
@@ -31,10 +34,11 @@ test("rate_sheet_revise revises and renames only", () => {
   assert.equal(canCorrectRateSheets(claims), false);
 });
 
-test("admin revises and corrects rates, but activates only with job", () => {
+test("admin revises, corrects rates and deletes sheets, but activates only with job", () => {
   const claims = ["admin"];
   assert.equal(canReviseRateSheets(claims), true);
   assert.equal(canCorrectRateSheets(claims), true);
+  assert.equal(canDeleteRateSheets(claims), true);
   assert.equal(canCreateRateSheets(claims), false);
   assert.equal(canActivateRateSheets(claims), false);
 });

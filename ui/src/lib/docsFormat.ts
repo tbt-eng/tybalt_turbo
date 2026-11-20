@@ -168,6 +168,7 @@ const childDocPages: Record<string, { parent: string; label: string }> = {
   "rate-sheet-periods": { parent: "rate-sheets", label: "Periods" },
   "rate-sheet-absorb": { parent: "rate-sheets", label: "Duplicates" },
   "rate-sheet-codes": { parent: "rate-sheets", label: "Codes and names" },
+  "rate-sheet-delete": { parent: "rate-sheets", label: "Delete" },
 };
 
 // Help lists pages in the order of docPageOrder. A child page follows its

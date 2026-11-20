@@ -387,6 +387,8 @@ func AddRoutes(app core.App) {
 		rateSheetsGroup.POST("/compare", createCompareRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/activate", createActivateRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/deactivate", createDeactivateRateSheetHandler(app))
+		// Delete an inactive sheet that nothing uses (admin)
+		rateSheetsGroup.DELETE("/{id}", createDeleteRateSheetHandler(app))
 		rateSheetsGroup.POST("/{id}/rename", createRenameRateSheetHandler(app))
 		rateSheetsGroup.GET("/{id}/former_names", createGetRateSheetFormerNamesHandler(app))
 		rateSheetsGroup.GET("/{id}/jobs", createGetRateSheetJobsHandler(app))

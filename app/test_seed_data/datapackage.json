@@ -2564,6 +2564,45 @@
       ]
     },
     {
+      "name": "rate_sheet_code_changes",
+      "path": "data/rate_sheet_code_changes.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "new_code",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "old_code",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "rate_sheet",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
       "name": "time_amendments",
       "path": "data/time_amendments.csv",
       "schema": {

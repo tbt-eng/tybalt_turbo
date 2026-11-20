@@ -134,10 +134,11 @@ func TestRenameRateSheet_Permissions(t *testing.T) {
 	}
 }
 
-// renameNotSeeded leaves out the one history row of the seed data, which
-// belongs to the rate sheet absorb fixtures (rate_sheet_name_changes.csv), so
-// that these tests count only the rows that a rename writes.
-var renameNotSeeded = dbx.Not(dbx.HashExp{"id": "rsnamechgabs001"})
+// renameNotSeeded leaves out the history rows of the seed data
+// (rate_sheet_name_changes.csv), which belong to the rate sheet absorb and
+// delete fixtures, so that these tests count only the rows that a rename
+// writes.
+var renameNotSeeded = dbx.NotIn("id", "rsnamechgabs001", "rsdelnamerow001")
 
 func TestRenameRateSheet_RenamesEveryRevisionAndWritesHistory(t *testing.T) {
 	adminToken := renameToken(t, "author@soup.com")

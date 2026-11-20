@@ -19,8 +19,11 @@
     canActivateRateSheets,
     canCorrectRateSheets,
     canCreateRateSheets,
+    canDeleteRateSheets,
     canReviseRateSheets,
   } from "$lib/rateSheetPermissions";
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import DsLabel from "$lib/components/DsLabel.svelte";
   import Icon from "@iconify/svelte";
   import type { ClientResponseError } from "pocketbase";
@@ -85,6 +88,33 @@
       renameError = renameFieldErrors.name ? null : (response?.message ?? "Failed to rename");
     } finally {
       renaming = false;
+    }
+  }
+
+  // Delete: admins, and only an inactive sheet. The server also refuses a
+  // sheet that a job or project request uses or has used.
+  const canDelete = $derived(canDeleteRateSheets($globalStore.claims));
+  let showDelete = $state(false);
+  let deleting = $state(false);
+  let deleteError = $state<string | null>(null);
+
+  function openDelete() {
+    deleteError = null;
+    showDelete = true;
+  }
+
+  async function deleteRateSheet() {
+    deleting = true;
+    deleteError = null;
+    try {
+      await pb.send(`/api/rate_sheets/${rateSheet.id}`, { method: "DELETE" });
+      showDelete = false;
+      await goto(resolve("/rate-sheets/list"));
+    } catch (error) {
+      const response = (error as ClientResponseError).data as { message?: string };
+      deleteError = response?.message ?? "Failed to delete";
+    } finally {
+      deleting = false;
     }
   }
 
@@ -392,7 +422,7 @@
   </div>
 
   <!-- Action Buttons -->
-  {#if (canRevise && rateSheet.active) || canCreate || canRename}
+  {#if (canRevise && rateSheet.active) || canCreate || canRename || (canDelete && !rateSheet.active)}
     <div class="mb-4 flex gap-2">
       {#if canRevise && rateSheet.active}
         <DsActionButton action={`/rate-sheets/copy?revise=${rateSheet.id}`}>Revise</DsActionButton>
@@ -404,6 +434,9 @@
       {/if}
       {#if canRename}
         <DsActionButton action={openRename}>Rename</DsActionButton>
+      {/if}
+      {#if canDelete && !rateSheet.active}
+        <DsActionButton variant="danger" action={openDelete}>Delete</DsActionButton>
       {/if}
     </div>
   {/if}
@@ -696,5 +729,22 @@
       placeholder="Optional description"
       helperText="Optional. Clear it to remove the name."
     />
+  </DSPopover>
+{/if}
+
+{#if canDelete}
+  <DSPopover
+    bind:show={showDelete}
+    title="Delete Rate Sheet"
+    danger
+    error={deleteError}
+    submitting={deleting}
+    submitLabel="Delete"
+    onSubmit={deleteRateSheet}
+  >
+    <p>
+      Turbo removes this revision and its rates. Turbo won't delete a sheet that a job or a project
+      request uses or has used. You can't undo this.
+    </p>
   </DSPopover>
 {/if}

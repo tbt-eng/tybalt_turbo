@@ -26,3 +26,9 @@ export function canReviseRateSheets(claims: string[]): boolean {
 export function canCorrectRateSheets(claims: string[]): boolean {
   return claims.includes("admin");
 }
+
+// A delete of an inactive sheet that nothing uses (DELETE
+// /api/rate_sheets/{id}). The server checks the sheet.
+export function canDeleteRateSheets(claims: string[]): boolean {
+  return claims.includes("admin");
+}

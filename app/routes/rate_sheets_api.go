@@ -143,6 +143,119 @@ func createDeactivateRateSheetHandler(app core.App) func(e *core.RequestEvent) e
 	}
 }
 
+// rateSheetDeleteRefs counts what refers to a rate sheet. These are all the
+// relations to rate_sheets (jobs, job_rate_sheets, job_requests,
+// rate_sheets.based_on, rate_sheet_name_changes, rate_sheet_code_changes and
+// rate_sheet_entries), except the entries, which go with the sheet.
+type rateSheetDeleteRefs struct {
+	Jobs           int `db:"jobs"`
+	Requests       int `db:"requests"`
+	BasedOn        int `db:"based_on"`
+	NameChanges    int `db:"name_changes"`
+	CodeChanges    int `db:"code_changes"`
+	PendingAbsorbs int `db:"pending_absorbs"`
+}
+
+// checkRateSheetDeletable refuses the delete of a sheet unless it is
+// inactive, is not a project request's proposed rates, and nothing uses it or
+// has used it. Run it in the delete transaction.
+func checkRateSheetDeletable(app core.App, sheet *core.Record) error {
+	if sheet.GetBool("active") {
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_active",
+			"Deactivate the rate sheet before you delete it.")
+	}
+	// Deleting the request deletes its draft.
+	if hooks.IsRateSheetDraft(sheet) {
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_draft",
+			"This rate sheet holds the proposed rates of a project request. Delete the request to delete it.")
+	}
+
+	var refs rateSheetDeleteRefs
+	// A job uses a sheet as jobs.rate_sheet or in any period of its rate
+	// sheet history, current or past. A pending rate sheet absorb is counted
+	// whatever its sheets are: its undo restores saved sheets whose based_on
+	// and references must still exist.
+	err := app.DB().NewQuery(`
+		SELECT
+			(SELECT COUNT(*) FROM (
+				SELECT j.id FROM jobs j WHERE j.rate_sheet = {:id}
+				UNION
+				SELECT h.job FROM job_rate_sheets h WHERE h.rate_sheet = {:id}
+			)) AS jobs,
+			(SELECT COUNT(*) FROM job_requests r WHERE r.rate_sheet = {:id}) AS requests,
+			(SELECT COUNT(*) FROM rate_sheets s WHERE s.based_on = {:id}) AS based_on,
+			(SELECT COUNT(*) FROM rate_sheet_name_changes n WHERE n.rate_sheet = {:id}) AS name_changes,
+			(SELECT COUNT(*) FROM rate_sheet_code_changes c WHERE c.rate_sheet = {:id}) AS code_changes,
+			(SELECT COUNT(*) FROM absorb_actions a WHERE a.collection_name = 'rate_sheets') AS pending_absorbs
+	`).Bind(dbx.Params{"id": sheet.Id}).One(&refs)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case refs.Jobs > 0:
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_used_by_job",
+			"A job uses or has used this rate sheet, so it can't be deleted.")
+	case refs.Requests > 0:
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_used_by_request",
+			"A project request uses this rate sheet, so it can't be deleted.")
+	case refs.BasedOn > 0:
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_based_on",
+			"The rates of a project request started from this rate sheet, so it can't be deleted.")
+	case refs.NameChanges > 0:
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_has_name_history",
+			"This rate sheet has former names, so it can't be deleted.")
+	case refs.CodeChanges > 0:
+		return rateSheetRouteError(http.StatusBadRequest, "global", "rate_sheet_has_code_history",
+			"This rate sheet has former codes, so it can't be deleted.")
+	case refs.PendingAbsorbs > 0:
+		return rateSheetRouteError(http.StatusConflict, "global", "rate_sheet_absorb_pending",
+			"A rate sheet absorb is waiting to be committed or undone. Finish it before you delete a rate sheet.")
+	}
+	return nil
+}
+
+// createDeleteRateSheetHandler creates a handler that deletes a rate sheet
+// that was saved by mistake. Only users with the 'admin' claim can delete,
+// and only a sheet that checkRateSheetDeletable allows. Any revision may be
+// deleted. The entries go with the sheet (cascadeDelete). The code stays in
+// rate_sheet_codes, so it is never issued again.
+func createDeleteRateSheetHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		id := e.Request.PathValue("id")
+
+		// Check for admin claim
+		hasAdminClaim, err := utilities.HasClaim(app, e.Auth, "admin")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to check claims", err)
+		}
+		if !hasAdminClaim {
+			return e.Error(http.StatusForbidden, "you do not have permission to delete rate sheets", nil)
+		}
+
+		// Check and delete in one transaction, so nothing can start to use
+		// the sheet in between.
+		err = app.RunInTransaction(func(txApp core.App) error {
+			record, err := txApp.FindRecordById("rate_sheets", id)
+			if err != nil {
+				return rateSheetRouteError(http.StatusNotFound, "global", "rate_sheet_not_found", "Rate sheet not found.")
+			}
+			if err := checkRateSheetDeletable(txApp, record); err != nil {
+				return err
+			}
+			return txApp.Delete(record)
+		})
+		if err != nil {
+			return writeRateSheetError(e, err)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"message": "rate sheet deleted",
+			"id":      id,
+		})
+	}
+}
+
 // UpdateRateSheetEntryRequest defines the allowed fields for updating a rate sheet entry
 type UpdateRateSheetEntryRequest struct {
 	Rate         *float64 `json:"rate"`
