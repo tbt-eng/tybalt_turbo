@@ -31,6 +31,9 @@ export enum Collections {
   RateSheetNameChanges = "rate_sheet_name_changes",
   RateSheetCodes = "rate_sheet_codes",
   RateSheetCodeChanges = "rate_sheet_code_changes",
+  Computers = "computers",
+  ComputerLogins = "computer_logins",
+  ComputerRawLogins = "computer_raw_logins",
   ExpenseAllowanceTotals = "expense_allowance_totals",
   ExpenseDocuments = "expense_documents",
   ExpenseMileageTotals = "expense_mileage_totals",
@@ -694,6 +697,56 @@ export type RateSheetCodeChangesRecord = {
   rate_sheet?: RecordIdString;
 };
 
+export type ComputersRecord<Tnetwork_config = unknown> = {
+  assigned_time: IsoDateString;
+  assigned_to: RecordIdString;
+  boot_drive: string;
+  boot_drive_cap: number;
+  boot_drive_free: number;
+  boot_drive_fs: string;
+  computer_name: string;
+  created: IsoDateString;
+  email: string;
+  id: string;
+  last_login: IsoDateString;
+  last_user: RecordIdString;
+  mfg: string;
+  model: string;
+  network_config: null | Tnetwork_config;
+  os_arch: string;
+  os_sku: number;
+  os_version: string;
+  radiator_version: number;
+  ram: number;
+  retired: IsoDateString;
+  serial: string;
+  slug: string;
+  system_type: number;
+  updated: IsoDateString;
+  upn: string;
+  user_given_name: string;
+  user_source_anchor: string;
+  user_surname: string;
+};
+
+export type ComputerLoginsRecord = {
+  computer: RecordIdString;
+  created: IsoDateString;
+  given_name: string;
+  id: string;
+  surname: string;
+  user: RecordIdString;
+  user_source_anchor: string;
+};
+
+export type ComputerRawLoginsRecord<Treport = unknown> = {
+  computer_name: string;
+  created: IsoDateString;
+  error: string;
+  id: string;
+  report: null | Treport;
+};
+
 export enum ProfilesNotificationTypeOptions {
   email_text = "email_text",
   email_html = "email_html",
@@ -1248,6 +1301,16 @@ export type RateSheetCodesResponse<Texpand = unknown> = Required<RateSheetCodesR
   BaseSystemFields<Texpand>;
 export type RateSheetCodeChangesResponse<Texpand = unknown> = Required<RateSheetCodeChangesRecord> &
   BaseSystemFields<Texpand>;
+export type ComputersResponse<Tnetwork_config = unknown, Texpand = unknown> = Required<
+  ComputersRecord<Tnetwork_config>
+> &
+  BaseSystemFields<Texpand>;
+export type ComputerLoginsResponse<Texpand = unknown> = Required<ComputerLoginsRecord> &
+  BaseSystemFields<Texpand>;
+export type ComputerRawLoginsResponse<Treport = unknown, Texpand = unknown> = Required<
+  ComputerRawLoginsRecord<Treport>
+> &
+  BaseSystemFields<Texpand>;
 export type ProfilesResponse<Texpand = unknown> = Required<ProfilesRecord> &
   BaseSystemFields<Texpand>;
 export type PurchaseOrdersResponse<Texpand = PurchaseOrdersRecordExpands> =
@@ -1334,6 +1397,9 @@ export type CollectionRecords = {
   rate_sheet_name_changes: RateSheetNameChangesRecord;
   rate_sheet_codes: RateSheetCodesRecord;
   rate_sheet_code_changes: RateSheetCodeChangesRecord;
+  computers: ComputersRecord;
+  computer_logins: ComputerLoginsRecord;
+  computer_raw_logins: ComputerRawLoginsRecord;
   profiles: ProfilesRecord;
   purchase_orders: PurchaseOrdersRecord;
   purchase_orders_augmented: PurchaseOrdersAugmentedRecord;
@@ -1397,6 +1463,9 @@ export type CollectionResponses = {
   rate_sheet_name_changes: RateSheetNameChangesResponse;
   rate_sheet_codes: RateSheetCodesResponse;
   rate_sheet_code_changes: RateSheetCodeChangesResponse;
+  computers: ComputersResponse;
+  computer_logins: ComputerLoginsResponse;
+  computer_raw_logins: ComputerRawLoginsResponse;
   profiles: ProfilesResponse;
   purchase_orders: PurchaseOrdersResponse;
   purchase_orders_augmented: PurchaseOrdersAugmentedResponse;
@@ -1465,6 +1534,9 @@ export type TypedPocketBase = PocketBase & {
   collection(idOrName: "rate_sheet_name_changes"): RecordService<RateSheetNameChangesResponse>;
   collection(idOrName: "rate_sheet_codes"): RecordService<RateSheetCodesResponse>;
   collection(idOrName: "rate_sheet_code_changes"): RecordService<RateSheetCodeChangesResponse>;
+  collection(idOrName: "computers"): RecordService<ComputersResponse>;
+  collection(idOrName: "computer_logins"): RecordService<ComputerLoginsResponse>;
+  collection(idOrName: "computer_raw_logins"): RecordService<ComputerRawLoginsResponse>;
   collection(idOrName: "profiles"): RecordService<ProfilesResponse>;
   collection(idOrName: "purchase_orders"): RecordService<PurchaseOrdersResponse>;
   collection(idOrName: "purchase_orders_augmented"): RecordService<PurchaseOrdersAugmentedResponse>;

@@ -4,6 +4,7 @@ import { canViewBranchHours } from "$lib/reports/branchHours";
 import { canViewPOApprovers } from "$lib/poApprovalLimits";
 import { canViewPOGroups } from "$lib/poGroups";
 import { canViewJobCreateQueue } from "$lib/jobRequests";
+import { canViewComputers } from "$lib/computers";
 
 // What a canView check may look at.
 export interface NavContext {
@@ -384,6 +385,19 @@ export const navSections: NavSection[] = [
         href: "/admin_profiles/list",
         buttons: [],
         canView: anyClaim("admin", "hr", "time_off_manager", "it"),
+      },
+      {
+        label: "Computers",
+        href: "/computers/list",
+        canView: ({ claims }) => canViewComputers(claims),
+        buttons: [
+          {
+            action: "/computers/retired",
+            icon: "mdi:archive-outline",
+            title: "Retired Computers",
+            color: "blue",
+          },
+        ],
       },
       { label: "Claims", href: "/claims/list", buttons: [] },
       { label: "App Config", href: "/app_config", buttons: [], canView: anyClaim("admin") },

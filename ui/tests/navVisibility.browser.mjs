@@ -89,6 +89,13 @@ await runBrowserHarness(async (page, origin) => {
   has(await labels({ claims: ["project_authorization"], jobRequestsEnabled: true }), rateSheets);
   lacks(await labels({ claims: ["time", "project_authorization"] }), rateSheets);
 
+  // Computers: holders of the computers claim and admins.
+  const computers = ["Business/Computers", "Business/Computers+Retired Computers"];
+  lacks(none, ...computers);
+  lacks(await labels({ claims: ["it", "time"] }), ...computers);
+  has(admin, ...computers);
+  has(await labels({ claims: ["computers"] }), ...computers);
+
   // One plus starts a project: beside Jobs, never beside Project Requests.
   // Procurement always sees it; staff with time see it while requests are on.
   const newProject = "Business/Jobs+New Project or Proposal";

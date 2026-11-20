@@ -41,6 +41,7 @@
     "test:find-rates": "node --test --experimental-strip-types tests/findRates.test.ts",
     "test:clipboard": "node --test --experimental-strip-types tests/clipboard.test.ts",
     "test:rate-sheet-label": "node --test --experimental-strip-types tests/rateSheetLabel.test.ts",
+    "test:computers": "node --test --experimental-strip-types tests/computers.test.ts",
     "test:rate-sheet-permissions": "node --test --experimental-strip-types tests/rateSheetPermissions.test.ts",
     "test:rate-sheet-absorb": "node --test --experimental-strip-types tests/rateSheetAbsorb.test.ts",
     "test:job-request-permissions": "node --experimental-vm-modules --test tests/jobRequestPermissions.test.mjs",

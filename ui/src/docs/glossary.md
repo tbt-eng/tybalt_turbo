@@ -16,6 +16,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
 | Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
+| Last user             | The person who last signed in to a computer. Turbo can assign the computer to them. See [Computers](/docs/computers).                               |                 |
 | Payables staff        | Staff who can cancel, close or convert a purchase order, and settle foreign-currency expenses.                                                      |                 |
 | Procurement           | Staff who create and edit jobs, maintain clients, contacts and invoicing profiles, and propose project value changes. Purchase orders are separate. |                 |
 | Profile               | Your own details: your name, your manager and your default division. See [Profile](/docs/profile).                                                  |                 |
@@ -27,6 +28,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Rate sheet            | The hourly rates that a client pays for each role. Its [code](/docs/rate-sheet-codes), such as 2026-11-00004, identifies it.                        |                 |
 | Rate sheet period     | The dates in which a project uses one rate sheet. See [Rate sheet periods](/docs/rate-sheet-periods).                                               |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
+| Retire                | Take a computer out of use. Turbo lists it under **Retired** until someone selects **Un-retire**.                                                   |                 |
 | Revise                | Make a new version of a record: new details for an approved purchase order, or new rates for a rate sheet.                                          |                 |
 | Role                  | The work that you do on a job. The rate sheet sets the rate of each role.                                                                           |                 |
 | Staff                 | People who work for the company.                                                                                                                    | employee        |

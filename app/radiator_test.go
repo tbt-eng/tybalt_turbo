@@ -20,7 +20,8 @@ import (
 //   - admin_profiles: user_source_anchor aaaa... on time@test.com
 //     (rzr98oadsp9qc11) and bbbb... on hal@2005.com (66ct66w380ob6w8).
 //   - computers: cmpassigned0001 (FAKE-PC-0001, assigned to fatt@mac.com) and
-//     cmpretired00001 (FAKE-PC-0002, retired).
+//     cmpretired00001 (FAKE-PC-0002, retired). The tests of computers_test.go
+//     add FAKE-PC-0003 to FAKE-PC-0005, which these tests only count.
 //   - computer_logins: one login of cmpassigned0001.
 //   - computer_raw_logins: one reject for FAKE-PC-0001, one for FAKE-PC-0099.
 const (
@@ -28,7 +29,7 @@ const (
 	radiatorExpiredToken = "radiator-expired-secret"
 	legacyWritebackToken = "test-secret-123"
 
-	radiatorFixtureComputers = 2
+	radiatorFixtureComputers = 5
 	radiatorFixtureLogins    = 1
 	radiatorFixtureRawLogins = 2
 

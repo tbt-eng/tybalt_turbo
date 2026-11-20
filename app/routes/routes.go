@@ -138,6 +138,10 @@ func AddRoutes(app core.App) {
 		// Radiator login reports (custom auth via machine_secrets, role radiator)
 		bindRadiatorRoutes(app, se)
 
+		// Computers: list, details, assign, retire and un-retire (computers or
+		// admin claim)
+		bindComputerRoutes(app, se)
+
 		expensesGroup := se.Router.Group("/api/expenses")
 		expensesGroup.Bind(apis.RequireAuth("users"))
 		expensesGroup.POST("", createCreateExpenseHandler(app))

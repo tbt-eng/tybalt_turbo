@@ -31,7 +31,10 @@
   let newSecret = $state<NewSecretResponse | null>(null);
   let copied = $state(false);
 
-  const roleOptions = [{ id: "legacy_writeback", name: "legacy_writeback" }];
+  const roleOptions = [
+    { id: "legacy_writeback", name: "legacy_writeback" },
+    { id: "radiator", name: "radiator" },
+  ];
 
   async function fetchSecrets() {
     loading = true;

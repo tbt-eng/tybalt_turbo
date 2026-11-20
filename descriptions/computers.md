@@ -117,6 +117,22 @@ One row per rejected report: `report` (the body as received), `computer_name` (f
 
 ---
 
+## Pages and actions
+
+`app/routes/computers.go`. Every route needs the `computers` or `admin` claim (403 otherwise, 401 without a token).
+
+| Route | Does |
+| --- | --- |
+| `GET /api/computers` | The computers that are not retired. `?retired=1` gives the retired ones, newest retired first. |
+| `GET /api/computers/{id}` | One computer. |
+| `POST /api/computers/{id}/assign` | Sets `assigned_to` to `last_user` and `assigned_time` to now. Refuses a retired computer and one with no `last_user` (400). An optional body `{"user": "<id>"}` makes it refuse with 409 unless that is still the last user, so a report that arrives while the page is open can't assign the computer to someone the person didn't see. |
+| `POST /api/computers/{id}/retire` | Sets `retired` to now. Refuses a retired computer (400). |
+| `POST /api/computers/{id}/unretire` | Clears `retired`. Refuses a computer that is not retired (400). |
+
+The two GET routes exist because a holder of the `computers` claim can't read other people's users or profiles, so an expand can't name the last user or the assignee. `computers.sql` joins the profiles. The rows have every computer field plus `last_user_name` and `assigned_to_name`. The lists are small (a few hundred computers), so the page loads a whole list and pages it in the browser.
+
+The pages are `/computers/list`, `/computers/retired` and `/computers/{id}/details`. The details page reads the newest 20 rows of `computer_logins` through the PocketBase API. The user docs are `ui/src/docs/computers.md`.
+
 ## Not done yet
 
-The pages, assign and retire, the 30 day retention job, and the user docs are later steps of issue 211.
+The Logins and Raw Logins pages and the 30 day retention job are later steps of issue 211.
