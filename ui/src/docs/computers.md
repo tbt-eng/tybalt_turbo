@@ -48,7 +48,7 @@ A login is one sign-in to a computer.
 2. Select **Logins**.
 3. Search for a computer name, serial or person.
 
-The newest login is first. Each row shows the computer, the name that the computer reported and the Turbo user that matched it.
+The newest login is first. Each row shows the computer, the name that the computer reported and the Turbo user that matched it. Turbo keeps each login for 30 days.
 
 ## Raw logins
 
@@ -58,7 +58,7 @@ A raw login is a report that Turbo rejected because it is not complete or not va
 2. Select **Raw Logins**.
 3. Select **Report** to see what the computer sent.
 
-The next good report from the same computer name deletes its raw logins.
+The next good report from the same computer name deletes its raw logins. Turbo deletes the others after 30 days.
 
 ## Delete a raw login
 

@@ -69,3 +69,7 @@ const (
 	// expense can still be requested for uncommit.
 	UNCOMMIT_NON_PAYROLL_LOCK_DAYS = 90
 )
+
+// COMPUTER_LOGIN_RETENTION_DAYS is how many days Turbo keeps a row of
+// computer_logins or computer_raw_logins. A daily cron job deletes older rows.
+const COMPUTER_LOGIN_RETENTION_DAYS = 30

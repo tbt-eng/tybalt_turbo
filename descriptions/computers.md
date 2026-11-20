@@ -149,6 +149,12 @@ The raw logins list leaves out `report`, which can be 64 KB; the page loads it f
 
 The pages are `/computers/list`, `/computers/retired`, `/computers/logins` (**Logins**), `/computers/raw_logins` (**Raw Logins**) and `/computers/{id}/details`. `ComputersTabs` links the four lists. The two server-paged lists keep the search and the page in the URL (`q`, `page`, `perPage`), and `DSList` with `totalItems` shows one page at a time. The details page shows the newest 20 sign-ins of the computer from `GET /api/computers/logins?computer=<id>&perPage=20`. The user docs are `ui/src/docs/computers.md`.
 
-## Retention (planned)
+## Retention
 
-Logins and raw logins are to be deleted after 30 days by a cron job, step 4 of issue 211. That job doesn't exist yet: today nothing deletes a login, and a raw login is deleted only by a valid report from the same computer name or by a person.
+Logins and raw logins are kept for 30 days (`constants.COMPUTER_LOGIN_RETENTION_DAYS`). The cron job `computer_login_retention` in `app/cron/cron.go` runs at 07:00 UTC every day and deletes each `computer_logins` and `computer_raw_logins` row whose `created` is before now less 30 days. A row created exactly at that cutoff stays until the next run. It logs how many rows of each it deleted.
+
+It never touches `computers`: `last_login` and the last user of a computer stay when all its logins are gone, and a computer is never deleted.
+
+The code is `app/cron/computer_login_retention.go`. It deletes with one SQL `DELETE` per collection, not record by record: no hook watches these collections and no row refers to a login or a raw login, so a record delete would do nothing more. `created` is text in the PocketBase layout (`2026-11-12 13:00:00.000Z`), so the cutoff is formatted the same way and compared as text, which the index on `created` serves.
+
+A raw login can also go sooner: a valid report from the same computer name deletes it, and a person can delete it.
