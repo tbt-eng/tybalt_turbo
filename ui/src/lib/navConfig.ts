@@ -333,7 +333,12 @@ export const navSections: NavSection[] = [
       {
         label: "Rate Sheets",
         href: "/rate-sheets/list",
-        canView: anyClaim("job"),
+        // Procurement, admins and revisers work on sheets. Requesters and
+        // approvers of project requests read them, to find the sheet that
+        // has a client's rates.
+        canView: (ctx) =>
+          anyClaim("job", "admin", "rate_sheet_revise")(ctx) ||
+          jobRequests(anyClaim("time", "project_authorization"))(ctx),
         buttons: [],
       },
       {

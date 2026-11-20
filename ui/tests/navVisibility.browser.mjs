@@ -78,6 +78,17 @@ await runBrowserHarness(async (page, origin) => {
   lacks(requests, "Business/Request Approvals", "Business/Job Create Queue");
   lacks(await labels({ claims: ["job"], jobRequestsEnabled: true }), "Business/Job Create Queue");
 
+  // Rate Sheets: procurement, admins and revisers always see it. Requesters
+  // and approvers see it while project requests are on.
+  const rateSheets = "Business/Rate Sheets";
+  lacks(none, rateSheets);
+  has(admin, rateSheets);
+  has(await labels({ claims: ["job"] }), rateSheets);
+  has(await labels({ claims: ["rate_sheet_revise"] }), rateSheets);
+  has(requests, rateSheets);
+  has(await labels({ claims: ["project_authorization"], jobRequestsEnabled: true }), rateSheets);
+  lacks(await labels({ claims: ["time", "project_authorization"] }), rateSheets);
+
   // One plus starts a project: beside Jobs, never beside Project Requests.
   // Procurement always sees it; staff with time see it while requests are on.
   const newProject = "Business/Jobs+New Project or Proposal";
