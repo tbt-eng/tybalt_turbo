@@ -40,6 +40,7 @@ Full rationale and component APIs: ../descriptions/ui_design_system.md.
 | Inputs                              | DSTextInput, DSSelector, DSAutoComplete, DSDateInput, DSCurrencyInput, DSToggle, DsCheck, DsFileSelect, DSLocationPicker, DSTokenInput |
 | Pick one record from a list         | DSPicker (a dropdown for 10 items or fewer, a search for more)                                                                         |
 | Files                               | DsFileLink, DsFileSelect                                                                                                               |
+| Preformatted text, such as JSON     | DSCodeBlock                                                                                                                            |
 | Help on a page                      | DSHelp with `doc="page#section"`; write the text in src/docs                                                                           |
 | Editing-disabled notice             | DsEditingDisabledBanner                                                                                                                |
 

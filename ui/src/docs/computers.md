@@ -21,7 +21,7 @@ Assign gives a computer to its last user.
 
 ## Computer details
 
-The page of a computer shows its hardware, Windows version, network adapters and assignment. **Sign-ins** lists the newest 20 sign-ins.
+The page of a computer shows its hardware, Windows version, network adapters and assignment. **Logins** lists the newest 20 sign-ins, with the Turbo user that each one matched.
 
 Select **Assign to** and the name to assign the computer to its last user.
 
@@ -39,3 +39,29 @@ Retire a computer that the company no longer uses.
 1. Select **Computers** under **Business**.
 2. Select **Retired**.
 3. Select **Un-retire** to put a computer back in **Computers**.
+
+## Logins
+
+A login is one sign-in to a computer.
+
+1. Select **Computers** under **Business**.
+2. Select **Logins**.
+3. Search for a computer name, serial or person.
+
+The newest login is first. Each row shows the computer, the name that the computer reported and the Turbo user that matched it.
+
+## Raw logins
+
+A raw login is a report that Turbo rejected because it is not complete or not valid. It changes no computer.
+
+1. Select **Computers** under **Business**.
+2. Select **Raw Logins**.
+3. Select **Report** to see what the computer sent.
+
+The next good report from the same computer name deletes its raw logins.
+
+## Delete a raw login
+
+1. Find the report in **Raw Logins**.
+2. Select **Delete**.
+3. Select **Delete** again to confirm.

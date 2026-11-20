@@ -397,6 +397,18 @@ export const navSections: NavSection[] = [
             title: "Retired Computers",
             color: "blue",
           },
+          {
+            action: "/computers/logins",
+            icon: "mdi:login",
+            title: "Logins",
+            color: "blue",
+          },
+          {
+            action: "/computers/raw_logins",
+            icon: "mdi:alert-circle-outline",
+            title: "Raw Logins",
+            color: "blue",
+          },
         ],
       },
       { label: "Claims", href: "/claims/list", buttons: [] },

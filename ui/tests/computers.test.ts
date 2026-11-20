@@ -4,12 +4,17 @@ import {
   bootDriveLabel,
   canViewComputers,
   computerAssignment,
+  computerListSearch,
+  computerListState,
   formatBytes,
   lastUserLabel,
   localDay,
   localTime,
+  loginReportedName,
+  loginTurboUserName,
   modelLabel,
   networkAdapters,
+  rawLoginReportText,
   systemTypeLabel,
 } from "../src/lib/computers.ts";
 
@@ -147,4 +152,52 @@ test("a PocketBase datetime becomes the day on the user's device", () => {
   } finally {
     process.env.TZ = previous;
   }
+});
+
+test("a list state comes from the URL, with defaults for bad values", () => {
+  assert.deepEqual(computerListState(new URLSearchParams("")), { q: "", page: 1, perPage: 20 });
+  assert.deepEqual(computerListState(new URLSearchParams("q=%20pc%20&page=3&perPage=50")), {
+    q: "pc",
+    page: 3,
+    perPage: 50,
+  });
+  // DSList offers 10, 20 and 50 rows; another size gets 20.
+  assert.deepEqual(computerListState(new URLSearchParams("page=-1&perPage=100")), {
+    q: "",
+    page: 1,
+    perPage: 20,
+  });
+  assert.deepEqual(computerListState(new URLSearchParams("page=1.5&perPage=abc")), {
+    q: "",
+    page: 1,
+    perPage: 20,
+  });
+});
+
+test("a list state becomes a URL search without the defaults", () => {
+  assert.equal(computerListSearch({ q: "", page: 1, perPage: 20 }), "");
+  assert.equal(computerListSearch({ q: " pc ", page: 2, perPage: 20 }), "?q=pc&page=2");
+  assert.equal(computerListSearch({ q: "a&b", page: 1, perPage: 50 }), "?q=a%26b&perPage=50");
+  const state = { q: "tester time", page: 4, perPage: 10 };
+  assert.deepEqual(computerListState(new URLSearchParams(computerListSearch(state))), state);
+});
+
+test("a sign-in shows its reported name and a Turbo user only when the names differ", () => {
+  const login = { given_name: "Tester", surname: "Time", user: "u1", user_name: "Tester Time" };
+  assert.equal(loginReportedName(login), "Tester Time");
+  assert.equal(loginTurboUserName(login), "");
+  assert.equal(loginTurboUserName({ ...login, user_name: "tester time " }), "");
+  assert.equal(loginTurboUserName({ ...login, user_name: "Fatty Maclean" }), "Fatty Maclean");
+  assert.equal(loginTurboUserName({ ...login, user: "" }), "");
+  assert.equal(loginReportedName({ given_name: "", surname: "" }), "Unknown");
+});
+
+test("a rejected report shows as indented JSON text", () => {
+  assert.equal(
+    rawLoginReportText({ computerName: "<b>PC</b>", ram: 8 }),
+    '{\n  "computerName": "<b>PC</b>",\n  "ram": 8\n}',
+  );
+  assert.equal(rawLoginReportText(null), "null");
+  assert.equal(rawLoginReportText(undefined), "");
+  assert.equal(rawLoginReportText("not json"), "not json");
 });

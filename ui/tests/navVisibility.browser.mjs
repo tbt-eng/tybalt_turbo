@@ -90,7 +90,12 @@ await runBrowserHarness(async (page, origin) => {
   lacks(await labels({ claims: ["time", "project_authorization"] }), rateSheets);
 
   // Computers: holders of the computers claim and admins.
-  const computers = ["Business/Computers", "Business/Computers+Retired Computers"];
+  const computers = [
+    "Business/Computers",
+    "Business/Computers+Retired Computers",
+    "Business/Computers+Logins",
+    "Business/Computers+Raw Logins",
+  ];
   lacks(none, ...computers);
   lacks(await labels({ claims: ["it", "time"] }), ...computers);
   has(admin, ...computers);

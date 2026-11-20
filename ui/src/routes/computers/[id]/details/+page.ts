@@ -1,7 +1,6 @@
 import { error } from "@sveltejs/kit";
-import type { ComputerRow } from "$lib/computers";
+import type { ComputerLoginRow, ComputerPage, ComputerRow } from "$lib/computers";
 import { requireComputersAccess } from "$lib/computersLoad";
-import type { ComputerLoginsResponse } from "$lib/pocketbase-types";
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
 
@@ -17,11 +16,11 @@ export const load: PageLoad = async ({ params }) => {
     console.error(`loading computer details: ${err}`);
     error(404, "Computer not found.");
   }
-  const logins = await pb
-    .collection("computer_logins")
-    .getList<ComputerLoginsResponse>(1, LOGINS_SHOWN, {
-      filter: pb.filter("computer = {:computer}", { computer: params.id }),
-      sort: "-created",
-    });
+  // The server names the matched user, which a holder of the computers claim
+  // can't read through the API.
+  const logins = (await pb.send("/api/computers/logins", {
+    method: "GET",
+    query: { computer: params.id, perPage: LOGINS_SHOWN },
+  })) as ComputerPage<ComputerLoginRow>;
   return { computer, logins: logins.items };
 };

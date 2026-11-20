@@ -105,6 +105,8 @@ Colour classes move into a static map. This replaces the raw buttons inside `DSP
 
 **`DSTabBar`**: swap `text-gray-700` for `text-neutral-700`.
 
+**`DSList`**: `pagination` pages the list in the browser. For a list too long to load at once, such as the sign-ins of the computers, pass `totalItems` too. Then `items` is one page that the server has already searched, the count and the page controls use `totalItems`, and each search or page change goes to `onStateChange`, so the page can load the next page (`ui/src/routes/computers/logins`).
+
 **`DsEditingDisabledBanner`**: becomes `<DSCallout tone="warning">` internally.
 
 ### New components
@@ -306,6 +308,14 @@ A small icon button that copies a value, such as a code, to the clipboard. It si
 - The click stops at the button, so a row or a link around it does not react.
 - It has `data-print-hide`, so it never prints.
 - `copyText()` in `ui/src/lib/clipboard.ts` does the copy and returns whether it worked. Use it for any other copy control.
+
+#### `DSCodeBlock`
+
+Preformatted text, such as JSON, in a bordered box that scrolls past 24rem, with a `DSCopyButton` at the top right. It renders the text as text, never as HTML, so it is safe for data that came from outside Turbo, such as a rejected radiator report.
+
+```ts
+{ text: string; label?: string } // label: the copy button's accessible name
+```
 
 ### Component gallery
 

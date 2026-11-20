@@ -4,8 +4,8 @@
   import DSActionButton from "$lib/components/DSActionButton.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import DSList from "$lib/components/DSList.svelte";
-  import DSTabBar from "$lib/components/DSTabBar.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import ComputersTabs from "./ComputersTabs.svelte";
   import {
     computerAssignment,
     computerSearchText,
@@ -48,12 +48,7 @@
 </script>
 
 <div>
-  <DSTabBar
-    tabs={[
-      { label: "Computers", href: resolve("/computers/list"), active: !retired },
-      { label: "Retired", href: resolve("/computers/retired"), active: retired },
-    ]}
-  />
+  <ComputersTabs active={retired ? "retired" : "list"} />
   <DSList
     {items}
     search={true}

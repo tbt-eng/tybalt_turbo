@@ -226,3 +226,94 @@ export function computerSearchText(computer: ComputerRow): string {
     computer.os_version,
   ].join(" ");
 }
+
+// One sign-in, as GET /api/computers/logins returns it. user_name is the Turbo
+// user that the sign-in matched, which the server joins because a holder of
+// the computers claim can't read other people's profiles.
+export interface ComputerLoginRow {
+  id: string;
+  created: string;
+  computer: string;
+  computer_name: string;
+  serial: string;
+  given_name: string;
+  surname: string;
+  // The Turbo user that the sign-in matched, or "".
+  user: string;
+  user_name: string;
+}
+
+// One rejected report, as GET /api/computers/raw_logins returns it. Only
+// GET /api/computers/raw_logins/{id} fills report: the report as radiator
+// sent it. It is untrusted, so the page shows it as text.
+export interface ComputerRawLoginRow {
+  id: string;
+  created: string;
+  computer_name: string;
+  error: string;
+  report?: unknown;
+}
+
+// One page of a server-paged list, in the shape of a PocketBase list.
+export interface ComputerPage<T> {
+  items: T[];
+  page: number;
+  perPage: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+// The search and the page of a server-paged list, as the URL holds them.
+export interface ComputerListState {
+  q: string;
+  page: number;
+  perPage: number;
+}
+
+// The page sizes that DSList offers. Another size in the URL gets the default.
+const listPageSizes = [10, 20, 50];
+const defaultPerPage = 20;
+
+export function computerListState(params: URLSearchParams): ComputerListState {
+  const page = Number(params.get("page"));
+  const perPage = Number(params.get("perPage"));
+  return {
+    q: params.get("q")?.trim() ?? "",
+    page: Number.isSafeInteger(page) && page > 0 ? page : 1,
+    perPage: listPageSizes.includes(perPage) ? perPage : defaultPerPage,
+  };
+}
+
+// The URL search for a list state, without the defaults: "" for the first
+// page of everything, "?q=pc&page=2" for the second page of a search.
+export function computerListSearch(state: ComputerListState): string {
+  const params = new URLSearchParams();
+  const q = state.q.trim();
+  if (q) params.set("q", q);
+  if (state.page > 1) params.set("page", String(state.page));
+  if (state.perPage !== defaultPerPage) params.set("perPage", String(state.perPage));
+  const search = params.toString();
+  return search ? `?${search}` : "";
+}
+
+// The name that a sign-in reported.
+export function loginReportedName(login: Pick<ComputerLoginRow, "given_name" | "surname">): string {
+  return `${login.given_name} ${login.surname}`.trim() || "Unknown";
+}
+
+// The Turbo user that a sign-in matched, when its name differs from the name
+// the sign-in reported. "" when it matched no user or the names are the same.
+export function loginTurboUserName(
+  login: Pick<ComputerLoginRow, "given_name" | "surname" | "user" | "user_name">,
+): string {
+  if (!login.user || !login.user_name) return "";
+  const same = login.user_name.trim().toLowerCase() === loginReportedName(login).toLowerCase();
+  return same ? "" : login.user_name;
+}
+
+// A rejected report as indented JSON text.
+export function rawLoginReportText(report: unknown): string {
+  if (report === undefined) return "";
+  if (typeof report === "string") return report;
+  return JSON.stringify(report, null, 2) ?? "";
+}

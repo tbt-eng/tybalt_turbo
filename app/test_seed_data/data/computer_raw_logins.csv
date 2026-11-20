@@ -1,3 +1,5 @@
 computer_name,created,error,id,report
 FAKE-PC-0001,2026-10-15 13:00:00.000Z,upn: is required,cmprawlogin0001,"{""computerName"":""FAKE-PC-0001"",""serial"":""FAKESERIAL0001"",""mfg"":""Fake Computers Inc.""}"
 FAKE-PC-0099,2026-10-16 13:00:00.000Z,mfg: is required,cmprawlogin0002,"{""computerName"":""FAKE-PC-0099"",""serial"":""FAKESERIAL0099""}"
+FAKE-PC-0098,2026-10-17 13:00:00.000Z,userSurname: is required,cmprawlogin0003,"{""computerName"":""FAKE-PC-0098"",""serial"":""FAKESERIAL0098"",""mfg"":""Fake Computers Inc."",""userGivenName"":""<b>Not bold</b>""}"
+,2026-10-18 13:00:00.000Z,serial: is required; upn: is required,cmprawlogin0004,"{""radiatorVersion"":9}"

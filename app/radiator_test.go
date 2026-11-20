@@ -22,16 +22,19 @@ import (
 //   - computers: cmpassigned0001 (FAKE-PC-0001, assigned to fatt@mac.com) and
 //     cmpretired00001 (FAKE-PC-0002, retired). The tests of computers_test.go
 //     add FAKE-PC-0003 to FAKE-PC-0005, which these tests only count.
-//   - computer_logins: one login of cmpassigned0001.
+//   - computer_logins: one login of cmpassigned0001. The tests of
+//     computer_logins_test.go add 25 more, which these tests only count.
 //   - computer_raw_logins: one reject for FAKE-PC-0001, one for FAKE-PC-0099.
+//     The tests of computer_logins_test.go add two more, for FAKE-PC-0098 and
+//     for no computer name, which these tests only count.
 const (
 	radiatorToken        = "radiator-test-secret"
 	radiatorExpiredToken = "radiator-expired-secret"
 	legacyWritebackToken = "test-secret-123"
 
 	radiatorFixtureComputers = 5
-	radiatorFixtureLogins    = 1
-	radiatorFixtureRawLogins = 2
+	radiatorFixtureLogins    = 26
+	radiatorFixtureRawLogins = 4
 
 	anchorTimeUser   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	timeUserID       = "rzr98oadsp9qc11"

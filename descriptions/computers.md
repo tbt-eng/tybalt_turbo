@@ -128,11 +128,27 @@ One row per rejected report: `report` (the body as received), `computer_name` (f
 | `POST /api/computers/{id}/assign` | Sets `assigned_to` to `last_user` and `assigned_time` to now. Refuses a retired computer and one with no `last_user` (400). An optional body `{"user": "<id>"}` makes it refuse with 409 unless that is still the last user, so a report that arrives while the page is open can't assign the computer to someone the person didn't see. |
 | `POST /api/computers/{id}/retire` | Sets `retired` to now. Refuses a retired computer (400). |
 | `POST /api/computers/{id}/unretire` | Clears `retired`. Refuses a computer that is not retired (400). |
+| `GET /api/computers/logins` | One page of sign-ins, newest first. `?computer=<id>` limits it to one computer. |
+| `GET /api/computers/raw_logins` | One page of raw logins, newest first, without `report`. |
+| `GET /api/computers/raw_logins/{id}` | One raw login with `report` as received. |
+| `DELETE /api/computers/raw_logins/{id}` | Deletes one raw login (204, or 404 for an unknown id). Nothing refers to a raw login, so it needs no transaction. |
 
 The two GET routes exist because a holder of the `computers` claim can't read other people's users or profiles, so an expand can't name the last user or the assignee. `computers.sql` joins the profiles. The rows have every computer field plus `last_user_name` and `assigned_to_name`. The lists are small (a few hundred computers), so the page loads a whole list and pages it in the browser.
 
-The pages are `/computers/list`, `/computers/retired` and `/computers/{id}/details`. The details page reads the newest 20 rows of `computer_logins` through the PocketBase API. The user docs are `ui/src/docs/computers.md`.
+### Logins and raw logins
 
-## Not done yet
+`app/routes/computer_logins.go`, with `computer_logins.sql` and `computer_raw_logins.sql` and a `_count.sql` beside each, which must keep the same FROM and WHERE.
 
-The Logins and Raw Logins pages and the 30 day retention job are later steps of issue 211.
+These lists page on the server. A login is written at each sign-in, so they can hold thousands of rows; legacy showed only the newest 101 logins. The two list routes take `page` (from 1), `perPage` (20 by default, at most 100) and `q`, and answer in the shape of a PocketBase list: `items`, `page`, `perPage`, `totalItems` and `totalPages`. A page past the end gives the last page. `q` is matched with `LIKE` anywhere in the text, with `%`, `_` and `\` taken literally: for logins, the computer name, the serial, the reported name and the matched user's name; for raw logins, the computer name and the error.
+
+The login rows have the login fields plus `computer_name`, `serial` and `user_name`, the matched user's name, joined from the profiles for the same reason as above.
+
+The raw logins list leaves out `report`, which can be 64 KB; the page loads it for one row when someone opens it. The report is untrusted JSON from the network. The page shows it as text in `DSCodeBlock`, never as HTML.
+
+### UI
+
+The pages are `/computers/list`, `/computers/retired`, `/computers/logins` (**Logins**), `/computers/raw_logins` (**Raw Logins**) and `/computers/{id}/details`. `ComputersTabs` links the four lists. The two server-paged lists keep the search and the page in the URL (`q`, `page`, `perPage`), and `DSList` with `totalItems` shows one page at a time. The details page shows the newest 20 sign-ins of the computer from `GET /api/computers/logins?computer=<id>&perPage=20`. The user docs are `ui/src/docs/computers.md`.
+
+## Retention (planned)
+
+Logins and raw logins are to be deleted after 30 days by a cron job, step 4 of issue 211. That job doesn't exist yet: today nothing deletes a login, and a raw login is deleted only by a valid report from the same computer name or by a person.

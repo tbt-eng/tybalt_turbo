@@ -29,6 +29,7 @@
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSRecordLabel from "$lib/components/DSRecordLabel.svelte";
   import DSCopyButton from "$lib/components/DSCopyButton.svelte";
+  import DSCodeBlock from "$lib/components/DSCodeBlock.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
   import DSSelector from "$lib/components/DSSelector.svelte";
   import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
@@ -270,6 +271,13 @@
           prices this job.
         </DSField>
       </DSFieldList>
+    </DSSection>
+
+    <DSSection title="DSCodeBlock">
+      <DSCodeBlock
+        text={JSON.stringify({ computerName: "PC-0001", note: "<b>shown as text</b>" }, null, 2)}
+        label="Copy the sample"
+      />
     </DSSection>
 
     <DSSection title="DSCallout">

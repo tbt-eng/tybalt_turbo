@@ -1,7 +1,8 @@
 package routes
 
 // The Computers pages: the list, the retired list, one computer, and the
-// assign, retire and un-retire actions. The computers collection has no
+// assign, retire and un-retire actions. The sign-in and rejected report routes
+// are in computer_logins.go. The computers collection has no
 // update rule, so the actions are server routes. A holder of the computers
 // claim or of admin may use them. See descriptions/computers.md.
 
@@ -78,6 +79,12 @@ func bindComputerRoutes(app core.App, se *core.ServeEvent) {
 		return e.Next()
 	})
 	group.GET("", createGetComputersHandler(app))
+	// The static paths are more specific than /{id}, so the router picks
+	// them first (computer_logins.go).
+	group.GET("/logins", createGetComputerLoginsHandler(app))
+	group.GET("/raw_logins", createGetComputerRawLoginsHandler(app))
+	group.GET("/raw_logins/{id}", createGetComputerRawLoginHandler(app))
+	group.DELETE("/raw_logins/{id}", createDeleteComputerRawLoginHandler(app))
 	group.GET("/{id}", createGetComputerHandler(app))
 	group.POST("/{id}/assign", createAssignComputerHandler(app))
 	group.POST("/{id}/retire", createRetireComputerHandler(app))

@@ -33,6 +33,21 @@ await runBrowserHarness(async (page, origin) => {
   await grouped.getByRole("searchbox").fill("logan");
   assert.equal(await grouped.locator("[data-row]").count(), 1);
   assert.match(await grouped.innerText(), /South/);
+  // Server paging: the list shows the page it is given and counts totalItems.
+  const server = page.getByRole("region", { name: "Server list", exact: true });
+  assert.equal(await server.locator("[data-row]").count(), 10);
+  assert.match(await server.innerText(), /12 items/);
+  assert.match(await server.innerText(), /Page 1 \/ 2/);
+  await server.getByRole("button", { name: "Next →" }).click();
+  assert.equal(await server.locator("[data-row]").count(), 2);
+  assert.match(await server.innerText(), /Page 2 \/ 2/);
+  // The stand-in server matches names only, so an email search finds nothing.
+  await server.getByRole("searchbox").fill("b@example");
+  assert.equal(await server.locator("[data-row]").count(), 0);
+  assert.match(await server.innerText(), /0 items/);
+  await server.getByRole("searchbox").fill("alex");
+  assert.equal(await server.locator("[data-row]").count(), 1);
+  assert.equal(await server.getByRole("button", { name: "Next →" }).count(), 0);
   assert.deepEqual(errors, []);
-  console.log("DSList filtering, pagination, default and grouped regressions passed");
+  console.log("DSList filtering, pagination, default, grouped and server-paged regressions passed");
 });

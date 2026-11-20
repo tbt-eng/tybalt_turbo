@@ -6,25 +6,23 @@
   import DSField from "$lib/components/DSField.svelte";
   import DSFieldList from "$lib/components/DSFieldList.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
-  import DSList from "$lib/components/DSList.svelte";
   import DSMenuItem from "$lib/components/DSMenuItem.svelte";
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import ComputerLoginsList from "$lib/components/computers/ComputerLoginsList.svelte";
   import {
     bootDriveLabel,
     computerAssignment,
     formatBytes,
     lastUserLabel,
     localDay,
-    localTime,
     modelLabel,
     networkAdapters,
     systemTypeLabel,
   } from "$lib/computers";
   import { getApiErrorMessage } from "$lib/errors";
-  import type { ComputerLoginsResponse } from "$lib/pocketbase-types";
   import { pb } from "$lib/pocketbase";
   import { globalStore } from "$lib/stores/global";
   import { formatDateTime, shortDate } from "$lib/utilities";
@@ -166,26 +164,11 @@
     {/each}
   </DSCardGrid>
 
-  <DSSection title="Sign-ins">
+  <DSSection title="Logins">
     {#snippet titleNote()}
       the newest 20
     {/snippet}
-    <DSList items={data.logins} emptyMessage="No sign-ins.">
-      {#snippet anchor(login: ComputerLoginsResponse)}
-        {day(login.created)}
-      {/snippet}
-      {#snippet headline(login: ComputerLoginsResponse)}
-        {`${login.given_name} ${login.surname}`.trim() || "Unknown"}
-      {/snippet}
-      {#snippet byline(login: ComputerLoginsResponse)}
-        {localTime(login.created)}
-      {/snippet}
-      {#snippet line1(login: ComputerLoginsResponse)}
-        {#if !login.user}
-          <DsLabel tone="neutral" size="sm">No Turbo user matched</DsLabel>
-        {/if}
-      {/snippet}
-    </DSList>
+    <ComputerLoginsList items={data.logins} showComputer={false} />
   </DSSection>
 </div>
 
