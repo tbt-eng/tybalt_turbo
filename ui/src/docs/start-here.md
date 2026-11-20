@@ -24,7 +24,7 @@ Only procurement can create a [proposal](/docs/proposals) in Turbo. Ask procurem
 
 ## Start a new project
 
-Create a [project request](/docs/project-requests). An approver checks it, then procurement creates the job.
+Create a [project request](/docs/project-requests#start-from-a-proposal) from the project's proposal. An approver checks it, then procurement creates the job.
 
 ## Check a word
 

@@ -1,92 +1,116 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/jobRequests.ts","sha256":"dc623e169494fb069fa1eaaeb02e4862132dc3d91e73a323200af6d038949ce9","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/jobRequests.ts","sha256":"975f550fb33fe526060340227d774792f888f52b09485d3afc1022244fbe49fe","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/jobRequests.ts
 
-## Print check lists missing project request details
+## Checklist answers start as false
 
-Lines 1-95
+Lines 14-27
 
-Asked as: can't print project request; what's missing before printing; print blocked missing fields; list of missing items
+Asked as: checklist questions unanswered; request checklist won't continue; checkbox already ticked; can't continue new request
 
-Before printing a project request, Turbo builds a list of missing items. The list can contain: Client name, Description, Valid Plus Code location, Project contact name and email, Billing contact name and email, Positive whole-dollar project value, Fee basis, Rate sheet and Client billing rates. The server checks the rules again on each action.
+A new request checklist starts with every question set to false (unanswered). Each question must be answered true to continue.
 
-## Contact email shows a note when the client has none
+## Statuses of a proposal that can be linked to a request
 
-Lines 23-26
+Lines 20-24
 
-Asked as: no email address showing; contact email blank message; why says no email; contact has no email
+Asked as: proposal won't link to request; link proposal to project request; proposal status not allowed; request save refused proposal
 
-A contact's email address shows as written when it exists. If the contact has no email and is marked no email (no_email), Turbo shows "No email address". Otherwise it shows nothing.
+A project request can link a proposal only when the proposal's status is In Progress, Submitted or Awarded. The server refuses other statuses when the request is saved.
 
-## Billing address falls back to the client's address
+## Contact email shows a note when client has none
 
-Lines 30-43
+Lines 28-31
 
-Asked as: billing address blank; invoice address missing; address taken from client; empty billing address
+Asked as: contact has no email; no email address showing; email blank on contact; contact marked no email
 
-The billing address of a project request is the invoicing profile's address when that has any address part. If the invoicing profile has none, Turbo uses the client's address. An address joins the parts (address, city, province/state, postal code, country) with commas and skips empty parts.
+A contact shows its email address. If the contact has no email but is marked no email (no_email), Turbo shows "No email address". Otherwise it shows nothing.
 
-## Project value shows as whole Canadian dollars or Not provided
+## Name display falls back to given name and surname
 
-Lines 44-52
+Lines 32-34
 
-Asked as: project value says not provided; dollar amount blank; why value not showing; value shows zero
+Asked as: name missing on record; shows first and last name; blank name on record; only given name and surname
 
-A project value shows as Canadian dollars with no cents only when it is a positive whole number. Zero, negative, fractional and non-number values show "Not provided".
+A record shows its name. If it has no name, Turbo joins its given name and surname with a space.
 
-## Location must be a valid Plus Code
+## Billing address falls back to the client address
 
-Lines 59-63
+Lines 35-48
 
-Asked as: location rejected; plus code not accepted; site location wrong format; location format error
+Asked as: billing address wrong; invoice address not showing; address taken from client; empty billing address fields
 
-A project request's location must be a Plus Code, or Turbo lists "Valid Plus Code location" as missing. It has 8 characters, a plus sign, then 2 or 3 characters, from the Plus Code alphabet (2-9, C, F, G, H, J, M, P, Q, R, V, W, X), in either case. Blank space around it is ignored.
+Turbo shows the invoicing profile's address when it has any address part. Otherwise it shows the client's address. Address parts (address, city, province/state, postal code, country) are joined with commas, and empty parts are left out.
 
-## Contact email required unless the contact has no email
+## Project value shows as whole Canadian dollars
 
-Lines 64-71
+Lines 49-57
 
-Asked as: contact email rejected; billing contact incomplete; invalid contact email; contact name missing
+Asked as: project value shows not provided; value displays with cents; dollar amount looks wrong; zero value showing
 
-The project contact and the billing contact each need a name, or Turbo lists "Project contact name" or "Billing contact name". Each also needs a valid email (text@text.text, no spaces), or Turbo lists "... email". A contact marked no email (no_email) skips the email check.
+A project value displays as whole Canadian dollars with no cents, only when it is a positive whole number. Any other value, including zero, a decimal or a negative number, displays "Not provided".
 
-## Project value must be a positive whole number
+## Print readiness: client name and description required
 
-Lines 72-73
+Lines 62-63
 
-Asked as: cents in project value; decimal project value error; value must be whole dollars; project value not accepted
+Asked as: request won't print; missing client name for print; blank description printing; print says incomplete
 
-A project request's project value must be a whole number above zero. Otherwise Turbo lists "Positive whole-dollar project value" as missing.
+A project request is missing information for printing when the client name or the description is blank or only spaces. Turbo lists "Client name" or "Description".
 
-## Fee basis must be explicitly chosen
+## Print readiness: location must be a valid Plus Code
 
-Lines 74-75
+Lines 64-68
 
-Asked as: fee basis not set; time and materials not chosen; billing type missing; can't pick fee type
+Asked as: location invalid for printing; plus code rejected; open location code wrong; map code not accepted
 
-A project request needs its fee basis chosen (time_and_materials_set is true) and the time-and-materials value must be true or false. Otherwise Turbo lists "Fee basis" as missing.
+The request location must be a valid Plus Code: 8 characters, a plus sign, then 2 or 3 characters, from the Plus Code alphabet (23456789CFGHJMPQRVWX), in either case. Otherwise Turbo lists "Valid Plus Code location".
 
-## Rate sheet readiness depends on whether rates are proposed
+## Print readiness: project and billing contacts
 
-Lines 76-83
+Lines 69-76
 
-Asked as: rate sheet error; rate sheet not active; role missing a rate; rate sheet not ready
+Asked as: contact missing for print; billing contact not complete; contact email invalid printing; project contact incomplete
 
-For proposed rates, the rate sheet is ready when no role lacks a rate (rate_sheet_missing_roles is empty). For a chosen existing rate sheet, it must be active. A request with no rate sheet, or one that is not ready, gets "Rate sheet" in the missing list.
+The project contact and the billing contact each need a name. Each also needs a valid-looking email unless it is marked no email (no_email). Turbo lists the missing items such as "Project contact name" or "Billing contact email".
 
-## Time-and-materials needs complete client billing rates
+## Print readiness: positive whole-dollar project value
 
-Lines 84-93
+Lines 77-78
 
-Asked as: billing rates missing overtime; no rates on time and materials; rate entries incomplete; client rates not complete
+Asked as: project value blocks print; value must be whole dollars; print value error; zero value cannot print
 
-Only for a time-and-materials request, Turbo checks the rate sheet entries. It lists "Client billing rates" as missing when there are no entries or any entry has no valid rate or overtime rate.
+The project value must be a whole number above zero. Otherwise Turbo lists "Positive whole-dollar project value".
+
+## Print readiness: fee basis must be set explicitly
+
+Lines 79-80
+
+Asked as: fee basis not set; time and materials unset; can't print fee type; choose billing type
+
+The fee basis (time and materials or not) must be explicitly set and must be true or false. Otherwise Turbo lists "Fee basis".
+
+## Print readiness: rate sheet must be ready
+
+Lines 81-88
+
+Asked as: rate sheet problem printing; missing role rate; rate sheet inactive; proposed rates incomplete
+
+The request needs a rate sheet. For proposed rates, the server must find a rate for every role (no missing roles). For a chosen existing rate sheet, the sheet must be active. Otherwise Turbo lists "Rate sheet".
+
+## Print readiness: billing rates for time and materials
+
+Lines 89-98
+
+Asked as: billing rates missing; overtime rate blank; no hourly rates for client; time and materials rates empty
+
+When the fee basis is time and materials, the rate sheet must have entries, and every entry must have a numeric rate and overtime rate. Otherwise Turbo lists "Client billing rates".
 
 ## Job creation queue visibility
 
-Lines 96-103
+Lines 101-107
 
-Asked as: can't see creation queue; job creation queue missing; procurement queue not showing; no queue for job requests
+Asked as: no job creation queue; can't see creation queue; job requests menu hidden; queue count missing
 
-A person sees the job creation queue only when project requests are enabled, they hold the job claim (procurement), and the server has sent the count for "/job-requests?queue=creation".
+The job creation queue shows only when requests are enabled, the person has the job claim, and the server sent a count for the creation queue (/job-requests?queue=creation). The server adds this count only for an active job holder while requests are enabled.

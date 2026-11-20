@@ -347,7 +347,7 @@ func validateRequestComplete(app core.App, r *core.Record, checkAuthority bool) 
 			return nil, err
 		}
 		if p.GetString("status") != "Awarded" {
-			return nil, workflowError("Set the linked proposal to Awarded before continuing.")
+			return nil, workflowError("Procurement must award the linked proposal before this request can continue.")
 		}
 	}
 	if err := utilities.ValidateClientReferences(app, r); err != nil {

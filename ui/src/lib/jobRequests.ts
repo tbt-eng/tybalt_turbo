@@ -17,6 +17,11 @@ export interface RequestDetail {
   permissions: Record<string, boolean>;
   enabled?: boolean;
 }
+// A request can link a proposal only in these statuses; the server refuses
+// the others at save.
+export function proposalAcceptsRequest(status?: string): boolean {
+  return status === "In Progress" || status === "Submitted" || status === "Awarded";
+}
 export function emptyChecklist(questions: RequestChecklistQuestion[]): Record<string, boolean> {
   return Object.fromEntries(questions.map((question) => [question.key, false]));
 }

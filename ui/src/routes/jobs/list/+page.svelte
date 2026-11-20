@@ -5,6 +5,7 @@
   import type { JobApiResponse } from "$lib/stores/jobs";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsLabel from "$lib/components/DsLabel.svelte";
+  import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
   import CloseProjectConfirmPopover from "$lib/components/CloseProjectConfirmPopover.svelte";
   import { jobRequestsEnabled, jobsEditingEnabled } from "$lib/stores/appConfig";
   import { pb } from "$lib/pocketbase";
@@ -13,6 +14,8 @@
   import { goto } from "$app/navigation";
   import { localIsoDate } from "$lib/localDate";
   import { saveErrorMessage } from "$lib/utilities";
+  import { proposalAcceptsRequest } from "$lib/jobRequests";
+  import { page } from "$app/state";
 
   // initialize the jobs store, noop if already initialized
   jobs.init();
@@ -69,8 +72,12 @@
     }
   }
 
-  // Toggle: "projects" or "proposals" - default to projects
-  let jobType = $state<"projects" | "proposals">("projects");
+  // Toggle: "projects" or "proposals" - default to projects. ?type=proposals
+  // opens the list on proposals, also when a link changes only the query.
+  // The toggle overrides it until the URL changes again.
+  let jobType = $derived<"projects" | "proposals">(
+    page.url.searchParams.get("type") === "proposals" ? "proposals" : "projects",
+  );
 
   const jobTypeOptions = [
     { id: "projects", label: "Projects" },
@@ -184,13 +191,17 @@
     {/snippet}
     {#snippet headline({ description }: JobApiResponse)}{description}{/snippet}
     {#snippet byline({ client }: JobApiResponse)}{client}{/snippet}
-    {#snippet line1({ branch, manager }: JobApiResponse)}{#if branch}<DsLabel color="neutral"
-          >{branch}</DsLabel
-        >{/if}{#if manager}<DsLabel color="purple">{manager}</DsLabel>{/if}{/snippet}
+    {#snippet line1({ status, branch, manager }: JobApiResponse)}{#if status}<DSStatusLabel
+          {status}
+          kind="job"
+        />{/if}{#if branch}<DsLabel color="neutral">{branch}</DsLabel>{/if}{#if manager}<DsLabel
+          color="purple">{manager}</DsLabel
+        >{/if}{/snippet}
     {#snippet actions(job: JobApiResponse)}
       {@const id = job.id}
       {@const number = job.number}
-      {#if number?.startsWith("P") && ($jobRequestsEnabled ? $globalStore.claims.includes("time") : $globalStore.claims.includes("job"))}
+      <!-- With requests on, only a proposal that a request can link gets the button. -->
+      {#if number?.startsWith("P") && ($jobRequestsEnabled ? $globalStore.claims.includes("time") && proposalAcceptsRequest(job.status) : $globalStore.claims.includes("job"))}
         <DsActionButton
           action={() => handleCreateReferencingProject(id)}
           icon="mdi:briefcase-plus"

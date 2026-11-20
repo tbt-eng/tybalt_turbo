@@ -28,6 +28,8 @@
   import DSPicker from "./DSPicker.svelte";
   import DSPopover from "./DSPopover.svelte";
   import DSCallout from "./DSCallout.svelte";
+  import DsLabel from "./DsLabel.svelte";
+  import Icon from "@iconify/svelte";
   import { profiles } from "$lib/stores/profiles";
   import { clients } from "$lib/stores/clients";
   import { jobs } from "$lib/stores/jobs";
@@ -283,8 +285,10 @@
 
   // While project requests are on, a new project starts as a request. The
   // nav's one plus button lands here, so this page offers each person what
-  // they may start: a request (time claim) or a proposal (job claim).
+  // they may start: a proposal (job claim), a request from an existing
+  // proposal, or a request without one (time claim).
   const canRequestProject = $derived($globalStore.claims.includes("time"));
+  const canCreateProposal = $derived(hasJobClaim && $jobsEditingEnabled);
   const projectRequestHref = $derived(
     (item as any).parent
       ? `/job-requests/new?parent=${(item as any).parent}`
@@ -883,25 +887,43 @@
 {#if isNewJob && !isProposal && $jobRequestsEnabled && (canRequestProject || $jobsEditingEnabled)}
   <div class="p-4">
     <DSCallout tone="info" title="New project or proposal">
-      {#if canRequestProject || hasJobClaim}
-        <p>A new project needs an approved project request.</p>
-      {:else}
+      {#if canCreateProposal}
+        <p>A project normally follows from a proposal.</p>
+      {:else if canRequestProject && !hasJobClaim}
+        <p>No proposal yet? Ask procurement to create one.</p>
+      {/if}
+      {#if canRequestProject}
+        <p>
+          To request the project, find its proposal and select the yellow briefcase
+          <DsLabel color="yellow" size="sm"><Icon icon="mdi:briefcase-plus" width="16px" /></DsLabel
+          >
+          on its row. Procurement must award the proposal before you can submit the request.
+        </p>
+        <p>
+          Only for work that has no proposal:
+          <DsActionButton variant="plain" action={projectRequestHref}>
+            Request a project without a proposal
+          </DsActionButton>
+        </p>
+      {:else if !canCreateProposal}
         <p>
           You need the time permission to request a project. Only procurement creates proposals.
         </p>
+      {:else}
+        <p>You need the time permission to request a project.</p>
       {/if}
       {#snippet actions()}
-        {#if canRequestProject}
-          <DsActionButton variant="primary" action={projectRequestHref}>
-            Create a project request
+        {#if canCreateProposal}
+          <DsActionButton variant="primary" action={startProposal}>
+            Create a proposal
           </DsActionButton>
         {/if}
-        {#if hasJobClaim && $jobsEditingEnabled}
+        {#if canRequestProject}
           <DsActionButton
-            variant={canRequestProject ? "secondary" : "primary"}
-            action={startProposal}
+            variant={canCreateProposal ? "secondary" : "primary"}
+            action="/jobs/list?type=proposals"
           >
-            Create a proposal
+            Find the proposal
           </DsActionButton>
         {/if}
       {/snippet}

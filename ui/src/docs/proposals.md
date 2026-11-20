@@ -25,6 +25,8 @@ Only procurement can do this. If you need a proposal, ask procurement.
 2. Select **Proposals**.
 3. Search for the number, client or description.
 
+The plus button beside **Jobs** also has **Find the proposal**. Each row shows the proposal's status.
+
 ## Change a proposal
 
 Procurement opens the proposal and selects **Edit Job**.
@@ -51,7 +53,7 @@ After the award, you need a project that links to the proposal. You can then cha
 
 ## Start a project
 
-Anyone who enters time can [create a project request from a proposal](/docs/project-requests#start-from-a-proposal). One proposal can lead to more than one project.
+A new project normally starts from a proposal. Anyone who enters time can [create a project request from it](/docs/project-requests#start-from-a-proposal). One proposal can lead to more than one project.
 
 ## Proposal statuses
 

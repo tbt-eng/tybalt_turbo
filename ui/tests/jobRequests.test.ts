@@ -7,6 +7,7 @@ import {
   billingAddress,
   wholeCAD,
   emptyChecklist,
+  proposalAcceptsRequest,
   type RequestDetail,
 } from "../src/lib/jobRequests.ts";
 const complete = (): RequestDetail => ({
@@ -141,4 +142,11 @@ test("creation queue navigation requires current server eligibility even when co
   assert.equal(canViewJobCreateQueue(["job"], true, {}), false);
   assert.equal(canViewJobCreateQueue(["job"], false, counts), false);
   assert.equal(canViewJobCreateQueue(["admin"], true, counts), false);
+});
+
+test("only an In Progress, Submitted or Awarded proposal accepts a request", () => {
+  for (const status of ["In Progress", "Submitted", "Awarded"])
+    assert.equal(proposalAcceptsRequest(status), true, status);
+  for (const status of ["Not Awarded", "No Bid", "Cancelled", "Active", "", undefined])
+    assert.equal(proposalAcceptsRequest(status), false, String(status));
 });

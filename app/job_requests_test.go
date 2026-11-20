@@ -827,6 +827,25 @@ func TestJobRequestDraftRelationsAndChecklistShape(t *testing.T) {
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+ready+"/approve", workflowApprover, reviewed, http.StatusConflict)
 }
 
+// A draft may link a proposal that is still In Progress, but it cannot be
+// submitted until procurement awards that proposal.
+func TestJobRequestSubmitNeedsAwardedProposal(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const id = "parequest000001"
+	// Link the fixture draft to an In Progress proposal of the same client
+	// through the API, as a user would.
+	clientSetupJSON(t, app, http.MethodPatch, "/api/job_requests/"+id, "time@test.com", map[string]any{"version": 1, "request": map[string]any{"proposal": "fcpropnimpinpr"}}, http.StatusOK)
+	token := workflowToken(t, app, "time@test.com")
+	response := performJSONRequest(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", token, requestActionData(t, app, id))
+	mustStatus(t, response, http.StatusBadRequest)
+	if !strings.Contains(response.Body.String(), "Procurement must award the linked proposal before this request can continue.") {
+		t.Fatalf("unexpected refusal: %s", response.Body.String())
+	}
+	if workflowRecord(t, app, "job_requests", id).GetString("status") != "Draft" {
+		t.Fatal("refused submission changed the request status")
+	}
+}
+
 func TestJobRequestCreationRetainsValidApprovalAfterAuthorityRemoval(t *testing.T) {
 	app := newWorkflowTestApp(t, true)
 	const id = "parequest000001"

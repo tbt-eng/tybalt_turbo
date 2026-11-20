@@ -19,6 +19,7 @@
   import { jobsEditingEnabled, jobRequestsEnabled } from "$lib/stores/appConfig";
   import { JobsStatusOptions } from "$lib/pocketbase-types";
   import { saveErrorMessage } from "$lib/utilities";
+  import { proposalAcceptsRequest } from "$lib/jobRequests";
   import type { JobDetails } from "./types";
 
   // The top of the job page: number, description, status, links to the parent
@@ -273,7 +274,10 @@
   {/snippet}
   {#snippet actions()}
     {#if isProposal}<DSHelp doc="proposals#proposal-statuses" label="Help" />{/if}
-    {#if isProposal && canStartProject && job.status !== "Awarded"}
+    <!-- With requests on, one yellow button starts a request from any proposal
+         that a request can link. With them off, an Awarded proposal gets a
+         green button that creates the project. -->
+    {#if isProposal && canStartProject && ($jobRequestsEnabled ? proposalAcceptsRequest(job.status) : job.status !== "Awarded")}
       <DSActionButton
         action={createReferencingProject}
         icon="mdi:briefcase-plus"
@@ -284,15 +288,11 @@
         loading={validatingForProject}
       />
     {/if}
-    {#if isProposal && job.status === "Awarded" && canStartProject}
+    {#if isProposal && job.status === "Awarded" && canStartProject && !$jobRequestsEnabled}
       <DSActionButton
-        action={$jobRequestsEnabled
-          ? `/job-requests/new?proposal=${job.id}`
-          : `/jobs/add/from/${job.id}`}
+        action={`/jobs/add/from/${job.id}`}
         icon="mdi:plus"
-        title={$jobRequestsEnabled
-          ? "Create Project Request from Proposal"
-          : "Create Project from Proposal"}
+        title="Create Project from Proposal"
         color="green"
       />
     {:else if isProposal && job.status === "Submitted" && claims.includes("job")}

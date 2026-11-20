@@ -1748,9 +1748,12 @@ Acceptance tests must cover these cases:
 
 ### Staff Workflow
 
-1. Select the plus button beside **Jobs**, then **Create a project request**.
-   A holder of `time` can also use **Create Subjob Request** on an eligible
-   parent project.
+1. Start from the proposal: select the plus button beside **Jobs**, then
+   **Find the proposal**, and select the yellow briefcase button on the
+   proposal's row. Only an In Progress, Submitted or Awarded proposal has it.
+   For work with no proposal, select **Request a project without a proposal**
+   on the same page. A holder of `time` can also use **Create Subjob Request**
+   on an eligible parent project.
 2. Save the project details and division hours. Select a billing profile and
    an approver whose limit covers the full project value. Active projects also
    require the existing project completion date, including an estimated date.
