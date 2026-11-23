@@ -499,7 +499,10 @@
         bind:value={item.project_completion_date}
       />
     </span>
-    <DSLocationPicker bind:value={item.location} errors={{}} fieldName="location" />
+    <div class="flex w-full flex-col gap-1">
+      <span>Location</span>
+      <DSLocationPicker bind:value={item.location} errors={{}} fieldName="location" />
+    </div>
     <DsTextInput
       bind:value={item.description}
       errors={noFieldErrors}
@@ -540,6 +543,7 @@
           items={[{ id: "" }, ...contacts]}
           errors={noFieldErrors}
           fieldName="contact"
+          fill
           uiName="Client Contact"
           disabled={!item.client}
         >
@@ -576,6 +580,7 @@
         items={[{ id: "" }, ...profiles]}
         errors={noFieldErrors}
         fieldName="invoicing_information"
+        fill
         uiName="Invoicing profile"
         disabled={!item.client}
       >
@@ -633,6 +638,7 @@
       step={1}
       errors={noFieldErrors}
       fieldName="project_value"
+      stacked
       uiName="Project value (CAD, before tax)"
     />
     <div class="flex w-full items-center gap-2">
@@ -802,6 +808,7 @@
       items={[{ id: "", name: "Select a branch" }, ...(options.branches || [])]}
       errors={noFieldErrors}
       fieldName="branch"
+      fill
       uiName="Branch"
     >
       {#snippet optionTemplate(row: WorkflowRecord)}{row.code ?? row.name}{/snippet}
@@ -824,6 +831,7 @@
       items={approverItems}
       errors={noFieldErrors}
       fieldName="approver"
+      fill
       uiName="Selected approver"
       helperText={approverHint}
     >

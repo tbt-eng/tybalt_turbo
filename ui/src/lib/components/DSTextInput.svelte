@@ -20,6 +20,7 @@
     placeholder,
     disabled = false,
     rows = undefined, // a text box of this many lines, with the label above it
+    stacked = false, // a bold label above a full-width box
     maxlength = undefined,
     helperText = "", // a line under the field explaining it
   }: {
@@ -34,14 +35,17 @@
     placeholder?: string;
     disabled?: boolean;
     rows?: number;
+    stacked?: boolean;
     maxlength?: number;
     helperText?: string;
   } = $props();
 </script>
 
 <div class="flex w-full flex-col gap-2 {errors[fieldName] !== undefined ? 'bg-red-200' : ''}">
-  <span class="flex w-full gap-2 {rows ? 'flex-col' : ''}">
-    <label for={`text-input-${thisId}`}>{uiName}</label>
+  <span class="flex w-full {rows ? 'flex-col gap-2' : stacked ? 'flex-col gap-1' : 'gap-2'}">
+    <label class={stacked ? "text-sm font-semibold" : ""} for={`text-input-${thisId}`}
+      >{uiName}</label
+    >
     {#if rows}
       <textarea
         class="w-full rounded-sm border border-neutral-300 p-2 {disabled
@@ -56,7 +60,7 @@
         {disabled}></textarea>
     {:else}
       <input
-        class="flex-1 rounded border border-neutral-300 px-1 {disabled
+        class="flex-1 rounded border border-neutral-300 {stacked ? 'px-2 py-1' : 'px-1'} {disabled
           ? 'opacity-50'
           : ''} {disabled ? 'cursor-not-allowed' : ''}"
         {type}

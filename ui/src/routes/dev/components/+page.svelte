@@ -641,6 +641,13 @@
             rows={2}
             helperText="A line under the field that explains it."
           />
+          <DSTextInput
+            bind:value={text}
+            {errors}
+            fieldName="sample_stacked"
+            uiName="Stacked"
+            stacked
+          />
         </DSCard>
         <DSCard title="DSSelector">
           <DSSelector
@@ -650,6 +657,16 @@
             fieldName="sample"
             uiName="Choice"
             clear
+          >
+            {#snippet optionTemplate(item)}{item.name}{/snippet}
+          </DSSelector>
+          <DSSelector
+            bind:value={selected}
+            items={selectorItems}
+            {errors}
+            fieldName="sample_fill"
+            uiName="Fill"
+            fill
           >
             {#snippet optionTemplate(item)}{item.name}{/snippet}
           </DSSelector>

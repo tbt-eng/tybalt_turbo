@@ -21,6 +21,7 @@
     optionTemplate,
     trailing,
     disabled = false,
+    fill = false,
     helperText = "",
     help,
   }: {
@@ -33,6 +34,8 @@
     optionTemplate: Snippet<[T]>;
     trailing?: Snippet<[]>;
     disabled?: boolean;
+    // The dropdown takes the rest of the row, not only the width of its text.
+    fill?: boolean;
     // A line under the field explaining it.
     helperText?: string;
     // Field help (DSHelp) at the far right of the field row.
@@ -55,9 +58,9 @@
       id={`select-input-${thisId}`}
       name={fieldName}
       bind:value
-      class="max-w-full min-w-0 rounded-sm border border-neutral-300 px-1 {disabled
-        ? 'opacity-50'
-        : ''}"
+      class="max-w-full min-w-0 rounded-sm border border-neutral-300 px-1 {fill
+        ? 'flex-1'
+        : ''} {disabled ? 'opacity-50' : ''}"
       {disabled}
     >
       {#each items as item (item.id)}
