@@ -2,6 +2,33 @@
 
 This page is for people who already know Turbo and want a high-level view of recent changes. For details, or to learn how to use Turbo, see the [other Help pages](/docs/start-here).
 
+## November 15 to 21, 2026 (to f482f482)
+
+### Project requests
+
+- If no active rate sheet has the client's rates, you can propose new rates in a project request. Start from an active sheet and change the rates. The approver approves them with the request. (v0.3.201, v0.3.203, v0.3.204, v0.3.208)
+- Select **Find by rates** in a project request to list the active sheets that have the rates you know. (v0.3.215, v0.3.216)
+- The plus button beside **Jobs** now starts every new project. It offers **Create a proposal**, **Find the proposal** and **Request a project without a proposal**. (v0.3.206, v0.3.218)
+- You can print a Project Authorization for signature when its proposed rates have a rate for every role. The printout keeps the agreement with the signatures. (v0.3.207, v0.3.209)
+- Procurement's **Duplicate-work review** lists exact matches and the client's open projects with an award or time in the last year. (v0.3.220)
+
+### Rate sheets
+
+- Each rate sheet now has a code, such as 2026-11-00004. Lists, pickers and printed pages show it. The name is optional. (v0.3.205)
+- Admins and staff with revision access can **Rename** a rate sheet, or clear its name. (v0.3.205)
+- You can search for a rate sheet by job number or client. The clipboard icon beside a code copies it. A sheet's page lists its **Jobs and clients**. (v0.3.210, v0.3.211, v0.3.212, v0.3.214)
+- **Client details** lists the rate sheets of the client's jobs. (v0.3.213, v0.3.214)
+- Admins can **Delete** an inactive rate sheet that no job or project request uses or has used. (v0.3.219, v0.3.220)
+- **Rate Sheets** is now in the menu for admins and for staff who can create or approve project requests. (v0.3.220)
+
+### Computers
+
+- Staff who manage computers, and admins, can see each Windows computer and its last user in **Computers**. They can assign, retire and un-retire a computer, and see **Logins** and **Raw Logins**. (v0.3.222, v0.3.223, v0.3.224)
+
+### Menu
+
+- The eye button next to your email address now shows every link in the menu. You still can't use features that you don't have access to. (v0.3.206)
+
 ## November 8 to 14, 2026 (to d558cf5c)
 
 ### Help
