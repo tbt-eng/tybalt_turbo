@@ -3,6 +3,7 @@ import { runBrowserHarness } from "./browserHarness.mjs";
 await runBrowserHarness(
   async (page, origin) => {
     const saves = [];
+    const clientCreates = [];
     const valueActions = [];
     const profileSaves = [];
     const valueSaves = [];
@@ -137,6 +138,14 @@ await runBrowserHarness(
             divisions: [{ id: "division1", name: "Engineering", code: "ENG", active: true }],
           }),
         });
+      if (path === "/api/collections/clients/records" && route.request().method() === "POST") {
+        const body = route.request().postDataJSON();
+        clientCreates.push(body);
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ id: `created${clientCreates.length}`, name: body.name }),
+        });
+      }
       if (path === "/api/clients")
         return route.fulfill({
           contentType: "application/json",
@@ -344,6 +353,38 @@ await runBrowserHarness(
     assert.equal(
       new URL(await page.evaluate(() => window.lastNavigation), origin).pathname,
       "/clients/client1/contacts/add",
+    );
+    // Only a job holder can create a client, so only a job holder gets the
+    // add buttons beside Client, Client Contact and Job Owner.
+    const addClient = page.getByRole("button", { name: "Add new client", exact: true });
+    const addContact = page.getByRole("button", { name: "Add new contact", exact: true });
+    const addOwner = page.getByRole("button", { name: "Add new client as job owner", exact: true });
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&no-client`);
+    await page.getByRole("button", { name: "Save request", exact: true }).waitFor();
+    assert.equal(await addClient.count(), 0);
+    assert.equal(await addOwner.count(), 0);
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&job&no-client`);
+    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678"));
+    await addClient.waitFor();
+    assert.equal(await addContact.count(), 0);
+    // A new client goes into the Client field; then a contact can be added.
+    await addClient.click();
+    await page.getByLabel("Name", { exact: true }).fill("  Brand New Client ");
+    await page.getByRole("button", { name: "Create Client", exact: true }).click();
+    await addContact.waitFor();
+    assert.equal(await addClient.count(), 0);
+    assert.deepEqual(clientCreates, [{ name: "Brand New Client" }]);
+    // A new client from the Job Owner button goes into Job Owner only.
+    await addOwner.click();
+    await page.getByLabel("Name", { exact: true }).fill("New Owner");
+    await page.getByRole("button", { name: "Create Client", exact: true }).click();
+    await addOwner.waitFor({ state: "detached" });
+    assert.deepEqual(clientCreates[1], { name: "New Owner" });
+    await addContact.click();
+    await page.waitForFunction(() => !!window.lastNavigation);
+    assert.equal(
+      new URL(await page.evaluate(() => window.lastNavigation), origin).pathname,
+      "/clients/created1/contacts/add",
     );
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&profiles`);
     await page.getByRole("button", { name: "Save request", exact: true }).waitFor();

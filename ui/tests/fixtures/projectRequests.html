@@ -74,6 +74,10 @@
         },
         rate_sheet_entries: [{ role_name: "Engineer", rate: 180, overtime_rate: 270 }],
       };
+      if (query.has("no-client")) {
+        request.client = "";
+        request.contact = "";
+      }
       if (query.has("draft")) {
         request.project_value = 0;
         related.contact.email = "";

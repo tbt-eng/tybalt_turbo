@@ -19,6 +19,8 @@ Only procurement can do this. If you need a proposal, ask procurement.
 3. Enter the details, both proposal dates and at least one division.
 4. Select **Save**. Turbo assigns the number.
 
+Note: Client, contact or job owner not in the list? Add one with the green plus button beside the field.
+
 ## Find a proposal
 
 1. Open **Jobs**.

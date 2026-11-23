@@ -22,6 +22,7 @@
   import { rateSheets } from "$lib/stores/rateSheets";
   import { formatJobLabel } from "$lib/utilities";
   import { rateSheetCodeRevision, rateSheetSearchPlaceholder } from "$lib/rateSheetLabel";
+  import ClientCreatePopover from "$lib/components/clients/ClientCreatePopover.svelte";
   import InvoicingProfileEmptyState from "$lib/components/clients/InvoicingProfileEmptyState.svelte";
   import ProposedRatesEditor from "$lib/components/rateSheets/ProposedRatesEditor.svelte";
   import RateSheetOption from "$lib/components/rateSheets/RateSheetOption.svelte";
@@ -359,6 +360,19 @@
       openingClient = false;
     }
   }
+  // Only procurement (the job claim) can create a client or a contact.
+  const hasJobClaim = $derived($globalStore.claims.includes("job"));
+  let showAddClient = $state(false);
+  // The field that takes the new client: the client or the job owner.
+  let newClientField = $state<"client" | "job_owner">("client");
+  function openAddClient(field: "client" | "job_owner") {
+    newClientField = field;
+    showAddClient = true;
+  }
+  function clientCreated(client: { id: string }) {
+    if (newClientField === "client") setClient(client.id);
+    else item.job_owner = client.id;
+  }
   function setClient(client: string) {
     if (client === item.client) return;
     item.client = client;
@@ -489,31 +503,58 @@
       uiName="Description"
     />
     {#if $clients.index !== null}
-      <DsAutoComplete
-        bind:value={() => item.client, setClient}
-        index={$clients.index}
-        errors={noFieldErrors}
-        fieldName="client"
-        uiName="Client"
-        disabled={!!item.parent}
-      >
-        {#snippet resultTemplate(row)}{clientLabel({ name: row.name, alias: row.alias })}{/snippet}
-      </DsAutoComplete>
+      <div class="flex w-full items-end gap-1">
+        <div class="flex-1">
+          <DsAutoComplete
+            bind:value={() => item.client, setClient}
+            index={$clients.index}
+            errors={noFieldErrors}
+            fieldName="client"
+            uiName="Client"
+            disabled={!!item.parent}
+          >
+            {#snippet resultTemplate(row)}{clientLabel({
+                name: row.name,
+                alias: row.alias,
+              })}{/snippet}
+          </DsAutoComplete>
+        </div>
+        {#if !item.client && !item.parent && hasJobClaim}
+          <DSActionButton
+            action={() => openAddClient("client")}
+            icon="feather:plus-circle"
+            color="green"
+            title="Add new client"
+          />
+        {/if}
+      </div>
     {/if}
-    <DsSelector
-      bind:value={item.contact}
-      items={[{ id: "" }, ...contacts]}
-      errors={noFieldErrors}
-      fieldName="contact"
-      uiName="Client Contact"
-      disabled={!item.client}
-    >
-      {#snippet optionTemplate(row: WorkflowRecord)}{row.id
-          ? `${fullName(row)}${row.email ? ` — ${row.email}` : ""}`
-          : item.client
-            ? "Select a contact"
-            : "Select a client first"}{/snippet}
-    </DsSelector>
+    <div class="flex w-full items-end gap-1">
+      <div class="flex-1">
+        <DsSelector
+          bind:value={item.contact}
+          items={[{ id: "" }, ...contacts]}
+          errors={noFieldErrors}
+          fieldName="contact"
+          uiName="Client Contact"
+          disabled={!item.client}
+        >
+          {#snippet optionTemplate(row: WorkflowRecord)}{row.id
+              ? `${fullName(row)}${row.email ? ` — ${row.email}` : ""}`
+              : item.client
+                ? "Select a contact"
+                : "Select a client first"}{/snippet}
+        </DsSelector>
+      </div>
+      {#if item.client && !item.contact && hasJobClaim}
+        <DSActionButton
+          action={() => manageClient("contact")}
+          icon="feather:plus-circle"
+          color="green"
+          title="Add new contact"
+        />
+      {/if}
+    </div>
     {#if item.client && !profiles.length}
       <div class="flex flex-col gap-1">
         <h3 class="text-sm font-semibold">Invoicing profile</h3>
@@ -727,15 +768,30 @@
   </fieldset>
   <fieldset disabled={saving} class="flex flex-col gap-2">
     {#if $clients.index !== null}
-      <DsAutoComplete
-        bind:value={item.job_owner}
-        index={$clients.index}
-        errors={noFieldErrors}
-        fieldName="job_owner"
-        uiName="Job Owner"
-      >
-        {#snippet resultTemplate(row)}{clientLabel({ name: row.name, alias: row.alias })}{/snippet}
-      </DsAutoComplete>
+      <div class="flex w-full items-end gap-1">
+        <div class="flex-1">
+          <DsAutoComplete
+            bind:value={item.job_owner}
+            index={$clients.index}
+            errors={noFieldErrors}
+            fieldName="job_owner"
+            uiName="Job Owner"
+          >
+            {#snippet resultTemplate(row)}{clientLabel({
+                name: row.name,
+                alias: row.alias,
+              })}{/snippet}
+          </DsAutoComplete>
+        </div>
+        {#if !item.job_owner && hasJobClaim}
+          <DSActionButton
+            action={() => openAddClient("job_owner")}
+            icon="feather:plus-circle"
+            color="green"
+            title="Add new client as job owner"
+          />
+        {/if}
+      </div>
     {/if}
     <DsSelector
       bind:value={item.branch}
@@ -783,3 +839,4 @@
     >
   </div>
 </form>
+<ClientCreatePopover bind:show={showAddClient} onCreated={clientCreated} />

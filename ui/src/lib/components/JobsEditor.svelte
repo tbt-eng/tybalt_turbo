@@ -27,6 +27,7 @@
   import DSHelp from "./DSHelp.svelte";
   import DSPicker from "./DSPicker.svelte";
   import DSPopover from "./DSPopover.svelte";
+  import ClientCreatePopover from "./clients/ClientCreatePopover.svelte";
   import DSCallout from "./DSCallout.svelte";
   import DsLabel from "./DsLabel.svelte";
   import Icon from "@iconify/svelte";
@@ -198,9 +199,8 @@
 
   // Add Client popover state
   let showAddClientPopover = $state(false);
-  let newClientName = $state("");
-  let newClientSubmitting = $state(false);
-  let newClientError = $state<string | null>(null);
+  // The field that takes the new client: the client or the job owner.
+  let newClientField = $state<"client" | "job_owner">("client");
 
   const alternateManagerErrorMessage = "Alternate manager must be different from manager.";
 
@@ -795,47 +795,9 @@
     }
   }
 
-  function openAddClientPopover() {
-    newClientName = "";
-    newClientError = null;
+  function openAddClientPopover(field: "client" | "job_owner") {
+    newClientField = field;
     showAddClientPopover = true;
-  }
-
-  function closeAddClientPopover() {
-    showAddClientPopover = false;
-    newClientName = "";
-    newClientError = null;
-  }
-
-  async function createNewClient() {
-    if (!newClientName.trim()) {
-      newClientError = "Name is required";
-      return;
-    }
-
-    newClientSubmitting = true;
-    newClientError = null;
-
-    try {
-      const createdClient = await pb.collection("clients").create({
-        name: newClientName.trim(),
-      });
-
-      // Select the newly created client
-      // The realtime subscription will automatically update the store/index
-      item.client = createdClient.id;
-
-      closeAddClientPopover();
-    } catch (error: any) {
-      const hookErrors = error?.data?.data;
-      if (hookErrors?.name?.message) {
-        newClientError = hookErrors.name.message;
-      } else {
-        newClientError = error?.message ?? "Failed to create client";
-      }
-    } finally {
-      newClientSubmitting = false;
-    }
   }
 
   async function manageClient(target: ClientWorkflowTarget = "workspace") {
@@ -1136,7 +1098,7 @@
           {/if}
           {#if !item.client && hasJobClaim}
             <DsActionButton
-              action={openAddClientPopover}
+              action={() => openAddClientPopover("client")}
               icon="feather:plus-circle"
               color="green"
               title="Add new client"
@@ -1534,18 +1496,30 @@
 
     {#if !managerAllocationsOnly}
       {#if $clients.index !== null}
-        <DsAutoComplete
-          bind:value={item.job_owner as string}
-          index={$clients.index}
-          {errors}
-          fieldName="job_owner"
-          uiName="Job Owner"
-        >
-          {#snippet resultTemplate(item)}{clientLabel({
-              name: item.name,
-              alias: item.alias,
-            })}{/snippet}
-        </DsAutoComplete>
+        <div class="flex w-full items-end gap-1">
+          <div class="flex-1">
+            <DsAutoComplete
+              bind:value={item.job_owner as string}
+              index={$clients.index}
+              {errors}
+              fieldName="job_owner"
+              uiName="Job Owner"
+            >
+              {#snippet resultTemplate(item)}{clientLabel({
+                  name: item.name,
+                  alias: item.alias,
+                })}{/snippet}
+            </DsAutoComplete>
+          </div>
+          {#if !item.job_owner && hasJobClaim}
+            <DsActionButton
+              action={() => openAddClientPopover("job_owner")}
+              icon="feather:plus-circle"
+              color="green"
+              title="Add new client as job owner"
+            />
+          {/if}
+        </div>
       {/if}
 
       <div class="flex w-full gap-2 {errors.branch !== undefined ? 'bg-red-200' : ''}">
@@ -1675,25 +1649,7 @@
   </DSPopover>
 {/if}
 
-<!-- Add Client Popover -->
-<DSPopover
+<ClientCreatePopover
   bind:show={showAddClientPopover}
-  title="Add New Client"
-  error={newClientError}
-  submitting={newClientSubmitting}
-  submitLabel="Create Client"
-  onSubmit={createNewClient}
-  onCancel={closeAddClientPopover}
->
-  <div class="flex flex-col gap-1">
-    <label class="text-sm font-semibold" for="new_client_name">Name</label>
-    <input
-      id="new_client_name"
-      type="text"
-      class="rounded-sm border border-neutral-300 px-2 py-1"
-      placeholder="Client name"
-      bind:value={newClientName}
-      disabled={newClientSubmitting}
-    />
-  </div>
-</DSPopover>
+  onCreated={(client) => (item[newClientField] = client.id)}
+/>
