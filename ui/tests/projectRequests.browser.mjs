@@ -410,9 +410,17 @@ await runBrowserHarness(
       "Enter the project value in whole dollars to list approvers.",
     );
     await approverHint.waitFor();
+    // So does the approver dropdown, which stays off until then.
+    const approver = page.getByLabel("Selected approver", { exact: true });
+    assert.equal(await approver.isDisabled(), true);
+    assert.equal(
+      await approver.evaluate((select) => select.selectedOptions[0].textContent.trim()),
+      "Enter the project value first",
+    );
     await value.fill("120000");
     assert.equal(await value.evaluate((input) => input.checkValidity()), true);
     await approverHint.waitFor({ state: "detached" });
+    assert.equal(await approver.isDisabled(), false);
     // Long lists are searched, not scrolled: nothing lists until a person types.
     await page.getByRole("button", { name: "Clear", exact: true }).first().click();
     assert.equal(await page.getByText("Other Client", { exact: true }).count(), 0);

@@ -224,8 +224,18 @@
         .map((record: WorkflowRecord) => record.id),
     ),
   );
+  // The approver list depends on the project value alone, so the dropdown
+  // says so until there is one, as Client Contact does for the client.
+  const hasProjectValue = $derived(Number.isInteger(item.project_value) && item.project_value > 0);
   const approverItems = $derived([
-    { id: "", name: "Select approver" },
+    {
+      id: "",
+      name: !hasProjectValue
+        ? "Enter the project value first"
+        : approversLoaded && approvers.length === 0
+          ? "No approver covers this value"
+          : "Select approver",
+    },
     ...(item.approver && !approvers.some((row) => row.id === item.approver)
       ? [{ id: item.approver, name: "Current approver — check authority" }]
       : []),
@@ -262,9 +272,7 @@
   }
   // The approver list depends on the project value, so say why it is empty.
   const approverHint = $derived.by(() => {
-    const value = item.project_value;
-    if (!(Number.isInteger(value) && value > 0))
-      return "Enter the project value in whole dollars to list approvers.";
+    if (!hasProjectValue) return "Enter the project value in whole dollars to list approvers.";
     if (approversLoaded && approvers.length === 0)
       return "No approver has a limit that covers this project value.";
     return "";
@@ -833,6 +841,7 @@
       fieldName="approver"
       fill
       uiName="Selected approver"
+      disabled={!hasProjectValue && !item.approver}
       helperText={approverHint}
     >
       {#snippet optionTemplate(row)}{row.name}{/snippet}
