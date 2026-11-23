@@ -58,6 +58,7 @@
     related = {},
     dirty = $bindable(false),
     onsaved,
+    oncancel,
   }: {
     request: WorkflowRecord;
     allocations?: WorkflowRecord[];
@@ -66,6 +67,8 @@
     related?: WorkflowRecord;
     dirty?: boolean;
     onsaved?: () => Promise<void>;
+    // Shows Cancel beside Save, as the other editors do.
+    oncancel?: () => void;
   } = $props();
   clients.init();
   jobs.init();
@@ -470,8 +473,9 @@
   }
 </script>
 
+<!-- The same spacing and mobile text size as the other editors. -->
 <form
-  class="flex flex-col gap-4"
+  class="flex w-full flex-col gap-2 max-lg:[&_button]:text-base max-lg:[&_input]:text-base max-lg:[&_label]:text-base max-lg:[&_select]:text-base max-lg:[&_textarea]:text-base"
   onsubmit={(event) => {
     event.preventDefault();
     save();
@@ -833,10 +837,11 @@
     Drafts can be incomplete. Submission checks all required data, the PDF, allocations, and
     approval authority.
   </p>
-  <div>
-    <DSActionButton variant="primary" type="submit" disabled={saving}
+  <span class="flex w-full gap-2">
+    <DSActionButton type="submit" disabled={saving}
       >{saving ? "Saving…" : "Save request"}</DSActionButton
     >
-  </div>
+    {#if oncancel}<DSActionButton action={oncancel}>Cancel</DSActionButton>{/if}
+  </span>
 </form>
 <ClientCreatePopover bind:show={showAddClient} onCreated={clientCreated} />

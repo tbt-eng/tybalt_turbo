@@ -3,16 +3,22 @@ import { globalStore } from "$lib/stores/global";
 import { get } from "svelte/store";
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
+import type { WorkflowRecord } from "$lib/clientEditors";
 export const load: PageLoad = async ({ url }) => {
-  const options = await pb.send("/api/job_requests/options", { method: "GET" });
-  await globalStore.ensureClaims();
-  if (!get(globalStore).claims.includes("time"))
-    error(403, "The time permission is required to create a Project Request.");
-  if (!options.enabled) error(403, "Request processing is disabled.");
   const parentId = url.searchParams.get("parent") || "";
   const proposalId = url.searchParams.get("proposal") || "";
   const sourceId = parentId || proposalId;
-  const source = sourceId ? await pb.send(`/api/jobs/${sourceId}/details`, { method: "GET" }) : {};
+  // One round trip: nothing here waits for another call.
+  const [options, source] = await Promise.all([
+    pb.send("/api/job_requests/options", { method: "GET" }),
+    sourceId
+      ? pb.send<WorkflowRecord>(`/api/jobs/${sourceId}/details`, { method: "GET" })
+      : ({} as WorkflowRecord),
+    globalStore.ensureClaims(),
+  ]);
+  if (!get(globalStore).claims.includes("time"))
+    error(403, "The time permission is required to create a Project Request.");
+  if (!options.enabled) error(403, "Request processing is disabled.");
   const request = {
     description: parentId ? "" : source.description || "",
     client: source.client?.id || "",

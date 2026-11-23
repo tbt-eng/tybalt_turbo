@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -334,8 +333,10 @@ func requestOptionsHandler(app core.App) func(*core.RequestEvent) error {
 		if !allowed {
 			return apis.NewForbiddenError("You cannot use project requests.", nil)
 		}
+		// The request form loads this before it shows, so each list holds only
+		// what the form reads. Clients and jobs come from the UI's own stores.
 		result := map[string]any{}
-		for key, col := range map[string]string{"clients": "clients", "contacts": "client_contacts", "invoicing_profiles": "client_invoicing_information", "branches": "branches", "rate_sheets": "rate_sheets", "divisions": "divisions"} {
+		for key, col := range map[string]string{"invoicing_profiles": "client_invoicing_information", "branches": "branches", "rate_sheets": "rate_sheets", "divisions": "divisions"} {
 			var rows []*core.Record
 			var err error
 			if col == "rate_sheets" {
@@ -349,43 +350,56 @@ func requestOptionsHandler(app core.App) func(*core.RequestEvent) error {
 			}
 			result[key] = rows
 		}
-		users, err := app.FindAllRecords("users")
-		if err != nil {
+		contacts := []struct {
+			Id        string `db:"id" json:"id"`
+			Client    string `db:"client" json:"client"`
+			GivenName string `db:"given_name" json:"given_name"`
+			Surname   string `db:"surname" json:"surname"`
+			Email     string `db:"email" json:"email"`
+		}{}
+		if err := app.DB().NewQuery("SELECT id, client, given_name, surname, email FROM client_contacts").All(&contacts); err != nil {
+			return err
+		}
+		result["contacts"] = contacts
+		// Active people, named from the profile when there is one, as in
+		// workflowPerson.
+		users := []struct {
+			Id         string `db:"id"`
+			Name       string `db:"name"`
+			Email      string `db:"email"`
+			HasProfile bool   `db:"has_profile"`
+			GivenName  string `db:"given_name"`
+			Surname    string `db:"surname"`
+		}{}
+		if err := app.DB().NewQuery(`SELECT u.id, u.name, u.email, p.id IS NOT NULL AS has_profile,
+				COALESCE(p.given_name, '') AS given_name, COALESCE(p.surname, '') AS surname
+			FROM users u
+			JOIN admin_profiles a ON a.id = (SELECT id FROM admin_profiles WHERE uid = u.id LIMIT 1) AND a.active = TRUE
+			LEFT JOIN profiles p ON p.id = (SELECT id FROM profiles WHERE uid = u.id LIMIT 1)`).All(&users); err != nil {
 			return err
 		}
 		people := []map[string]any{}
 		for _, u := range users {
-			active, err := utilities.IsUserActive(app, u.Id)
-			if err != nil {
-				return err
+			person := map[string]any{"id": u.Id, "name": u.Name, "email": u.Email, "phone": ""}
+			if u.HasProfile {
+				person["given_name"] = u.GivenName
+				person["surname"] = u.Surname
+				person["name"] = strings.TrimSpace(u.GivenName + " " + u.Surname)
 			}
-			if active {
-				people = append(people, workflowPerson(app, u))
-			}
+			people = append(people, person)
 		}
 		result["users"] = people
-		jobs, err := app.FindAllRecords("jobs")
-		if err != nil {
+		// The proposals a request can name. The form shows each from the jobs
+		// store, so the id, client and status are enough.
+		proposals := []struct {
+			Id     string `db:"id" json:"id"`
+			Client string `db:"client" json:"client"`
+			Status string `db:"status" json:"status"`
+		}{}
+		if err := app.DB().NewQuery("SELECT id, client, status FROM jobs WHERE number LIKE 'P%' AND status IN ('In Progress', 'Submitted', 'Awarded')").All(&proposals); err != nil {
 			return err
 		}
-		proposals := []map[string]any{}
-		parents := []map[string]any{}
-		for _, j := range jobs {
-			row := map[string]any{}
-			for _, key := range []string{"id", "number", "description", "client", "proposal", "parent", "status", "contact", "manager", "branch", "rate_sheet", "project_value", "time_and_materials", "invoicing_information", "location"} {
-				row[key] = j.Get(key)
-			}
-			if strings.HasPrefix(j.GetString("number"), "P") {
-				switch j.GetString("status") {
-				case "In Progress", "Submitted", "Awarded":
-					proposals = append(proposals, row)
-				}
-			} else if regexp.MustCompile(`^\d{2}-\d{3,4}$`).MatchString(j.GetString("number")) {
-				parents = append(parents, row)
-			}
-		}
 		result["proposals"] = proposals
-		result["parents"] = parents
 		enabled, err := utilities.IsJobRequestApprovalRequired(app)
 		if err != nil {
 			return err
