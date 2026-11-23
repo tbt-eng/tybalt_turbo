@@ -11,7 +11,8 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 )
 
-func TestClientsCreate_BusDevLeadMissingClaim_Fails(t *testing.T) {
+// Any active user can be set as the lead: no claim is needed.
+func TestClientsCreate_BusDevLeadActive_Succeeds(t *testing.T) {
 	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
 	if err != nil {
 		t.Fatal(err)
@@ -19,39 +20,7 @@ func TestClientsCreate_BusDevLeadMissingClaim_Fails(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "client create fails when business_development_lead lacks busdev claim",
-			Method: http.MethodPost,
-			URL:    "/api/collections/clients/records",
-			Body: strings.NewReader(`{
-                "name": "Acme Widgets",
-                "business_development_lead": "4ssj9f1yg250o9y"
-            }`),
-			Headers:        map[string]string{"Authorization": recordToken},
-			ExpectedStatus: 400,
-			ExpectedContent: []string{
-				`"business_development_lead":{"code":"missing_claim"`,
-			},
-			ExpectedEvents: map[string]int{
-				"OnRecordCreateRequest": 1,
-			},
-			TestAppFactory: testutils.SetupTestApp,
-		},
-	}
-
-	for _, scenario := range scenarios {
-		scenario.Test(t)
-	}
-}
-
-func TestClientsCreate_BusDevLeadWithClaim_Succeeds(t *testing.T) {
-	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	scenarios := []tests.ApiScenario{
-		{
-			Name:   "client create succeeds when business_development_lead has busdev claim",
+			Name:   "client create succeeds when business_development_lead is an active user",
 			Method: http.MethodPost,
 			URL:    "/api/collections/clients/records",
 			Body: strings.NewReader(`{
@@ -391,8 +360,8 @@ func TestClientsCreate_NoBusDevLead_Succeeds(t *testing.T) {
 }
 
 // An existing lead is kept, and is not rechecked, when a save leaves it alone.
-// The fixture client's lead (f2j5a8vk006baub) lacks the busdev claim, so
-// setting it afresh would fail with missing_claim.
+// The fixture client's lead (u_inactive) is inactive, so setting it afresh
+// fails, as TestClientsCreate_BusDevLeadInactive_Fails shows.
 func TestClientsUpdate_KeepsUnchangedBusDevLead(t *testing.T) {
 	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
 	if err != nil {
@@ -402,13 +371,13 @@ func TestClientsUpdate_KeepsUnchangedBusDevLead(t *testing.T) {
 	scenario := tests.ApiScenario{
 		Name:           "client update without the lead field keeps the existing lead",
 		Method:         http.MethodPatch,
-		URL:            "/api/collections/clients/records/ee3xvodl583b61o",
+		URL:            "/api/collections/clients/records/inactivelead001",
 		Body:           strings.NewReader(`{"phone": "555-0100"}`),
 		Headers:        map[string]string{"Authorization": recordToken},
 		ExpectedStatus: 200,
 		ExpectedContent: []string{
 			`"phone":"555-0100"`,
-			`"business_development_lead":"f2j5a8vk006baub"`,
+			`"business_development_lead":"u_inactive"`,
 		},
 		ExpectedEvents: map[string]int{
 			"OnRecordUpdateRequest": 1,

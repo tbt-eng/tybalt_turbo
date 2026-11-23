@@ -9,3 +9,4 @@ _imported,business_development_lead,created,id,name,updated,address,city,provinc
 ,f2j5a8vk006baub,2026-11-18 00:00:00.000Z,clientcomma0001,"Lakehead Surveys, Inc.",2026-11-18 00:00:00.000Z,,,,,,,
 ,f2j5a8vk006baub,2026-11-20 00:00:00.000Z,dupclient000001,Duplicate Review Test Client,2026-11-20 00:00:00.000Z,,,,,,,
 ,f2j5a8vk006baub,2026-11-20 00:00:00.000Z,dupclient000002,Duplicate Review Other Client,2026-11-20 00:00:00.000Z,,,,,,,
+,u_inactive,2026-11-23 00:00:00.000Z,inactivelead001,Inactive Lead Test Client,2026-11-23 00:00:00.000Z,,,,,,,

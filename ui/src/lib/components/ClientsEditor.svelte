@@ -5,16 +5,8 @@
   import type { ClientsPageData } from "$lib/svelte-types";
   import DsActionButton from "./DSActionButton.svelte";
   import { globalStore } from "$lib/stores/global";
-  import { busdevLeads } from "$lib/stores/busdevLeads";
-  import DSAutoComplete from "$lib/components/DSAutoComplete.svelte";
-  import DsSelector from "$lib/components/DSSelector.svelte";
   import PostalFields from "$lib/components/clients/PostalFields.svelte";
-  import {
-    editableFields,
-    clientFields,
-    showBusdevLead,
-    type FieldErrors,
-  } from "$lib/clientEditors";
+  import { editableFields, clientFields, type FieldErrors } from "$lib/clientEditors";
   import { workflowError } from "$lib/clientEditors";
   import { untrack } from "svelte";
 
@@ -34,7 +26,6 @@
   let savedForNavigation = false;
   let error = $state("");
   const dirty = $derived(JSON.stringify(item) !== saved);
-  if (showBusdevLead) busdevLeads.init();
   beforeNavigate(({ cancel }) => {
     if (busy && !savedForNavigation) {
       cancel();
@@ -99,36 +90,6 @@
       uiName="Alias (optional)"
       placeholder="Name the client is commonly known by"
     />
-    {#if !showBusdevLead}
-      <!-- The business development lead is hidden for now. -->
-    {:else if $busdevLeads.items.length > 10 && $busdevLeads.index}
-      <DSAutoComplete
-        bind:value={item.business_development_lead}
-        index={$busdevLeads.index}
-        {errors}
-        fieldName="business_development_lead"
-        uiName="Business development lead"
-      >
-        {#snippet resultTemplate(option)}{option.surname}{option.given_name
-            ? `, ${option.given_name}`
-            : ""}{/snippet}
-      </DSAutoComplete>
-    {:else}
-      <DsSelector
-        bind:value={item.business_development_lead}
-        items={[{ id: "", given_name: "", surname: "" }, ...$busdevLeads.items]}
-        {errors}
-        fieldName="business_development_lead"
-        uiName="Business development lead"
-      >
-        {#snippet optionTemplate(option)}{option.id
-            ? `${option.surname}, ${option.given_name}`
-            : "No lead"}{/snippet}
-      </DsSelector>
-    {/if}
-    {#if showBusdevLead && $busdevLeads.loading}<p class="text-sm text-neutral-500">
-        Loading business development leads…
-      </p>{/if}
     <DsTextInput bind:value={item.phone} {errors} fieldName="phone" uiName="Phone (optional)" />
     <PostalFields bind:item {errors} />
   </fieldset>

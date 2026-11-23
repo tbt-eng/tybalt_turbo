@@ -125,8 +125,6 @@ await runBrowserHarness(
         return send(fixture.createdNote);
       }
       if (path === "/api/clients") return send([client]);
-      if (path === "/api/clients/busdev-leads")
-        return send([{ id: "lead1", given_name: "Casey", surname: "Manager" }]);
       if (path === "/api/collections/client_contacts/records" && request.method() === "POST") {
         // Model the new contact in the mock server so the return route refreshes its choices.
         const payload = request.postDataJSON();

@@ -1,68 +1,76 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/clientEditors.ts","sha256":"de966e8dba28eb2877b34e435ad8273ea9dd71b938bdecf02a4c698949ead104","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/clientEditors.ts","sha256":"f8bbee17cc95b1762a0beea04033d39cb01158f816b2e90f2e08d18c195a3206","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/clientEditors.ts
 
-## Client editor fields
+## Fields that the editors offer
 
 Lines 4-29
 
-Asked as: client editor fields; edit client address; client phone and alias; postal code country fields
+Asked as: fields in contact editor; what fields can I edit; postal address fields; invoicing profile fields
 
-The client editor works with the name, alias, phone and the postal fields: street, city, province/state, postal code and country.
+The contact editor has given name, surname, email, phone and the postal fields. The client editor has name, alias, phone and the postal fields. The invoicing profile editor has name, contact, billing name, fax and invoicing instructions. The postal fields are street, city, province / state, postal code and country.
 
-## Business development lead is hidden in the client editor
+## Business development lead is not editable on client screens
 
 Lines 19-29
 
-Asked as: business development lead missing; busdev lead not showing; client lead hidden; saving client changes lead
+Asked as: cannot change business development lead; busdev lead locked; saving client keeps old lead; change client's busdev owner
 
-The client editor does not show the business development lead (business_development_lead) while showBusdevLead is false, which is the current setting. The editor does not send the field, so saving a client leaves its existing lead unchanged. The field, the busdev claim and existing values stay.
+Turbo no longer lets anyone edit a client's business development lead on any screen. The client editor does not send the lead field (clientFields omits it), so saving a client leaves its existing lead unchanged. Clients keep the lead they already have.
 
-## Editor fields default to empty text
+## Stored business development lead hidden on client page
+
+Lines 19-23
+
+Asked as: business development lead missing; busdev lead disappeared from client; lead not showing on client page; hidden busdev lead
+
+Turbo hides a client's stored business development lead on the client page, because showBusdevLead is false. Hiding it does not remove or change the lead.
+
+## Editor forms show empty text for missing fields
 
 Lines 32-34
 
-Asked as: empty field shows blank; missing field in editor; editor blank values; null field client form
+Asked as: editor fields blank; empty fields when editing; missing values show nothing; form shows blank text
 
-When the editor opens a record, any empty or missing field becomes an empty string.
+When an editor opens a record, Turbo fills each editable field from the record. Any missing or empty value becomes an empty string.
 
-## Contact first and last name are required
+## Contact requires given name and surname
 
 Lines 35-39
 
-Asked as: contact name required; cannot save contact no name; contact first name error; contact last name missing
+Asked as: contact won't save; missing first name on contact; required field contact form; surname needed to save
 
-Turbo refuses to save a contact without a first name (given_name) or a last name (surname). A name of only spaces counts as empty. The message is "This field is required."
+Turbo refuses to save a contact whose given name (given_name) or surname is empty or only spaces. It shows "This field is required." beside each missing field.
 
-## Contact email format check
+## Contact email must look like an address when entered
 
 Lines 40-42
 
-Asked as: invalid contact email; email rejected on contact; contact email error; email address not accepted
+Asked as: email rejected on contact; invalid email contact; email address not accepted; contact email error
 
-When a contact has an email, Turbo checks it for text, an @, and a domain with a dot, with no spaces, after trimming. If the email fails, Turbo shows "Enter a valid email address." An empty email passes, because it is optional.
+Turbo checks a contact's email only when one is entered. Without spaces it must have text, an @, text, a dot and more text, or Turbo shows "Enter a valid email address." An empty email is accepted. Surrounding spaces are trimmed before the check.
 
-## Contact counts as in use
+## Contact counts as in use by jobs, requests or profiles
 
 Lines 45-49
 
-Asked as: contact cannot be deleted; contact in use; contact has jobs; contact linked to requests
+Asked as: contact can't be deleted; contact linked to jobs; contact used by requests; contact has profiles
 
-A contact is in use when its job count, request count or invoicing profile count is above 0. A count that is missing or not a number does not count as in use.
+Turbo treats a contact as in use when its job count (job_count), project request count (request_count) or invoicing profile count (profile_count) is above 0. A contact with all three at 0 or missing is not in use.
 
-## Error display joins message and field messages
+## Error message combines API message and field messages
 
 Lines 50-57
 
-Asked as: error message details; save failed field errors; action failed message; which field has error
+Asked as: error message unclear; save failed what went wrong; field errors after action; action failed no details
 
-Turbo shows an action error as the API message followed by each field message, in the form "field name: message", with underscores in the field name shown as spaces. If there is no message, Turbo shows "The action failed."
+When an action fails, Turbo shows the API message followed by each field message as "field name: message", with underscores in field names replaced by spaces. If the error has no message, Turbo shows "The action failed."
 
 ## Return link after saving a contact or invoicing profile
 
 Lines 58-66
 
-Asked as: after saving contact returns; return to page after save; invoicing profile saved redirect; back link after editing contact
+Asked as: where do I land after saving contact; page jumps after saving invoicing; saved contact redirect; back to client after saving profile
 
-After a contact or invoicing profile is saved, Turbo returns to the earlier page without the edit parameter. It marks the saved record in the link and jumps to the contacts section for a contact or the invoicing section for an invoicing profile.
+After a contact or invoicing profile is saved, Turbo returns to the previous page with the edit parameter and any earlier saved_contact or saved_invoicing marker removed. It adds saved_contact or saved_invoicing with the record ID. It jumps to the contacts section for a contact and the invoicing section for an invoicing profile.

@@ -16,17 +16,12 @@ export const contactFields = [
   ...Object.keys(postalFields),
 ];
 export const invoicingFields = ["name", "contact", "billing_name", "fax", "invoicing_instructions"];
-// The business development lead is hidden for now. The field, the busdev claim
-// and existing values stay; set this to true to show it again. While hidden, the
-// client editor does not send the field, so a save leaves a client's lead alone.
+// The business development lead is retired for now. Clients keep the lead they
+// have, but no screen edits it: the client editor does not send the field, so a
+// save leaves a client's lead alone. This flag only hides the stored lead on the
+// client page.
 export const showBusdevLead: boolean = false;
-export const clientFields = [
-  "name",
-  "alias",
-  ...(showBusdevLead ? ["business_development_lead"] : []),
-  "phone",
-  ...Object.keys(postalFields),
-];
+export const clientFields = ["name", "alias", "phone", ...Object.keys(postalFields)];
 export type FieldErrors = Record<string, { message: string }>;
 
 export function editableFields(record: WorkflowRecord, fields: string[]): WorkflowRecord {

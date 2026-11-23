@@ -9,11 +9,11 @@ import (
 
 // Two integration-style tests exercising ProcessClient with the real test DB.
 
-func TestProcessClient_BusinessDevelopmentLeadClaimSuccess(t *testing.T) {
+func TestProcessClient_BusinessDevelopmentLeadActiveSuccess(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	// user with busdev claim from test DB
+	// active user from test DB
 	leadID := "4r70mfovf22m9uh"
 
 	clientsColl, _ := app.FindCollectionByNameOrId("clients")
@@ -26,12 +26,12 @@ func TestProcessClient_BusinessDevelopmentLeadClaimSuccess(t *testing.T) {
 	}
 }
 
-func TestProcessClient_BusinessDevelopmentLeadClaimFailure(t *testing.T) {
+func TestProcessClient_BusinessDevelopmentLeadInactiveFailure(t *testing.T) {
 	app := testseed.NewSeededTestApp(t)
 	defer app.Cleanup()
 
-	// user without busdev claim from test DB
-	leadID := "4ssj9f1yg250o9y"
+	// inactive user from test DB
+	leadID := "u_inactive"
 
 	clientsColl, _ := app.FindCollectionByNameOrId("clients")
 	rec := core.NewRecord(clientsColl)

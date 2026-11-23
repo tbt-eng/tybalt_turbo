@@ -208,8 +208,7 @@ func clientAliasToken(t *testing.T, app *tests.TestApp, email string) string {
 	return token
 }
 
-// clientAliasPatch leaves the business development lead alone. The workspace
-// fixture's lead lacks the busdev claim, and an unchanged lead is not rechecked.
+// clientAliasPatch leaves the business development lead alone.
 func clientAliasPatch(alias string) map[string]any {
 	return map[string]any{"alias": alias}
 }

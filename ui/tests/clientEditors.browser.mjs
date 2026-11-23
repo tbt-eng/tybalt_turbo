@@ -72,8 +72,6 @@ await runBrowserHarness(
                 },
               },
         );
-      if (path === "/api/clients/devleads")
-        return route.fulfill({ json: [{ id: "lead1", given_name: "Business", surname: "Lead" }] });
       return route.fulfill({
         json: {
           id: "client1",

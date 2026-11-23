@@ -1,52 +1,36 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/clients.go","sha256":"7e0da5737210f8817b241385d7b03194aef275be09205c566ac1fe8df9adf1ff","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/clients.go","sha256":"fb12b393a76bd1e783dd5da3f075f06bbb9796cb7982d83256f61ae5a709e451","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/clients.go
 
-## Business development lead is optional on a client
+## Business development lead on a client is optional
 
 Lines 14-20
 
-Asked as: client without busdev lead; leave lead empty; optional business development lead; no lead on client
+Asked as: client without lead; leave lead empty; lead field optional; save client no lead
 
-A client can be saved with no business development lead (business_development_lead). When the field is empty, Turbo skips every lead check.
+A client (client record) can be saved with no business development lead (business_development_lead). Turbo then skips the lead check. The UI does not offer the lead for now.
 
 ## Lead is checked only when set or changed
 
 Lines 14-23
 
-Asked as: old lead lost claim save; save client lead deactivated; existing client lead unchanged; can't save client old lead
+Asked as: deactivated lead client save; inactive lead still saved; old lead error on edit; lead check when editing
 
-On an existing client, Turbo checks the business development lead only if the lead is different from the saved one. A client whose lead has since lost the busdev claim or been deactivated can still be saved while the lead stays the same. A new client with a lead is always checked.
+On an existing client, Turbo checks the business development lead only if the lead differs from the saved value. A client whose lead has since been deactivated can still be saved with that same lead. A new client with a lead is always checked.
 
 ## Business development lead must be an active user
 
 Lines 25-44
 
-Asked as: lead inactive user error; lead not active; deactivated lead client save; busdev lead must be active
+Asked as: lead not active user; inactive user as client lead; client lead must be active; business development lead error
 
-When a lead is set or changed on a client, the lead must be an active user. Otherwise Turbo refuses the save with the message "business development lead must be an active user". The field error is "the selected business development lead is not an active user" (business_development_lead_not_active).
+When a client is created, or its lead is changed, the lead must be an active user. Otherwise Turbo refuses with "business development lead must be an active user". The field error says "the selected business development lead is not an active user" (code business_development_lead_not_active).
 
-## Lead check failures return a server error message
+## Client save fails if the lead's active status cannot be checked
 
-Lines 26-58
+Lines 26-32
 
-Asked as: lead status check failed; error validating lead claim; can't verify lead claim; server error saving client lead
+Asked as: failed to check lead status; client save lead check failed; cannot verify lead active; lead status error saving client
 
-If Turbo cannot check the lead's active status, it refuses the save with "failed to check business development lead active status". If it cannot check the busdev claim, it refuses with "error validating business development lead claim". The field error for the claim failure is "unable to verify business development lead claim" (claim_check_failed).
-
-## Business development lead must hold the busdev claim
-
-Lines 46-71
-
-Asked as: lead lacks busdev role; invalid business development lead; lead not allowed busdev; wrong person as busdev lead
-
-When a lead is set or changed on a client, the lead must have the busdev claim. Otherwise Turbo refuses the save with the message "invalid business development lead". The field error is "business development lead must have busdev claim" (missing_claim). This check runs after the active-user check.
-
-## Client create and update run the lead validation
-
-Lines 76-85
-
-Asked as: client save validation runs; creating client lead check; updating client validation; when lead validation happens
-
-Turbo runs the business development lead validation (validateClient) whenever a client is created or updated (ProcessClient). It applies no other client checks in this file.
+If Turbo cannot check whether the business development lead is active, it refuses the save with "failed to check business development lead active status".

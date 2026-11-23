@@ -11,9 +11,9 @@ import (
 
 // validateClient performs cross-field validation for the client record.
 func validateClient(app core.App, clientRecord *core.Record) error {
-	// The lead is optional, and the UI hides it for now. It is checked only when
-	// it is set or changed, so a client whose lead has since lost the claim or
-	// been deactivated can still be saved with that lead left as it is.
+	// The lead is optional, and the UI does not offer it for now. It is checked
+	// only when it is set or changed, so a client whose lead has since been
+	// deactivated can still be saved with that lead left as it is.
 	leadID := clientRecord.GetString("business_development_lead")
 	if leadID == "" {
 		return nil
@@ -38,33 +38,6 @@ func validateClient(app core.App, clientRecord *core.Record) error {
 				"business_development_lead": {
 					Code:    "business_development_lead_not_active",
 					Message: "the selected business development lead is not an active user",
-				},
-			},
-		}
-	}
-
-	hasRequiredClaim, err := utilities.HasClaimByUserID(app, leadID, "busdev")
-	if err != nil {
-		return &errs.HookError{
-			Status:  http.StatusInternalServerError,
-			Message: "error validating business development lead claim",
-			Data: map[string]errs.CodeError{
-				"business_development_lead": {
-					Code:    "claim_check_failed",
-					Message: "unable to verify business development lead claim",
-				},
-			},
-		}
-	}
-
-	if !hasRequiredClaim {
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "invalid business development lead",
-			Data: map[string]errs.CodeError{
-				"business_development_lead": {
-					Code:    "missing_claim",
-					Message: "business development lead must have busdev claim",
 				},
 			},
 		}

@@ -46,7 +46,7 @@ await runBrowserHarness(
       if (path === "/api/users/defaults" || path === "/api/nav/badges") return send({});
       if (path === "/api/clients") return send([client, fixture.otherClient]);
       if (path === `/api/clients/${client.id}`) return send(client);
-      if (path.endsWith("/notes") || path === "/api/clients/busdev-leads") return send([]);
+      if (path.endsWith("/notes")) return send([]);
       if (path === "/api/jobs") return send([]);
       if (path === `/api/jobs/${job.id}` && request.method() === "PUT") {
         jobWrites.push(request.postDataJSON());
