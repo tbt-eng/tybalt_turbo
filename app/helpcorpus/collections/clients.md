@@ -48,7 +48,7 @@
 | `created` | autodate | onCreate |
 | `updated` | autodate | onCreate; onUpdate |
 | `_imported` | bool |  |
-| `business_development_lead` | relation | required; maxSelect 1; to `users` |
+| `business_development_lead` | relation | maxSelect 1; to `users` |
 | `address` | text |  |
 | `city` | text |  |
 | `province_state` | text |  |

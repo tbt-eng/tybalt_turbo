@@ -363,3 +363,57 @@ func TestClientsApi_JobOwnerCountsAndBalances(t *testing.T) {
 	}
 	scenario.Test(t)
 }
+
+// The business development lead is optional: a client saves without one.
+func TestClientsCreate_NoBusDevLead_Succeeds(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "client create succeeds without a business_development_lead",
+		Method:         http.MethodPost,
+		URL:            "/api/collections/clients/records",
+		Body:           strings.NewReader(`{"name": "No Lead Corp"}`),
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`"name":"No Lead Corp"`,
+			`"business_development_lead":""`,
+		},
+		ExpectedEvents: map[string]int{
+			"OnRecordCreateRequest": 1,
+		},
+		TestAppFactory: testutils.SetupTestApp,
+	}
+	scenario.Test(t)
+}
+
+// An existing lead is kept, and is not rechecked, when a save leaves it alone.
+// The fixture client's lead (f2j5a8vk006baub) lacks the busdev claim, so
+// setting it afresh would fail with missing_claim.
+func TestClientsUpdate_KeepsUnchangedBusDevLead(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenario := tests.ApiScenario{
+		Name:           "client update without the lead field keeps the existing lead",
+		Method:         http.MethodPatch,
+		URL:            "/api/collections/clients/records/ee3xvodl583b61o",
+		Body:           strings.NewReader(`{"phone": "555-0100"}`),
+		Headers:        map[string]string{"Authorization": recordToken},
+		ExpectedStatus: 200,
+		ExpectedContent: []string{
+			`"phone":"555-0100"`,
+			`"business_development_lead":"f2j5a8vk006baub"`,
+		},
+		ExpectedEvents: map[string]int{
+			"OnRecordUpdateRequest": 1,
+		},
+		TestAppFactory: testutils.SetupTestApp,
+	}
+	scenario.Test(t)
+}

@@ -507,7 +507,11 @@ await runBrowserHarness(
     await page.getByRole("button", { name: "Save client", exact: true }).click();
     await page.getByText("This field is required.", { exact: true }).waitFor();
     await page.getByLabel("Name", { exact: true }).fill("Updated client");
-    await page.getByLabel("Business development lead", { exact: true }).selectOption("lead1");
+    assert.equal(
+      await page.getByText(/business development lead/i).count(),
+      0,
+      "the business development lead is hidden",
+    );
     failSave = true;
     await page.getByRole("button", { name: "Save client", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Save failed. Try again." }).waitFor();
@@ -516,7 +520,11 @@ await runBrowserHarness(
     await page.getByRole("button", { name: "Save client", exact: true }).click();
     await page.waitForFunction(() => window.saved.length === 1);
     assert.equal(writes.at(-1).body.name, "Updated client");
-    assert.equal(writes.at(-1).body.business_development_lead, "lead1");
+    assert.equal(
+      "business_development_lead" in writes.at(-1).body,
+      false,
+      "a save leaves the hidden lead alone",
+    );
     assert.equal("id" in writes.at(-1).body, false);
     assert.equal("client_contacts" in writes.at(-1).body, false);
     await page.setViewportSize({ width: 390, height: 844 });

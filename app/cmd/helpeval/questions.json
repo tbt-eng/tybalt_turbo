@@ -3007,47 +3007,41 @@
   {
     "id": "clients-02",
     "category": "clients",
-    "question": "I'm in procurement. I only changed a client's phone number, but Turbo refused the save with an error about the business development lead. I didn't touch the lead. Why?",
+    "question": "I'm in procurement. A client's business development lead has left the company and their account is inactive. I can't see the lead anywhere on the client. Will Turbo still let me change the client's phone number?",
     "held": [
       "job",
       "time"
     ],
-    "ideal_answer": "Turbo checks the business development lead every time a client is saved, not only when the lead changes. The lead must have an active account and must hold the business development (busdev) claim. If the lead has left and their account is now inactive, or they no longer hold that claim, Turbo refuses every edit of the client, even an edit of the phone number. Select another lead who is active and holds the claim, or clear the field, because a client may have no lead. Then save again.",
+    "ideal_answer": "Yes. Turbo checks the business development lead only when it is set or changed, and a client may have no lead at all. The client screens hide the lead for now and do not send it when you save, so the stored lead stays as it is and is not checked again. An edit of the phone number saves normally, even though the lead is inactive or no longer holds the business development (busdev) claim.",
     "key_points": [
-      "Turbo checks the lead on every save of a client, even when the lead was not changed.",
-      "The save fails because the current lead is no longer an active user or no longer holds the busdev claim."
+      "The save goes through: Turbo checks the lead only when it is set or changed, not on every save.",
+      "The lead is hidden in the client screens for now, and a save leaves the stored lead as it is."
     ],
     "extra_points": [
-      "The lead is optional: clearing it, or selecting an active lead who holds the claim, lets the save pass."
+      "The lead is optional: a client can be saved with no lead."
     ],
     "wrong_if": [
-      "Says Turbo checks the lead only when the lead field changes.",
-      "Says the phone number or another field caused the error."
+      "Says Turbo refuses the save because the lead is inactive or lacks the busdev claim.",
+      "Says the user must pick another lead or clear the lead first."
     ],
     "sources": [
       {
         "path": "app/hooks/clients.go",
         "start": 13,
-        "end": 38,
-        "why": "no lead skips the checks; a lead must be an active user"
+        "end": 23,
+        "why": "no lead, or an unchanged lead, skips the checks"
       },
       {
-        "path": "app/hooks/clients.go",
-        "start": 40,
-        "end": 65,
-        "why": "the lead must hold the busdev claim"
-      },
-      {
-        "path": "app/hooks/hooks.go",
-        "start": 463,
-        "end": 474,
-        "why": "the checks run on every create and every update of a client"
+        "path": "ui/src/lib/clientEditors.ts",
+        "start": 19,
+        "end": 28,
+        "why": "the lead is hidden and the editor does not send it"
       }
     ],
-    "evidence": "if !active {\n\treturn &errs.HookError{\n\t\tStatus:  http.StatusBadRequest,\n\t\tMessage: \"business development lead must be an active user\",",
-    "confirmed_by_test": "app/clients_test.go:79",
+    "evidence": "if !clientRecord.IsNew() && clientRecord.Original().GetString(\"business_development_lead\") == leadID {\n\t\treturn nil\n\t}",
+    "confirmed_by_test": "app/clients_test.go:396",
     "in_user_docs": "no",
-    "why_hard": "The check is on the stored lead at every save, so a change in the lead's account breaks edits that have nothing to do with the lead."
+    "why_hard": "The lead is still stored and still has rules, but they apply only when the lead changes, and the screens no longer show it."
   },
   {
     "id": "clients-03",

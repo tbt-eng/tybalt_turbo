@@ -16,10 +16,14 @@ export const contactFields = [
   ...Object.keys(postalFields),
 ];
 export const invoicingFields = ["name", "contact", "billing_name", "fax", "invoicing_instructions"];
+// The business development lead is hidden for now. The field, the busdev claim
+// and existing values stay; set this to true to show it again. While hidden, the
+// client editor does not send the field, so a save leaves a client's lead alone.
+export const showBusdevLead: boolean = false;
 export const clientFields = [
   "name",
   "alias",
-  "business_development_lead",
+  ...(showBusdevLead ? ["business_development_lead"] : []),
   "phone",
   ...Object.keys(postalFields),
 ];

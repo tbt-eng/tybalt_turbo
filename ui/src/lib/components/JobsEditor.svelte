@@ -50,6 +50,7 @@
   import type { JobApiResponse } from "$lib/stores/jobs";
   import { JobsStatusOptions } from "$lib/pocketbase-types";
   import { busdevLeads } from "$lib/stores/busdevLeads";
+  import { showBusdevLead } from "$lib/clientEditors";
   import { clientLabel } from "$lib/clientWorkspace";
   let { data }: { data: JobsPageData } = $props();
 
@@ -205,7 +206,7 @@
   let newClientError = $state<string | null>(null);
 
   // Initialize busdevLeads store for the Add Client popover
-  busdevLeads.init();
+  if (showBusdevLead) busdevLeads.init();
 
   const alternateManagerErrorMessage = "Alternate manager must be different from manager.";
 
@@ -819,10 +820,6 @@
       newClientError = "Name is required";
       return;
     }
-    if (!newClientBusdevLead.trim()) {
-      newClientError = "Business Development Lead is required";
-      return;
-    }
 
     newClientSubmitting = true;
     newClientError = null;
@@ -830,7 +827,7 @@
     try {
       const createdClient = await pb.collection("clients").create({
         name: newClientName.trim(),
-        business_development_lead: newClientBusdevLead,
+        ...(newClientBusdevLead ? { business_development_lead: newClientBusdevLead } : {}),
       });
 
       // Select the newly created client
@@ -1711,27 +1708,29 @@
     />
   </div>
 
-  <div class="flex flex-col gap-1">
-    {#if $busdevLeads.items.length > 0}
-      <DSPicker
-        bind:value={newClientBusdevLead}
-        items={$busdevLeads.items}
-        index={$busdevLeads.index}
-        errors={{}}
-        fieldName="new_client_busdev_lead"
-        uiName="Business Development Lead"
-        empty
-      >
-        {#snippet option(lead)}
-          {lead.surname}{lead.given_name ? `, ${lead.given_name}` : ""}
-        {/snippet}
-      </DSPicker>
-    {:else if $busdevLeads.loading}
-      <span class="text-sm font-semibold">Business Development Lead</span>
-      <span class="text-sm text-neutral-500">Loading business development leads…</span>
-    {:else}
-      <span class="text-sm font-semibold">Business Development Lead</span>
-      <span class="text-sm text-neutral-500">No eligible Business Development Leads found.</span>
-    {/if}
-  </div>
+  {#if showBusdevLead}
+    <div class="flex flex-col gap-1">
+      {#if $busdevLeads.items.length > 0}
+        <DSPicker
+          bind:value={newClientBusdevLead}
+          items={$busdevLeads.items}
+          index={$busdevLeads.index}
+          errors={{}}
+          fieldName="new_client_busdev_lead"
+          uiName="Business Development Lead"
+          empty
+        >
+          {#snippet option(lead)}
+            {lead.surname}{lead.given_name ? `, ${lead.given_name}` : ""}
+          {/snippet}
+        </DSPicker>
+      {:else if $busdevLeads.loading}
+        <span class="text-sm font-semibold">Business Development Lead</span>
+        <span class="text-sm text-neutral-500">Loading business development leads…</span>
+      {:else}
+        <span class="text-sm font-semibold">Business Development Lead</span>
+        <span class="text-sm text-neutral-500">No eligible Business Development Leads found.</span>
+      {/if}
+    </div>
+  {/if}
 </DSPopover>

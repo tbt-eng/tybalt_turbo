@@ -11,8 +11,14 @@ import (
 
 // validateClient performs cross-field validation for the client record.
 func validateClient(app core.App, clientRecord *core.Record) error {
+	// The lead is optional, and the UI hides it for now. It is checked only when
+	// it is set or changed, so a client whose lead has since lost the claim or
+	// been deactivated can still be saved with that lead left as it is.
 	leadID := clientRecord.GetString("business_development_lead")
 	if leadID == "" {
+		return nil
+	}
+	if !clientRecord.IsNew() && clientRecord.Original().GetString("business_development_lead") == leadID {
 		return nil
 	}
 

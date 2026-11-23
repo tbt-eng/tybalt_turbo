@@ -16,6 +16,7 @@
   import ClientRateSheets from "$lib/components/rateSheets/ClientRateSheets.svelte";
   import { shortDate, formatCurrency } from "$lib/utilities";
   import { globalStore } from "$lib/stores/global";
+  import { showBusdevLead } from "$lib/clientEditors";
   import {
     addressText,
     canCreateInvoicingProfile,
@@ -283,10 +284,12 @@
             <h3 class="text-sm font-semibold text-neutral-600">Phone</h3>
             <p>{data.client.phone || "Not recorded"}</p>
           </div>
-          <div>
-            <h3 class="text-sm font-semibold text-neutral-600">Business Development Lead</h3>
-            <p>{leadName}</p>
-          </div>
+          {#if showBusdevLead}
+            <div>
+              <h3 class="text-sm font-semibold text-neutral-600">Business Development Lead</h3>
+              <p>{leadName}</p>
+            </div>
+          {/if}
           <div>
             <h3 class="text-sm font-semibold text-neutral-600">Outstanding Balance</h3>
             <p>{formatCurrency(data.client.outstanding_balance ?? 0)}</p>
