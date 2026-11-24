@@ -1,0 +1,5 @@
+collection_name,created,id,open,proposal,record_id,record_name,updated
+clients,2026-11-20 15:00:00.000Z,absorbproprec01,1,absorbprop00001,eldtxi3i4h00k8r,BN Rail Corporation,2026-11-20 15:00:00.000Z
+clients,2026-11-20 15:05:00.000Z,absorbproprec02,1,absorbprop00002,pqpd90fqd5ohjcs,Sepulchi & Co,2026-11-20 15:05:00.000Z
+vendors,2026-11-20 15:10:00.000Z,absorbproprec03,1,absorbprop00003,z66xe6vqhwtokt4,Stuff Unlimited,2026-11-20 15:10:00.000Z
+vendors,2026-11-19 15:00:00.000Z,absorbproprec04,0,absorbprop00004,yxhycv2ycpvsbt4,Dick's Auto Parts (Richard & Sons),2026-11-19 18:00:00.000Z

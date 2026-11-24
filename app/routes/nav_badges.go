@@ -16,6 +16,7 @@ const (
 	navExpenseCommitQueueHref    = "/reports/expense/queue"
 	navExpenseSettlementHref     = "/expenses/settlement"
 	navExpenseUncommitQueueHref  = "/expenses/uncommit-requests"
+	navAbsorbProposalsHref       = "/absorb/proposals"
 )
 
 var navPendingPurchaseOrdersCountQuery string
@@ -142,6 +143,22 @@ func createGetNavBadgesHandler(app core.App) func(e *core.RequestEvent) error {
 				return e.Error(http.StatusInternalServerError, "failed to count expense uncommit requests", err)
 			}
 			counts[navExpenseUncommitQueueHref] = uncommitRequestsCount
+		}
+
+		hasAbsorb, err := utilities.HasClaim(app, e.Auth, "absorb")
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to check absorb claim", err)
+		}
+		if hasAbsorb {
+			absorbProposalsCount, err := countNavRows(app, `
+				SELECT COUNT(*)
+				FROM absorb_proposals
+				WHERE status = 'pending'
+			`, dbx.Params{})
+			if err != nil {
+				return e.Error(http.StatusInternalServerError, "failed to count absorb proposals", err)
+			}
+			counts[navAbsorbProposalsHref] = absorbProposalsCount
 		}
 
 		return e.JSON(http.StatusOK, counts)

@@ -182,6 +182,15 @@ func AddRoutes(app core.App) {
 		uncommitRequestsGroup.POST("/{id}/decline", createDeclineExpenseUncommitRequestHandler(app))
 		uncommitRequestsGroup.POST("/{id}/cancel", createCancelExpenseUncommitRequestHandler(app))
 
+		// Absorb proposals: anyone proposes, absorb holders review.
+		absorbProposalsGroup := se.Router.Group("/api/absorb_proposals")
+		absorbProposalsGroup.Bind(apis.RequireAuth("users"))
+		absorbProposalsGroup.GET("", createGetAbsorbProposalsHandler(app))
+		absorbProposalsGroup.POST("", createCreateAbsorbProposalHandler(app))
+		absorbProposalsGroup.GET("/{id}", createGetAbsorbProposalHandler(app))
+		absorbProposalsGroup.POST("/{id}/withdraw", createWithdrawAbsorbProposalHandler(app))
+		absorbProposalsGroup.POST("/{id}/decline", createDeclineAbsorbProposalHandler(app))
+
 		timeAmendmentsGroup := se.Router.Group("/api/time_amendments")
 		timeAmendmentsGroup.Bind(apis.RequireAuth("users"))
 		timeAmendmentsGroup.POST("/{id}/commit", createCommitRecordHandler(app, "time_amendments"))

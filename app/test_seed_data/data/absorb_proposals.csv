@@ -1,0 +1,5 @@
+client_id,client_name,collection_name,created,decided_at,decided_by,decision_comment,id,reason,requester,status,target_id,target_name,updated
+,,clients,2026-11-20 15:00:00.000Z,,,,absorbprop00001,BN Rail is the same company as Mobilia,rzr98oadsp9qc11,pending,lb0fnenkeyitsny,Mobilia SA,2026-11-20 15:00:00.000Z
+,,clients,2026-11-20 15:05:00.000Z,,,,absorbprop00002,Sepulchi was entered twice,rzr98oadsp9qc11,pending,iq7ge8osf6kuj3l,City of Ipperville,2026-11-20 15:05:00.000Z
+,,vendors,2026-11-20 15:10:00.000Z,,,,absorbprop00003,Stuff Unlimited is a trade name of Big Vendor Industries,rzr98oadsp9qc11,pending,2zqxtsmymf670ha,Big Vendor Industries (BVI),2026-11-20 15:10:00.000Z
+,,vendors,2026-11-19 15:00:00.000Z,2026-11-19 18:00:00.000Z,tqqf7q0f3378rvp,These are different companies,absorbprop00004,Same parts supplier,wegviunlyr2jjjv,declined,mmgxrnn144767x7,Ricky Bobby's,2026-11-19 18:00:00.000Z

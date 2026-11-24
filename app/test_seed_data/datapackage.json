@@ -416,6 +416,144 @@
       ]
     },
     {
+      "name": "absorb_proposals",
+      "path": "data/absorb_proposals.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "client_id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "client_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "collection_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "decided_at",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "decided_by",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "decision_comment",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "requester",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "target_id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "target_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
+      "name": "absorb_proposal_records",
+      "path": "data/absorb_proposal_records.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "collection_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "open",
+            "type": "boolean",
+            "x-sqlite-type": "BOOLEAN"
+          },
+          {
+            "name": "proposal",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "record_id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "record_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
       "name": "admin_profiles",
       "path": "data/admin_profiles.csv",
       "schema": {

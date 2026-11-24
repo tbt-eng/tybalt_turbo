@@ -704,19 +704,45 @@ func AddHooks(app core.App) {
 			}
 		}
 
-		if config.OnCommit == nil {
+		// A commit of a collection whose absorb can be proposed also settles
+		// the proposals: it accepts the one that the action carries out and
+		// closes those that name an absorbed record.
+		settlesProposals := absorb.IsProposalCollection(collectionName)
+		if config.OnCommit == nil && !settlesProposals {
 			return e.Next()
 		}
 
-		// Run the commit step and the delete in one transaction, so that a
+		// Run the commit steps and the delete in one transaction, so that a
 		// failed delete leaves nothing behind.
-		return e.App.RunInTransaction(func(txApp core.App) error {
-			if err := config.OnCommit(txApp, e.Record, e.Auth); err != nil {
-				return AnnotateHookError(txApp, e, err)
+		var settled []*core.Record
+		err := e.App.RunInTransaction(func(txApp core.App) error {
+			if config.OnCommit != nil {
+				if err := config.OnCommit(txApp, e.Record, e.Auth); err != nil {
+					return AnnotateHookError(txApp, e, err)
+				}
+			}
+			if settlesProposals {
+				var err error
+				settled, err = absorb.SettleProposalsOnCommit(txApp, e.Record, e.Auth)
+				if err != nil {
+					return AnnotateHookError(txApp, e, &errs.HookError{
+						Status:  http.StatusInternalServerError,
+						Message: "failed to update absorb proposals",
+					})
+				}
 			}
 			e.App = txApp
 			return e.Next()
 		})
+		if err != nil {
+			return err
+		}
+		for _, proposal := range settled {
+			if err := notifications.QueueAbsorbProposalOutcomeNotification(app, proposal); err != nil {
+				app.Logger().Error("error queueing absorb proposal notification", "proposal_id", proposal.Id, "error", err)
+			}
+		}
+		return nil
 	})
 
 	// Hook for time_sheet_reviewers: when a new reviewer is added, send notification

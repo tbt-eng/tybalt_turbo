@@ -22,6 +22,9 @@ import (
 // AbsorbRequest defines the structure for the absorb request body
 type AbsorbRequest struct {
 	IdsToAbsorb []string `json:"ids_to_absorb"`
+	// Proposal is the id of the absorb proposal that this absorb carries
+	// out, if any. Its commit accepts the proposal.
+	Proposal string `json:"proposal"`
 }
 
 // AbsorbAction represents a record in the absorb_actions collection
@@ -130,7 +133,17 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 			}
 		}
 
-		err = AbsorbRecords(app, collectionName, targetId, request.IdsToAbsorb)
+		if request.Proposal != "" {
+			if err := checkAbsorbFromProposal(app, collectionName, targetId, request.IdsToAbsorb, request.Proposal); err != nil {
+				var refused *absorb.ProposalError
+				if errors.As(err, &refused) {
+					return e.JSON(refused.Status, map[string]string{"code": refused.Code, "message": refused.Message})
+				}
+				return apis.NewApiError(http.StatusInternalServerError, "Failed to check the absorb proposal", err)
+			}
+		}
+
+		err = AbsorbRecordsForProposal(app, collectionName, targetId, request.IdsToAbsorb, request.Proposal)
 		if err != nil {
 			// A rule of the collection's config refused the absorb.
 			var refused *absorb.RefusedError
@@ -147,7 +160,49 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 	}
 }
 
+// checkAbsorbFromProposal checks an absorb that carries out a proposal. The
+// target and the records must come from the proposal: the reviewer may leave
+// records out or keep another of them, but not add one. The proposal checks
+// are made again, because the records may have changed since.
+func checkAbsorbFromProposal(app core.App, collectionName string, targetID string, ids []string, proposalID string) error {
+	proposal, err := app.FindRecordById(absorb.ProposalsCollection, proposalID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return &absorb.ProposalError{Status: http.StatusNotFound, Code: "proposal_not_found", Message: "absorb proposal not found"}
+	}
+	if err != nil {
+		return err
+	}
+	if proposal.GetString("collection_name") != collectionName {
+		return &absorb.ProposalError{Status: http.StatusBadRequest, Code: "proposal_mismatch", Message: "the absorb proposal is for another kind of record"}
+	}
+	if proposal.GetString("status") != absorb.ProposalPending {
+		return &absorb.ProposalError{Status: http.StatusBadRequest, Code: "proposal_not_pending", Message: "this absorb proposal has already been decided"}
+	}
+	proposed, err := absorb.ProposalRecordIDs(app, proposal.Id)
+	if err != nil {
+		return err
+	}
+	allowed := map[string]bool{proposal.GetString("target_id"): true}
+	for _, id := range proposed {
+		allowed[id] = true
+	}
+	for _, id := range append([]string{targetID}, ids...) {
+		if !allowed[id] {
+			return &absorb.ProposalError{Status: http.StatusBadRequest, Code: "record_not_in_proposal", Message: "every record must come from the absorb proposal"}
+		}
+	}
+	_, _, err = absorb.ValidateProposal(app, collectionName, targetID, ids, proposal.Id)
+	return err
+}
+
+// AbsorbRecords absorbs idsToAbsorb into targetID.
 func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAbsorb []string) error {
+	return AbsorbRecordsForProposal(app, collectionName, targetID, idsToAbsorb, "")
+}
+
+// AbsorbRecordsForProposal absorbs idsToAbsorb into targetID and links the
+// pending absorb action to proposalID, which may be blank.
+func AbsorbRecordsForProposal(app core.App, collectionName string, targetID string, idsToAbsorb []string, proposalID string) error {
 	// Get reference configs based on collection name
 	config, err := absorb.GetConfig(collectionName)
 	if err != nil {
@@ -297,7 +352,7 @@ func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAb
 			return fmt.Errorf("error serializing reference updates: %w", err)
 		}
 
-		if err := recordAbsorbAction(txApp, collectionName, targetID, absorbedRecords, updatedRefs); err != nil {
+		if err := recordAbsorbAction(txApp, collectionName, targetID, absorbedRecords, updatedRefs, proposalID); err != nil {
 			return fmt.Errorf("error recording absorb action: %w", err)
 		}
 
@@ -548,7 +603,7 @@ func getAbsorbAction(app core.App, collectionName string) (*AbsorbAction, error)
 }
 
 // recordAbsorbAction creates a new absorb action record
-func recordAbsorbAction(app core.App, collectionName string, targetId string, absorbedRecords []byte, updatedReferences []byte) error {
+func recordAbsorbAction(app core.App, collectionName string, targetId string, absorbedRecords []byte, updatedReferences []byte, proposalID string) error {
 	collection, err := app.FindCollectionByNameOrId("absorb_actions")
 	if err != nil {
 		return fmt.Errorf("error finding absorb_actions collection: %w", err)
@@ -559,6 +614,7 @@ func recordAbsorbAction(app core.App, collectionName string, targetId string, ab
 	record.Set("target_id", targetId)
 	record.Set("absorbed_records", string(absorbedRecords))
 	record.Set("updated_references", string(updatedReferences))
+	record.Set("proposal", proposalID)
 
 	if err := app.Save(record); err != nil {
 		return fmt.Errorf("error saving absorb action: %w", err)

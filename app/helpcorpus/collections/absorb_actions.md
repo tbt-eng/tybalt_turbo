@@ -41,6 +41,7 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `updated_references` | json | required; maxSize 2000000 |
 | `created` | autodate | onCreate |
 | `updated` | autodate | onCreate; onUpdate |
+| `proposal` | text |  |
 
 ## Indexes: absorb_actions
 

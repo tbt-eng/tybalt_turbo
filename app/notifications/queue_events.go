@@ -9,6 +9,7 @@ import (
 	"strings"
 	"tybalt/utilities"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -264,5 +265,77 @@ func QueueTimesheetSharedNotifications(app core.App, timesheet *core.Record, sha
 		"created_count", createdCount,
 	)
 
+	return nil
+}
+
+// absorbProposalCollectionLabels name each collection whose absorb can be
+// proposed, as notifications show it.
+var absorbProposalCollectionLabels = map[string]string{
+	"clients":         "Client",
+	"client_contacts": "Contact",
+	"vendors":         "Vendor",
+}
+
+// QueueAbsorbProposalOutcomeNotification tells the requester that their
+// absorb proposal was carried out (accepted, once the absorb is committed),
+// declined or overtaken by another absorb (obsolete). A decision by the
+// requester themself sends nothing.
+func QueueAbsorbProposalOutcomeNotification(app core.App, proposal *core.Record) error {
+	requesterUID := proposal.GetString("requester")
+	deciderUID := proposal.GetString("decided_by")
+	if requesterUID == deciderUID {
+		return nil
+	}
+
+	templateCode := ""
+	switch proposal.GetString("status") {
+	case "accepted":
+		templateCode = "absorb_proposal_accepted"
+	case "declined":
+		templateCode = "absorb_proposal_declined"
+	case "obsolete":
+		templateCode = "absorb_proposal_obsolete"
+	default:
+		return nil
+	}
+
+	deciderName := ""
+	if deciderUID != "" {
+		name, _, err := getProfileDisplayName(app, deciderUID)
+		if err != nil {
+			return fmt.Errorf("error finding decider profile: %v", err)
+		}
+		deciderName = name
+	}
+
+	targetLabel := absorbProposalCollectionLabels[proposal.GetString("collection_name")] + " " + proposal.GetString("target_name")
+	if clientName := proposal.GetString("client_name"); clientName != "" {
+		targetLabel += " of " + clientName
+	}
+
+	rows, err := app.FindAllRecords("absorb_proposal_records", dbx.HashExp{"proposal": proposal.Id})
+	if err != nil {
+		return fmt.Errorf("error finding absorb proposal records: %v", err)
+	}
+	names := make([]string, 0, len(rows))
+	for _, row := range rows {
+		names = append(names, row.GetString("record_name"))
+	}
+
+	createAndSendToRecipients(
+		app,
+		templateCode,
+		[]string{requesterUID},
+		map[string]any{
+			"TargetLabel": targetLabel,
+			"Records":     strings.Join(names, ", "),
+			"DeciderName": deciderName,
+			"Comment":     proposal.GetString("decision_comment"),
+			"ActionURL":   BuildActionURL(app, "/absorb/proposals?status=decided"),
+		},
+		true,
+		"",
+		map[string]any{"absorb_proposal_id": proposal.Id},
+	)
 	return nil
 }

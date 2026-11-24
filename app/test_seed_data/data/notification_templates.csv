@@ -225,3 +225,29 @@ Attachment: {{.}}{{end}}
 No expenses can be added to it until it is approved. You may review it, then approve or reject it here:
 
 {{.ActionURL}}",2026-11-05 16:00:00.000Z
+absorb_proposal_accepted,2026-11-24 16:00:00.000Z,Tells the requester their absorb proposal was carried out,,absorbpropaccep,Absorb done: {{.TargetLabel}},"Hello {{.RecipientName}},
+
+{{.DeciderName}} absorbed the records you proposed.
+
+Kept: {{.TargetLabel}}
+Absorbed: {{.Records}}
+
+{{.ActionURL}}",2026-11-24 16:00:00.000Z
+absorb_proposal_declined,2026-11-24 16:00:00.000Z,Tells the requester their absorb proposal was declined,,absorbpropdecli,Absorb proposal declined: {{.TargetLabel}},"Hello {{.RecipientName}},
+
+{{.DeciderName}} declined your absorb proposal. Nothing was absorbed.
+
+Kept: {{.TargetLabel}}
+Records: {{.Records}}
+Why it was declined: {{.Comment}}
+
+{{.ActionURL}}",2026-11-24 16:00:00.000Z
+absorb_proposal_obsolete,2026-11-24 16:00:00.000Z,Tells the requester their absorb proposal was overtaken by another absorb,,absorbpropobsol,Absorb proposal closed: {{.TargetLabel}},"Hello {{.RecipientName}},
+
+Another absorb removed a record in your absorb proposal, so the proposal is closed.
+
+Kept: {{.TargetLabel}}
+Records: {{.Records}}
+{{.Comment}}
+
+{{.ActionURL}}",2026-11-24 16:00:00.000Z
