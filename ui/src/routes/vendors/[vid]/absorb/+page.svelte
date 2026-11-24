@@ -4,6 +4,8 @@
   import { vendors } from "$lib/stores/vendors";
   import { page } from "$app/stores";
   import { trimmedOrEmpty } from "$lib/utilities";
+  import { globalStore } from "$lib/stores/global";
+  import { canAbsorbDirectly } from "$lib/absorbProposals";
 
   // initialize the stores, noop if already initialized
   vendors.init();
@@ -14,6 +16,7 @@
   targetRecordId={$page.params.vid ?? ""}
   availableRecords={$vendors.items}
   autoCompleteIndex={$vendors.index as unknown as any}
+  propose={!canAbsorbDirectly($globalStore.claims)}
 >
   {#snippet recordSnippet(item: VendorsResponse)}
     {item.name}

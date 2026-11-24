@@ -5,6 +5,8 @@
   import type { ClientContactsResponse } from "$lib/pocketbase-types";
   import MiniSearch from "minisearch";
   import { page } from "$app/stores";
+  import { globalStore } from "$lib/stores/global";
+  import { canAbsorbDirectly } from "$lib/absorbProposals";
   const INDEX_THRESHOLD = 30;
   export let data: PageData;
 
@@ -31,6 +33,7 @@
     targetRecordId={$page.params.kid!}
     {availableRecords}
     autoCompleteIndex={autoCompleteIndex as unknown as any}
+    propose={!canAbsorbDirectly($globalStore.claims)}
   >
     {#snippet recordSnippet(item: ClientContactsResponse)}
       {item.given_name} {item.surname} — {item.email}

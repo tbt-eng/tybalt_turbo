@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ClientWorkspaceData } from "$lib/clientWorkspaceLoad";
+  import { canAbsorbDirectly } from "$lib/absorbProposals";
   import { untrack } from "svelte";
   import { navigating, page } from "$app/state";
   import { goto, replaceState } from "$app/navigation";
@@ -42,7 +43,8 @@
   const listState = $derived(parseClientWorkspaceQuery(workspaceUrl.searchParams));
   const canEdit = $derived($globalStore.claims.includes("job"));
   const canCreateProfile = $derived(canCreateInvoicingProfile($globalStore.claims));
-  const canMerge = $derived($globalStore.claims.includes("absorb"));
+  // Without the absorb permission, the merge button proposes the merge.
+  const canMerge = $derived(canAbsorbDirectly($globalStore.claims));
   const contacts = $derived(data.client.contacts as WorkspaceContact[]);
   const profiles = $derived(data.client.invoicing_profiles as WorkspaceInvoicing[]);
   const timeDivisions = $derived(data.timeDivisions as WorkspaceTimeDivision[]);
@@ -397,12 +399,14 @@
                 >{/if}
             {/snippet}
             {#snippet actions(contact)}
-              {#if canMerge}<DsActionButton
-                  action={editorHref(`contacts/${contact.id}/absorb`)}
-                  icon="mdi:merge"
-                  title={`Merge contacts into ${contactName(contact)}`}
-                  color="yellow"
-                />{/if}
+              <DsActionButton
+                action={editorHref(`contacts/${contact.id}/absorb`)}
+                icon="mdi:merge"
+                title={canMerge
+                  ? `Merge contacts into ${contactName(contact)}`
+                  : `Propose merging contacts into ${contactName(contact)}`}
+                color="yellow"
+              />
               {#if canEdit}<DsActionButton
                   action={editorHref(`contacts/${contact.id}/edit`)}
                   icon="mdi:pencil"

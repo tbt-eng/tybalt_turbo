@@ -12,6 +12,7 @@
   import AbsorbList from "./AbsorbList.svelte";
   import { getAbsorbRedirectUrl } from "$lib/utilities";
   import { jobsEditingEnabled, expensesEditingEnabled } from "$lib/stores/appConfig";
+  import DsTextInput from "./DSTextInput.svelte";
 
   let {
     collectionName,
@@ -20,6 +21,7 @@
     availableRecords,
     autoCompleteIndex = null,
     returnTo,
+    propose = false,
   }: {
     collectionName: string;
     targetRecordId: string;
@@ -28,6 +30,9 @@
     autoCompleteIndex?: MiniSearch<T> | null;
     // The caller validates this optional client-workspace return route.
     returnTo?: string;
+    // Propose the absorb for an absorb holder to review, instead of
+    // absorbing. For users without the absorb permission.
+    propose?: boolean;
   } = $props();
 
   // Collections that affect jobs when absorbed
@@ -35,9 +40,11 @@
 
   // Derived: absorb is disabled if this collection affects jobs and job editing is disabled,
   // or if this is a vendor absorb and expenses editing is disabled
+  // A proposal changes no data, so it is never disabled.
   const absorbDisabled = $derived(
-    (collectionsAffectingJobs.includes(collectionName) && !$jobsEditingEnabled) ||
-      (collectionName === "vendors" && !$expensesEditingEnabled),
+    !propose &&
+      ((collectionsAffectingJobs.includes(collectionName) && !$jobsEditingEnabled) ||
+        (collectionName === "vendors" && !$expensesEditingEnabled)),
   );
 
   let errors = $state<Record<string, { message: string }>>({});
@@ -47,6 +54,8 @@
   let mergeCompleted = $state(false);
   let items = $state<T[]>([]);
   let targetRecord = $state<T | null>(null);
+  let reason = $state("");
+  let submitting = $state(false);
 
   // Reference to the DsAutoComplete component so we can call its exposed focus() helper.
   // svelte-ignore non_reactive_update
@@ -60,8 +69,10 @@
   });
 
   // Check for existing absorb action on mount
+  // A proposer can't absorb, so a pending action doesn't stop them.
   $effect(() => {
-    checkExistingAbsorbAction();
+    if (propose) existingAbsorbAction = null;
+    else checkExistingAbsorbAction();
   });
 
   // Get target record
@@ -132,6 +143,33 @@
       } else {
         errors = { global: { message: "An unknown error occurred" } };
       }
+    }
+  }
+
+  async function handlePropose() {
+    errors = {};
+    if (reason.trim() === "") {
+      errors = { reason: { message: "Enter a reason" } };
+      return;
+    }
+    submitting = true;
+    try {
+      await pb.send("/api/absorb_proposals", {
+        method: "POST",
+        body: {
+          collection_name: collectionName,
+          target_id: targetRecordId,
+          record_ids: recordsToAbsorb,
+          reason,
+        },
+      });
+      goto("/absorb/proposals");
+    } catch (error: unknown) {
+      errors = {
+        global: { message: error instanceof Error ? error.message : "An unknown error occurred" },
+      };
+    } finally {
+      submitting = false;
     }
   }
 
@@ -239,8 +277,28 @@
       {/if}
     </div>
 
+    {#if propose}
+      <DsTextInput
+        bind:value={reason}
+        {errors}
+        fieldName="reason"
+        uiName="Reason"
+        placeholder="Why are these records the same?"
+        rows={3}
+        maxlength={1000}
+      />
+    {/if}
+
     <div class="flex gap-2">
-      <DsActionButton action={handleAbsorb}>Absorb</DsActionButton>
+      {#if propose}
+        <DsActionButton
+          action={handlePropose}
+          loading={submitting}
+          disabled={recordsToAbsorb.length === 0 || reason.trim() === ""}>Propose</DsActionButton
+        >
+      {:else}
+        <DsActionButton action={handleAbsorb}>Absorb</DsActionButton>
+      {/if}
       <DsActionButton
         action={() =>
           returnTo

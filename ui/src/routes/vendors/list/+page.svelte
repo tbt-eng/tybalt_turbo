@@ -6,6 +6,7 @@
   import { vendors } from "$lib/stores/vendors";
   import { expensesEditingEnabled } from "$lib/stores/appConfig";
   import { globalStore } from "$lib/stores/global";
+  import { canAbsorbDirectly } from "$lib/absorbProposals";
   import { errorStatus, saveErrorMessage, trimmedOrEmpty } from "$lib/utilities";
 
   // initialize the stores, noop if already initialized
@@ -73,7 +74,9 @@
         <DsActionButton
           action={`/vendors/${id}/absorb`}
           icon="mdi:merge"
-          title="Absorb other vendors into this one"
+          title={canAbsorbDirectly($globalStore.claims)
+            ? "Absorb other vendors into this one"
+            : "Propose absorbing other vendors into this one"}
           color="yellow"
         />
         <!-- Vendors that purchase orders or expenses use cannot be deleted; absorb them instead. -->

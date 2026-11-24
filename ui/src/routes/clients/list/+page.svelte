@@ -5,6 +5,7 @@
   import { pb } from "$lib/pocketbase";
   import { clientLabel } from "$lib/clientWorkspace";
   import { globalStore } from "$lib/stores/global";
+  import { canAbsorbDirectly } from "$lib/absorbProposals";
   import { errorFieldCode, errorStatus, saveErrorMessage } from "$lib/utilities";
 
   // initialize the stores, noop if already initialized
@@ -95,7 +96,9 @@
       <DsActionButton
         action={`/clients/${id}/absorb`}
         icon="mdi:merge"
-        title="Absorb other clients into this one"
+        title={canAbsorbDirectly($globalStore.claims)
+          ? "Absorb other clients into this one"
+          : "Propose absorbing other clients into this one"}
         color="yellow"
       />
       <!-- Only users with the job claim can delete clients, and clients that are in use must be absorbed instead. -->

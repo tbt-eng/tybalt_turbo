@@ -297,6 +297,13 @@ await runBrowserHarness(
       0,
       "job permission alone cannot merge contacts",
     );
+    assert.equal(
+      await contacts()
+        .getByTitle("Propose merging contacts into Contact001 Sample", { exact: true })
+        .count(),
+      1,
+      "without the absorb permission the merge button proposes",
+    );
     await page.setViewportSize({ width: 390, height: 844 });
     await profileHelp.click();
     await helpPanel.waitFor();

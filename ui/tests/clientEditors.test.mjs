@@ -173,7 +173,7 @@ test("saved record links retain list filters and replace stale save banners", as
   assert.equal(url.hash, "#contacts");
 });
 
-test("contact merge preserves absorb permission without granting job-only users access", async () => {
+test("contact merge opens for absorb holders and, to propose, for everyone else", async () => {
   const allowed = await editorModules({ claims: ["absorb"] });
   const result = await allowed.modules
     .get("loader")
@@ -185,12 +185,12 @@ test("contact merge preserves absorb permission without granting job-only users 
     "/api/clients/client1",
     { collection: "client_contacts", filter: "client=client1" },
   ]);
-  const forbidden = await editorModules({ claims: ["job"] });
-  await assert.rejects(
-    forbidden.modules.get("loader").namespace.loadClientMerge("client1", "contact1"),
-    { status: 403 },
-  );
-  assert.deepEqual(forbidden.calls, ["claims"]);
+  // Without the absorb permission the editor proposes the merge.
+  const proposer = await editorModules({ claims: ["job"] });
+  const proposed = await proposer.modules
+    .get("loader")
+    .namespace.loadClientMerge("client1", "contact1");
+  assert.equal(proposed.contacts[0].id, "contact1");
   await assert.rejects(
     allowed.modules.get("loader").namespace.loadClientMerge("client1", "foreign-contact"),
     { status: 404 },

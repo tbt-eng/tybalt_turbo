@@ -62,10 +62,10 @@ export async function loadClientEditor(
   };
 }
 
+// Anyone may open the contact merge: without the absorb permission, the
+// editor proposes the merge instead.
 export async function loadClientMerge(clientId: string, contactId: string, url?: URL) {
   await globalStore.ensureClaims();
-  if (!get(globalStore).claims.includes("absorb"))
-    error(403, "The absorb permission is required to merge contacts.");
   const client = await loadClientContext(clientId);
   if (!client.contacts.some((contact) => contact.id === contactId))
     error(404, "Contact not found for this client.");
