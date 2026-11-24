@@ -19,7 +19,7 @@ import (
 // Absorb proposals: any signed-in user proposes an absorb of clients, client
 // contacts or vendors, and an absorb holder carries it out with the normal
 // absorb (POST /api/{collection}/{id}/absorb with the proposal id) or
-// declines it. The requester may delete a withdrawn proposal. See
+// declines it. The requester may delete a proposal that is no longer pending. See
 // descriptions/Absorb.md.
 
 //go:embed absorb_proposals.sql
@@ -273,9 +273,11 @@ func createWithdrawAbsorbProposalHandler(app core.App) func(e *core.RequestEvent
 }
 
 // createDeleteAbsorbProposalHandler lets the requester delete their proposal
-// once it is withdrawn. A proposal with any other status stays, as the record
-// of what was proposed and decided. The delete cascades to the proposal's
-// absorb_proposal_records rows in the same transaction.
+// once it is no longer pending: withdrawn, declined, accepted or obsolete. A
+// committed absorb keeps no record of its own either, so a closed proposal is
+// the requester's to remove. A pending one must be withdrawn first. The delete
+// cascades to the proposal's absorb_proposal_records rows in the same
+// transaction.
 func createDeleteAbsorbProposalHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		err := app.RunInTransaction(func(txApp core.App) error {
@@ -289,8 +291,8 @@ func createDeleteAbsorbProposalHandler(app core.App) func(e *core.RequestEvent) 
 			if proposal.GetString("requester") != e.Auth.Id {
 				return absorbProposalFailure(http.StatusForbidden, "unauthorized", "only the requester can delete this absorb proposal")
 			}
-			if proposal.GetString("status") != absorb.ProposalWithdrawn {
-				return absorbProposalFailure(http.StatusBadRequest, "proposal_not_withdrawn", "only a withdrawn absorb proposal can be deleted")
+			if proposal.GetString("status") == absorb.ProposalPending {
+				return absorbProposalFailure(http.StatusBadRequest, "proposal_pending", "withdraw this absorb proposal before you delete it")
 			}
 			return txApp.Delete(proposal)
 		})

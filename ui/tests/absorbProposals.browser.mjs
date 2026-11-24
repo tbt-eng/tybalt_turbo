@@ -5,8 +5,8 @@ import { runBrowserHarness } from "./browserHarness.mjs";
 // reason and sends the proposal. The queue lets a requester withdraw their own
 // proposal, and lets an absorb holder review or decline. Review opens the
 // editor with the proposal's records, where the holder may keep another
-// record before absorbing. On the Decided tab a requester deletes their
-// withdrawn proposal after a confirmation.
+// record before absorbing. On the Decided tab a requester deletes their own
+// decided proposals with the trashcan, with no confirmation.
 await runBrowserHarness(
   async (page, origin) => {
     const errors = [];
@@ -107,42 +107,41 @@ await runBrowserHarness(
       },
     ]);
 
-    // Decided tab: Delete only on the viewer's own withdrawn proposal, for a
-    // holder too. Nothing is sent until the person confirms.
+    // Decided tab: Delete only on the viewer's own decided proposals (one
+    // withdrawn, one declined), for a holder too.
     for (const claims of ["", "&claims=absorb"]) {
       await page.goto(`${origin}/tests/fixtures/absorbProposals.html?view=decided${claims}`);
       await page.getByText("Sam Other", { exact: false }).first().waitFor();
-      assert.equal(await page.getByTitle("Delete", { exact: true }).count(), 1);
+      assert.equal(await page.getByTitle("Delete", { exact: true }).count(), 2);
       assert.equal(await page.getByTitle("Withdraw", { exact: true }).count(), 0);
     }
     sent.length = 0;
-    const deleteButton = page.getByTitle("Delete", { exact: true });
-    await deleteButton.click();
-    const confirm = page.getByRole("dialog");
-    await confirm.getByText("You can't undo this.").waitFor();
-    await confirm.getByRole("button", { name: "Keep it", exact: true }).click();
-    await confirm.waitFor({ state: "hidden" });
-    assert.deepEqual(sent, []);
+    const deleteButtons = page.getByTitle("Delete", { exact: true });
 
-    // A refusal shows in the dialog, and the row stays.
+    // A refusal leaves the row in the list.
     refuseDelete = {
-      code: "proposal_not_withdrawn",
-      message: "only a withdrawn absorb proposal can be deleted",
+      code: "proposal_pending",
+      message: "withdraw this absorb proposal before you delete it",
     };
-    await deleteButton.click();
-    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
-    await confirm.getByText("only a withdrawn absorb proposal can be deleted").waitFor();
-    assert.equal(await deleteButton.count(), 1);
-    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
-    await confirm.waitFor({ state: "hidden" });
+    await Promise.all([
+      page.waitForResponse((response) => response.request().method() === "DELETE"),
+      deleteButtons.first().click(),
+    ]);
+    await page.waitForFunction(() => (window.shownErrors ?? []).length === 1);
+    assert.deepEqual(await page.evaluate(() => window.shownErrors), [
+      "withdraw this absorb proposal before you delete it",
+    ]);
+    assert.equal(await deleteButtons.count(), 2);
+
+    // The trashcan deletes at once, with no dialog, and the row leaves.
+    await deleteButtons.first().click();
     await page.waitForFunction(() => window.reloads === 1);
+    assert.equal(await page.getByRole("dialog").count(), 0);
     assert.deepEqual(sent, [
       { path: "/api/absorb_proposals/proposal0000003", method: "DELETE" },
       { path: "/api/absorb_proposals/proposal0000003", method: "DELETE" },
     ]);
-    // The row leaves the list; the others stay.
-    assert.equal(await deleteButton.count(), 0);
-    assert.equal(await page.getByText("Different companies", { exact: false }).count(), 1);
+    assert.equal(await deleteButtons.count(), 1);
     assert.equal((await page.getByText("Sam Other", { exact: false }).count()) > 0, true);
 
     assert.deepEqual(errors, []);

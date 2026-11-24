@@ -313,8 +313,8 @@ func TestAbsorbProposalWithdrawAndDecline(t *testing.T) {
 }
 
 func TestAbsorbProposalDelete(t *testing.T) {
-	// This test deletes the fixture proposal absorbprop00005 and its record
-	// rows. Each test gets its own copy of the fixture database.
+	// This test deletes the fixture proposals absorbprop00005 (withdrawn) and
+	// absorbprop00004 (declined) and their record rows. Each test gets its own copy of the fixture database.
 	app := testutils.SetupTestApp(t)
 	remove := func(email, id string) (int, []byte) {
 		res := performTestAPIRequest(t, app, http.MethodDelete, "/api/absorb_proposals/"+id, nil, uncommitToken(t, email))
@@ -340,9 +340,9 @@ func TestAbsorbProposalDelete(t *testing.T) {
 	}{
 		{"someone else", proposalOtherEmail, proposalWithdrawn, http.StatusForbidden, "unauthorized"},
 		{"a holder who did not propose it", proposalHolderEmail, proposalWithdrawn, http.StatusForbidden, "unauthorized"},
-		{"pending", proposalRequesterEmail, proposalVendors, http.StatusBadRequest, "proposal_not_withdrawn"},
-		// fakemanager@fakesite.xyz proposed absorbprop00004.
-		{"declined", proposalOtherEmail, proposalDeclined, http.StatusBadRequest, "proposal_not_withdrawn"},
+		{"pending", proposalRequesterEmail, proposalVendors, http.StatusBadRequest, "proposal_pending"},
+		// fakemanager@fakesite.xyz proposed the declined absorbprop00004.
+		{"declined, by someone else", proposalRequesterEmail, proposalDeclined, http.StatusForbidden, "unauthorized"},
 		{"unknown id", proposalRequesterEmail, "doesnotexist000", http.StatusNotFound, "proposal_not_found"},
 	}
 	for _, refusal := range refusals {
@@ -370,6 +370,13 @@ func TestAbsorbProposalDelete(t *testing.T) {
 	}
 	if n := recordRows(proposalDeclined); n != 1 {
 		t.Fatalf("another proposal lost its record rows: %d", n)
+	}
+	// A declined proposal is the requester's to delete too.
+	if status, body := remove(proposalOtherEmail, proposalDeclined); status != http.StatusOK {
+		t.Fatalf("delete of a declined proposal: %d %s", status, body)
+	}
+	if n := recordRows(proposalDeclined); n != 0 {
+		t.Fatalf("record rows left after the declined delete: %d", n)
 	}
 	if status, body := remove(proposalRequesterEmail, proposalWithdrawn); status != http.StatusNotFound || proposalErrorCode(t, body) != "proposal_not_found" {
 		t.Fatalf("second delete: %d %s", status, body)

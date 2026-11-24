@@ -55,13 +55,14 @@ with the normal absorb. Rate sheets take no proposal.
   `POST ""` creates one. `POST /{id}/withdraw` is for the requester and
   `POST /{id}/decline` for a holder, with a required comment. Neither works
   while an absorb action carries the proposal. `DELETE /{id}` lets the
-  requester delete a withdrawn proposal; its `absorb_proposal_records` rows
-  go with it (the relation cascades), in one transaction. Anyone else gets
-  403 `unauthorized`, a holder included; any other status gets 400
-  `proposal_not_withdrawn`, so an accepted, declined, obsolete or pending
-  proposal stays; an unknown id gets 404 `proposal_not_found`. The Decided
-  tab shows **Delete**, with a confirmation, on the requester's withdrawn
-  proposals. Errors are JSON with `code` and `message`.
+  requester delete their proposal once it is no longer pending (withdrawn,
+  declined, accepted or obsolete); its `absorb_proposal_records` rows go
+  with it (the relation cascades), in one transaction. Anyone else gets 403
+  `unauthorized`, a holder included; a pending proposal gets 400
+  `proposal_pending` and must be withdrawn first; an unknown id gets 404
+  `proposal_not_found`. The Decided tab shows a trashcan on the requester's
+  own proposals, with no confirmation, because the delete changes no record
+  and a committed absorb keeps no record of its own either. Errors are JSON with `code` and `message`.
 - Checks, on create and again when a holder absorbs from a proposal: one
   of the three collections; every record exists; the ids are distinct; the
   target isn't in the list; contacts share one client (`ParentConstraint`);

@@ -16,7 +16,7 @@ const services = {
     "export const goto = (url) => { location.href = url; }; export const beforeNavigate = () => {}; export const invalidateAll = async () => {}; export const replaceState = (url, state) => history.replaceState(state, '', url);",
   "$env/static/public": "export const PUBLIC_POCKETBASE_URL = location.origin;",
   "summary-test-global":
-    "import { writable } from 'svelte/store'; export const globalStore = Object.assign(writable({claims:[]}), { refreshAttentionCounts: async () => {} });",
+    "import { writable } from 'svelte/store'; export const globalStore = Object.assign(writable({claims:[]}), { refreshAttentionCounts: async () => {}, addError: (message) => { (globalThis.shownErrors ??= []).push(message); } });",
 };
 
 export async function runBrowserHarness(

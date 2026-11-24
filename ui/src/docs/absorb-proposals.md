@@ -31,10 +31,11 @@ Only staff with absorb access can do this.
 
 Turbo tells them when you commit the absorb or decline the proposal. If another absorb removes one of its records, Turbo closes the proposal and tells them. The **Decided** tab shows each outcome.
 
-## Delete a withdrawn proposal
+## Delete your proposal
 
-Only the person who proposed it can do this.
+You can delete your own proposal after its decision or after you withdraw it.
 
 1. On **Absorb Proposals**, select the **Decided** tab.
-2. Select **Delete** beside your withdrawn proposal.
-3. Select **Delete** to confirm. You can't undo this.
+2. Select the trashcan beside the proposal.
+
+Turbo deletes it at once. This changes no client, contact or vendor.

@@ -47,7 +47,7 @@
     }),
   ];
   // Decided: the viewer's own withdrawn and declined proposals, and another
-  // person's withdrawn one. Only the viewer's withdrawn one can be deleted.
+  // person's withdrawn one. The viewer can delete their own two.
   const decided = [
     proposal({
       id: "proposal0000003",
