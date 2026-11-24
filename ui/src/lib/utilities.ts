@@ -697,7 +697,13 @@ function saveCsv(fileName: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function downloadCSV(endpoint: string, fileName: string) {
+// downloadCSV logs a failure and returns. Pass throwOnError to get the error
+// back instead, so the caller can show it to the user.
+export async function downloadCSV(
+  endpoint: string,
+  fileName: string,
+  { throwOnError = false }: { throwOnError?: boolean } = {},
+) {
   try {
     // Prepare headers, including Authorization if the user is logged in
     const headers: HeadersInit = {};
@@ -742,7 +748,7 @@ export async function downloadCSV(endpoint: string, fileName: string) {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
   } catch (error) {
     console.error("Error fetching CSV:", error);
-    // Optionally: Show an error message to the user
+    if (throwOnError) throw error;
   }
 }
 

@@ -45,6 +45,13 @@ You can't recall an approved time sheet. Your manager or a committer can reject 
 | Rejected  | You recall it, edit the entries and submit again. |
 | Committed | It is final.                                      |
 
+## Download your time entries
+
+1. Open **Sheets**.
+2. Select the download button beside **Help**.
+
+Turbo downloads `my_time_entries.csv`. It holds all your time entries, newest first. Each row shows the time sheet status, or "not submitted".
+
 ## See your time off
 
 **Time Off** shows your available time off.

@@ -199,6 +199,7 @@ func AddRoutes(app core.App) {
 		timeEntriesGroup := se.Router.Group("/api/time_entries")
 		timeEntriesGroup.Bind(apis.RequireAuth("users"))
 		timeEntriesGroup.POST("/{id}/copy_to_tomorrow", createCopyTimeEntryHandler(app))
+		timeEntriesGroup.GET("/mine/csv", createMyTimeEntriesCSVHandler(app))
 
 		usersGroup := se.Router.Group("/api/users")
 		usersGroup.Bind(apis.RequireAuth("users"))

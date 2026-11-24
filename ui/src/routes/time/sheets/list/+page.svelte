@@ -9,7 +9,7 @@
   import ShareModal from "$lib/components/ShareModal.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
   import TimesheetSharedBadge from "$lib/components/TimesheetSharedBadge.svelte";
-  import { shortDate } from "$lib/utilities";
+  import { shortDate, downloadCSV } from "$lib/utilities";
   import type { TimeSheetTallyQueryRow } from "$lib/utilities";
   import type { SvelteComponent } from "svelte";
   import { onMount } from "svelte";
@@ -75,9 +75,25 @@
   function openRejectModal(id: string) {
     rejectModal?.openModal(id);
   }
+
+  async function downloadMyTimeEntries() {
+    try {
+      await downloadCSV(`${pb.baseUrl}/api/time_entries/mine/csv`, "my_time_entries.csv", {
+        throwOnError: true,
+      });
+    } catch {
+      globalStore.addError("Failed to download your time entries");
+    }
+  }
 </script>
 
 {#snippet searchBarExtra()}
+  <DsActionButton
+    action={downloadMyTimeEntries}
+    icon="mdi:download"
+    title="Download my time entries (CSV)"
+    color="neutral"
+  />
   <DSHelp doc="time#change-a-time-sheet" label="Help" />
 {/snippet}
 {#snippet anchor({ id, week_ending }: TimeSheetTallyQueryRow)}
