@@ -78,5 +78,5 @@ You can also convert a One-Time PO that Turbo closed since March 12, 2026. Its c
 | Unapproved     | It waits for approval, or the approver rejected it.                         |
 | Under revision | Its creator revised it. It waits for approval, or the approver rejected it. |
 | Active         | You can buy and record expenses against it.                                 |
-| Closed         | It is complete. Turbo or payables staff closed it.                          |
-| Cancelled      | Payables staff cancelled it before it had any expenses.                     |
+| Closed         | Turbo, its owner or payables staff closed it.                               |
+| Cancelled      | Its owner or payables staff cancelled it before it had any expenses.        |

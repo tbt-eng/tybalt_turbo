@@ -988,20 +988,23 @@ func createCancelPurchaseOrderHandler(app core.App) func(e *core.RequestEvent) e
 					}
 				}
 
-				// Check if the user is authorized to cancel the purchase order
-				hasPayablesAdminClaim, err := utilities.HasClaim(txApp, authRecord, "payables_admin")
-				if err != nil {
-					httpResponseStatusCode = http.StatusInternalServerError
-					return &CodeError{
-						Code:    "error_fetching_user_claims",
-						Message: fmt.Sprintf("error fetching user claims: %v", err),
+				// The owner of the purchase order and payables_admin holders may
+				// cancel it. The rules below are the same for both.
+				if po.GetString("uid") != userId {
+					hasPayablesAdminClaim, err := utilities.HasClaim(txApp, authRecord, "payables_admin")
+					if err != nil {
+						httpResponseStatusCode = http.StatusInternalServerError
+						return &CodeError{
+							Code:    "error_fetching_user_claims",
+							Message: fmt.Sprintf("error fetching user claims: %v", err),
+						}
 					}
-				}
-				if !hasPayablesAdminClaim {
-					httpResponseStatusCode = http.StatusForbidden
-					return &CodeError{
-						Code:    "unauthorized_cancellation",
-						Message: "you are not authorized to cancel this purchase order",
+					if !hasPayablesAdminClaim {
+						httpResponseStatusCode = http.StatusForbidden
+						return &CodeError{
+							Code:    "unauthorized_cancellation",
+							Message: "you are not authorized to cancel this purchase order",
+						}
 					}
 				}
 			}

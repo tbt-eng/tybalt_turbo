@@ -29,7 +29,7 @@ You can't revise a purchase order if:
 - It came from a PO group.
 - It has a closed job and you keep that job.
 
-With expenses, you can't change its details. Otherwise, ask payables staff to cancel it. Then create a new one.
+With expenses, you can't change its details. Otherwise, [cancel it](/docs/close-a-purchase-order). Then create a new one.
 
 ## If it has expenses
 
@@ -37,7 +37,7 @@ To spend more, check **Type**:
 
 - **Cumulative**: Add the expense. If it goes over, create a [child PO](/docs/child-purchase-orders).
 - **One-Time**: Ask payables staff to [convert it to Cumulative](/docs/purchase-orders#convert-a-one-time-po). Then follow **Cumulative**.
-- **Recurring**: Ask payables staff to close it after its last commit. Then create another.
+- **Recurring**: [Close it](/docs/close-a-purchase-order) after its last commit. Then create another.
 
 ## Change the job
 

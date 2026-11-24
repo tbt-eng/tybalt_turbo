@@ -1,60 +1,52 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/poVisibility.ts","sha256":"aaa1bdf4e31e234e540e7b7f93ce4491258722b1e949f0467885b24b94e79c6e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/poVisibility.ts","sha256":"087b6ae52cfe12116298df28195819dd06d9c69c16754ce1fe9f6edad1a5abf8","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/poVisibility.ts
 
-## What counts as a purchase order revision
-
-Lines 14-26
-
-Asked as: purchase order revision; PO changed after approval; what is a revision; unapproved PO with number
-
-Turbo treats a purchase order as a revision (under revision) when its status is Unapproved, it already has a PO number (po_number), and it is not a legacy manual entry (legacy_manual_entry). An Unapproved PO with no PO number is a new PO, not a revision. A legacy manual entry is never a revision.
-
-## Who a revised purchase order waits on after rejection
-
-Lines 34-36
-
-Asked as: rejected PO waiting; who must resubmit PO; PO rejected who fixes it; rejected purchase order owner
-
-When a purchase order revision has been rejected (rejected is set), Turbo says it waits on the creator (uid_name), or "The creator" if no name is known. The reason shown is "To resubmit or cancel it".
-
-## Who a revision waits on after first approval
-
-Lines 37-42
-
-Asked as: PO waiting second approval; who approves PO next; first approval done PO; second approver missing
-
-When a revision is not rejected but already has a first approval (approved is set), Turbo says it waits on the priority second approver (priority_second_approver_name). If that name is missing it shows "A second approver". The reason is "Second approval".
-
-## Who a revision waits on before any approval
-
-Lines 43-43
-
-Asked as: PO waiting first approval; who approves new PO; PO stuck with approver; approver name missing PO
-
-When a revision is neither rejected nor approved, Turbo says it waits on the approver (approver_name), or "The approver" if no name is known. The reason is "First approval". The rejected check runs before the approved check.
-
-## Purchase order list scopes and date filters
+## Purchase order lists come in fixed scopes
 
 Lines 4-84
 
-Asked as: filter purchase orders by date; stale POs list; expiring purchase orders filter; limit number of POs
+Asked as: filter purchase orders by status; purchase order list scope; show only rejected POs; stale purchase orders list; expiring POs filter
 
-Turbo can list visible purchase orders by scope: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second or group. The stale cutoff date (stale_before) applies only to the stale scope. The expiring cutoff date (expiring_before) applies only to the expiring scope. A date given with any other scope is ignored. An optional limit caps the number of results.
+Turbo lists visible purchase orders by scope: all, mine, active, rejected, stale, expiring, approved_by_me_awaiting_second or group. The stale scope takes a stale_before date and the expiring scope takes an expiring_before date. Other scopes ignore that date. A list can be limited to a number of results.
 
-## Revisable flag is set only for a single purchase order
+## Which purchase orders count as revisions
 
-Lines 61-62
+Lines 14-26
 
-Asked as: revise button missing PO list; revisable not showing; why can't I revise PO; PO list revision flag
+Asked as: PO shows as unapproved; edited purchase order marked revision; what counts as a revision; legacy manual entry PO; unapproved PO with number
 
-The revisable field on a visible purchase order is set only when one purchase order is fetched by its id. Lists of purchase orders do not carry it.
+A purchase order is a revision (under revision) when its status is Unapproved, it already has a PO number (po_number) and it is not a legacy manual entry (legacy_manual_entry). An Unapproved purchase order without a PO number is a new one, not a revision. A legacy manual entry is never a revision.
 
-## Purchase order group lists use visible purchase orders only
+## Who a revised purchase order waits on
 
-Lines 86-92
+Lines 28-44
 
-Asked as: PO group missing items; group shows fewer POs; hidden purchase orders in group; PO group not all showing
+Asked as: who is my PO waiting on; revised PO stuck; PO waiting for approval; rejected PO waiting on creator; second approval pending
 
-Fetching a purchase order group returns only the purchase orders in that group that the person is allowed to see.
+For a revision, Turbo shows who must act next. If it was rejected, it waits on the creator (or "The creator" when no name) to resubmit or cancel it. If it was approved once, it waits on the second approver (or "A second approver") for second approval. Otherwise it waits on the approver (or "The approver") for first approval.
+
+## Who may cancel or close a purchase order
+
+Lines 106-111
+
+Asked as: who can cancel a PO; close my purchase order; can't cancel PO; PO owner cancel rights; payables admin close PO
+
+Only an Active purchase order can be cancelled or closed. Its owner or payables staff (the payables_admin claim) may do either. The server makes the same checks.
+
+## Cancel is offered only with no committed expenses
+
+Lines 112-116
+
+Asked as: cancel button missing; PO has expenses cannot cancel; cancel greyed out; pending expense blocks cancel; why won't PO cancel
+
+Turbo offers Cancel only when the committed expense count is 0. A purchase order with expenses can't be cancelled. The lists know only the committed count, so the server also refuses a purchase order that has an expense that is not committed.
+
+## Manual close needs a non-One-Time PO with a committed expense
+
+Lines 117-121
+
+Asked as: close button not showing; manually close one-time PO; close PO with no expenses; recurring PO close option; cumulative PO can't close
+
+Turbo offers Close only for a Recurring or Cumulative purchase order (not One-Time) that has at least 1 committed expense. The server checks pending expenses and says what remains.

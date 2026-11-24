@@ -445,11 +445,11 @@ If the revision is rejected, the creator can edit and resubmit it, or cancel it 
 
 ## Purchase Order Types and Behaviors
 
-| PO Type    | Description                                                                  | May be Closed Manually                         | May be Canceled if status is Active                  | Closed Automatically                     |
-| ---------- | ---------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------- | ---------------------------------------- |
-| One-Time   | Valid for a single expense                                                   | No                                             | Yes, by `payables_admin` if no expenses are attached | When an expense is committed             |
-| Recurring  | Valid for a fixed number of expenses not exceeding specified value           | Yes, subject to the manual closure rules below | Yes, by `payables_admin` if no expenses are attached | When final expected expense is committed |
-| Cumulative | Valid for multiple expenses where sum of values does not exceed the PO total | Yes, subject to the manual closure rules below | Yes, by `payables_admin` if no expenses are attached | When committed total reaches PO total    |
+| PO Type    | Description                                                                  | May be Closed Manually                         | May be Canceled if status is Active                               | Closed Automatically                     |
+| ---------- | ---------------------------------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------- |
+| One-Time   | Valid for a single expense                                                   | No                                             | Yes, by the owner or `payables_admin` if no expenses are attached | When an expense is committed             |
+| Recurring  | Valid for a fixed number of expenses not exceeding specified value           | Yes, subject to the manual closure rules below | Yes, by the owner or `payables_admin` if no expenses are attached | When final expected expense is committed |
+| Cumulative | Valid for multiple expenses where sum of values does not exceed the PO total | Yes, subject to the manual closure rules below | Yes, by the owner or `payables_admin` if no expenses are attached | When committed total reaches PO total    |
 
 Operational handlers:
 
@@ -581,7 +581,7 @@ Notes:
 
 Route: `POST /api/purchase_orders/:id/cancel`
 
-- Caller must have `payables_admin` claim.
+- Caller must be the owner of the PO (`uid`) or have the `payables_admin` claim.
 - PO must be `Active`.
 - PO must have no associated expenses.
 - Exception: the creator (and only the creator) may cancel a rejected revision, an `Unapproved` PO with a `po_number` and a `rejected` timestamp.
@@ -596,7 +596,7 @@ Route: `POST /api/purchase_orders/:id/close`
 
 Manual closure rules:
 
-- Caller must have `payables_admin` claim.
+- Caller must be the owner of the PO (`uid`) or have the `payables_admin` claim. The rules below are the same for both.
 - Only `Recurring` and `Cumulative` POs may be manually closed.
 - PO must be `Active`.
 - PO must have at least one associated **committed** expense.
@@ -613,6 +613,8 @@ Manual closure rules:
   - `closer` is set
   - `closed` timestamp is set
   - `status` becomes `Closed`
+
+Cancellation and closure are final: there is no route back to `Active`. The UI therefore asks for confirmation first. The list, search and detail screens open one dialog (`ui/src/lib/components/POEndPopover.svelte`) that says what happens and that it can't be undone, and sends the request only when the person confirms. A refusal from the server shows in the dialog. `canceller`/`cancelled` and `closer`/`closed` record who did it and when. `ui/src/lib/poVisibility.ts` (`poMayBeCancelledBy`, `poMayBeClosedBy`) decides who sees the buttons.
 
 After closure, drafts and corrected rejected expenses cannot be submitted against this PO because expense submission requires an active PO. These manual closure rules also apply to legacy POs.
 

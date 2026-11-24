@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Close and cancel purchase order checks</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { mount } from "svelte";
+      import POEndPopover from "../../src/lib/components/POEndPopover.svelte";
+      import { poMayBeCancelledBy, poMayBeClosedBy } from "$lib/poVisibility";
+      import "/src/app.css";
+      // ?action is close or cancel. The dialog starts open.
+      const action = new URLSearchParams(location.search).get("action") ?? "cancel";
+      window.poRules = { poMayBeCancelledBy, poMayBeClosedBy };
+      mount(POEndPopover, {
+        target: document.getElementById("app"),
+        props: {
+          show: true,
+          action,
+          po: { id: "po1", po_number: "2611-0379" },
+          ondone: () => {
+            window.poEnded = true;
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

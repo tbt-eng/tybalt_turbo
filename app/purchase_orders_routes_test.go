@@ -28,6 +28,12 @@ func TestPurchaseOrdersRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// author@soup.com owns the closepending fixtures and has no payables_admin claim.
+	poOwnerToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	poApproverToken, err := testutils.GenerateRecordToken("users", "fatt@mac.com")
 	if err != nil {
 		t.Fatal(err)
@@ -489,7 +495,7 @@ func TestPurchaseOrdersRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 		},
 		{
-			Name:           "caller without the payables_admin claim cannot cancel Active purchase_orders records with no expenses against them",
+			Name:           "caller who is neither the owner nor a payables_admin holder cannot cancel Active purchase_orders records with no expenses against them",
 			Method:         http.MethodPost,
 			URL:            "/api/purchase_orders/2plsetqdxht7esg/cancel",
 			Headers:        map[string]string{"Authorization": nonCloseToken},
@@ -506,7 +512,62 @@ func TestPurchaseOrdersRoutes(t *testing.T) {
 			TestAppFactory: testutils.SetupTestApp,
 		},
 		{
-			Name:            "caller without the payables_admin claim cannot close Active Cumulative purchase_orders records",
+			// time@test.com owns this PO and has no payables_admin claim.
+			Name:           "the owner can cancel their own Active purchase_orders record with no expenses against it",
+			Method:         http.MethodPost,
+			URL:            "/api/purchase_orders/2plsetqdxht7esg/cancel",
+			Headers:        map[string]string{"Authorization": unauthorizedToken},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"status":"Cancelled"`,
+				fmt.Sprintf(`"cancelled":"%s`, currentDate),
+				`"canceller":"rzr98oadsp9qc11"`,
+			},
+			ExpectedEvents: map[string]int{
+				"OnRecordUpdate": 1,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			// time@test.com owns this PO too; it has expenses.
+			Name:            "the owner cannot cancel their own purchase_orders record that has expenses",
+			Method:          http.MethodPost,
+			URL:             "/api/purchase_orders/ly8xyzpuj79upq1/cancel",
+			Headers:         map[string]string{"Authorization": unauthorizedToken},
+			ExpectedStatus:  http.StatusBadRequest,
+			ExpectedContent: []string{`"code":"po_has_expenses"`},
+			TestAppFactory:  testutils.SetupTestApp,
+		},
+		{
+			// closepending007 has one committed expense and nothing pending.
+			Name:           "the owner can close their own Active Cumulative purchase_orders record",
+			Method:         http.MethodPost,
+			URL:            "/api/purchase_orders/closepending007/close",
+			Headers:        map[string]string{"Authorization": poOwnerToken},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"status":"Closed"`,
+				fmt.Sprintf(`"closed":"%s`, currentDate),
+				`"closer":"f2j5a8vk006baub"`,
+				`"closed_by_system":false`,
+			},
+			ExpectedEvents: map[string]int{
+				"OnRecordUpdate": 1,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			// closepending008 has an expense that awaits approval.
+			Name:            "the owner cannot close their own purchase_orders record while an expense is pending",
+			Method:          http.MethodPost,
+			URL:             "/api/purchase_orders/closepending008/close",
+			Headers:         map[string]string{"Authorization": poOwnerToken},
+			ExpectedStatus:  http.StatusBadRequest,
+			ExpectedContent: []string{`"code":"pending_expenses"`},
+			TestAppFactory:  testutils.SetupTestApp,
+		},
+		{
+			Name:            "caller who is neither the owner nor a payables_admin holder cannot close Active Cumulative purchase_orders records",
 			Method:          http.MethodPost,
 			URL:             "/api/purchase_orders/ly8xyzpuj79upq1/close",
 			Headers:         map[string]string{"Authorization": nonCloseToken},

@@ -12,6 +12,7 @@
     error = null,
     submitting = false,
     submitLabel = "Submit",
+    cancelLabel = "Cancel",
     danger = false,
     onSubmit,
     onCancel,
@@ -24,6 +25,9 @@
     error?: string | null;
     submitting?: boolean;
     submitLabel?: string;
+    // The button that closes the dialog and does nothing. Name it for what
+    // stays, such as "Keep it", when the submit button itself says Cancel.
+    cancelLabel?: string;
     // A destructive action shows a red confirm button.
     danger?: boolean;
     onSubmit: () => void;
@@ -53,7 +57,7 @@
 
   {#snippet footer()}
     <DSActionButton variant="secondary" action={handleCancel} disabled={submitting}>
-      Cancel
+      {cancelLabel}
     </DSActionButton>
     <DSActionButton
       variant={danger ? "danger" : "primary"}

@@ -102,3 +102,20 @@ export async function fetchPendingPO(id: string): Promise<VisiblePurchaseOrderRe
     method: "GET",
   })) as VisiblePurchaseOrderResponse;
 }
+
+// Closing and cancelling are final. The owner of a purchase order and payables
+// staff (payables_admin) may do either; the server makes the same checks.
+type EndablePO = { status: string; type: string; uid: string; committed_expenses_count: number };
+function mayEndPO(po: EndablePO, claims: string[], userId: string): boolean {
+  return po.status === "Active" && (claims.includes("payables_admin") || po.uid === userId);
+}
+// A purchase order with expenses can't be cancelled. The lists know only the
+// committed count; the server refuses one with an expense that isn't committed.
+export function poMayBeCancelledBy(po: EndablePO, claims: string[], userId: string): boolean {
+  return mayEndPO(po, claims, userId) && po.committed_expenses_count === 0;
+}
+// Only a Recurring or Cumulative purchase order with a committed expense can
+// be closed by hand. The server checks pending expenses and says what remains.
+export function poMayBeClosedBy(po: EndablePO, claims: string[], userId: string): boolean {
+  return mayEndPO(po, claims, userId) && po.type !== "One-Time" && po.committed_expenses_count > 0;
+}

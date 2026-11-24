@@ -4,7 +4,12 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
   import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
-  import { isPORevision, poRevisionWaitingOn } from "$lib/poVisibility";
+  import {
+    isPORevision,
+    poMayBeCancelledBy,
+    poMayBeClosedBy,
+    poRevisionWaitingOn,
+  } from "$lib/poVisibility";
   import DSPopover from "$lib/components/DSPopover.svelte";
   import DSHelp from "$lib/components/DSHelp.svelte";
   import RejectModal from "$lib/components/RejectModal.svelte";
@@ -24,13 +29,13 @@
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import POEndPopover from "$lib/components/POEndPopover.svelte";
   let { data }: { data: PageData } = $props();
   const viewerId = pb.authStore.record?.id ?? "";
   let rejectModal: RejectModal;
   let showSecondApproverWhy = $state(false);
   let showBudgetCoverageHelp = $state(false);
   let showConvertPopover = $state(false);
-  let showCancelRevisionPopover = $state(false);
   let convertError = $state<string | null>(null);
   let isConvertingToCumulative = $state(false);
   const formatAmount = (value: number) =>
@@ -144,27 +149,21 @@
     rejectModal?.openModal(data.po.id);
   }
 
-  async function cancelPo() {
-    try {
-      await pb.send(`/api/purchase_orders/${data.po.id}/cancel`, { method: "POST" });
-      await globalStore.refreshAttentionCounts();
-      goto(resolve("/pos/list"));
-    } catch (error: unknown) {
-      globalStore.addError(getErrorMessage(error, "Cancel failed"));
-    }
+  // Closing and cancelling are final, so each opens a confirmation first.
+  let endAction = $state<"close" | "cancel">("cancel");
+  let showEndPopover = $state(false);
+  function confirmEnd(action: "close" | "cancel") {
+    endAction = action;
+    showEndPopover = true;
   }
-
-  async function closePo() {
-    // The server checks pending expenses in the closure transaction. Display its
-    // message so the user knows which approval or commitment work remains.
-    try {
-      await pb.send(`/api/purchase_orders/${data.po.id}/close`, { method: "POST" });
-      await globalStore.refreshAttentionCounts();
-      goto(resolve("/pos/list"));
-    } catch (error: unknown) {
-      globalStore.addError(getErrorMessage(error, "Close failed"));
-    }
-  }
+  // The owner sees Close or Cancel only when the PO allows it. Payables staff
+  // have both under Admin Actions, where the server explains a refusal.
+  const ownerMayCancel = $derived(
+    isOwner && !isPayablesAdmin && poMayBeCancelledBy(data.po, [], viewerId),
+  );
+  const ownerMayClose = $derived(
+    isOwner && !isPayablesAdmin && poMayBeClosedBy(data.po, [], viewerId),
+  );
 
   function openConvertPopover() {
     convertError = null;
@@ -295,7 +294,7 @@
                 Edit and Resubmit
               </DsActionButton>
               {#if canCancelRejectedRevision}
-                <DsActionButton action={() => (showCancelRevisionPopover = true)} color="gray">
+                <DsActionButton action={() => confirmEnd("cancel")} color="gray">
                   Cancel Purchase Order
                 </DsActionButton>
               {/if}
@@ -617,6 +616,16 @@
       {#if canRevise}
         <DsActionButton action={`/pos/${data.po.id}/revise`} color="blue">Revise</DsActionButton>
       {/if}
+      {#if $expensesEditingEnabled && ownerMayCancel}
+        <DsActionButton action={() => confirmEnd("cancel")} color="red"
+          >Cancel Purchase Order</DsActionButton
+        >
+      {/if}
+      {#if $expensesEditingEnabled && ownerMayClose}
+        <DsActionButton action={() => confirmEnd("close")} color="gray"
+          >Close Purchase Order</DsActionButton
+        >
+      {/if}
     </div>
   {/if}
 
@@ -629,24 +638,22 @@
             Convert to Cumulative
           </DsActionButton>
         {/if}
-        <DsActionButton action={cancelPo} color="red">Cancel Purchase Order</DsActionButton>
-        <DsActionButton action={closePo} color="gray">Close Purchase Order</DsActionButton>
+        <DsActionButton action={() => confirmEnd("cancel")} color="red"
+          >Cancel Purchase Order</DsActionButton
+        >
+        <DsActionButton action={() => confirmEnd("close")} color="gray"
+          >Close Purchase Order</DsActionButton
+        >
       </div>
     </div>
   {/if}
 
-  <DSPopover
-    bind:show={showCancelRevisionPopover}
-    title="Cancel {data.po.po_number}?"
-    submitLabel="Cancel Purchase Order"
-    danger={true}
-    onSubmit={() => {
-      showCancelRevisionPopover = false;
-      void cancelPo();
-    }}
-  >
-    <p>You can't undo this. Its number can't be used again.</p>
-  </DSPopover>
+  <POEndPopover
+    bind:show={showEndPopover}
+    action={endAction}
+    po={data.po}
+    ondone={() => goto(resolve("/pos/list"))}
+  />
 
   <DSPopover
     bind:show={showConvertPopover}

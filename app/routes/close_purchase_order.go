@@ -20,23 +20,6 @@ func createClosePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) er
 		var httpResponseStatusCode int
 
 		err := app.RunInTransaction(func(txApp core.App) error {
-			// Check if user has payables_admin claim
-			hasPayablesAdminClaim, err := utilities.HasClaim(txApp, authRecord, "payables_admin")
-			if err != nil {
-				httpResponseStatusCode = http.StatusInternalServerError
-				return &CodeError{
-					Code:    "error_checking_claim",
-					Message: fmt.Sprintf("error checking payables_admin claim: %v", err),
-				}
-			}
-			if !hasPayablesAdminClaim {
-				httpResponseStatusCode = http.StatusForbidden
-				return &CodeError{
-					Code:    "unauthorized_closure",
-					Message: "you are not authorized to close purchase orders",
-				}
-			}
-
 			// Fetch existing purchase order
 			po, err := txApp.FindRecordById("purchase_orders", id)
 			if err != nil {
@@ -44,6 +27,26 @@ func createClosePurchaseOrderHandler(app core.App) func(e *core.RequestEvent) er
 				return &CodeError{
 					Code:    "po_not_found",
 					Message: fmt.Sprintf("error fetching purchase order: %v", err),
+				}
+			}
+
+			// The owner of the purchase order and payables_admin holders may
+			// close it. The rules below are the same for both.
+			if po.GetString("uid") != authRecord.Id {
+				hasPayablesAdminClaim, err := utilities.HasClaim(txApp, authRecord, "payables_admin")
+				if err != nil {
+					httpResponseStatusCode = http.StatusInternalServerError
+					return &CodeError{
+						Code:    "error_checking_claim",
+						Message: fmt.Sprintf("error checking payables_admin claim: %v", err),
+					}
+				}
+				if !hasPayablesAdminClaim {
+					httpResponseStatusCode = http.StatusForbidden
+					return &CodeError{
+						Code:    "unauthorized_closure",
+						Message: "you are not authorized to close purchase orders",
+					}
 				}
 			}
 

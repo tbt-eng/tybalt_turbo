@@ -14,6 +14,8 @@
   import type { VisiblePurchaseOrderResponse } from "$lib/poVisibility";
   import { globalStore } from "$lib/stores/global";
   import { authStore } from "$lib/stores/auth";
+  import POEndPopover from "$lib/components/POEndPopover.svelte";
+  import { poMayBeCancelledBy, poMayBeClosedBy } from "$lib/poVisibility";
   import {
     formatCurrencyAmount,
     formatJobLabel,
@@ -171,29 +173,22 @@
 
   function poMayBeCancelledByUser(po: VisiblePurchaseOrderResponse): boolean {
     if (deactivateButtonHiding) return true;
-    if (po.status === "Active") {
-      if ($globalStore.claims.includes("payables_admin")) {
-        // user has payables_admin claim
-        return po.committed_expenses_count === 0;
-      }
-    }
-    return false;
+    return poMayBeCancelledBy(po, $globalStore.claims, $authStore?.model?.id ?? "");
   }
 
   function poMayBeClosedByUser(po: VisiblePurchaseOrderResponse): boolean {
     if (deactivateButtonHiding) return true;
-    if (po.status === "Active") {
-      if (po.type !== "One-Time") {
-        // only non-One-Time POs can be closed manually
-        if ($globalStore.claims.includes("payables_admin")) {
-          // user has payables_admin claim
-          // Show Close for eligible POs. The server checks pending expenses at
-          // closure time and returns the approval or commitment work still needed.
-          return po.committed_expenses_count > 0;
-        }
-      }
-    }
-    return false;
+    return poMayBeClosedBy(po, $globalStore.claims, $authStore?.model?.id ?? "");
+  }
+
+  // Closing and cancelling are final, so each opens a confirmation first.
+  let endAction = $state<"close" | "cancel">("cancel");
+  let endPO = $state<{ id: string; po_number: string }>({ id: "", po_number: "" });
+  let showEndPopover = $state(false);
+  function confirmEnd(action: "close" | "cancel", po: VisiblePurchaseOrderResponse) {
+    endAction = action;
+    endPO = { id: po.id, po_number: po.po_number };
+    showEndPopover = true;
   }
 
   function poMayBeDeletedByUser(po: VisiblePurchaseOrderResponse): boolean {
@@ -245,45 +240,6 @@
       await goto(resolve("/pos/pending"));
     } catch (error: any) {
       globalStore.addError(error?.response?.message);
-    }
-  }
-
-  async function cancel(id: string): Promise<void> {
-    try {
-      await pb.send(`/api/purchase_orders/${id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      await globalStore.refreshAttentionCounts();
-    } catch (error: any) {
-      globalStore.addError(error?.response?.message);
-    }
-  }
-
-  async function closePurchaseOrder(id: string) {
-    try {
-      await pb.send(`/api/purchase_orders/${id}/close`, { method: "POST" });
-      await globalStore.refreshAttentionCounts();
-
-      // Show success toast
-      /*
-      const t: ToastSettings = {
-        message: "Purchase order closed successfully",
-        background: "variant-filled-success",
-      };
-      toastStore.trigger(t);
-      */
-    } catch (error: any) {
-      globalStore.addError(error?.response?.message);
-
-      // Show error toast
-      /*  
-      const t: ToastSettings = {
-        message: error.message || "Error closing purchase order",
-        background: "variant-filled-error",
-      };
-      toastStore.trigger(t);
-      */
     }
   }
 </script>
@@ -438,7 +394,7 @@
           />
           {#if poMayBeCancelledByUser(item)}
             <DsActionButton
-              action={() => cancel(item.id)}
+              action={() => confirmEnd("cancel", item)}
               icon="mdi:cancel"
               title="Cancel"
               color="orange"
@@ -446,7 +402,7 @@
           {/if}
           {#if poMayBeClosedByUser(item)}
             <DsActionButton
-              action={() => closePurchaseOrder(item.id)}
+              action={() => confirmEnd("close", item)}
               icon="mdi:curtains-closed"
               title="Close Purchase Order"
               color="orange"
@@ -492,3 +448,5 @@
     {/snippet}
   </DsList>
 {/if}
+
+<POEndPopover bind:show={showEndPopover} action={endAction} po={endPO} />

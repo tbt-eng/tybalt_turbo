@@ -6,7 +6,8 @@
   import DsLabel from "$lib/components/DsLabel.svelte";
   import DSSearchList from "$lib/components/DSSearchList.svelte";
   import PORevisionStatus from "$lib/components/PORevisionStatus.svelte";
-  import { isPORevision } from "$lib/poVisibility";
+  import { isPORevision, poMayBeCancelledBy, poMayBeClosedBy } from "$lib/poVisibility";
+  import POEndPopover from "$lib/components/POEndPopover.svelte";
   import DSToggle from "$lib/components/DSToggle.svelte";
   import { pb } from "$lib/pocketbase";
   import type { POSearchApiResponse } from "$lib/stores/poSearch";
@@ -52,43 +53,20 @@
     return "yellow";
   }
 
-  function poMayBeCancelledByUser(po: POSearchApiResponse): boolean {
-    return (
-      po.status === "Active" &&
-      $globalStore.claims.includes("payables_admin") &&
-      po.committed_expenses_count === 0
-    );
-  }
+  const viewerId = pb.authStore.record?.id ?? "";
+  const poMayBeCancelledByUser = (po: POSearchApiResponse) =>
+    poMayBeCancelledBy(po, $globalStore.claims, viewerId);
+  const poMayBeClosedByUser = (po: POSearchApiResponse) =>
+    poMayBeClosedBy(po, $globalStore.claims, viewerId);
 
-  function poMayBeClosedByUser(po: POSearchApiResponse): boolean {
-    // The server checks pending expenses when Close is used and explains the block.
-    return (
-      po.status === "Active" &&
-      po.type !== "One-Time" &&
-      $globalStore.claims.includes("payables_admin") &&
-      po.committed_expenses_count > 0
-    );
-  }
-
-  async function cancel(id: string): Promise<void> {
-    try {
-      await pb.send(`/api/purchase_orders/${id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      await globalStore.refreshAttentionCounts();
-    } catch (error: any) {
-      globalStore.addError(error?.response?.message ?? "Failed to cancel purchase order");
-    }
-  }
-
-  async function closePurchaseOrder(id: string): Promise<void> {
-    try {
-      await pb.send(`/api/purchase_orders/${id}/close`, { method: "POST" });
-      await globalStore.refreshAttentionCounts();
-    } catch (error: any) {
-      globalStore.addError(error?.response?.message ?? "Failed to close purchase order");
-    }
+  // Closing and cancelling are final, so each opens a confirmation first.
+  let endAction = $state<"close" | "cancel">("cancel");
+  let endPO = $state<{ id: string; po_number: string }>({ id: "", po_number: "" });
+  let showEndPopover = $state(false);
+  function confirmEnd(action: "close" | "cancel", po: POSearchApiResponse) {
+    endAction = action;
+    endPO = { id: po.id, po_number: po.po_number };
+    showEndPopover = true;
   }
 
   // A purchase order under revision was Active, so it is found under Active.
@@ -211,7 +189,7 @@
         />
         {#if poMayBeCancelledByUser(item)}
           <DsActionButton
-            action={() => cancel(item.id)}
+            action={() => confirmEnd("cancel", item)}
             icon="mdi:cancel"
             title="Cancel"
             color="orange"
@@ -219,7 +197,7 @@
         {/if}
         {#if poMayBeClosedByUser(item)}
           <DsActionButton
-            action={() => closePurchaseOrder(item.id)}
+            action={() => confirmEnd("close", item)}
             icon="mdi:curtains-closed"
             title="Close Purchase Order"
             color="orange"
@@ -229,3 +207,5 @@
     {/snippet}
   </DSSearchList>
 {/if}
+
+<POEndPopover bind:show={showEndPopover} action={endAction} po={endPO} />

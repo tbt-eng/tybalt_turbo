@@ -1,148 +1,108 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/close_purchase_order.go","sha256":"8c8e3c2effd4fbf3947d0acec58624fe8283aee4b8b33cf31cb977cc2850b742","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/close_purchase_order.go","sha256":"fc41753dc89038172e92f52e2d6a2bbfdc750a04a2a9086efd89ed060443e5ac","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/close_purchase_order.go
 
-## Closing runs as one all-or-nothing transaction
+## Closing a purchase order that does not exist is refused
 
-Lines 22-118
+Lines 22-31
 
-Asked as: close fails halfway; partial close of PO; PO changed despite error; rollback when closing; all or nothing close
+Asked as: close a PO that doesn't exist; purchase order not found; po_not_found error; error fetching purchase order
 
-The permission check, the checks on the purchase order and its expenses, and the save all run in one transaction. If any step fails, the purchase order is not changed.
+If the purchase order id is not found, Turbo refuses to close it. The error code is po_not_found and the message starts 'error fetching purchase order:'.
 
-## Only payables staff can close a purchase order
+## Who may close a purchase order
 
-Lines 23-38
+Lines 33-51
 
-Asked as: who can close PO; can't close purchase order; not authorized to close; no permission to close PO; payables only close
+Asked as: who can close a PO; can't close someone else's purchase order; not authorized to close PO; payables admin close permission
 
-Turbo closes a purchase order only for a user with the payables_admin claim (payables staff). Any other user gets the message "you are not authorized to close purchase orders".
+The person who owns the purchase order (its uid) may close it. A holder of the payables admin claim (payables_admin) may also close it. Anyone else gets "you are not authorized to close purchase orders".
 
-## Closing checks run in a fixed order
+## Order of checks when closing a purchase order
 
-Lines 23-101
+Lines 35-104
 
-Asked as: which close error shows first; several reasons close refused; order of closing checks; why wrong error on close
+Asked as: wrong error when closing PO; why does closing show a different message; order of checks closing PO; which error first closing purchase order
 
-Turbo checks in this order: payables claim, One-Time type, at least one committed expense, Active status, then pending expenses. It shows only the first refusal that applies. A PO that is not Active but has no committed expense gets the "no expenses" message, not the "not active" message.
-
-## Closing a missing purchase order is refused
-
-Lines 40-48
-
-Asked as: purchase order not found; PO does not exist; error fetching purchase order; close missing PO
-
-If the purchase order does not exist, Turbo refuses the close and shows "error fetching purchase order:" followed by the error detail.
+Turbo checks in this order: who may close, One-Time type, at least one committed expense, Active status, then pending expenses. It stops at the first check that fails. A non-Active PO with no committed expense gets the 'only cumulative or recurring purchase orders with at least one associated expense may be closed manually' message, not 'only active purchase orders can be closed'.
 
 ## One-Time purchase orders cannot be closed manually
 
-Lines 50-58
+Lines 53-61
 
-Asked as: close one-time PO; can't close one time order; manually close one-time; cancel one-time purchase order
+Asked as: cannot close one-time PO; close a one-time order; one-time purchase order won't close; cancel one-time PO instead
 
-Turbo refuses to close a purchase order whose type is One-Time. It shows "One-Time purchase orders may be cancelled but not manually closed".
+Turbo refuses to close a One-Time purchase order and says "One-Time purchase orders may be cancelled but not manually closed". The same refusal applies to the owner and to payables admins.
 
 ## Closing needs at least one committed expense
 
-Lines 60-77
+Lines 63-80
 
-Asked as: close PO with no expenses; no expenses PO close; PO has no committed expense; cancel instead of closing
+Asked as: no committed expense to close PO; close PO with no expenses; purchase order has no committed expenses; cancel the purchase order instead
 
-Turbo refuses to close a purchase order that has no committed expense. It shows "only cumulative or recurring purchase orders with at least one associated expense may be closed manually. Cancel the purchase order instead."
+A purchase order can be closed only if at least one of its expenses is committed. Otherwise Turbo says "only cumulative or recurring purchase orders with at least one associated expense may be closed manually. Cancel the purchase order instead."
 
-## Only active purchase orders can be closed
+## Only Active purchase orders can be closed
 
-Lines 79-86
+Lines 82-89
 
-Asked as: close PO not active; close draft PO; PO status blocks closing; only active purchase orders
+Asked as: close PO not active; closing a draft or pending PO; only active purchase orders closable; can't close PO status
 
-Turbo refuses to close a purchase order whose status is not Active. It shows "only active purchase orders can be closed". This check runs after the One-Time and committed-expense checks, so those messages come first.
+Turbo refuses to close a purchase order whose status is not Active and says "only active purchase orders can be closed". This check runs after the type check and the committed-expense check.
 
-## Pending expenses block closing a purchase order
+## Pending expenses block manual closure
 
-Lines 88-101
+Lines 91-104
 
-Asked as: expense blocking PO close; PO won't close; why can't I close PO; unresolved expenses stop closing; pending expense close error
+Asked as: PO won't close pending expenses; expense stopping me closing PO; waiting for approval blocks closing; close button greyed out expense
 
-Turbo refuses to close a purchase order while it has an expense that is submitted, not committed and not rejected. Drafts, recalled expenses and rejected expenses do not block closing. Approved expenses that are not yet committed do block it. Turbo shows a message that describes the blocking expenses.
+Turbo refuses to close a purchase order while any of its expenses is submitted but neither committed nor rejected. Drafts, recalled expenses and rejected expenses do not block closure. Approved expenses that wait for commitment block it too.
 
 ## Closing a purchase order records closer, time and Closed status
 
-Lines 103-106
+Lines 106-120
 
-Asked as: who closed the PO; closed date on PO; PO closed status set; record closer and time
+Asked as: what happens when PO is closed; record who closed purchase order; PO closed date and closer saved; status changed to closed
 
-When payables staff close a purchase order and every check passes, Turbo sets its status to Closed (status). It records the current time as the closed time (closed). It records the person who closed it as the closer (closer).
+When all checks pass, Turbo sets the purchase order's status to Closed (status). It also stores the current time (closed) and the person who closed it (closer). The change is saved in one transaction.
 
-## Closing fails if the purchase order cannot be saved
+## Successful closure returns the updated purchase order
 
-Lines 109-115
+Lines 137-142
 
-Asked as: error saving purchase order; PO close won't save; save failed when closing; closing not saved
+Asked as: closed PO shows wrong details; view purchase order after closing; confirm PO closed; returned closed purchase order record
 
-If Turbo cannot save the closed purchase order, the closing fails with the message "error saving purchase order: ..." (code error_saving_purchase_order). The purchase order is not closed.
+When a manual close succeeds, Turbo reads the purchase order again and returns the saved record. The record shows status Closed, the closed time and the closer.
 
-## A refused closing returns a message and a code
+## Pending expense message names approvers and approved expenses awaiting commitment
 
-Lines 120-132
+Lines 150-196
 
-Asked as: close error code; closing refused message; error text closing PO; PO unchanged after refusal
+Asked as: why can't I close PO awaiting approval; expenses awaiting approval message; approved expense waiting commitment; which approver is holding PO
 
-When a check fails, Turbo returns the check's message and its error code, and the purchase order stays unchanged. An unexpected error returns only the error text.
+Closing counts expenses on the PO that are submitted, not committed and not rejected. Unapproved ones give 'This PO has one or more expenses awaiting approval by <approver names>.' Approved ones give 'This PO has one or more approved expenses awaiting commitment.' When both exist, both sentences appear in that order, joined by a space.
 
-## Successful closing returns the updated purchase order
+## Pending-expense approver names are sorted and listed once
 
-Lines 134-139
+Lines 156-169
 
-Asked as: PO after closing; response after close; updated purchase order returned; closed PO details
+Asked as: list of approvers blocking PO; duplicate approver names closing; who must approve before closing; approver names order message
 
-After a purchase order closes, Turbo reloads it from the database and returns it. The returned record shows status Closed, along with the closer and closed time.
+The message lists each approver once per approval state. Names are sorted by approver name, then by approver id.
 
-## Drafts, recalled and rejected expenses do not block closing
+## Draft, recalled and rejected expenses do not block closing
 
-Lines 143-146
+Lines 158-169
 
-Asked as: draft expense blocks close; recalled expense PO close; rejected expense stop closing; does draft stop PO close
+Asked as: draft expense blocks closing; rejected expense stops PO closing; recalled expense closing PO; approved expense stops close
 
-Only submitted expenses that are not committed and not rejected block manual closing. Draft and recalled expenses do not block it. Approved expenses that are not yet committed do block it.
+Only expenses that are submitted, not committed and not rejected block manual closure. Drafts, recalled expenses and rejected expenses do not block it. Approved expenses that are not yet committed do block it.
 
-## Which expenses count as pending when closing a purchase order
+## Approver with no name still blocks closing
 
-Lines 155-164
+Lines 174-188
 
-Asked as: which expenses block PO; submitted expense stops closing; expense counted as pending; pending expenses on PO
+Asked as: approver name missing closing PO; blank approver name blocks close; unknown approver blocking PO; approver profile has no name
 
-An expense on the PO blocks closing if it is submitted and neither committed nor rejected. Drafts, recalled expenses, rejected expenses and committed expenses do not block.
-
-## Pending expense message lists approvers by name
-
-Lines 171-189
-
-Asked as: who must approve expense; approver names close PO; awaiting approval names; list of approvers blocking
-
-If submitted expenses on the PO are not yet approved, the closing refusal reads "This PO has one or more expenses awaiting approval by" followed by the approvers' names, separated by commas. Each name appears once. Names are sorted alphabetically.
-
-## Approved but uncommitted expenses block closing a purchase order
-
-Lines 173-192
-
-Asked as: approved expense not committed; awaiting commitment PO; approved but not committed; commit expense before closing
-
-If a submitted expense on the PO is approved but not yet committed, closing is refused. The message reads "This PO has one or more approved expenses awaiting commitment."
-
-## Missing approver name still blocks closing
-
-Lines 176-185
-
-Asked as: approver name missing; approver has no name; unavailable approver close; nameless approver blocks PO
-
-If an unapproved pending expense has an approver with no profile name, the block stays. The message names "an approver whose name is unavailable" in the list of approvers.
-
-## Both pending reasons combine in one closing message
-
-Lines 186-193
-
-Asked as: two messages closing PO; approval and commitment message; both pending reasons shown; combined close refusal message
-
-When a PO has expenses awaiting approval and approved expenses awaiting commitment, Turbo shows both sentences in one message. The approval sentence comes first. A single space separates the two sentences.
+If an approver's profile name is missing or blank, the expense still blocks closure. The message lists 'an approver whose name is unavailable' in place of the name, after the named approvers.
