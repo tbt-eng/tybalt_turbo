@@ -47,8 +47,10 @@ await runBrowserHarness(async (page, origin) => {
   const status = page.locator('select[name="status"]');
   const value = page.locator('input[name="project_value"]');
   await date.waitFor();
-  assert.equal(await date.getAttribute("required"), "");
-  assert.equal(await date.evaluate((input) => input.validity.valueMissing), true);
+  // The form marks the field with DSRequiredMark and aria-required. It doesn't
+  // set the native required attribute: the server refuses the save instead.
+  assert.equal(await date.getAttribute("aria-required"), "true");
+  assert.equal(await date.getAttribute("required"), null);
   assert.equal(await date.getAttribute("max"), null);
   assert.equal(await date.getAttribute("min"), "2025-01-15");
   assert.match(
@@ -58,13 +60,13 @@ await runBrowserHarness(async (page, origin) => {
 
   for (const value of ["Closed", "Cancelled"]) {
     await status.selectOption(value);
-    assert.equal(await date.getAttribute("required"), null);
+    assert.equal(await date.getAttribute("aria-required"), null);
     assert.equal(await date.evaluate((input) => input.checkValidity()), true);
   }
   assert.equal(await value.isDisabled(), true, "effective value changes require approval");
   await page.getByText("Propose a value change from job details.", { exact: true }).waitFor();
   await status.selectOption("Active");
-  assert.equal(await date.evaluate((input) => input.validity.valueMissing), true);
+  assert.equal(await date.getAttribute("aria-required"), "true");
   await date.fill("2035-12-31");
   assert.equal(await date.evaluate((input) => input.checkValidity()), true);
   await page.getByTitle("Clear completion date", { exact: true }).click();
