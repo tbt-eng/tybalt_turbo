@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"tybalt/utilities"
 
@@ -13,6 +15,7 @@ type TimeSheetDetailsResponse struct {
 	Items               []*core.Record    `json:"items"`
 	ApproverInfo        TimesheetApprover `json:"approverInfo"`
 	SharedReviewerCount int               `json:"sharedReviewerCount"`
+	OwnerName           string            `json:"ownerName"`
 }
 
 func createGetTimeSheetDetailsHandler(app core.App) func(e *core.RequestEvent) error {
@@ -61,11 +64,17 @@ func createGetTimeSheetDetailsHandler(app core.App) func(e *core.RequestEvent) e
 			return e.Error(http.StatusInternalServerError, "failed to load shared reviewer count", err)
 		}
 
+		ownerName, err := getTimesheetOwnerName(app, timeSheet.GetString("uid"))
+		if err != nil {
+			return e.Error(http.StatusInternalServerError, "failed to load time sheet owner", err)
+		}
+
 		return e.JSON(http.StatusOK, TimeSheetDetailsResponse{
 			TimeSheet:           timeSheet,
 			Items:               items,
 			ApproverInfo:        approverInfo,
 			SharedReviewerCount: sharedReviewerCount,
+			OwnerName:           ownerName,
 		})
 	}
 }
@@ -87,6 +96,37 @@ WHERE time_sheet = {:timeSheetId}
 	}
 
 	return row.Count, nil
+}
+
+// getTimesheetOwnerName returns the owner's given name and surname from
+// their profile, falling back to the users.name field when the profile has
+// no name. It returns an empty string when neither is set.
+func getTimesheetOwnerName(app core.App, uid string) (string, error) {
+	var row struct {
+		OwnerName string `db:"owner_name"`
+	}
+
+	err := app.DB().NewQuery(`
+SELECT COALESCE(
+    NULLIF(TRIM(COALESCE(p.given_name, '') || ' ' || COALESCE(p.surname, '')), ''),
+    u.name,
+    ''
+) AS owner_name
+FROM users u
+LEFT JOIN profiles p ON p.uid = u.id
+WHERE u.id = {:uid}
+LIMIT 1
+`).Bind(dbx.Params{
+		"uid": uid,
+	}).One(&row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return row.OwnerName, nil
 }
 
 func canViewTimeSheetDetails(app core.App, auth *core.Record, timeSheet *core.Record) (bool, error) {

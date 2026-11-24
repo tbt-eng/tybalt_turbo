@@ -33,6 +33,7 @@
   let approverInfo = $state(untrack(() => data.approverInfo as any));
   let committerInfo = $state(untrack(() => data.committerInfo));
   let sharedReviewerCount = $state(untrack(() => data.sharedReviewerCount ?? 0));
+  let ownerName = $state(untrack(() => data.ownerName));
   let showUncommitConfirm = $state(false);
   let uncommitSubmitting = $state(false);
   let uncommitError = $state<string | null>(null);
@@ -52,6 +53,7 @@
       approverInfo = response.approverInfo;
       committerInfo = { committer_name: response.approverInfo?.committer_name || "" };
       sharedReviewerCount = response.sharedReviewerCount ?? 0;
+      ownerName = response.ownerName ?? "";
     } catch (error: any) {
       globalStore.addError(getApiErrorMessage(error, "Refresh failed"));
     }
@@ -197,7 +199,7 @@
 
 <div class="mx-auto p-4">
   <div class="mb-4 flex items-center gap-2">
-    <h1 class="min-w-0 flex-1 text-2xl font-bold">Time Sheet Details</h1>
+    <h1 class="min-w-0 flex-1 text-2xl font-bold">{ownerName || "Time Sheet Details"}</h1>
     <DSHelp doc="time#time-sheet-statuses" label="Help" />
   </div>
   {#if !$timeEditingEnabled}

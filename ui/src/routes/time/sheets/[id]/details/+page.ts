@@ -32,6 +32,7 @@ export const load: PageLoad = async ({ params }) => {
       approverInfo,
       committerInfo,
       sharedReviewerCount: response.sharedReviewerCount ?? 0,
+      ownerName: (response.ownerName as string | undefined) ?? "",
     };
   } catch (err) {
     console.error(`loading time sheet details: ${err}`);

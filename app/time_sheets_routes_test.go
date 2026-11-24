@@ -205,6 +205,7 @@ func TestTimeSheetDetailsAndUncommitRoutes(t *testing.T) {
 				`"id":"j1lr2oddjongtoj"`,
 				`"items":[`,
 				`"approverInfo":{"`,
+				`"ownerName":"Horace Silver"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -378,12 +379,16 @@ func TestTimeSheetDetailsIncludeSharedReviewerCount(t *testing.T) {
 	var payload struct {
 		Items               []json.RawMessage `json:"items"`
 		SharedReviewerCount int               `json:"sharedReviewerCount"`
+		OwnerName           string            `json:"ownerName"`
 	}
 	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
 		t.Fatalf("failed to decode details response: %v", err)
 	}
 	if payload.SharedReviewerCount != 2 {
 		t.Fatalf("sharedReviewerCount = %d, want 2", payload.SharedReviewerCount)
+	}
+	if payload.OwnerName != "Horace Silver" {
+		t.Fatalf("ownerName = %q, want %q", payload.OwnerName, "Horace Silver")
 	}
 	if len(payload.Items) == 0 {
 		t.Fatal("expected details response to include time entries")

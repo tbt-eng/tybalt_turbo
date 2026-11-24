@@ -1,108 +1,92 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/timesheet_details.go","sha256":"432b3ba17e26b8efa6539951a69e095ca2995f9cf099758ceeac20d9394e2de0","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/timesheet_details.go","sha256":"72d3ce624e13ff91e7edf9e913a1354b503e9ef07ea8d30ed81cb6b190cc9d1c","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/timesheet_details.go
 
-## Time sheet details require a signed-in user
+## Time sheet details require sign-in
 
-Lines 20-23
+Lines 23-26
 
-Asked as: unauthorized error; not signed in; session expired; login required for timesheet
+Asked as: not signed in; unauthorized error; session expired; can't open timesheet details; log in required
 
-Turbo refuses the time sheet details request when the user is not signed in. The message is "unauthorized".
+Turbo refuses a request for time sheet details from a person who is not signed in. The message is "unauthorized".
 
-## Time sheet details need a time sheet id
+## Time sheet details with unknown or hidden sheet
 
-Lines 25-28
+Lines 33-44
 
-Asked as: id is required; missing timesheet id; no timesheet id; timesheet id blank
+Asked as: time sheet not found; timesheet not found or not authorized; missing timesheet; can't find my timesheet; sheet does not exist
 
-Turbo refuses the time sheet details request when no id is given. The message is "id is required".
+When the time sheet does not exist, Turbo answers "time sheet not found or not authorized". When the person may not view the sheet, Turbo gives the same message. A person cannot tell a missing sheet from a hidden one.
 
-## Missing or hidden time sheet gives the same message
+## Time sheet details response contents
 
-Lines 30-41
+Lines 46-78
 
-Asked as: time sheet not found; timesheet not found or not authorized; can't find my timesheet; timesheet does not exist
+Asked as: what details come back; timesheet entries sorted; entries missing job or category; time entries list; which fields show in details
 
-When the time sheet does not exist, Turbo answers "time sheet not found or not authorized". It gives the same message when the user may not view the time sheet. A user cannot tell whether a hidden time sheet exists.
+Turbo returns the time sheet, its time entries, the approver info, the shared reviewer count and the owner's name. The entries are sorted by date, newest first. Each entry includes its job, time type, division, category and role.
 
-## Details response lists entries newest first with related data
+## Shared reviewer count counts all reviewers
 
-Lines 43-52
+Lines 82-99
 
-Asked as: timesheet entries order; entries newest first; list of time entries; timesheet details entries
+Asked as: reviewer count wrong; how many reviewers shown; shared reviewers number; count of reviewers; reviewers on draft timesheet
 
-The details response holds the time sheet and all its time entries, sorted by date with the newest first. Each entry includes its job, time type, division, category and role.
+Turbo counts every shared reviewer record (time_sheet_reviewers) for the time sheet. It counts them whatever the sheet's state.
 
-## Details response includes approver info and reviewer count
+## Owner name falls back to account name
 
-Lines 54-69
+Lines 101-130
 
-Asked as: approver info on timesheet; shared reviewer count; how many reviewers; reviewer count missing
+Asked as: owner name blank; name missing on timesheet; shows account name instead; empty owner name; profile name not showing
 
-The details response also gives the approver information from getTimesheetApproverInfo. It gives the number of shared reviewers (sharedReviewerCount), counted from the time sheet's reviewer records.
+Turbo shows the owner's name as the given name and surname from their profile. When the profile has no name, Turbo uses the user's account name (users.name). When neither is set, or the user is not found, the name is empty.
 
-## Shared reviewer count counts all reviewer records
+## Owner can always view their own time sheet details
 
-Lines 73-90
+Lines 137-139
 
-Asked as: reviewer count includes drafts; count reviewers regardless of state; reviewers counted on draft; number of reviewer records
+Asked as: view my own timesheet; can't open my draft; see my own sheet; my own timesheet details; owner cannot open timesheet
 
-The shared reviewer count is the number of reviewer records for the time sheet. It does not check the time sheet's state.
-
-## Time sheet owner can always view details
-
-Lines 97-99
-
-Asked as: view my own timesheet; see my timesheet any state; owner view draft timesheet; my unsubmitted timesheet
-
-The person whose time sheet it is (uid) can view its details in any state, submitted or not.
+The person whose time sheet it is (uid) can always view its details. The sheet's state does not matter.
 
 ## Admin views only committed time sheets
 
-Lines 101-107
+Lines 141-147
 
-Asked as: admin cannot see timesheet; admin can't open uncommitted timesheet; admin view someone's timesheet; why admin locked out timesheet
+Asked as: admin can't open timesheet; admin cannot see uncommitted sheet; admin access to someone's timesheet; manager can't view draft; admin view other's timesheet
 
-An admin (the admin claim) can view another person's time sheet details only when the time sheet has been committed (committed is set). An uncommitted time sheet stays hidden from an admin unless another rule applies.
+A person with the admin claim can view the details of another person's time sheet only when it is committed (committed is set). An admin cannot view an uncommitted sheet through this claim.
 
 ## Approver views only submitted time sheets
 
-Lines 109-111
+Lines 149-151
 
-Asked as: approver can't see timesheet; approver not seeing timesheet; manager can't open timesheet; timesheet after recall hidden
+Asked as: approver can't see timesheet; approver no access before submit; manager cannot open unsubmitted sheet; approver sees nothing; chosen approver access
 
-The approver of a time sheet (approver) can view its details only when the time sheet is submitted. Before submission, or after a recall, the approver cannot view it.
+The approver chosen on a time sheet can view its details only when the sheet is submitted. Before submission the approver cannot view it.
 
-## Shared reviewers view submitted time sheets only
+## Shared reviewer views only submitted time sheets
 
-Lines 113-122
+Lines 153-162
 
-Asked as: reviewer can't open timesheet; shared reviewer no access; colleague added as reviewer cannot see; reviewer access before submit
+Asked as: reviewer can't open timesheet; shared reviewer no access; colleague can't view sheet; reviewer access before submission; reviewer sees timesheet not found
 
-A person added as a reviewer of a time sheet (a time_sheet_reviewers record) can view its details only when the time sheet is submitted.
+A person who is a shared reviewer of the time sheet (time_sheet_reviewers) can view its details only when the sheet is submitted.
 
 ## Committer views submitted and approved time sheets
 
-Lines 124-130
+Lines 164-170
 
-Asked as: committer can't see timesheet; commit role timesheet hidden; timesheet not approved yet hidden; committer access unapproved timesheet
+Asked as: committer can't open timesheet; commit role cannot view; approver not yet approved sheet; committer access unapproved sheet; can't see approved sheet
 
-A committer (the commit claim) can view another person's time sheet details only when it is submitted and approved (approved is set). A time sheet that is not yet approved is hidden from a committer.
+A committer (the commit claim) can view the details of a time sheet that is submitted and approved (approved is set). A committer cannot view a sheet that is not yet approved.
 
-## Report staff view committed time sheets
+## Report access covers committed time sheets only
 
-Lines 132-138
+Lines 172-180
 
-Asked as: report user can't see timesheet; reporting access timesheet; report role cannot open timesheet; finance can't view timesheet
+Asked as: report user can't see timesheet; reporting access denied; report claim timesheet; reports cannot open draft; access denied for reports
 
-A person with the report claim can view time sheet details only when the time sheet is committed (committed is set).
-
-## Everyone else cannot view time sheet details
-
-Lines 140-140
-
-Asked as: no access to timesheet; why can't I view this timesheet; permission denied timesheet; not allowed to see timesheet
-
-A user who matches none of the owner, admin, approver, reviewer, committer or report rules cannot view the time sheet details.
+A person with the report claim can view the details of a time sheet only when it is committed. Nobody else gets access, and Turbo denies the request.
