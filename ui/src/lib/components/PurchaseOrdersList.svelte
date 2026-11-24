@@ -323,7 +323,7 @@
             <DsLabel tone="warning" title={`Ends on ${shortDate(item.end_date)}`}>Expiring</DsLabel>
           {/if}
           {#if poIsStale(item)}
-            <DsLabel tone="neutral" title={`Approved more than ${STALE_AFTER_DAYS} days ago`}>
+            <DsLabel tone="info" title={`Approved more than ${STALE_AFTER_DAYS} days ago`}>
               Stale
             </DsLabel>
           {/if}
