@@ -1,276 +1,260 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/navConfig.ts","sha256":"7fe2eda97a3d497beee71c02b8cc731eaa2d0006ba1560db9beb7740a005a8fa","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/navConfig.ts","sha256":"b5ee438506fd1d11d1b73e41b981d9b598a4f4bcbd5fcfb0d6e4f5e3ccc01f91","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/navConfig.ts
 
-## Menu checks use the claims of the signed-in user
+## Menu checks can use claims, branch manager status, feature flag and attention counts
 
-Lines 9-25
+Lines 9-15
 
-Asked as: menu depends on my permissions; why menu items missing; links change per user; menu based on my role
+Asked as: what decides menu visibility; menu link hidden why; which checks hide links; menu check rules
 
-A menu check (canView) reads the claims of the signed-in user, whether the user is a branch manager (isBranchManager), whether project requests are on (jobRequestsEnabled) and the attention counts. The anyClaim helper shows an entry when the user holds at least one of the named claims.
+A menu check can look at the person's claims, whether they are a branch manager, whether project requests are enabled, and the attention counts. Nothing else decides whether a link or button shows.
 
-## Menu entries without a check show to everyone
+## Menu entries without a check are shown to everyone
 
 Lines 17-19
 
-Asked as: why can everyone see this link; link visible to all users; no permission needed for link; menu link open to everyone
+Asked as: link visible to everyone; menu item no permission; everyone sees this link; empty menu section hidden
 
-A menu link or button with no view check (canView) appears for every signed-in user. Entries such as Entries, Sheets, Shared with Me, Time Off, My Purchase Orders, Search and My Expenses are open to all in the menu.
+Without Show All UI, Turbo shows a link or button that has no canView check to every user. Turbo hides an entry whose check fails. Turbo hides a section that has no visible items.
 
-## Project request menus need the feature on
+## Menu link shows to holders of any named claim
 
-Lines 28-31
+Lines 21-25
 
-Asked as: project requests menu missing; can't see project requests; project requests link hidden; request approvals not showing
+Asked as: shown if I have one role; menu needs either permission; any one claim menu; link missing despite role
 
-Project Requests shows only while project requests are on, to holders of the time, job or project_authorization claim. Request Approvals shows only while the feature is on, to holders of project_authorization.
+A menu entry that uses the anyClaim check is shown when the signed-in person holds at least one of the named claims. A person with none of those claims does not see it.
 
-## Branch and Division WIP menus use the WIP reports check
+## Project request menus need the feature switched on
+
+Lines 27-31
+
+Asked as: project request menu missing; requests menu hidden; project requests feature flag; request menu off
+
+A menu entry wrapped in the jobRequests check is shown only while the project requests feature is on (jobRequestsEnabled). It is hidden when the feature is off, even for a person who holds the claim that the entry needs.
+
+## WIP reports menu depends on WIP report access
 
 Lines 33-34
 
-Asked as: branch WIP link missing; division WIP not showing; WIP reports menu hidden; can't open branch WIP
+Asked as: WIP report menu missing; cannot see WIP reports; who can view WIP; WIP report access denied
 
-The Branch and Division WIP links show only when the WIP reports check passes. That check is canViewWIPReports, which takes the user's claims and whether the user is a branch manager. This file does not show its result.
+The WIP report menu check calls canViewWIPReports with the person's claims and whether they are a branch manager. This file does not state which claims or roles pass.
 
-## Show All UI displays every menu entry
+## Show All UI shows every menu entry
 
 Lines 60-68
 
-Asked as: show all menu items; see every menu option; display all UI; show every link
+Asked as: show everything in menu; see all menu items; show all UI setting; menu showing all links
 
-With Show All UI on, Turbo shows every section, link and button, whatever the user's claims. The server still checks access to the actions.
+With Show All UI on, Turbo shows every section, link and button in the menu whatever the user's claims. The server still checks access when the user acts.
 
-## Menu hides links, buttons and empty sections
+## WIP menu hides when it has no visible children
 
-Lines 69-82
+Lines 69-83
 
-Asked as: section disappeared from menu; menu link hidden; empty menu group missing; why is the menu missing
+Asked as: WIP vanished from menu; WIP menu gone; empty WIP section disappeared; menu section disappeared
 
-Without Show All UI, Turbo hides each link or button whose check fails. A section left with no links is hidden. The WIP group is hidden when none of its child links is visible.
+An item with children, such as WIP, disappears from the menu when none of its children passes its check. Turbo also hides a section left with no items.
 
-## Time Off menu link is open to everyone
+## Time entries link and New Entry button show to everyone
 
-Lines 89-101
+Lines 85-100
 
-Asked as: shared with me link; sheets menu for everyone; entries new entry button; everyone sees entries
+Asked as: New Entry button everyone; green add entry button; time entries link visible; add time entry button
 
-The Time Off link in the Time Management menu has no check (canView), so every signed-in user sees it. The Sheets, Shared with Me and Entries links are open in the same way. The Entries link also has a New Entry button that everyone sees.
+The Time Management menu starts with an Entries link to the time entries list. It has a green New Entry button that opens the add-entry page. Neither has a claim check, so every signed-in user sees both.
 
-## Time sheet approval menus need the approver claim
+## Time sheet approval lists need the approver claim
 
-Lines 102-113
+Lines 101-114
 
-Asked as: pending my approval timesheets; approved by me timesheets; timesheet approval menu missing; approve time sheets link
+Asked as: pending my approval missing timesheets; approved by me not showing; timesheet approval list hidden; cannot see timesheet approvals
 
-Pending My Approval and Approved By Me under Time Management show only to an approver (the tapr claim).
+Staff see Pending My Approval and Approved By Me for time sheets only with the approver claim (tapr). Everyone sees Entries, Sheets, Shared with Me and Time Off.
 
-## Time tracking and work records menu claims
+## Time tracking and work records menu access
 
 Lines 115-126
 
-Asked as: time tracking menu missing; work records link hidden; work records not showing; time tracking link gone
+Asked as: time tracking menu missing; work records not showing; work records hidden; time tracking not visible
 
-Time Tracking shows to holders of the report or admin claim. Work Records shows to holders of the report or work_record claim.
+Time Tracking appears to holders of the report claim or the admin claim. Work Records appears to holders of the report claim or the work record claim (work_record).
 
-## Amendments menu needs time amendment or report claim
+## Amendments menu access
 
 Lines 127-145
 
-Asked as: amendments menu missing; new amendment button; list all amendments; amendments link hidden
+Asked as: amendments menu missing; list all button missing; new amendment button hidden; amendments not showing
 
-The Amendments link, with its List All Amendments and New Amendment buttons, shows to holders of the tame or report claim.
+Amendments, with its List All and New Amendment buttons, appears to holders of the time amendment claim (tame) or the report claim. The buttons share the item's check.
 
-## Time Off menu link shows to all staff
+## Purchase order approval list needs approver claim
 
-Lines 146-146
+Lines 152-187
 
-Asked as: time off menu link; who can see time off; time off link showing; time off menu for staff
+Asked as: PO approvals not visible; pending PO approvals missing; purchase order approval list hidden; PO approver list missing
 
-The Time Off link in the Time Management menu (/time/off) has no claim check. Every signed-in user sees it.
-
-## My Purchase Orders menu and New PO button are open
-
-Lines 152-163
-
-Asked as: my purchase orders button; new PO button visible; my POs link; new PO button everyone
-
-The My Purchase Orders link and its New PO button have no claim check. Every signed-in user sees both.
+Pending My Approval for purchase orders appears only to holders of the approver claim (tapr). My Purchase Orders, Rejected (Mine) and Search appear to everyone.
 
 ## PO Groups menu and New PO Group button
 
 Lines 164-177
 
-Asked as: PO groups menu missing; new PO group button; can't create PO group; PO group link hidden
+Asked as: PO groups menu missing; new PO group button missing; cannot create PO group; PO group button hidden
 
-PO Groups shows to users who pass canViewPOGroups (its rule is in another file). The New PO Group button shows only to holders of the super_po claim.
+PO Groups appears when canViewPOGroups accepts the user's claims. The New PO Group button needs the super PO claim (super_po).
 
-## Rejected, Search and My Expenses menus are open
-
-Lines 178-214
-
-Asked as: rejected purchase orders link; my expenses link; my reimbursements menu; expenses menu for all
-
-The Rejected (Mine) and Search links in the Purchase Orders menu have no claim check, so everyone sees them. The My Expenses link, its New Expense button and the My Reimbursements link are also open to everyone.
-
-## Purchase order approval menu needs approver claim
-
-Lines 179-184
-
-Asked as: pending PO approval menu; purchase order approvals missing; PO approval link hidden; approve purchase orders menu
-
-Pending My Approval under Purchase Orders shows only to an approver (the tapr claim).
-
-## Stale and Expiring PO lists are for payables staff
+## Stale and expiring PO lists for payables staff
 
 Lines 188-196
 
-Asked as: stale PO list; expiring recurring POs; payables stale purchase orders; stale orders list missing
+Asked as: stale PO list missing; expiring recurring POs hidden; payables purchase order lists; stale POs not showing
 
-The company-wide Stale and Expiring (Recurring) purchase order lists show only to payables staff (the payables_admin claim). Other users see a label on the purchase order in their own list.
+Stale and Expiring (Recurring) purchase order lists appear only to payables staff (payables_admin claim). Other staff see a label on the purchase order in their own list.
 
-## Expense approval menus need approver claim
+## Expense approval lists need approver claim
 
-Lines 215-226
+Lines 202-226
 
-Asked as: pending expense approval; approved expenses by me; expense approval menu missing; expense approvals link hidden
+Asked as: expense approval list missing; pending expenses not showing; approved expenses by me hidden; expense approvals not visible
 
-Pending My Approval and Approved By Me under Expenses show only to an approver (the tapr claim).
+Pending My Approval and Approved By Me for expenses appear only to holders of the approver claim (tapr). My Expenses and My Reimbursements appear to everyone.
 
 ## Expense tracking, settlement and commit menus
 
 Lines 227-250
 
-Asked as: expense tracking menu missing; settlement menu hidden; commit queue not showing; uncommit requests link
+Asked as: commit queue missing; settlement menu not showing; uncommit requests hidden; expense tracking menu missing
 
-Expense Tracking shows to holders of the report or admin claim. Settlement shows to payables staff (payables_admin). Commit Queue shows to a committer (the commit claim). Uncommit Requests shows to holders of the commit or admin claim.
+Expense Tracking appears to holders of the report or admin claim. Settlement appears to payables staff (payables_admin). Commit Queue appears to committers (commit claim). Uncommit Requests appears to holders of the commit or admin claim.
 
-## Job list buttons for procurement
+## Job list report buttons need the job claim
 
-Lines 256-286
+Lines 259-286
 
-Asked as: unused active jobs button; stale jobs button; latest jobs missing; jobs map button
+Asked as: stale jobs button missing; unused active jobs not showing; jobs map button; latest jobs button hidden
 
-The Unused Active Jobs, Stale Jobs and Latest Jobs buttons show only to procurement (the job claim). The Jobs Map button shows to everyone.
+The Unused Active Jobs, Stale Jobs and Latest Jobs buttons appear only to procurement (job claim). The Jobs Map button appears to everyone.
 
 ## New Project or Proposal button visibility
 
 Lines 287-297
 
-Asked as: new project button missing; new proposal button; create project or proposal; can't add new project
+Asked as: new project button missing; cannot create proposal; proposal button hidden; new project not showing
 
-The button shows to procurement (the job claim). It also shows to staff with the time claim while project requests are on (jobRequestsEnabled).
+The New Project or Proposal button appears to procurement (job claim). It also appears to holders of the time claim while project requests are enabled (jobRequestsEnabled).
 
-## WIP menu: My WIP open, Branch and Division restricted
+## WIP menu branch and division reports
 
 Lines 300-309
 
-Asked as: my WIP link; WIP menu for everyone; branch WIP hidden; division WIP restricted
+Asked as: branch WIP missing; division WIP not showing; my WIP menu; branch and division WIP hidden
 
-My WIP shows to everyone. Branch and Division WIP show only to users who pass canViewWIPReports (claims and branch manager status; its rule is in another file).
+My WIP appears to everyone. Branch and Division WIP appear when canViewWIPReports accepts the user's claims and branch-manager status.
 
-## Request Approvals menu
+## Project request menus need the feature on
 
-Lines 316-321
+Lines 310-321
 
-Asked as: request approvals menu; request approvals missing; approve project requests link; request approvals hidden
+Asked as: request approvals missing; project requests menu hidden; project authorization menu; project requests not showing
 
-Request Approvals shows only while project requests are on, and only to holders of the project_authorization claim.
+Project Requests appears only while the project requests feature is on, to holders of the time, job or project authorization claim (project_authorization). Request Approvals appears only while the feature is on, to holders of the project authorization claim.
 
 ## Job Create Queue menu
 
 Lines 322-328
 
-Asked as: job create queue menu; job creation queue missing; create queue link hidden; job queue not showing
+Asked as: job create queue missing; create queue not showing; job queue menu hidden; cannot see create queue
 
-Job Create Queue shows to users who pass canViewJobCreateQueue, which takes their claims, the project requests setting and the attention counts. Its result is set in another file.
+Job Create Queue appears when canViewJobCreateQueue accepts the user's claims, the project requests setting and the attention counts.
 
 ## Value Approvals and Abandoned Requests menus
 
 Lines 329-340
 
-Asked as: value approvals menu; abandoned requests link; value approvals missing; abandoned requests admin only
+Asked as: value approvals menu missing; abandoned requests missing; abandoned requests hidden; value approvals not showing
 
-Value Approvals shows to holders of the project_authorization claim. Abandoned Requests shows only to admins (the admin claim). Value Approvals does not depend on the project requests setting.
+Value Approvals appears to holders of the project authorization claim, even when project requests are off. Abandoned Requests appears only to admins (admin claim).
 
-## Rate Sheets menu visibility
+## Rate Sheets menu access
 
 Lines 341-351
 
-Asked as: rate sheets menu missing; rate sheets link hidden; can't see rate sheets; rate sheet menu not showing
+Asked as: rate sheets menu missing; cannot see rate sheets; rate sheet menu hidden; rate sheets not showing
 
-Rate Sheets shows to holders of the job, admin or rate_sheet_revise claim. It also shows to holders of the time or project_authorization claim while project requests are on.
+Rate Sheets appears to holders of the job, admin or rate sheet revise claim (rate_sheet_revise). It also appears to holders of the time or project authorization claim while project requests are on.
 
-## Clients and Vendors add buttons
+## Client and vendor creation buttons
 
 Lines 352-377
 
-Asked as: new client button; new vendor button; add vendor missing; add client not showing
+Asked as: new client button missing; add vendor button hidden; new vendor button missing; client vendor buttons not showing
 
-The Clients and Vendors lists show to everyone. New Client shows only to procurement (the job claim). New Vendor shows only to payables staff (payables_admin).
+The New Client button needs the job claim (procurement). The New Vendor button needs the payables claim (payables_admin). The Clients and Vendors lists appear to everyone.
 
-## Absorb Actions menu needs absorb claim
+## Absorb menus
 
-Lines 378-383
+Lines 378-388
 
-Asked as: absorb actions menu; absorb menu missing; absorb link hidden; can't see absorb
+Asked as: absorb actions missing; absorb proposals menu; absorb menu hidden; cannot see absorb
 
-Absorb Actions shows only to holders of the absorb claim.
+Absorb Actions appears only to holders of the absorb claim. Absorb Proposals appears to everyone.
 
 ## PO Approvers menu
 
-Lines 384-389
+Lines 389-394
 
-Asked as: PO approvers menu; approvers link missing; PO approvers hidden; purchase order approvers menu
+Asked as: PO approvers menu missing; approvers menu hidden; PO approvers not showing; cannot see PO approvers
 
-PO Approvers shows to users who pass canViewPOApprovers (its rule is in another file).
+PO Approvers appears when canViewPOApprovers accepts the user's claims.
 
-## Admin Profiles menu claims
+## Admin Profiles menu access
 
-Lines 390-395
+Lines 395-400
 
-Asked as: admin profiles menu; profiles link hidden; admin profiles missing; can't see admin profiles
+Asked as: admin profiles missing; profiles menu hidden; HR profiles menu; admin profiles not showing
 
-Admin Profiles shows to holders of the admin, hr, time_off_manager or it claim.
+Admin Profiles appears to holders of the admin, hr, time off manager (time_off_manager) or it claim.
 
 ## Computers menu and its buttons
 
-Lines 396-420
+Lines 401-425
 
 Asked as: computers menu missing; retired computers button; logins button missing; raw logins not showing
 
-Computers shows to users who pass canViewComputers (its rule is in another file). Its buttons Retired Computers, Logins and Raw Logins have no check of their own, so they show whenever the Computers link shows.
+Computers appears when canViewComputers accepts the user's claims. The Retired Computers, Logins and Raw Logins buttons have no check of their own and follow the item.
 
-## Claims link is open; App Config and UI Components are admin only
+## Claims menu shown to everyone
 
-Lines 421-423
+Lines 426-428
 
-Asked as: claims menu link; app config menu; UI components menu; app config hidden
+Asked as: claims menu missing; app config not showing; UI components menu; claims menu hidden
 
-Claims shows to everyone. App Config and UI Components show only to admins (the admin claim).
+Claims appears to everyone. App Config and UI Components appear only to admins (admin claim).
 
 ## Report menus need the report claim
 
-Lines 429-463
+Lines 433-468
 
-Asked as: payroll report menu; weekly report link; active jobs CSV menu; branch mismatches CSV
+Asked as: payroll report missing; weekly report menu; CSV download menu missing; report menus hidden
 
-Payroll, Weekly, Time Off, Payables Spreadsheet, Branch Mismatches CSV and Active Jobs CSV show only to holders of the report claim.
+Payroll, Weekly, Time Off, Payables Spreadsheet, Branch Mismatches CSV and Active Jobs CSV appear only to holders of the report claim. The CSV items download a file.
 
 ## Branch Hours and KPI report menus
 
-Lines 464-470
+Lines 469-475
 
-Asked as: branch hours menu; KPI report menu; branch hours link missing; KPI link hidden
+Asked as: branch hours menu missing; KPI report not showing; KPI menu hidden; branch hours not visible
 
-Branch Hours shows to users who pass canViewBranchHours (claims and branch manager status; its rule is in another file). KPI shows only to holders of the kpi claim.
+Branch Hours appears when canViewBranchHours accepts the user's claims and branch-manager status. KPI appears only to holders of the kpi claim.
 
-## Settings menu is admin only
+## Settings menu is for admins
 
-Lines 473-492
+Lines 478-497
 
-Asked as: settings menu missing; currencies menu; time types menu; machine secrets menu
+Asked as: currencies menu missing; time types menu hidden; machine secrets not showing; settings menu missing
 
-Currencies, Time Types, Divisions, Machine Secrets and Attachment Audit show only to admins (the admin claim).
+Currencies, Time Types, Divisions, Machine Secrets and Attachment Audit appear only to admins (admin claim).

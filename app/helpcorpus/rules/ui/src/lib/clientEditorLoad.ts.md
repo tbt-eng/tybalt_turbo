@@ -1,92 +1,76 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/clientEditorLoad.ts","sha256":"868ec5a95c0927d6f084569298a1cfd306e1f42bcd6d8bddccc30174a9753199","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/clientEditorLoad.ts","sha256":"9b96cdd6bf7062bd590ec5e47fee5a8bfcc1258fbc324f1429ddb0a4b6c7e924","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/clientEditorLoad.ts
 
-## Client page load errors: not found or unable to load
+## Loading a client fails with a message when the server errors
 
 Lines 13-25
 
-Asked as: client page error; client not found; unable to load client; client page won't open; 404 on client
+Asked as: client not found error; unable to load client; client info fails to load; server error loading client
 
-When Turbo fails to load a client and the server answers with an error status (400 to 599), the page shows an error. A 404 shows "Client not found." Any other error status shows "Unable to load client information." An error without such a status is passed on unchanged.
+When Turbo cannot load a client's information and the server answers with an error, it shows "Client not found." if the client does not exist. For any other error it shows "Unable to load client information." An error that has no status code is passed on as it is.
 
-## Creating an invoicing profile needs time or job permission
+## Creating an invoicing profile needs the time or job permission
 
 Lines 35-42
 
-Asked as: can't create invoicing profile; new invoicing profile refused; time permission needed; add invoice profile denied; invoicing profile permission
+Asked as: cannot create invoicing profile; invoicing profile permission; new invoicing profile refused; no access to add invoicing profile
 
-To open the editor for a new invoicing profile (an invoicing editor with no record), a person must pass canCreateInvoicingProfile (the time or job permission). Otherwise Turbo refuses with "The time or job permission is required to create invoicing profiles."
+To open the editor that creates a new invoicing profile, a person needs the time or job permission. Without it, Turbo refuses with "The time or job permission is required to create invoicing profiles." Turbo decides this with canCreateInvoicingProfile, and this file does not show its exact rule.
 
-## Managing client contacts or existing profiles needs job permission
+## Editing contacts or existing invoicing profiles needs the job permission
 
-Lines 36-42
+Lines 35-42
 
-Asked as: can't add client contact; job permission missing; manage client contacts denied; edit invoicing profile refused; no access to client contacts
+Asked as: job permission required; cannot edit contact; contact editor locked; manage clients access denied
 
-To open the editor for a contact, or for an existing invoicing profile, a person needs the job permission (the job claim). Otherwise Turbo refuses with "The job permission is required to manage clients."
+To open the editor for a contact, or to edit an existing invoicing profile, a person needs the job permission (the job claim). Creating a contact also needs it. Without it, Turbo refuses with "The job permission is required to manage clients."
 
-## Editing a missing contact or invoicing profile is refused
+## Editor refuses a contact or invoicing profile from another client
 
 Lines 44-54
 
-Asked as: contact missing for client; profile not found; contact deleted from client; invoicing profile gone; wrong contact id
+Asked as: contact not found for client; invoicing profile not found; record from other client; wrong client contact opens
 
-When a record ID is given and the client has no contact or invoicing profile with that ID, Turbo refuses. For a contact it says "Contact not found for this client." For an invoicing profile it says "Invoicing profile not found for this client."
+The editor looks for the record among the contacts or invoicing profiles of this client. If the record is not there, Turbo refuses with "Contact not found for this client." or "Invoicing profile not found for this client." When no record ID is given, the editor opens with an empty record to create a new one.
 
-## New contact or profile editor starts with an empty record
+## Project contact in the link is kept only if it belongs to the client
 
-Lines 45-47
+Lines 55-62
 
-Asked as: blank contact form; new contact empty form; empty invoicing profile; add new contact form; fresh profile form
+Asked as: project contact cleared; project contact disappeared; link contact reset empty; wrong project contact in link
 
-When no record ID is given, the editor opens with an empty record, to create a new contact or invoicing profile.
+The editor takes a project contact from the project_contact value in the link. It keeps the value only if it is one of this client's contacts. Otherwise Turbo sets it to empty.
 
-## Project contact preselection must be a contact of this client
-
-Lines 55-61
-
-Asked as: project contact not preselected; wrong contact picked on project; contact dropdown empty; preselected contact ignored; project contact from link
-
-The editor keeps the project_contact value from the URL only if it is the ID of one of the client's contacts. Otherwise it uses an empty value.
-
-## Return link of the client editor is checked
+## Return link of the editor is checked
 
 Lines 60-60
 
-Asked as: back link broken; return link client editor; go back after saving client; return button wrong page; where back button goes
+Asked as: return link redirect; return_to link check; where editor sends me back; redirect after saving client
 
-The editor's return link (return_to) passes through safeReturnTo for this client before use. This file does not show what that function returns.
+The editor passes the return_to value of the link through safeReturnTo with the client ID, so the return destination is not used unchecked. This file does not show what safeReturnTo accepts.
 
-## Merging contacts needs absorb permission
+## Any signed-in person can open the contact absorb page
 
-Lines 67-68
+Lines 65-69
 
-Asked as: can't merge contacts; merge button missing; absorb permission needed; merge contacts denied; no merge access
+Asked as: contact absorb page open; absorb proposal instead; merge contacts without permission; can't absorb contact
 
-To open the contact merge page, a person needs the absorb permission (the absorb claim). Otherwise Turbo refuses with "The absorb permission is required to merge contacts."
+The page that absorbs a contact does not check the job or absorb permission. Without the absorb permission, the editor proposes the absorb (an absorb proposal) instead.
 
-## Merge page refuses a contact from another client
+## Contact absorb page refuses a contact from another client
 
-Lines 70-71
+Lines 70-74
 
-Asked as: merge contact from other client; contact belongs to another client; merge page contact not found; cross client merge; wrong client contact merge
+Asked as: absorb contact other client; merge contact wrong client; absorb targets list empty; contact not in this client
 
-The merge page refuses when the contact is not one of this client's contacts. Turbo says "Contact not found for this client."
+If the contact is not one of this client's contacts, Turbo refuses with "Contact not found for this client." Otherwise it loads all contacts of the client as possible targets.
 
-## Merge page lists all contacts of the client
-
-Lines 72-74
-
-Asked as: merge target list empty; which contact to keep; contacts to merge into; list of client contacts; choose contact to merge
-
-The merge page loads every contact (client_contacts) of this client. Turbo uses the list to choose a merge target.
-
-## Merge page return link is set only when given
+## Contact absorb page returns to a checked link only when one is given
 
 Lines 78-80
 
-Asked as: no back link merge page; merge page no return link; return link missing on merge; merge page back button absent; return after merging
+Asked as: no return after absorb; absorb page back link; return destination not set; absorb redirect missing
 
-The merge page passes the return_to value through safeReturnTo only when the URL has a return_to parameter. Without it, the page has no return link.
+The contact absorb page passes return_to through safeReturnTo only when the link has a return_to value. Without it, no return destination is set.

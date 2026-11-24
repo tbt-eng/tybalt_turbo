@@ -1,108 +1,116 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/notifications/queue_events.go","sha256":"ecea7a18343c86159b39058897f6c8cd11080ebfdf22a198b117ed554bff28b5","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/notifications/queue_events.go","sha256":"1a151f236c84a6de6f6cf8776de4a88e253b8a5a0a91ee2e531e135b289498ea","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/notifications/queue_events.go
 
 ## Expense rejection notice content and amount format
 
-Lines 15-18
+Lines 16-19
 
-Asked as: expense rejected email content; rejection notice expense amount format; CAD 12.50 currency display; expense rejection reason link
+Asked as: expense rejected email; expense rejection amount format; why expense rejected notice shows currency; rejected expense notification details
 
-The expense rejection notification includes the owner's name, the expense date, the rejector's name, the rejection reason and a link to the expense details page. The amount is shown as the currency code followed by the total with 2 decimals, such as "CAD 12.50". The currency code comes from utilities.EffectiveCurrencyCode, which this file does not define.
+The expense rejection notification names the employee, expense date, rejector and reason, and links to the expense details. The amount appears as the currency code followed by the total with 2 decimals, such as 'CAD 12.50'. The currency code comes from the expense's currency (utilities.EffectiveCurrencyCode).
 
 ## Time sheet rejection notice needs both profiles
 
-Lines 30-48
+Lines 31-49
 
-Asked as: timesheet rejection no notification; cannot find employee profile rejection; error finding rejector profile; timesheet rejected error no emails
+Asked as: no rejection notice timesheet; timesheet rejection error; missing profile timesheet reject; timesheet rejected but no email
 
-If Turbo cannot find the profile of the time sheet owner or of the rejector, it sends no rejection notifications and returns an error ("error finding employee profile" or "error finding rejector profile").
+If Turbo cannot find the employee's profile or the rejector's profile, it sends no rejection notification for the time sheet and returns an error.
 
 ## Who is notified when a time sheet is rejected
 
-Lines 50-76
+Lines 51-77
 
-Asked as: who gets notified timesheet rejected; timesheet rejection manager notified; rejected timesheet notify owner manager; timesheet rejection duplicate notifications
+Asked as: who gets timesheet rejected alert; timesheet rejection notify manager; my manager told about rejected timesheet; timesheet rejected who receives message
 
-When a time sheet is rejected, Turbo notifies the time sheet's owner. It also notifies the person who rejected it, unless that person is the owner. It also notifies the owner's manager, unless the manager is empty or is the owner or the rejector. Each person receives one notification (template timesheet_rejected).
+Turbo notifies the time sheet's owner, the person who rejected it, and the owner's manager (the manager on the owner's profile). The rejector is skipped when they are the owner. The manager is skipped when empty or the same person as the rejector or owner. Each person gets one notification (template timesheet_rejected), which links to the time sheet details.
 
 ## Time sheet rejection notice content
 
-Lines 52-58
+Lines 53-59
 
-Asked as: timesheet rejection email contents; week ending rejected timesheet notice; timesheet rejected message details; rejection notice timesheet link
+Asked as: timesheet rejected message contents; what does rejected timesheet email say; week ending rejection notice; timesheet rejection reason email
 
-The time sheet rejection notification includes the owner's name, the week ending, the rejector's name and the rejection reason. It also includes a link to the time sheet details page.
+The rejection notification (timesheet_rejected) names the employee, the week ending, the rejector and the rejection reason. It links to the time sheet details page.
 
 ## Expense rejection notice needs both profiles
 
-Lines 99-117
+Lines 100-118
 
-Asked as: expense rejected missing profile; error finding employee profile expense; expense rejection no emails sent; expense rejector profile not found
+Asked as: expense rejection no notification; expense rejected error missing profile; rejected expense email not sent; expense reject profile error
 
-If Turbo cannot find the profile of the expense owner or of the rejector, it sends no rejection notifications and returns an error ("error finding employee profile" or "error finding rejector profile").
+If Turbo cannot find the employee's profile or the rejector's profile, it sends no rejection notification for the expense and returns an error.
 
 ## Who is notified when an expense is rejected
 
-Lines 119-146
+Lines 131-147
 
-Asked as: who gets told expense rejected; expense rejection manager copied; rejected expense notify manager; expense rejected notification recipients
+Asked as: who is told expense was rejected; expense rejected manager alert; rejected expense who gets notified; expense rejection recipients
 
-When an expense is rejected, Turbo notifies the expense's owner. It also notifies the rejector, unless that person is the owner. It also notifies the owner's manager, unless the manager is empty or is the owner or the rejector (template expense_rejected).
+Turbo notifies the expense's owner, the person who rejected it, and the owner's manager. The rejector is skipped when they are the owner. The manager is skipped when empty or the same person as the rejector or owner. Each person gets one notification (template expense_rejected).
 
-## No notice when requester decides own uncommit request
+## Uncommit request decision notifies the requester
 
-Lines 161-166
+Lines 162-191
 
-Asked as: uncommit own expense no email; self uncommit no notification; I uncommitted my own expense; no alert when I uncommit
+Asked as: uncommit request answer notification; uncommit approved email; uncommit declined alert to requester; I asked to uncommit expense result
 
-When the person who requested an expense uncommit is also the person who decided it, Turbo sends no notification. A direct uncommit has no one else to tell.
+When someone decides an expense uncommit request, Turbo notifies the requester. If the requester made the decision themself, Turbo sends nothing. The notice is expense_uncommit_declined when the request status is 'declined'. For any other status it is expense_uncommit_approved.
 
-## Uncommit decision notice goes to the requester
+## Uncommit notice fails without decider profile
 
-Lines 168-207
+Lines 169-172
 
-Asked as: uncommit request decision email; who hears about uncommit decision; uncommit declined notice requester; decider comment uncommit message
+Asked as: uncommit decision no email; uncommit notice error; uncommit decider profile missing; uncommit alert not sent
 
-When someone else decides an expense uncommit request, Turbo notifies only the requester. The notice names the decider and gives the reason, the decider's comment and a link to the expense details page. If the decider's profile is not found, Turbo returns the error "error finding decider profile" and sends nothing.
+If Turbo cannot find the decider's profile, it sends no uncommit decision notification and returns an error.
 
-## Uncommit notice expense label
+## Uncommit notice outcome text and expense label
 
-Lines 173-180
+Lines 174-208
 
-Asked as: uncommit email expense label; PO number vendor in uncommit notice; uncommit notice expense name format; expense description missing in uncommit email
+Asked as: uncommit notice wording; back in commit queue message; uncommitted and rejected text; uncommit notification expense label
 
-The expense label in the uncommit notice lists the PO number as "PO <number>" if there is one. It then lists the vendor name if there is one. It always ends with the currency code and the total with 2 decimals. The parts are joined with commas.
+The outcome reads 'The expense was uncommitted and is back in the commit queue.' by default. It reads 'The expense was uncommitted and rejected.' when the outcome is uncommit_and_reject. The expense label joins 'PO <number>' (if any), the vendor name (if any), and the currency code with total to 2 decimals. The notice also carries the decider's name, the reason, the decision comment, and a link to the expense details.
 
-## Uncommit notice outcome wording
+## Sharing a time sheet notifies each new viewer
 
-Lines 182-185
+Lines 217-260
 
-Asked as: uncommit notice wrong wording; uncommitted and rejected message; back in commit queue text; uncommit message says rejected when declined
+Asked as: timesheet shared with me email; added as viewer timesheet alert; someone shared my timesheet notice; viewer added to timesheet notification
 
-If the request's outcome is uncommit_and_reject, the notice says "The expense was uncommitted and rejected." For any other outcome, it says "The expense was uncommitted and is back in the commit queue." The wording does not depend on whether the request was declined.
+When viewers are added to a time sheet, Turbo sends each new viewer one notification (timesheet_shared). It names the sharer and the employee, gives the week ending, and links to the time sheet details. If no new viewers are added, Turbo sends nothing.
 
-## Uncommit notice template depends on decision
+## Share notice needs sharer and employee profiles
 
-Lines 187-190
+Lines 225-243
 
-Asked as: uncommit declined email template; uncommit approved email template; which email sent uncommit request; uncommit notice template choice
+Asked as: timesheet share email not sent; share timesheet error; sharing timesheet profile error; no share notification received
 
-If the uncommit request's status is declined, Turbo uses the template expense_uncommit_declined. For any other status, it uses expense_uncommit_approved.
+If Turbo cannot find the sharer's profile or the employee's profile, it sends no sharing notification and returns an error.
 
-## Time sheet sharing notifies each new viewer
+## Absorb proposal notice content
 
-Lines 216-259
+Lines 271-339
 
-Asked as: timesheet shared no email; new viewer gets notice timesheet; sharing timesheet notification sent; timesheet share alert recipients
+Asked as: absorb proposal email text; absorb notice client contact vendor; proposal notification lists records; absorb decision comment email
 
-When a time sheet is shared, Turbo sends one notification to each newly added viewer (template timesheet_shared). It says who shared it, whose time sheet it is, the week ending and a link to the details page. If there are no new viewers, Turbo sends nothing.
+The notice labels the target as Client, Contact or Vendor followed by the target name, plus ' of <client name>' when the proposal has a client name. It lists the names of the proposed records, separated by commas. It gives the decider's name (empty when there is no decider), the decision comment, and links to decided absorb proposals.
 
-## Time sheet sharing notice needs sharer and owner profiles
+## Absorb proposal outcome notifies the requester
 
-Lines 224-242
+Lines 283-300
 
-Asked as: share timesheet error sharer profile; timesheet sharing no notifications sent; error finding sharer profile; share notification missing profile error
+Asked as: absorb proposal result email; absorb accepted declined message; no absorb update sent; absorb proposal outcome alert
 
-If Turbo cannot find the profile of the sharer or of the time sheet owner, it sends no sharing notifications and returns an error ("error finding sharer profile" or "error finding employee profile").
+Turbo notifies the requester of an absorb proposal when its status is accepted, declined or obsolete. It uses the template absorb_proposal_accepted, absorb_proposal_declined or absorb_proposal_obsolete. For any other status Turbo sends nothing. If the requester decided it themself, Turbo also sends nothing.
+
+## Absorb proposal notice fails without decider profile
+
+Lines 302-309
+
+Asked as: absorb notice error no profile; absorb proposal decider missing; absorb notification failed error; absorb decision not notified
+
+When the proposal has a decider and Turbo cannot find their profile, it sends no notification and returns an error.

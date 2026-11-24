@@ -1,92 +1,100 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/nav_badges.go","sha256":"ae7e0c740f9f8563dc9f2a2e932548550a4575d604de0e86f394e55b1d8c18da","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/nav_badges.go","sha256":"a66034d28989d00a26af41c3dd4cc44f4a8417bd9a5d4781ce55d2229482f0d0","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/nav_badges.go
 
-## Pending purchase orders badge counts actionable unapproved POs
+## Pending purchase orders badge counts unapproved actionable POs
 
-Lines 21-31
+Lines 22-33
 
-Asked as: pending PO badge; unapproved purchase orders count; POs waiting for my approval; purchase order badge number wrong
+Asked as: pending PO count; unapproved purchase orders badge; POs waiting on me; purchase order badge number
 
-The pending purchase orders badge (/pos/pending) counts purchase orders that the PO visibility query marks as unapproved and actionable now (is_unapproved_actionable_now = 1). It uses the "all" visibility view for you. The visibility rules themselves live in another file.
+The pending purchase orders badge counts purchase orders that are unapproved and actionable by you now (is_unapproved_actionable_now = 1). It uses the shared purchase order visibility query with the "all" view for the signed-in user.
 
-## Nav badge counts require a signed-in user
+## Nav badges require sign-in
 
-Lines 42-44
+Lines 43-45
 
-Asked as: badge request unauthorized; nav counts not showing; not signed in badges; no badge numbers appear
+Asked as: badge not loading logged out; nav counts without sign in; unauthorized badge error; badge request not signed in
 
-Turbo refuses the navigation badge request when the person is not signed in. It returns the message "unauthorized" and gives no counts.
+Turbo refuses a navigation badge request from a person who is not signed in. The message is "unauthorized".
 
-## Project workflow badges are added for every user
+## Project workflow badges are added for every signed-in user
 
-Lines 47-49
+Lines 48-50
 
-Asked as: project workflow badges missing; badges fail to load; whole badge menu broken; project badge error
+Asked as: project badges missing; project workflow count showing; why do I see project numbers; project counts in nav
 
-Turbo adds the project workflow badges (addProjectWorkflowBadges) to the badge counts before the other counts. If that step fails, the whole badge request fails. This file does not show which badges it adds.
+Turbo adds project workflow badge counts for every signed-in person before the other counts. Another function (addProjectWorkflowBadges) decides what they count, and this file does not show it.
 
-## Pending time sheets badge counts sheets awaiting your approval
+## Pending time sheets badge counts sheets awaiting you
 
-Lines 52-66
+Lines 53-67
 
-Asked as: timesheets waiting on me; time sheet approval count; timesheet badge wrong number; sheets to approve badge
+Asked as: timesheet approval count; sheets waiting for my approval; pending timesheets number; timesheet badge showing wrong count
 
-The pending time sheets badge (/time/sheets/pending) counts time sheets where you are the approver and the sheet is not yet approved (approved is empty). A sheet that has no time entries is not counted. Each sheet counts once, however many entries it has.
+The pending time sheets badge counts time sheets where you are the approver and that are not yet approved (approved is empty). A time sheet counts only if it has at least one time entry, and it counts once however many entries it has.
 
-## Pending expenses badge uses the pending-expenses filter
+## Pending expenses badge uses the pending filter
 
-Lines 68-76
+Lines 69-77
 
-Asked as: expense approval badge count; expenses waiting for my approval; pending expense number off; expense badge wrong
+Asked as: pending expense count; expenses waiting on me badge; expense badge number; why expense count is high
 
-The pending expenses badge (/expenses/pending) counts expenses with the shared pending filter (wherePending) and your user ID as the approver (auth). This file does not show what that filter contains.
+The pending expenses badge counts the expenses that match Turbo's pending-expense filter (wherePending) for you as the signed-in user. This file does not show what that filter contains.
 
-## Pending purchase orders badge is built for every user
+## Pending purchase orders badge is shown to every signed-in user
 
-Lines 78-86
+Lines 79-87
 
-Asked as: why do I see PO count; everyone sees purchase orders badge; PO badge for all users; purchase order count showing for me
+Asked as: why I see PO count; purchase order number in menu; PO badge for everyone; badge showing POs without permission
 
-Every signed-in user gets the pending purchase orders count, whatever their claims.
+Every signed-in person gets the pending purchase orders count, with no claim needed. The count comes from the same visibility rules as the purchase order list.
 
-## Commit queue badge is shown only to committers
+## Expense commit queue badge only for committers
 
-Lines 88-93
+Lines 89-93
 
-Asked as: commit queue badge missing; no badge on expense queue; can't see commit count; expense queue number hidden
+Asked as: no commit queue badge; can't see commit count; commit badge missing; who sees commit queue number
 
-Only a committer (the commit claim) gets the expense commit queue badge (/reports/expense/queue). Other users get no count for this link.
+Only a committer (the commit claim) gets the expense commit queue badge. People without the claim get no count for it.
 
 ## Commit queue counts approved, uncommitted, submitted expenses
 
-Lines 94-100
+Lines 94-101
 
-Asked as: expenses to commit count; approved expenses not committed; commit queue number wrong; what counts in commit queue
+Asked as: expenses to commit count; commit queue total; approved expenses not committed; count of expenses to post
 
-The commit queue badge counts expenses that are submitted, approved, not rejected and not committed.
+The commit queue badge counts expenses that are submitted, approved, not committed and not rejected. It counts expenses from all staff, not only your own.
 
-## Commit queue skips unsettled foreign-currency card and account expenses
+## Commit queue excludes unsettled foreign-currency card and on-account expenses
 
-Lines 101-105
+Lines 102-106
 
-Asked as: foreign currency expense missing from queue; USD card expense not in commit count; unsettled account expense hidden; commit count skips my expense
+Asked as: foreign currency expense missing from commit; USD expense not in queue; on account expense hidden; corporate card expense not counted
 
-The commit queue badge leaves out an expense when its currency is not CAD, its payment type is OnAccount or CorporateCreditCard, and it is not yet settled. An expense with no currency record counts as CAD, so Turbo does not leave it out. Once such an expense is settled, it is counted.
+The commit queue badge leaves out an expense when its currency is not CAD, its payment type is OnAccount or CorporateCreditCard, and it is not yet settled. An expense with no currency counts as CAD, so it stays in the queue. Once the expense is settled, it counts.
 
-## Settlement badge is shown only to payables staff
+## Expense settlement badge only for payables admins
 
-Lines 113-129
+Lines 114-130
 
-Asked as: settlement badge missing; payables badge not showing; expenses to settle count; settlement queue number
+Asked as: settlement badge missing; payables admin count; expenses to settle number; no settlement count showing
 
-Only payables staff (the payables_admin claim) get the expense settlement badge (/expenses/settlement). It counts expenses that match the settlement queue condition (expenseSettlementQueueCondition, defined elsewhere) and are not yet settled.
+Only a person with the payables_admin claim gets the expense settlement badge. It counts expenses that meet the settlement queue condition (expenseSettlementQueueCondition) and are not yet settled.
 
-## Uncommit requests badge is shown only to admins
+## Uncommit requests badge only for admins
 
-Lines 131-145
+Lines 132-146
 
-Asked as: uncommit request badge missing; no uncommit count; admin uncommit requests number; uncommit badge not showing
+Asked as: uncommit request count; uncommit badge missing; pending uncommit requests; admin uncommit number
 
-Only an admin (the admin claim) gets the uncommit requests badge (/expenses/uncommit-requests). It counts expense uncommit requests whose status is 'pending'.
+Only an admin (the admin claim) gets the expense uncommit requests badge. It counts the requests whose status is 'pending'.
+
+## Absorb proposals badge only for staff with absorb access
+
+Lines 148-162
+
+Asked as: absorb badge missing; absorb proposal count; pending absorb requests; no absorb count in nav
+
+Only staff with absorb access (the absorb claim) get the absorb proposals badge. It counts the absorb proposals whose status is 'pending'.
