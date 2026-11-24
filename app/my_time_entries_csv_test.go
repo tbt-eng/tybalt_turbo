@@ -37,7 +37,7 @@ func TestMyTimeEntriesCSV(t *testing.T) {
 			Headers:        map[string]string{"Authorization": ownerToken},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				`date,week_ending,time_type,time_type_name,hours,job_number,job_description,division,division_name,category,work_record,payout_request_amount,description,time_sheet_status`,
+				`date,week_ending,time_type,time_type_name,hours,meals_hours,job_number,job_description,division,division_name,category,branch,role,work_record,payout_request_amount,description,time_sheet_status`,
 			},
 			NotExpectedContent: []string{
 				// time entries of author@soup.com
@@ -61,12 +61,12 @@ func TestMyTimeEntriesCSV(t *testing.T) {
 				}
 
 				want := [][]string{
-					{"2023-04-03", "2023-04-08", "R", "Hours Worked", "4", "", "", "MD", "Drilling Services", "", "", "", "unbundled entry", "not submitted"},
-					{"2023-03-27", "2023-04-01", "R", "Hours Worked", "6", "", "", "MD", "Drilling Services", "", "", "", "recalled week entry", "not submitted"},
-					{"2023-03-20", "2023-03-25", "OTO", "Request Overtime Payout", "0", "", "", "", "", "", "", "250.50", "", "pending"},
-					{"2023-03-13", "2023-03-18", "OV", "Vacation", "8", "", "", "", "", "", "", "", "", "rejected"},
-					{"2023-03-06", "2023-03-11", "R", "Hours Worked", "8", "", "", "MD", "Drilling Services", "", "", "", "approved week entry", "approved"},
-					{"2023-02-27", "2023-03-04", "R", "Hours Worked", "7.5", "24-321", "Clarke St Boiler Replacement", "MD", "Drilling Services", "paramecium", "", "", "Boiler survey, east wing", "committed"},
+					{"2023-04-03", "2023-04-08", "R", "Hours Worked", "4", "0", "", "", "MD", "Drilling Services", "", "", "", "", "", "unbundled entry", "not submitted"},
+					{"2023-03-27", "2023-04-01", "R", "Hours Worked", "6", "0", "", "", "MD", "Drilling Services", "", "", "", "", "", "recalled week entry", "not submitted"},
+					{"2023-03-20", "2023-03-25", "OTO", "Request Overtime Payout", "0", "0", "", "", "", "", "", "", "", "", "250.50", "", "pending"},
+					{"2023-03-13", "2023-03-18", "OV", "Vacation", "8", "0", "", "", "", "", "", "", "", "", "", "", "rejected"},
+					{"2023-03-06", "2023-03-11", "R", "Hours Worked", "8", "0", "", "", "MD", "Drilling Services", "", "", "", "", "", "approved week entry", "approved"},
+					{"2023-02-27", "2023-03-04", "R", "Hours Worked", "7.5", "0.5", "24-321", "Clarke St Boiler Replacement", "MD", "Drilling Services", "paramecium", "KitchenerWaterloo", "Intermediate Biologist", "", "", "Boiler survey, east wing", "committed"},
 				}
 				if len(records) != len(want)+1 {
 					tb.Fatalf("expected header and %d rows, got %d records: %v", len(want), len(records), records)

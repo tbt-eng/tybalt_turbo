@@ -20,11 +20,14 @@ type myTimeEntryRow struct {
 	TimeType            string  `db:"time_type"`
 	TimeTypeName        string  `db:"time_type_name"`
 	Hours               float64 `db:"hours"`
+	MealsHours          float64 `db:"meals_hours"`
 	JobNumber           string  `db:"job_number"`
 	JobDescription      string  `db:"job_description"`
 	Division            string  `db:"division"`
 	DivisionName        string  `db:"division_name"`
 	Category            string  `db:"category"`
+	Branch              string  `db:"branch"`
+	Role                string  `db:"role"`
 	WorkRecord          string  `db:"work_record"`
 	PayoutRequestAmount float64 `db:"payout_request_amount"`
 	Description         string  `db:"description"`
@@ -37,11 +40,14 @@ var myTimeEntriesHeaders = []string{
 	"time_type",
 	"time_type_name",
 	"hours",
+	"meals_hours",
 	"job_number",
 	"job_description",
 	"division",
 	"division_name",
 	"category",
+	"branch",
+	"role",
 	"work_record",
 	"payout_request_amount",
 	"description",
@@ -76,11 +82,14 @@ func createMyTimeEntriesCSVHandler(app core.App) func(e *core.RequestEvent) erro
 				row.TimeType,
 				row.TimeTypeName,
 				strconv.FormatFloat(row.Hours, 'f', -1, 64),
+				strconv.FormatFloat(row.MealsHours, 'f', -1, 64),
 				row.JobNumber,
 				row.JobDescription,
 				row.Division,
 				row.DivisionName,
 				row.Category,
+				row.Branch,
+				row.Role,
 				row.WorkRecord,
 				payout,
 				row.Description,
