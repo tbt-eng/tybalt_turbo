@@ -6,6 +6,7 @@
   import type { Snippet } from "svelte";
   import type { SelectOption } from "$lib/pocketbase-types";
   import DsActionButton from "./DSActionButton.svelte";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
   // get an id for this instance from the counter in the module context then
   // increment it so the next instance gets a different id
   const thisId = idCounter;
@@ -24,6 +25,7 @@
     fill = false,
     helperText = "",
     help,
+    required = false,
   }: {
     value: string | number;
     items: T[];
@@ -40,6 +42,8 @@
     helperText?: string;
     // Field help (DSHelp) at the far right of the field row.
     help?: Snippet;
+    // A red asterisk after the label; the server still validates.
+    required?: boolean;
   } = $props();
 
   function clearValue() {
@@ -53,7 +57,9 @@
     : ''}"
 >
   <span class="flex w-full gap-2" class:items-center={help !== undefined}>
-    <label for={`select-input-${thisId}`}>{uiName}</label>
+    <label for={`select-input-${thisId}`}
+      >{uiName}{#if required}<DSRequiredMark />{/if}</label
+    >
     <select
       id={`select-input-${thisId}`}
       name={fieldName}
@@ -61,6 +67,7 @@
       class="max-w-full min-w-0 rounded-sm border border-neutral-300 px-1 {fill
         ? 'flex-1'
         : ''} {disabled ? 'opacity-50' : ''}"
+      aria-required={required || undefined}
       {disabled}
     >
       {#each items as item (item.id)}

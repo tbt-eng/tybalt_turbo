@@ -39,11 +39,14 @@
     errors,
     disabled = false,
     canCreate = true,
+    required = false,
   }: {
     value: string;
     errors: any;
     disabled?: boolean;
     canCreate?: boolean;
+    // A red asterisk after the label; the server still validates.
+    required?: boolean;
   } = $props();
 
   let showAddVendorPopover = $state(false);
@@ -130,6 +133,7 @@
         fieldName="vendor"
         uiName="Vendor"
         {disabled}
+        {required}
       >
         {#snippet resultTemplate(item)}
           {item.name}

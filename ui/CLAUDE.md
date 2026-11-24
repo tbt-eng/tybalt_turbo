@@ -38,6 +38,7 @@ Full rationale and component APIs: ../descriptions/ui_design_system.md.
 | Tabs                                | DSTabBar                                                                                                                               |
 | Lists of records                    | DSList / DSSearchList                                                                                                                  |
 | Inputs                              | DSTextInput, DSSelector, DSAutoComplete, DSDateInput, DSCurrencyInput, DSToggle, DsCheck, DsFileSelect, DSLocationPicker, DSTokenInput |
+| Mark a required field               | `required` on the DS input; DSRequiredMark in a hand-written label; DSRequiredLegend at the top of the form                            |
 | Pick one record from a list         | DSPicker (a dropdown for 10 items or fewer, a search for more)                                                                         |
 | Files                               | DsFileLink, DsFileSelect                                                                                                               |
 | Preformatted text, such as JSON     | DSCodeBlock                                                                                                                            |

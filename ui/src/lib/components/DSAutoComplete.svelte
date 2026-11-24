@@ -7,6 +7,7 @@
   import MiniSearch from "minisearch";
   import type { SearchResult } from "minisearch";
   import DsActionButton from "./DSActionButton.svelte";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
 
   // get an id for this instance from the counter in the module context then
   // increment it so the next instance gets a different id
@@ -29,6 +30,7 @@
     helperText = "", // a line under the field explaining it
     placeholder, // the hint in the empty search box, defaults to uiName
     help, // field help (DSHelp) at the far right of the field row
+    required = false, // a red asterisk after the label; the server still validates
   }: {
     value: string;
     index: MiniSearch<T>;
@@ -45,6 +47,7 @@
     helperText?: string;
     placeholder?: string;
     help?: Snippet;
+    required?: boolean;
   } = $props();
 
   let results = $state([] as SearchResult[]);
@@ -183,7 +186,9 @@
 <div class="flex w-full flex-col gap-2" class:bg-red-200={errors[fieldName] !== undefined}>
   <div class="contents" onkeydown={keydown}>
     <span class="flex w-full gap-2" class:items-center={help !== undefined}>
-      <label for={`autocomplete-input-${thisId}`}>{uiName}</label>
+      <label for={`autocomplete-input-${thisId}`}
+        >{uiName}{#if required}<DSRequiredMark />{/if}</label
+      >
       {#if value && value !== ""}
         <span class="min-w-0 flex-1 {disabled ? 'opacity-50' : ''}">
           {@render resultTemplate(item)}
@@ -201,6 +206,7 @@
           name={fieldName}
           placeholder={placeholder ?? uiName}
           oninput={updateResults}
+          aria-required={required || undefined}
           {disabled}
           bind:this={inputElement}
         />

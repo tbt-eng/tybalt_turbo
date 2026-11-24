@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSRequiredMark from "./DSRequiredMark.svelte";
+
   // Option shape has two modes:
   // 1) compact labels only
   // 2) labels + descriptions (when showOptionDescriptions=true)
@@ -47,7 +49,12 @@
     label,
     ariaLabel,
     ariaLabelledBy,
-  }: ToggleProps = $props();
+    required = false,
+  }: ToggleProps & {
+    // A red asterisk after the label. A toggle with a value can't be empty,
+    // so mark it only when it can start with none selected.
+    required?: boolean;
+  } = $props();
 
   const hasDescription = (
     option: ToggleOption | ToggleOptionWithDescription,
@@ -138,8 +145,11 @@
   role="radiogroup"
   aria-label={computedAriaLabel}
   aria-labelledby={computedAriaLabelledBy}
+  aria-required={required || undefined}
 >
-  {#if label}<span class="mb-1 text-sm text-neutral-800 max-lg:text-base">{label}</span>{/if}
+  {#if label}<span class="mb-1 text-sm text-neutral-800 max-lg:text-base"
+      >{label}{#if required}<DSRequiredMark />{/if}</span
+    >{/if}
   <!-- Options rail:
     - Desktop: horizontal segmented buttons
     - Mobile (max-lg) for full-width or narrowGrid 3+ options: 2-column grid,

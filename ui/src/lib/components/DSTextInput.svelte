@@ -3,6 +3,8 @@
 </script>
 
 <script lang="ts" generics="T">
+  import DSRequiredMark from "./DSRequiredMark.svelte";
+
   // get an id for this instance from the counter in the module context then
   // increment it so the next instance gets a different id
   const thisId = idCounter;
@@ -23,6 +25,7 @@
     stacked = false, // a bold label above a full-width box
     maxlength = undefined,
     helperText = "", // a line under the field explaining it
+    required = false, // a red asterisk after the label; the server still validates
   }: {
     value: string | number;
     type?: "text" | "number" | "password";
@@ -38,13 +41,14 @@
     stacked?: boolean;
     maxlength?: number;
     helperText?: string;
+    required?: boolean;
   } = $props();
 </script>
 
 <div class="flex w-full flex-col gap-2 {errors[fieldName] !== undefined ? 'bg-red-200' : ''}">
   <span class="flex w-full {rows ? 'flex-col gap-2' : stacked ? 'flex-col gap-1' : 'gap-2'}">
     <label class={stacked ? "text-sm font-semibold" : ""} for={`text-input-${thisId}`}
-      >{uiName}</label
+      >{uiName}{#if required}<DSRequiredMark />{/if}</label
     >
     {#if rows}
       <textarea
@@ -57,6 +61,7 @@
         name={fieldName}
         placeholder={placeholder || uiName}
         bind:value
+        aria-required={required || undefined}
         {disabled}></textarea>
     {:else}
       <input
@@ -72,6 +77,7 @@
         name={fieldName}
         placeholder={placeholder || uiName}
         bind:value
+        aria-required={required || undefined}
         {disabled}
       />
     {/if}

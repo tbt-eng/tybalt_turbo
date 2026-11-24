@@ -317,6 +317,12 @@ Preformatted text, such as JSON, in a bordered box that scrolls past 24rem, with
 { text: string; label?: string } // label: the copy button's accessible name
 ```
 
+#### `DSRequiredMark` and `DSRequiredLegend`
+
+The cue for a field that a save needs. `DSRequiredMark` is a red asterisk after the label, hidden from screen readers. The DS inputs (`DSTextInput`, `DSSelector`, `DSAutoComplete`, `DSPicker`, `DSCurrencyInput`, `DSToggle`, `DSTokenInput`, `DsFileSelect`, `VendorSelector`) take `required?: boolean`: it shows the mark and sets `aria-required` on the control. `DSDateInput` has no label, so it sets `aria-required` and the caller puts `DSRequiredMark` in its own label. No input sets the native `required` attribute, because the browser would block the save with its own bubble; the server validates and its errors show as usual. `DSRequiredLegend` is the one-line key ("\* Required") at the top of a form that marks its fields.
+
+Mark a field only when the server refuses a save without it in the form's current state, so a rule that depends on the form passes an expression (`required={kind === "project"}`). Leave out a control that always has a value, such as a toggle. The purchase order editor is the first form to use it.
+
 ### Component gallery
 
 A `/dev/components` route, visible only to the admin claim, renders every `DS` component in each variant with sample data. People can see what exists. Models can be pointed at it, or at its source, as the reference.

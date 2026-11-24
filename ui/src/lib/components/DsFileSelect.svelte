@@ -8,6 +8,7 @@
   import { pocketBaseFileHref } from "$lib/utilities";
   import DsFileLink from "./DsFileLink.svelte";
   import DsActionButton from "./DSActionButton.svelte";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
 
   // get an id for this instance from the counter in the module context then
   // increment it so the next instance gets a different id
@@ -21,6 +22,7 @@
     uiName,
     fileHref = "",
     fileAction,
+    required = false,
   }: {
     record: T;
     errors: Record<string, { message: string }>;
@@ -28,6 +30,8 @@
     uiName: string;
     fileHref?: string;
     fileAction?: () => void | Promise<void>;
+    // A red asterisk after the label; the server still validates.
+    required?: boolean;
   } = $props();
 
   let newFileName = $state("");
@@ -40,7 +44,9 @@
 
 <div class="flex w-full flex-col gap-2 {errors[fieldName] !== undefined ? 'bg-red-200' : ''}">
   <span class="flex w-full gap-2">
-    <label for={`file-input-${thisId}`}>{uiName}</label>
+    <label for={`file-input-${thisId}`}
+      >{uiName}{#if required}<DSRequiredMark />{/if}</label
+    >
     <!-- if there is an existing attachment, display it here and provide a way
     to replace or remove it -->
 
@@ -115,6 +121,7 @@
           }
         }}
         name={fieldName}
+        aria-required={required || undefined}
       />
     {/if}
   </span>

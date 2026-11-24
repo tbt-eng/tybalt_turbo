@@ -27,6 +27,8 @@
   import DSPageHeader from "$lib/components/DSPageHeader.svelte";
   import DSPicker, { pickerDropdownLimit } from "$lib/components/DSPicker.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import DSRecordLabel from "$lib/components/DSRecordLabel.svelte";
   import DSCopyButton from "$lib/components/DSCopyButton.svelte";
   import DSCodeBlock from "$lib/components/DSCodeBlock.svelte";
@@ -648,6 +650,21 @@
             uiName="Stacked"
             stacked
           />
+          <DSTextInput
+            bind:value={text}
+            {errors}
+            fieldName="sample_required"
+            uiName="Required"
+            required
+          />
+        </DSCard>
+        <DSCard title="DSRequiredMark and DSRequiredLegend">
+          <DSRequiredLegend />
+          <!-- A hand-written label, such as one beside a DSDateInput. -->
+          <span class="flex gap-2">
+            <label for="sample-required-date">Date<DSRequiredMark /></label>
+            <DSDateInput id="sample-required-date" bind:value={date} required />
+          </span>
         </DSCard>
         <DSCard title="DSSelector">
           <DSSelector

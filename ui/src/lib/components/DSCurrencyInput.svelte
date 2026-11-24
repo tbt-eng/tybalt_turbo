@@ -10,6 +10,7 @@
     formatCurrencyEquivalent,
     normalizeCurrencyCode,
   } from "$lib/utilities";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
 
   const thisId = idCounter;
   idCounter += 1;
@@ -32,6 +33,7 @@
     rateDate,
     displayCode = "",
     displaySymbol = "",
+    required = false,
   }: {
     amount: number | string;
     currency: string;
@@ -50,6 +52,8 @@
     rateDate?: string | null;
     displayCode?: string;
     displaySymbol?: string;
+    // A red asterisk after the label; the server still validates.
+    required?: boolean;
   } = $props();
 
   const selectedCurrency = $derived.by(
@@ -91,7 +95,9 @@
 
 <div class="flex w-full flex-col gap-2 {hasError ? 'bg-red-200' : ''}">
   <div class="flex items-center gap-1">
-    <label for={`currency-input-${thisId}`}>{uiName}</label>
+    <label for={`currency-input-${thisId}`}
+      >{uiName}{#if required}<DSRequiredMark />{/if}</label
+    >
     {#if shouldShowCurrencyInfo}
       <div class="relative">
         <button
@@ -188,6 +194,7 @@
       bind:value={amount}
       min={amountMin}
       step={amountStep}
+      aria-required={required || undefined}
       class="min-w-0 flex-1 border-none bg-transparent px-2 py-1 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabledAmount}
     />

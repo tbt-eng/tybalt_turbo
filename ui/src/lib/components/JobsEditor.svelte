@@ -30,6 +30,7 @@
   import ClientCreatePopover from "./clients/ClientCreatePopover.svelte";
   import DSCallout from "./DSCallout.svelte";
   import DsLabel from "./DsLabel.svelte";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
   import Icon from "@iconify/svelte";
   import { profiles } from "$lib/stores/profiles";
   import { clients } from "$lib/stores/clients";
@@ -977,7 +978,8 @@
           <label
             for="project_completion_date"
             title="Required for Active projects. An estimate is acceptable. Update this date when the expected completion date changes."
-            >Project Completion Date{item.status === JobsStatusOptions.Active ? " *" : ""}</label
+            >Project Completion Date{#if item.status === JobsStatusOptions.Active}<DSRequiredMark
+              />{/if}</label
           >
           <DsDateInput
             class="flex-1 md:flex-none"

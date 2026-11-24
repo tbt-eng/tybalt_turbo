@@ -1,4 +1,8 @@
 <script lang="ts">
+  // A date input without a label; the caller writes the <label>. With
+  // `required`, the input sets aria-required and the caller puts DSRequiredMark
+  // in its label. It never sets the native required attribute, which would
+  // block the save with a browser bubble; the server validates.
   let {
     value = $bindable(""),
     id,
@@ -29,5 +33,5 @@
   max={max ?? undefined}
   bind:value
   {disabled}
-  {required}
+  aria-required={required || undefined}
 />

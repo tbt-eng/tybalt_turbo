@@ -50,6 +50,8 @@
   import DSHelp from "./DSHelp.svelte";
   import DSField from "./DSField.svelte";
   import DSFieldList from "./DSFieldList.svelte";
+  import DSRequiredLegend from "./DSRequiredLegend.svelte";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
   import PoSecondApproverStatus from "./PoSecondApproverStatus.svelte";
   import VendorSelector from "./VendorSelector.svelte";
   import { onDestroy, untrack, type Snippet } from "svelte";
@@ -191,6 +193,9 @@
     $expenditureKindsStore.items.find((kind) => kind.id === item.kind),
   );
   const kindAllowsJob = $derived.by(() => selectedKind?.allow_job ?? true);
+  // The server refuses the project kind without a job, and a revision can't
+  // remove its job (the revision form shows the job only when it has one).
+  const jobRequired = $derived.by(() => selectedKind?.name === "project" || isRevision);
   const selectedJobRecord = $derived.by(
     () => $jobs.items.find((job) => job.id === (item.job ?? "")) ?? null,
   );
@@ -1088,6 +1093,7 @@
       {errors}
       fieldName="division"
       uiName="Division"
+      required
     >
       {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
     </DsAutoComplete>
@@ -1103,6 +1109,7 @@
       fieldName="job"
       uiName="Job"
       disabled={isChildPO}
+      required={jobRequired}
     >
       {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
     </DsAutoComplete>
@@ -1134,6 +1141,7 @@
     fieldName="description"
     uiName="Description"
     disabled={isChildPO}
+    required={legacyMode}
   />
 {/snippet}
 
@@ -1298,6 +1306,10 @@
       <DsActionButton action="/pos/list">Back to Purchase Orders</DsActionButton>
     </div>
   {:else}
+    <div class="w-full">
+      <DSRequiredLegend />
+    </div>
+
     {#if isChildPO && data.parent_po_number}
       <span class="flex w-full gap-2 {errors.parent_po !== undefined ? 'bg-red-200' : ''}">
         <DsLabel color="cyan">Child PO of {data.parent_po_number}</DsLabel>
@@ -1317,6 +1329,7 @@
           fieldName="uid"
           uiName="Staff Member"
           disabled={isLegacyLocked}
+          required
         >
           {#snippet resultTemplate(item)}{item.given_name} {item.surname}{/snippet}
         </DsAutoComplete>
@@ -1328,9 +1341,10 @@
         fieldName="po_number"
         uiName="Legacy PO Number"
         disabled={isLegacyLocked}
+        required
       />
       <span class="flex w-full gap-2 text-sm text-neutral-600">
-        <span class="invisible">Legacy PO Number</span>
+        <span class="invisible">Legacy PO Number<DSRequiredMark /></span>
         <span>Format: YYMM-NNNN where YY is 24, 25, or 26 and NNNN is in the 5XXX range.</span>
       </span>
 
@@ -1343,6 +1357,7 @@
           fieldName="approver"
           uiName="Approver"
           disabled={isLegacyLocked}
+          required
         >
           {#snippet resultTemplate(item)}{item.given_name} {item.surname}{/snippet}
         </DsAutoComplete>
@@ -1429,6 +1444,7 @@
         {errors}
         fieldName="approver"
         uiName="Approver"
+        required
       >
         {#snippet optionTemplate(item)}
           {item.given_name} {item.surname}
@@ -1450,6 +1466,7 @@
         fieldName="priority_second_approver"
         uiName="Priority Second Approver"
         clear={true}
+        required
       >
         {#snippet optionTemplate(item)}
           {item.given_name} {item.surname}
@@ -1474,10 +1491,11 @@
     {#if !isRevision}
       {#if isRecurring}
         <span class="flex w-full gap-2 {errors.end_date !== undefined ? 'bg-red-200' : ''}">
-          <label for="end_date">End Date</label>
+          <label for="end_date">End Date<DSRequiredMark /></label>
           <DsDateInput
             class="flex-1 md:flex-none"
             name="end_date"
+            required
             min={DATE_INPUT_MIN}
             max={dateInputMax}
             bind:value={item.end_date}
@@ -1500,6 +1518,7 @@
           {errors}
           fieldName="frequency"
           uiName="Frequency"
+          required
         >
           {#snippet optionTemplate(item)}
             {item.name}
@@ -1508,10 +1527,11 @@
       {/if}
 
       <span class="flex w-full gap-2 {errors.date !== undefined ? 'bg-red-200' : ''}">
-        <label for="date">Date</label>
+        <label for="date">Date<DSRequiredMark /></label>
         <DsDateInput
           class="flex-1 md:flex-none"
           name="date"
+          required
           min={DATE_INPUT_MIN}
           max={dateInputMax}
           bind:value={item.date}
@@ -1531,6 +1551,7 @@
           fieldName="branch"
           uiName="Branch"
           disabled={legacyMode && item.job !== ""}
+          required={legacyMode}
         >
           {#snippet optionTemplate(item: BranchesResponse)}
             {item.name}
@@ -1552,6 +1573,7 @@
       amountFieldName="total"
       currencyFieldName="currency"
       uiName="Total"
+      required
       disabledCurrency={currencySelectionDisabled}
       helperText={legacyMode
         ? "Legacy entries remain CAD-only in this rollout."
@@ -1566,7 +1588,7 @@
     />
 
     {#if !isRevision}
-      <VendorSelector bind:value={item.vendor as string} {errors} disabled={isChildPO} />
+      <VendorSelector bind:value={item.vendor as string} {errors} disabled={isChildPO} required />
     {/if}
 
     <!-- The revise route takes no file, so a revision's attachment can change

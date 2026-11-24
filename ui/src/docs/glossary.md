@@ -30,6 +30,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Rate sheet            | The hourly rates that a client pays for each role. Its [code](/docs/rate-sheet-codes), such as 2026-11-00004, identifies it.                        |                 |
 | Rate sheet period     | The dates in which a project uses one rate sheet. See [Rate sheet periods](/docs/rate-sheet-periods).                                               |                 |
 | Recall                | Take back a time sheet, expense or project request that you submitted, so you can edit it. Purchase orders have no recall.                          | unbundle        |
+| Required field        | A field that you must fill in before you save. On a purchase order, a red * after its label marks it.                                               |                 |
 | Retire                | Take a computer out of use. Turbo lists it under **Retired** until someone selects **Un-retire**.                                                   |                 |
 | Revise                | Make a new version of a record: new details for an approved purchase order, or new rates for a rate sheet.                                          |                 |
 | Role                  | The work that you do on a job. The rate sheet sets the rate of each role.                                                                           |                 |

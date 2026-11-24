@@ -14,7 +14,7 @@ Note: Rejected? Select **Edit and Resubmit**.
 ## Create a PO
 
 1. Select the plus button beside **My Purchase Orders**.
-2. Select the type, kind and payment. Enter the details and total.
+2. Select the type, kind and payment. Fill in each field with a red *.
 3. Select the **Approver** and, if shown, the **Priority Second Approver**. Turbo lists only people who can approve this PO.
 4. Select **Save**. Turbo sends the PO for approval.
 

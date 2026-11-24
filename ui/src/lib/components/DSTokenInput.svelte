@@ -12,6 +12,8 @@
 </script>
 
 <script lang="ts" generics="T">
+  import DSRequiredMark from "./DSRequiredMark.svelte";
+
   // get an id for this instance from the counter in the module context then
   // increment it so the next instance gets a different id
   const thisId = idCounter;
@@ -22,11 +24,14 @@
     errors,
     fieldName,
     uiName,
+    required = false,
   }: {
     value: string[];
     errors: Record<string, { message: string }>;
     fieldName: string;
     uiName: string;
+    // A red asterisk after the label; the server still validates.
+    required?: boolean;
   } = $props();
 
   let inputValue = $state("");
@@ -70,7 +75,9 @@
 
 <div class="flex w-full flex-col gap-2 {errors[fieldName] !== undefined ? 'bg-red-200' : ''}">
   <span class="flex w-full gap-2">
-    <label class="flex shrink-0 items-center" for={`text-input-${thisId}`}>{uiName}</label>
+    <label class="flex shrink-0 items-center" for={`text-input-${thisId}`}
+      >{uiName}{#if required}<DSRequiredMark />{/if}</label
+    >
     <div
       class="focus-within:border-blue-500, flex w-full flex-wrap gap-1 rounded-sm border border-neutral-300 bg-white p-1 focus-within:ring-2 focus-within:ring-blue-500"
     >
@@ -90,6 +97,7 @@
         placeholder={uiName}
         onkeydown={handleKeydown}
         oninput={handleInput}
+        aria-required={required || undefined}
         bind:value={inputValue}
       />
     </div>

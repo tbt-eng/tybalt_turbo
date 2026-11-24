@@ -34,6 +34,7 @@
     empty = false,
     placeholder,
     help,
+    required = false,
   }: {
     value: string;
     items: T[];
@@ -46,6 +47,8 @@
     empty?: boolean;
     placeholder?: string;
     help?: Snippet;
+    // A red asterisk after the label; the server still validates.
+    required?: boolean;
   } = $props();
 
   const byId = $derived(new Map(items.map((item) => [item.id, item])));
@@ -64,7 +67,7 @@
 </script>
 
 {#if items.length <= pickerDropdownLimit}
-  <DsSelector bind:value items={choices} {errors} {fieldName} {uiName} {disabled} {help}>
+  <DsSelector bind:value items={choices} {errors} {fieldName} {uiName} {disabled} {help} {required}>
     {#snippet optionTemplate(item)}
       {#if item.id === ""}-- select --{:else}{@render option(item, undefined)}{/if}
     {/snippet}
@@ -80,6 +83,7 @@
     {placeholder}
     {disabled}
     {help}
+    {required}
   >
     {#snippet resultTemplate(result)}{@render option(
         record(result),
