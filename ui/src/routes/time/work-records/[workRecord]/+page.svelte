@@ -33,12 +33,13 @@
     columnLinks: {
       week_ending: (row: Record<string, string>) =>
         row.timesheet_id ? `/time/sheets/${row.timesheet_id}/details` : null,
-      job_number: (row: Record<string, string>) => (row.job_id ? `/jobs/${row.job_id}/details` : null),
+      job_number: (row: Record<string, string>) =>
+        row.job_id ? `/jobs/${row.job_id}/details` : null,
     },
   };
 </script>
 
 <div class="mx-auto p-4">
   <h1 class="mb-4 text-2xl font-bold">Work Record {data.workRecord}</h1>
-  <ObjectTable tableData={tableData} {tableConfig} />
+  <ObjectTable {tableData} {tableConfig} />
 </div>

@@ -1,10 +1,6 @@
 <script lang="ts">
   import DsList from "$lib/components/DSList.svelte";
-  import {
-    currencyIconHref,
-    formatCurrencyAmount,
-    normalizeCurrencyCode,
-  } from "$lib/utilities";
+  import { currencyIconHref, formatCurrencyAmount, normalizeCurrencyCode } from "$lib/utilities";
 
   interface JobExpenseEntry {
     id: string;

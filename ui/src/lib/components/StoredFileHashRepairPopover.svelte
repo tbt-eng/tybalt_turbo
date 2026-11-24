@@ -197,7 +197,7 @@
       <div class="space-y-3 text-sm">
         <div>
           <div class="font-semibold text-neutral-700">{currentHashLabel}</div>
-          <div class="break-all font-mono text-neutral-700">{currentHash || "No stored hash"}</div>
+          <div class="font-mono break-all text-neutral-700">{currentHash || "No stored hash"}</div>
         </div>
 
         {#if missingReason}
@@ -213,7 +213,9 @@
           <div class="grid gap-3 md:grid-cols-2">
             <div>
               <div class="font-semibold text-neutral-700">Target</div>
-              <div class="font-mono text-neutral-700">{auditResult.target_collection}/{auditResult.target_id}</div>
+              <div class="font-mono text-neutral-700">
+                {auditResult.target_collection}/{auditResult.target_id}
+              </div>
             </div>
             <div>
               <div class="font-semibold text-neutral-700">File</div>
@@ -222,7 +224,7 @@
           </div>
           <div>
             <div class="font-semibold text-neutral-700">Calculated</div>
-            <div class="break-all font-mono text-neutral-700">{auditResult.calculated_hash}</div>
+            <div class="font-mono break-all text-neutral-700">{auditResult.calculated_hash}</div>
           </div>
         {/if}
 
@@ -240,8 +242,7 @@
               class="mt-1 min-h-24 w-full rounded-sm border border-neutral-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden"
               placeholder={markMissingPlaceholder}
               bind:value={missingReasonDraft}
-              disabled={loading}
-            ></textarea>
+              disabled={loading}></textarea>
           </div>
         {/if}
       </div>

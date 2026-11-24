@@ -128,7 +128,8 @@
     >
     <h1 class="mt-1 text-3xl font-bold text-neutral-900">Staff Branch Hours</h1>
     <p class="mt-2 text-neutral-600">
-      Regular and training hours assigned to jobs and no-job work, grouped by staff member and branch.
+      Regular and training hours assigned to jobs and no-job work, grouped by staff member and
+      branch.
     </p>
   </div>
 

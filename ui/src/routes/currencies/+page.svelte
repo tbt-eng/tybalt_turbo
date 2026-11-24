@@ -83,7 +83,9 @@
       await refreshPage();
       clearForm();
     } catch (error: any) {
-      errors = error?.data?.data ?? { global: { message: error?.response?.message ?? "Save failed" } };
+      errors = error?.data?.data ?? {
+        global: { message: error?.response?.message ?? "Save failed" },
+      };
     } finally {
       saving = false;
     }
@@ -121,9 +123,9 @@
     errors = {};
     reloadMessage = "";
     try {
-      const result = await pb.send("/api/currencies/reload_rates", {
+      const result = (await pb.send("/api/currencies/reload_rates", {
         method: "POST",
-      }) as {
+      })) as {
         ok: boolean;
         updated: number;
         skipped_newer: number;
@@ -251,7 +253,10 @@
     <DsFileSelect bind:record={item} {errors} fieldName="icon" uiName="SVG Icon" />
     {#if item.rate}
       <div class="text-sm text-neutral-600">
-        Example: {formatCurrencyAmount(10, item.code)} ≈ {formatCurrencyAmount(10 * Number(item.rate), "CAD")}
+        Example: {formatCurrencyAmount(10, item.code)} ≈ {formatCurrencyAmount(
+          10 * Number(item.rate),
+          "CAD",
+        )}
       </div>
     {/if}
     <div class="flex gap-2">

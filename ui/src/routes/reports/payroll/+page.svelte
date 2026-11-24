@@ -41,14 +41,12 @@
 {#snippet line1({ committed_expense_count }: PayrollReportWeekEndingsResponse)}
   <span>{committed_expense_count} committed expense(s)</span>
 {/snippet}
-{#snippet actions(
-  {
-    week_ending,
-    placeholder_payroll_id_week1_time_count,
-    placeholder_payroll_id_week2_time_count,
-    placeholder_payroll_id_expense_count,
-  }: PayrollReportWeekEndingsResponse,
-)}
+{#snippet actions({
+  week_ending,
+  placeholder_payroll_id_week1_time_count,
+  placeholder_payroll_id_week2_time_count,
+  placeholder_payroll_id_expense_count,
+}: PayrollReportWeekEndingsResponse)}
   <div class="flex items-center gap-2">
     <DsActionButton
       action={() => {

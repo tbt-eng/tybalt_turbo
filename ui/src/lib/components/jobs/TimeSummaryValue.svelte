@@ -54,8 +54,8 @@
       {/if}
       {#if estimatedHours > 0}
         <p>
-          {estimatedHours.toFixed(2)} of {hours.toFixed(2)} hours use staff default charge-out rates
-          because no job rate matches. Their estimated value is included.
+          {estimatedHours.toFixed(2)} of {hours.toFixed(2)} hours use staff default charge-out rates because
+          no job rate matches. Their estimated value is included.
         </p>
       {/if}
     </DSHelp>

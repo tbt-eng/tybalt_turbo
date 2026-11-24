@@ -8,9 +8,8 @@
     project value. It does not measure work completed or cash paid.
   </p>
   <p>
-    Time uses the same job rates and staff defaults as the Staff and Divisions summaries,
-    including committed and uncommitted entries. Meal hours, amendments, and overtime billing are
-    excluded.
+    Time uses the same job rates and staff defaults as the Staff and Divisions summaries, including
+    committed and uncommitted entries. Meal hours, amendments, and overtime billing are excluded.
   </p>
   <p>
     Expenses include committed, non-rejected records through the report date. Foreign expenses use

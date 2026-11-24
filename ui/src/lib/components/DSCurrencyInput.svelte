@@ -60,20 +60,20 @@
   const selectCurrencyValue = $derived.by(() =>
     items.length === 0 ? currency : (selectedCurrency?.id ?? currency),
   );
-  const previewCode = $derived.by(() =>
-    selectedCurrency?.code ?? (displayCode.trim() !== "" ? displayCode : normalizeCurrencyCode(currency)),
+  const previewCode = $derived.by(
+    () =>
+      selectedCurrency?.code ??
+      (displayCode.trim() !== "" ? displayCode : normalizeCurrencyCode(currency)),
   );
-  const previewSymbol = $derived.by(() =>
-    selectedCurrency?.symbol ?? (displaySymbol.trim() !== "" ? displaySymbol : previewCode),
+  const previewSymbol = $derived.by(
+    () => selectedCurrency?.symbol ?? (displaySymbol.trim() !== "" ? displaySymbol : previewCode),
   );
   const previewEquivalent = $derived.by(() =>
     homeEquivalent !== undefined && homeEquivalent !== null
       ? formatCurrencyEquivalent(homeEquivalent, rate, rateDate)
       : "",
   );
-  const shouldShowCurrencyInfo = $derived.by(
-    () => normalizeCurrencyCode(previewCode) !== "CAD",
-  );
+  const shouldShowCurrencyInfo = $derived.by(() => normalizeCurrencyCode(previewCode) !== "CAD");
 
   const hasError = $derived(
     errors[amountFieldName] !== undefined || errors[currencyFieldName] !== undefined,
@@ -115,14 +115,33 @@
           >
             <p class="font-semibold text-slate-800">Foreign currency basics</p>
             <ul class="mt-2 list-disc space-y-1 pl-4">
-              <li>Enter the original amount in the currency shown on the quote, receipt, or invoice.</li>
-              <li>Purchase orders can be issued in a foreign currency when the vendor is billing that way.</li>
+              <li>
+                Enter the original amount in the currency shown on the quote, receipt, or invoice.
+              </li>
+              <li>
+                Purchase orders can be issued in a foreign currency when the vendor is billing that
+                way.
+              </li>
               <li>PO approvals are based on the CAD equivalent, not only the foreign amount.</li>
-              <li>Expenses can be submitted in a foreign currency, but settlement and reimbursement must be finalized in CAD.</li>
-              <li>Corporate Credit Card and On Account expenses are settled to CAD by payables admins.</li>
-              <li>Expense payment types must be settled to CAD by the person who created the expense before submission.</li>
-              <li>The CAD equivalent shown here is indicative. Final card or bank settlement can change with rate timing or fees.</li>
-              <li>Keep support that shows both the foreign amount and the settled CAD amount for reconciliation.</li>
+              <li>
+                Expenses can be submitted in a foreign currency, but settlement and reimbursement
+                must be finalized in CAD.
+              </li>
+              <li>
+                Corporate Credit Card and On Account expenses are settled to CAD by payables admins.
+              </li>
+              <li>
+                Expense payment types must be settled to CAD by the person who created the expense
+                before submission.
+              </li>
+              <li>
+                The CAD equivalent shown here is indicative. Final card or bank settlement can
+                change with rate timing or fees.
+              </li>
+              <li>
+                Keep support that shows both the foreign amount and the settled CAD amount for
+                reconciliation.
+              </li>
             </ul>
           </div>
         {/if}
@@ -146,7 +165,7 @@
       onchange={(event) => {
         currency = (event.currentTarget as HTMLSelectElement).value;
       }}
-      class="border-none bg-transparent py-1 pl-2 pr-1 text-sm font-semibold focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+      class="border-none bg-transparent py-1 pr-1 pl-2 text-sm font-semibold focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabledCurrency}
     >
       {#if items.length === 0}

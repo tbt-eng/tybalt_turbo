@@ -230,7 +230,7 @@
     </button>
     {#if openHeadingHelp === heading}
       <span
-        class="absolute right-0 top-full z-20 mt-1 w-56 rounded-sm border border-sky-200 bg-sky-50 p-2 text-left text-xs font-normal normal-case text-sky-950 shadow-sm"
+        class="absolute top-full right-0 z-20 mt-1 w-56 rounded-sm border border-sky-200 bg-sky-50 p-2 text-left text-xs font-normal text-sky-950 normal-case shadow-sm"
         role="tooltip"
       >
         {headingDescriptions[heading]}
@@ -256,7 +256,9 @@
   {:else}
     <div class="overflow-x-auto rounded-sm border border-neutral-300">
       <table class="min-w-full divide-y divide-neutral-200 text-sm">
-        <thead class="bg-neutral-100 text-left text-xs font-semibold uppercase tracking-normal text-neutral-600">
+        <thead
+          class="bg-neutral-100 text-left text-xs font-semibold tracking-normal text-neutral-600 uppercase"
+        >
           <tr>
             <th class="px-3 py-2">Target</th>
             <th class="px-3 py-2">Status</th>
@@ -351,9 +353,9 @@
     onCancel={closeDeleteConfirm}
   >
     <p class="text-sm text-neutral-700">
-      This will use the latest cached orphaned report for {deleteConfirmTarget.label} as the basis
-      for deletion. Before each file is deleted, the server will re-check current records and skip
-      any file that is now referenced.
+      This will use the latest cached orphaned report for {deleteConfirmTarget.label} as the basis for
+      deletion. Before each file is deleted, the server will re-check current records and skip any file
+      that is now referenced.
     </p>
     <p class="text-sm font-semibold text-red-700">
       Deleted files are removed from configured storage and cannot be restored from this screen.

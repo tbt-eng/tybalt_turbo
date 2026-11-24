@@ -123,7 +123,9 @@ export const load: PageLoad = async () => {
     return { items: withActiveToggleEligibility(items, activeToggleTargetIDs) };
   } catch (error) {
     try {
-      return { items: withActiveToggleEligibility(await loadIdentityItems(), activeToggleTargetIDs) };
+      return {
+        items: withActiveToggleEligibility(await loadIdentityItems(), activeToggleTargetIDs),
+      };
     } catch {
       console.error(`loading admin_profiles list: ${error}`);
       return { items: [] as AdminProfilesResponse[] };

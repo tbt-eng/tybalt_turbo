@@ -1040,7 +1040,7 @@
               >
                 <span class="min-w-0">
                   <span class="font-semibold">{providerName(provider.provider)}</span>
-                  <span class="break-all text-sm text-neutral-600">{provider.provider_id}</span>
+                  <span class="text-sm break-all text-neutral-600">{provider.provider_id}</span>
                 </span>
                 <span class="flex items-center gap-2">
                   {#if pendingClearProviderId === provider.id}
