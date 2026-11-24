@@ -21,7 +21,9 @@ place of the editor.
 2. A +page.svelte file for each collection that supports absorption (clients, vendors, client contacts and rate sheets), contained within the /absorb directory under the collection's id directory (i.e. \[cid\]/absorb/+page.svelte under the clients route). The client contacts and rate sheets routes also have a +page.ts file. The AbsorbEditor.svelte component is used in the +page.svelte file. Arguments are passed to the AbsorbEditor.svelte component, namely the collectionName, the targetRecordId (which is the id of the absorbing record pulled from the URL), the availableRecords and an optional autoCompleteIndex. A snippet is also provided to the AbsorbEditor.svelte component to render the record to be absorbed. The snippet is defined in the +page.svelte file on the route.
 
 3. A button to absorb the records which appears on the regular list view for
-clients and vendors, beside each contact on the client's page, and beside each sheet that can absorb on the rate sheets Duplicates view. Options for
+clients and vendors, beside each contact on the client's page (for everyone:
+without the `absorb` claim, the editor proposes instead, see Absorb
+proposals), and beside each sheet that can absorb on the rate sheets Duplicates view. Options for
 the icon are:
 
     - fluent-emoji-high-contrast:sponge
@@ -29,6 +31,55 @@ the icon are:
     - material-symbols:merge
 
 The buttons use the mdi:merge icon.
+
+# Absorb proposals
+
+Only `absorb` holders absorb. Anyone signed in may propose an absorb of
+clients, client contacts or vendors, and an `absorb` holder carries it out
+with the normal absorb. Rate sheets take no proposal.
+
+- Data. `absorb_proposals` holds the collection, the target, the requester,
+  the reason (required, at most 1000 characters), the status (`pending`,
+  `accepted`, `declined`, `withdrawn`, `obsolete`), `decided_by`,
+  `decided_at` and `decision_comment`. `absorb_proposal_records` holds the
+  records to absorb. Both keep the names of the target and the records, and
+  of the client for contacts, because a committed absorb deletes the
+  records. `absorb_proposal_records.open` is true while the proposal is
+  pending, and a partial unique index on (`collection_name`, `record_id`)
+  where `open` keeps a record in one open proposal. Neither collection has
+  API rules; the routes under `/api/absorb_proposals` read and write them
+  (`app/routes/absorb_proposals.go`, checks in `app/absorb/proposals.go`).
+- Routes. `GET ""` lists pending proposals, or decided ones with
+  `?status=decided`: all of them for an `absorb` holder, otherwise the
+  caller's own. `GET /{id}` returns one to a holder or its requester.
+  `POST ""` creates one. `POST /{id}/withdraw` is for the requester and
+  `POST /{id}/decline` for a holder, with a required comment. Neither works
+  while an absorb action carries the proposal. Errors are JSON with `code`
+  and `message`.
+- Checks, on create and again when a holder absorbs from a proposal: one
+  of the three collections; every record exists; the ids are distinct; the
+  target isn't in the list; contacts share one client (`ParentConstraint`);
+  no record, target or item, is an item of another pending proposal; and no
+  item is the target of another pending proposal. Two proposals may keep
+  the same target.
+- Review. The queue (`/absorb/proposals`) links a holder to the target's
+  absorb page with `?proposal=<id>`. The editor starts with the proposal's
+  records and no search. The holder may remove a record or keep another as
+  the target, but not add one: `POST /api/{collection}/{id}/absorb` with
+  `proposal` refuses a target or record that isn't in the proposal. The
+  absorb action stores the id in `absorb_actions.proposal`.
+- Commit. The `absorb_actions` delete hook runs
+  `absorb.SettleProposalsOnCommit` in the commit transaction, for these
+  three collections only. It accepts the proposal that the action carries
+  (decided by the committing user), and makes obsolete, with an automatic
+  comment, every other pending proposal that names an absorbed record as
+  its target or an item. A committed client absorb also gives the pending
+  contact proposals of the absorbed clients the kept client. Absorb alone
+  changes no proposal, so an undo leaves it pending.
+- Notifications. The requester is told when a proposal is accepted,
+  declined or made obsolete (`absorb_proposal_accepted`, `_declined`,
+  `_obsolete`), unless they decided it themself. Holders get no message per
+  proposal; the menu badge counts the pending ones.
 
 # Optional config hooks
 
