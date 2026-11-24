@@ -33,6 +33,23 @@ export type WorkspaceInvoicing = {
   job_count: number;
   request_count: number;
 };
+// What uses a contact or an invoicing profile, from
+// GET /api/clients/{id}/contacts/{contact}/usage and
+// GET /api/clients/{id}/invoicing_profiles/{profile}/usage. A contact is the
+// project contact, the invoice recipient through an invoicing profile, or both.
+export type WorkspaceUsageRow = {
+  id: string;
+  description: string;
+  status: string;
+  project_contact: boolean;
+  invoice_recipient: boolean;
+};
+export type WorkspaceUsage = {
+  jobs: (WorkspaceUsageRow & { number: string })[];
+  requests: WorkspaceUsageRow[];
+  // Requests the signed-in person may not read, so they are not listed.
+  hidden_requests: number;
+};
 export type WorkspaceClient = WorkspaceAddress & {
   id: string;
   name: string;

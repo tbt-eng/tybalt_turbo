@@ -1,140 +1,156 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/clientWorkspace.ts","sha256":"a10a132111d1b8fff96fa4b9422a59a309f0155fb4c49247ef8e490641e2a586","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/clientWorkspace.ts","sha256":"cfc7cf50e3a7b69c165cf259caa5fee7c28dc2b03b36c58dbc4b95727d3d3798","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/clientWorkspace.ts
 
-## Client time divisions count committed time on its jobs
+## Contact usage: project contact, invoice recipient or both
 
-Lines 50-51
+Lines 36-46
 
-Asked as: client time by division; hours per division for client; committed time division; client division hours
+Asked as: contact used as project contact; invoice recipient on jobs; which jobs use this contact; contact usage list
 
-A client's time division entry is a division with committed time on jobs whose client is this client. It shows the division's code, name and hours.
+A client contact's usage lists the jobs and project requests that use it. Each row says whether the contact is the project contact (project_contact), the invoice recipient through an invoicing profile (invoice_recipient), or both.
 
-## Rate sheet counts on a client's rate sheets list
+## Hidden project requests are counted, not listed
 
-Lines 53-66
+Lines 47-52
 
-Asked as: rate sheet current jobs; past jobs on rate sheet; client rate sheet history; rate sheet revision count
+Asked as: hidden project requests count; requests I cannot see; missing requests in usage; why some requests not shown
 
-A client's rate sheet list shows each rate sheet revision that the client's jobs use now or used in the past. The count of current jobs (current_jobs) is the jobs on the sheet now. The count of past jobs (past_jobs) is the jobs that only their rate sheet history put on it.
+In the usage of a contact or an invoicing profile, project requests that the signed-in person may not read do not appear as rows. Turbo shows only their count (hidden_requests).
+
+## Current and past jobs on a client rate sheet
+
+Lines 70-83
+
+Asked as: jobs on old rate sheet; past jobs rate sheet history; how many jobs use revision; rate sheet revision job count
+
+For each rate sheet revision that the client's jobs use, current_jobs counts the jobs on it now. past_jobs counts the jobs that only their rate sheet history put on it.
 
 ## Rate sheet usage label on a client's rate sheets
 
-Lines 68-76
+Lines 85-93
 
-Asked as: rate sheet jobs label; jobs now and past count; how many jobs on rate sheet; past jobs label meaning
+Asked as: rate sheet job count label; what does now mean rate sheet; jobs now and past label; rate sheet usage text
 
-The usage label counts the client's jobs on a rate sheet. It reads "3 jobs now · 1 past" when the sheet has current and past jobs. It reads "5 jobs" with no past jobs, and "2 past jobs" with no current jobs. "now" appears only when a past count contrasts with it.
+Turbo shows how many of the client's jobs use a rate sheet. It shows "3 jobs now · 1 past" when the sheet has current and past jobs, and "5 jobs" when it has no past jobs. It shows "2 past jobs" when it has no current jobs. The word "now" appears only when a past count contrasts with it.
 
 ## Client list page number defaults to 1
 
-Lines 78-81
+Lines 95-98
 
-Asked as: wrong page number contacts; page number reset to 1; client list page invalid; page 1 shown instead
+Asked as: client list wrong page; page number in URL; list opens on page 1; invalid page number client
 
-The page number in a client contacts or invoicing profiles list must be a positive whole number (safe integer). Anything else, such as zero, a negative, a decimal or text, shows page 1.
+The page number in a client workspace list is the value in the URL when it is a whole number above 0. Zero, negative numbers, decimals and text give page 1.
 
 ## Client list page size allows only 10, 20 or 50
 
-Lines 82-85
+Lines 99-102
 
-Asked as: rows per page client list; change how many rows; page size options contacts; list shows 20 rows
+Asked as: rows per page client list; page size wrong in list; list shows 20 rows; how many rows per page
 
-Contacts and invoicing profiles lists on a client page show 10, 20 or 50 rows per page. Any other value falls back to 20.
+A client workspace list shows 10, 20 or 50 rows per page. Any other value in the URL gives 20 rows per page.
 
-## Finding a saved record in a client list
+## Locating a saved record in a client list
 
-Lines 88-110
+Lines 104-127
 
-Asked as: saved record not in list; can't find contact after saving; search hides saved record; record vanished after save
+Asked as: saved client record disappeared; can't find record after save; search hides saved item; list jumps after saving
 
-After a record is saved, Turbo locates it in the list using the same search filter and page size as the list (10, 20 or 50, otherwise 20). If the search hides the record, Turbo clears the search and goes to the page where the record sits in the unfiltered list. If the record is not in the list, Turbo does nothing.
+After a save, Turbo finds the record in the list using the current search text (case-insensitive) and page size. If the search hides the record, Turbo clears the search and moves to the page that holds it in the full list. If the record is not in the list, Turbo does nothing. A page size outside 10, 20, 50 counts as 20.
 
 ## Client workspace view defaults to projects
 
-Lines 112-124
+Lines 129-132
 
-Asked as: client page opens projects; wrong tab on client page; client view default; link opens wrong client view
+Asked as: client opens on wrong tab; workspace default tab; client page opens projects; proposals or owner view link
 
-The client page view is "proposals" or "owner" only when the link asks for it. Any other or missing view shows "projects". Search text, page and page size for contacts and invoicing profiles come from the link, and the recipient is empty by default.
+The client workspace opens the view in the URL when it is "proposals" or "owner". Any other value or no value opens "projects".
 
-## Client workspace links keep filters and drop empty ones
+## Search and page settings for contacts and invoicing profiles
 
-Lines 125-138
+Lines 133-139
 
-Asked as: client link keeps filters; clear filter from link; workspace link empty filter; link drops search settings
+Asked as: contacts list search remembered; invoicing profiles list page size; contacts page settings reset; per page contacts list
 
-A client workspace link (workspaceHref) starts from the current URL's search settings. It removes a setting whose new value is empty or null and sets every other changed setting. The link opens the client's details tab unless another tab is given.
+The contacts list and the invoicing profiles list each keep their own search text, page and page size in the URL. Search text is empty by default. Page size is 10, 20 or 50, with 20 as the default.
 
-## Return link only goes to the same client's details page
+## Workspace links keep filters and drop empty settings
 
-Lines 139-156
+Lines 142-155
 
-Asked as: redirect after action client; return to client details; back link goes wrong page; client page return address
+Asked as: filters lost in client link; link drops search; clear filter from client url; client link tab opens details
 
-After an action, Turbo returns only to that client's details page (/clients/{id}/details), with its query or anchor. Any other, empty or off-site address sends the person to the client's details page.
+A client workspace link keeps the current search and page settings. A setting that a change sets to null or an empty string is removed from the link. Other changes replace the value. The link opens the details tab unless another tab is given.
 
-## Missing contact shows "Contact unavailable"
+## Return link after editing a client stays on details page
 
-Lines 157-163
+Lines 156-173
 
-Asked as: contact name blank; no contact shown; contact unavailable message; missing contact on profile
+Asked as: after editing client goes where; return to client details after edit; edit client redirect wrong page; back link after saving client
 
-A contact's name is the given name and surname joined by a space, skipping empty parts. When the contact is missing, Turbo shows "Contact unavailable".
+After an edit, Turbo returns to the client's details page, with its search and hash, only when the return address points at that page. Any other address, including one for another client or another site, sends the person to /clients/{id}/details.
 
-## Client label shows alias in parentheses
+## Contact name fallback
 
-Lines 164-169
+Lines 174-180
 
-Asked as: client name alias brackets; show alias with client; client alias in name; official name and alias
+Asked as: contact shows blank name; contact unavailable message; missing contact name on client; contact name not showing
 
-A client appears as its official name, followed by its alias in parentheses when it has a non-blank alias.
+Turbo shows a contact's given name and surname. It shows "Contact unavailable" when the contact is missing.
+
+## Client label shows the alias in parentheses
+
+Lines 181-186
+
+Asked as: client name alias brackets; alias in brackets after client name; why client name has alias; client display name alias
+
+Turbo shows the client's official name, followed by its alias in parentheses when it has a non-blank alias.
 
 ## Invoicing profile bills the alias only when chosen
 
-Lines 170-178
+Lines 187-195
 
-Asked as: invoice billed under alias; billing name alias wrong; which name goes on invoice; bill to alias instead
+Asked as: invoice shows alias instead of name; billed under alias not official name; billing name alias setting; invoice wrong client name
 
-An invoicing profile bills the client's alias when its billing name (billing_name) is "alias" and the client has a non-blank alias. Otherwise it bills the official name.
+An invoicing profile bills the client's alias only when its billing name (billing_name) is "alias" and the client has a non-blank alias. Otherwise it bills the official name.
 
 ## Search text for contacts and invoicing profiles
 
-Lines 183-196
+Lines 200-213
 
-Asked as: search contacts by email; find contact by phone; search invoicing profile instructions; address not found in search
+Asked as: search contacts by email or phone; find invoicing profile by instructions; contact search not finding; search profiles by contact
 
-Searching contacts matches given name, surname, email and phone. Searching invoicing profiles matches the profile name, its invoicing instructions and its contact's name, email and phone. Address is not searched.
+A contact search matches given name, surname, email and phone. An invoicing profile search matches the profile name, its invoicing instructions and the search text of its contact.
 
-## Address shown as comma-separated parts
+## Address display skips empty parts
 
-Lines 197-207
+Lines 214-224
 
-Asked as: client address format; address shows commas; address missing postal code; client address display
+Asked as: address shows extra commas; blank parts in address; address formatting empty fields; postal code spacing in address
 
-A client address shows street, city, province or state, postal code and country, separated by commas. Empty parts are skipped. Phone is not included.
+Turbo joins the address, city, province or state, postal code and country with commas. It leaves out empty parts.
 
-## Who can create invoicing profiles
+## Who can create an invoicing profile
 
-Lines 220-224
+Lines 237-241
 
-Asked as: who can add invoicing profile; can't create billing profile; need job claim for profile; permission to make profile
+Asked as: cannot create invoicing profile; no button to make profile; who can add invoicing profile; permission for invoicing profile
 
-A person with the time claim or the job claim can create an invoicing profile from an existing contact. Only holders of the job claim (procurement) maintain clients and contacts.
+Staff with the time claim or the job claim can create an invoicing profile from an existing contact. Only staff with the job claim maintain clients and contacts.
 
-## Empty invoicing profile list message
+## Empty invoicing profile message depends on claims and contacts
 
-Lines 226-236
+Lines 243-253
 
-Asked as: no invoicing profiles message; empty profile list text; why no profiles shown; ask maintainer to add contact
+Asked as: no invoicing profiles message; why profile message says ask maintainer; empty profile list text; create profile button missing message
 
-With no profiles and no contacts, a job-claim holder sees "Add a client contact, then create a profile." Others see "Ask a client maintainer to add a contact first." With contacts, people with the time or job claim see "Create one using an existing client contact." Others see "Ask a client maintainer to create one."
+With no contacts, a person with the job claim sees "This client has no invoicing profiles. Add a client contact, then create a profile." Others see "...Ask a client maintainer to add a contact first." With contacts, a person with the time or job claim sees "...Create one using an existing client contact." Others see "...Ask a client maintainer to create one."
 
-## Profile creator name is blank without a creator
+## Invoicing profile creator name is blank without a creator
 
-Lines 238-242
+Lines 255-259
 
-Asked as: creator name empty; profile created by blank; who made this profile; no creator on profile
+Asked as: creator name blank on profile; who created invoicing profile; profile shows no creator; empty creator name
 
-An invoicing profile shows its creator's name only when it has a creator. Otherwise the name is empty, and a creator name that is only spaces is also empty.
+Turbo shows the creator's name on an invoicing profile only when the profile has a creator. The name is trimmed. It is blank when there is no creator or no name.

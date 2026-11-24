@@ -13,6 +13,7 @@
   import ClientsEditor from "$lib/components/ClientsEditor.svelte";
   import ClientNotesSection from "$lib/components/ClientNotesSection.svelte";
   import ClientSaveNotice from "$lib/components/clients/ClientSaveNotice.svelte";
+  import ClientRecordUsage from "$lib/components/clients/ClientRecordUsage.svelte";
   import InvoicingInstructions from "$lib/components/clients/InvoicingInstructions.svelte";
   import ClientRateSheets from "$lib/components/rateSheets/ClientRateSheets.svelte";
   import { shortDate, formatCurrency } from "$lib/utilities";
@@ -218,19 +219,12 @@
   function profileRecipient(profile: WorkspaceInvoicing) {
     return contactName(contacts.find((contact) => contact.id === profile.contact));
   }
-  // "2 jobs · Created Oct 1, 2026 by Alex Adams", omitting an unknown creator.
-  function profileUsage(profile: WorkspaceInvoicing) {
+  // "Created Oct 1, 2026 by Alex Adams", omitting an unknown creator.
+  function profileCreated(profile: WorkspaceInvoicing) {
     const creator = profileCreatorName(profile);
-    const created = profile.created
+    return profile.created
       ? `Created ${shortDate(profile.created, true)}${creator ? ` by ${creator}` : ""}`
       : "";
-    return [
-      countLabel(profile.job_count, "job"),
-      profile.request_count > 0 ? countLabel(profile.request_count, "request") : "",
-      created,
-    ]
-      .filter(Boolean)
-      .join(" · ");
   }
   // Unnamed profiles are known by their recipient.
   function profileName(profile: WorkspaceInvoicing) {
@@ -388,12 +382,19 @@
                   >{contact.phone}</span
                 >{/if}{/snippet}
             {#snippet line2(contact)}
-              <span class="text-xs text-neutral-600">{countLabel(contact.job_count, "job")}</span>
-              {#if contact.request_count > 0}<span class="ml-2 text-xs text-neutral-600"
-                  >{countLabel(contact.request_count, "request")}</span
-                >{/if}
+              {#key contact.id}
+                <ClientRecordUsage
+                  clientId={data.client.id}
+                  kind="contacts"
+                  recordId={contact.id}
+                  jobCount={contact.job_count}
+                  requestCount={contact.request_count}
+                />
+              {/key}
+            {/snippet}
+            {#snippet line3(contact)}
               {#if contact.profile_count > 0}<a
-                  class="ml-2 text-xs text-blue-700 hover:underline"
+                  class="text-xs text-blue-700 hover:underline"
                   href={href({ recipient: contact.id, invoicing_q: null, invoicing_page: 1 })}
                   >{countLabel(contact.profile_count, "invoicing profile")}</a
                 >{/if}
@@ -505,7 +506,18 @@
               {/key}
             {/snippet}
             {#snippet line3(profile)}
-              <p class="text-xs text-neutral-600">{profileUsage(profile)}</p>
+              {#key profile.id}
+                <ClientRecordUsage
+                  clientId={data.client.id}
+                  kind="invoicing_profiles"
+                  recordId={profile.id}
+                  jobCount={profile.job_count}
+                  requestCount={profile.request_count}
+                />
+              {/key}
+              {#if profileCreated(profile)}<p class="text-xs text-neutral-600">
+                  {profileCreated(profile)}
+                </p>{/if}
             {/snippet}
             {#snippet actions(profile)}
               {#if canEdit}<DsActionButton

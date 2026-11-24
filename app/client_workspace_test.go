@@ -287,3 +287,83 @@ func TestClientWorkspaceReportsContactsWithoutEmail(t *testing.T) {
 		t.Fatalf("a contact with an email address kept the no-email mark: %#v", updated)
 	}
 }
+
+// The usage lists name the jobs and requests behind the counts in the client
+// details. They use the rows of test_seed_data/client_workspace: Alex is the
+// project contact and invoice recipient of the first job and request, and the
+// invoice recipient alone of the second; Blair is the project contact of the
+// second.
+func TestClientWorkspaceUsageLists(t *testing.T) {
+	app := newClientWorkspaceTestApp(t)
+	base := "/api/clients/" + workspaceClient
+	type use struct {
+		id                               string
+		projectContact, invoiceRecipient bool
+	}
+	check := func(t *testing.T, kind string, rows any, want []use) {
+		t.Helper()
+		list := rows.([]any)
+		if len(list) != len(want) {
+			t.Fatalf("%s = %d; want %d: %#v", kind, len(list), len(want), list)
+		}
+		for i, value := range list {
+			row := value.(map[string]any)
+			if row["id"] != want[i].id || row["project_contact"] != want[i].projectContact || row["invoice_recipient"] != want[i].invoiceRecipient {
+				t.Errorf("%s[%d] = %#v; want %#v", kind, i, row, want[i])
+			}
+		}
+	}
+
+	for _, tc := range []struct {
+		name, path     string
+		jobs, requests []use
+	}{
+		{"contact in both roles", "/contacts/cwcontact000001/usage",
+			[]use{{"cwjob0000000002", false, true}, {"cwjob0000000001", true, true}},
+			[]use{{"cwrequest000001", true, true}, {"cwrequest000002", false, true}}},
+		{"project contact only", "/contacts/cwcontact000002/usage",
+			[]use{{"cwjob0000000002", true, false}},
+			[]use{{"cwrequest000002", true, false}}},
+		{"unused contact", "/contacts/cwcontact000003/usage", nil, nil},
+		{"profile", "/invoicing_profiles/cwinvoice000001/usage",
+			[]use{{"cwjob0000000002", false, true}, {"cwjob0000000001", false, true}},
+			[]use{{"cwrequest000001", false, true}, {"cwrequest000002", false, true}}},
+		{"unused profile", "/invoicing_profiles/cwinvoice000002/usage", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := clientSetupJSON(t, app, http.MethodGet, base+tc.path, "author@soup.com", nil, http.StatusOK)
+			check(t, "jobs", result["jobs"], tc.jobs)
+			check(t, "requests", result["requests"], tc.requests)
+			if result["hidden_requests"] != float64(0) {
+				t.Errorf("hidden_requests = %v; want 0 for procurement", result["hidden_requests"])
+			}
+		})
+	}
+	first := clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "author@soup.com", nil, http.StatusOK)["jobs"].([]any)[0].(map[string]any)
+	if first["number"] != "88-9992" || first["description"] != "Client workspace usage fixture" || first["status"] != "Closed" {
+		t.Errorf("job fields = %#v", first)
+	}
+
+	// Requests follow the job_requests read rule; jobs are open to everyone.
+	for email, visible := range map[string]int{
+		"time@test.com":        2, // the creator
+		"tier2@poapprover.com": 2, // the approver, with the project_authorization claim
+		"noclaims@example.com": 0,
+	} {
+		result := clientSetupJSON(t, app, http.MethodGet, base+"/invoicing_profiles/cwinvoice000001/usage", email, nil, http.StatusOK)
+		if got := len(result["requests"].([]any)); got != visible || result["hidden_requests"] != float64(2-visible) {
+			t.Errorf("%s sees %d requests, %v hidden; want %d and %d", email, got, result["hidden_requests"], visible, 2-visible)
+		}
+		if len(result["jobs"].([]any)) != 2 {
+			t.Errorf("%s sees %d jobs; want 2", email, len(result["jobs"].([]any)))
+		}
+	}
+
+	// A record of another client, a contact id on the profile route, a missing
+	// id, an inactive account and a signed-out caller get no list.
+	clientSetupJSON(t, app, http.MethodGet, "/api/clients/cwclient0000002/contacts/cwcontact000001/usage", "author@soup.com", nil, http.StatusNotFound)
+	clientSetupJSON(t, app, http.MethodGet, base+"/invoicing_profiles/cwcontact000001/usage", "author@soup.com", nil, http.StatusNotFound)
+	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/missingcontact0/usage", "author@soup.com", nil, http.StatusNotFound)
+	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "inactive@example.com", nil, http.StatusForbidden)
+	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "", nil, http.StatusUnauthorized)
+}

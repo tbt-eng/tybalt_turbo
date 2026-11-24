@@ -5,11 +5,14 @@
   let {
     title,
     collapsed = true,
+    subtle = false,
     children,
     headerActions,
   }: {
     title: string;
     collapsed?: boolean;
+    // A small grey title, for a detail inside a list row.
+    subtle?: boolean;
     children?: Snippet<[]>;
     headerActions?: Snippet<[boolean]>;
   } = $props();
@@ -23,7 +26,11 @@
 </script>
 
 <details bind:open={isOpen} class="space-y-2">
-  <summary class="cursor-pointer font-semibold text-neutral-700">{title}</summary>
+  <summary
+    class={subtle
+      ? "cursor-pointer text-xs text-neutral-600 hover:text-neutral-900"
+      : "cursor-pointer font-semibold text-neutral-700"}>{title}</summary
+  >
   {#if !isCollapsed}
     {#if headerActions}
       <div class="flex min-h-9 items-center justify-end">
