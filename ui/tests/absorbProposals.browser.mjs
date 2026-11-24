@@ -5,17 +5,26 @@ import { runBrowserHarness } from "./browserHarness.mjs";
 // reason and sends the proposal. The queue lets a requester withdraw their own
 // proposal, and lets an absorb holder review or decline. Review opens the
 // editor with the proposal's records, where the holder may keep another
-// record before absorbing.
+// record before absorbing. On the Decided tab a requester deletes their
+// withdrawn proposal after a confirmation.
 await runBrowserHarness(
   async (page, origin) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const sent = [];
+    // The next DELETE answers with this refusal, once.
+    let refuseDelete = null;
     await page.route("**/api/**", (route) => {
       const request = route.request();
       const path = new URL(request.url()).pathname;
       const send = (body, status = 200) =>
         route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+      if (request.method() === "DELETE") {
+        sent.push({ path, method: "DELETE" });
+        const refusal = refuseDelete;
+        refuseDelete = null;
+        return refusal ? send(refusal, 400) : send({ message: "absorb proposal deleted" });
+      }
       if (request.method() === "POST") {
         sent.push({ path, body: request.postDataJSON() });
         return send({ id: "new" });
@@ -97,6 +106,44 @@ await runBrowserHarness(
         body: { ids_to_absorb: ["clienta00000001"], proposal: "proposal0000001" },
       },
     ]);
+
+    // Decided tab: Delete only on the viewer's own withdrawn proposal, for a
+    // holder too. Nothing is sent until the person confirms.
+    for (const claims of ["", "&claims=absorb"]) {
+      await page.goto(`${origin}/tests/fixtures/absorbProposals.html?view=decided${claims}`);
+      await page.getByText("Sam Other", { exact: false }).first().waitFor();
+      assert.equal(await page.getByTitle("Delete", { exact: true }).count(), 1);
+      assert.equal(await page.getByTitle("Withdraw", { exact: true }).count(), 0);
+    }
+    sent.length = 0;
+    const deleteButton = page.getByTitle("Delete", { exact: true });
+    await deleteButton.click();
+    const confirm = page.getByRole("dialog");
+    await confirm.getByText("You can't undo this.").waitFor();
+    await confirm.getByRole("button", { name: "Keep it", exact: true }).click();
+    await confirm.waitFor({ state: "hidden" });
+    assert.deepEqual(sent, []);
+
+    // A refusal shows in the dialog, and the row stays.
+    refuseDelete = {
+      code: "proposal_not_withdrawn",
+      message: "only a withdrawn absorb proposal can be deleted",
+    };
+    await deleteButton.click();
+    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+    await confirm.getByText("only a withdrawn absorb proposal can be deleted").waitFor();
+    assert.equal(await deleteButton.count(), 1);
+    await confirm.getByRole("button", { name: "Delete", exact: true }).click();
+    await confirm.waitFor({ state: "hidden" });
+    await page.waitForFunction(() => window.reloads === 1);
+    assert.deepEqual(sent, [
+      { path: "/api/absorb_proposals/proposal0000003", method: "DELETE" },
+      { path: "/api/absorb_proposals/proposal0000003", method: "DELETE" },
+    ]);
+    // The row leaves the list; the others stay.
+    assert.equal(await deleteButton.count(), 0);
+    assert.equal(await page.getByText("Different companies", { exact: false }).count(), 1);
+    assert.equal((await page.getByText("Sam Other", { exact: false }).count()) > 0, true);
 
     assert.deepEqual(errors, []);
   },

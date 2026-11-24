@@ -8,6 +8,7 @@ import (
 	"tybalt/internal/testutils"
 	"tybalt/routes"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 )
@@ -17,6 +18,8 @@ import (
 //   - absorbprop00002: pending, Sepulchi & Co into City of Ipperville, by time@test.com
 //   - absorbprop00003: pending, Stuff Unlimited into Big Vendor Industries, by time@test.com
 //   - absorbprop00004: declined vendor proposal by fakemanager@fakesite.xyz
+//   - absorbprop00005: withdrawn, Ricky Bobby's and Dick's Auto Parts into
+//     Big Vendor Industries, by time@test.com
 //
 // book@keeper.com holds the absorb claim; time@test.com does not.
 const (
@@ -30,6 +33,7 @@ const (
 	proposalSepulchiClients = "absorbprop00002"
 	proposalVendors         = "absorbprop00003"
 	proposalDeclined        = "absorbprop00004"
+	proposalWithdrawn       = "absorbprop00005"
 
 	clientMobilia     = "lb0fnenkeyitsny"
 	clientBNRail      = "eldtxi3i4h00k8r"
@@ -205,11 +209,12 @@ func TestAbsorbProposalListAndView(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("holder pending: got %v, want %v", got, want)
 	}
-	if got := proposalIDs(listProposals(t, app, proposalHolderEmail, "?status=decided")); strings.Join(got, ",") != proposalDeclined {
+	// Decided proposals list newest decision first.
+	if got := proposalIDs(listProposals(t, app, proposalHolderEmail, "?status=decided")); strings.Join(got, ",") != proposalWithdrawn+","+proposalDeclined {
 		t.Fatalf("holder decided: got %v", got)
 	}
 	// Anyone else sees only their own.
-	if got := proposalIDs(listProposals(t, app, proposalRequesterEmail, "?status=decided")); len(got) != 0 {
+	if got := proposalIDs(listProposals(t, app, proposalRequesterEmail, "?status=decided")); strings.Join(got, ",") != proposalWithdrawn {
 		t.Fatalf("requester decided: got %v", got)
 	}
 	if got := proposalIDs(listProposals(t, app, proposalOtherEmail, "?status=decided")); strings.Join(got, ",") != proposalDeclined {
@@ -304,6 +309,70 @@ func TestAbsorbProposalWithdrawAndDecline(t *testing.T) {
 		proposalJSON(t, map[string]any{"ids_to_absorb": []string{clientBNRail}, "proposal": proposalMobiliaClients}), uncommitToken(t, proposalHolderEmail))
 	if res.Code != http.StatusBadRequest || proposalErrorCode(t, res.Body.Bytes()) != "proposal_not_pending" {
 		t.Fatalf("absorb from a declined proposal: %d %s", res.Code, res.Body.String())
+	}
+}
+
+func TestAbsorbProposalDelete(t *testing.T) {
+	// This test deletes the fixture proposal absorbprop00005 and its record
+	// rows. Each test gets its own copy of the fixture database.
+	app := testutils.SetupTestApp(t)
+	remove := func(email, id string) (int, []byte) {
+		res := performTestAPIRequest(t, app, http.MethodDelete, "/api/absorb_proposals/"+id, nil, uncommitToken(t, email))
+		return res.Code, res.Body.Bytes()
+	}
+	recordRows := func(id string) int {
+		rows, err := app.FindAllRecords("absorb_proposal_records", dbx.HashExp{"proposal": id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(rows)
+	}
+	if n := recordRows(proposalWithdrawn); n != 2 {
+		t.Fatalf("fixture record rows: got %d, want 2", n)
+	}
+
+	refusals := []struct {
+		name   string
+		email  string
+		id     string
+		status int
+		code   string
+	}{
+		{"someone else", proposalOtherEmail, proposalWithdrawn, http.StatusForbidden, "unauthorized"},
+		{"a holder who did not propose it", proposalHolderEmail, proposalWithdrawn, http.StatusForbidden, "unauthorized"},
+		{"pending", proposalRequesterEmail, proposalVendors, http.StatusBadRequest, "proposal_not_withdrawn"},
+		// fakemanager@fakesite.xyz proposed absorbprop00004.
+		{"declined", proposalOtherEmail, proposalDeclined, http.StatusBadRequest, "proposal_not_withdrawn"},
+		{"unknown id", proposalRequesterEmail, "doesnotexist000", http.StatusNotFound, "proposal_not_found"},
+	}
+	for _, refusal := range refusals {
+		t.Run(refusal.name, func(t *testing.T) {
+			status, body := remove(refusal.email, refusal.id)
+			if status != refusal.status || proposalErrorCode(t, body) != refusal.code {
+				t.Fatalf("got %d %s, want %d %s", status, body, refusal.status, refusal.code)
+			}
+		})
+	}
+	for _, id := range []string{proposalWithdrawn, proposalVendors, proposalDeclined} {
+		if _, err := app.FindRecordById("absorb_proposals", id); err != nil {
+			t.Fatalf("a refused delete removed %s: %v", id, err)
+		}
+	}
+
+	if status, body := remove(proposalRequesterEmail, proposalWithdrawn); status != http.StatusOK {
+		t.Fatalf("delete: %d %s", status, body)
+	}
+	if _, err := app.FindRecordById("absorb_proposals", proposalWithdrawn); err == nil {
+		t.Fatal("the withdrawn proposal is still there")
+	}
+	if n := recordRows(proposalWithdrawn); n != 0 {
+		t.Fatalf("record rows left after delete: %d", n)
+	}
+	if n := recordRows(proposalDeclined); n != 1 {
+		t.Fatalf("another proposal lost its record rows: %d", n)
+	}
+	if status, body := remove(proposalRequesterEmail, proposalWithdrawn); status != http.StatusNotFound || proposalErrorCode(t, body) != "proposal_not_found" {
+		t.Fatalf("second delete: %d %s", status, body)
 	}
 }
 

@@ -19,7 +19,8 @@ import (
 // Absorb proposals: any signed-in user proposes an absorb of clients, client
 // contacts or vendors, and an absorb holder carries it out with the normal
 // absorb (POST /api/{collection}/{id}/absorb with the proposal id) or
-// declines it. See descriptions/Absorb.md.
+// declines it. The requester may delete a withdrawn proposal. See
+// descriptions/Absorb.md.
 
 //go:embed absorb_proposals.sql
 var absorbProposalsQuery string
@@ -268,6 +269,35 @@ func createWithdrawAbsorbProposalHandler(app core.App) func(e *core.RequestEvent
 			return respondAbsorbProposalError(e, err)
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "absorb proposal withdrawn"})
+	}
+}
+
+// createDeleteAbsorbProposalHandler lets the requester delete their proposal
+// once it is withdrawn. A proposal with any other status stays, as the record
+// of what was proposed and decided. The delete cascades to the proposal's
+// absorb_proposal_records rows in the same transaction.
+func createDeleteAbsorbProposalHandler(app core.App) func(e *core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		err := app.RunInTransaction(func(txApp core.App) error {
+			proposal, err := txApp.FindRecordById(absorb.ProposalsCollection, e.Request.PathValue("id"))
+			if errors.Is(err, sql.ErrNoRows) {
+				return absorbProposalFailure(http.StatusNotFound, "proposal_not_found", "absorb proposal not found")
+			}
+			if err != nil {
+				return err
+			}
+			if proposal.GetString("requester") != e.Auth.Id {
+				return absorbProposalFailure(http.StatusForbidden, "unauthorized", "only the requester can delete this absorb proposal")
+			}
+			if proposal.GetString("status") != absorb.ProposalWithdrawn {
+				return absorbProposalFailure(http.StatusBadRequest, "proposal_not_withdrawn", "only a withdrawn absorb proposal can be deleted")
+			}
+			return txApp.Delete(proposal)
+		})
+		if err != nil {
+			return respondAbsorbProposalError(e, err)
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "absorb proposal deleted"})
 	}
 }
 

@@ -4,7 +4,7 @@
   import type { AbsorbProposalRow } from "$lib/absorbProposals";
   import { globalStore } from "$lib/stores/global";
 
-  // ?view=propose, review, queue (with &claims=absorb for a holder).
+  // ?view=propose, review, queue or decided (with &claims=absorb for a holder).
   const params = new URLSearchParams(location.search);
   const view = params.get("view") ?? "propose";
   // The test stubs the global store with a writable one.
@@ -46,13 +46,39 @@
       reason: "Same vendor",
     }),
   ];
+  // Decided: the viewer's own withdrawn and declined proposals, and another
+  // person's withdrawn one. Only the viewer's withdrawn one can be deleted.
+  const decided = [
+    proposal({
+      id: "proposal0000003",
+      status: "withdrawn",
+      decided_at: "2026-11-21 10:00:00.000Z",
+      decided_by_name: "Robin Requester",
+    }),
+    proposal({
+      id: "proposal0000004",
+      requester: "someoneelse0001",
+      requester_name: "Sam Other",
+      target_name: "Other Co",
+      status: "withdrawn",
+      decided_at: "2026-11-21 09:00:00.000Z",
+      decided_by_name: "Sam Other",
+    }),
+    proposal({
+      id: "proposal0000005",
+      status: "declined",
+      decided_at: "2026-11-20 18:00:00.000Z",
+      decided_by_name: "Hal Holder",
+      decision_comment: "Different companies",
+    }),
+  ];
   (window as unknown as { reloads: number }).reloads = 0;
 </script>
 
-{#if view === "queue"}
+{#if view === "queue" || view === "decided"}
   <AbsorbProposalQueue
-    status="pending"
-    items={queue}
+    status={view === "queue" ? "pending" : "decided"}
+    items={view === "queue" ? queue : decided}
     viewerId="requester000001"
     onchange={async () => {
       (window as unknown as { reloads: number }).reloads += 1;

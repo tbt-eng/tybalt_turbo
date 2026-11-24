@@ -188,6 +188,7 @@ func AddRoutes(app core.App) {
 		absorbProposalsGroup.GET("", createGetAbsorbProposalsHandler(app))
 		absorbProposalsGroup.POST("", createCreateAbsorbProposalHandler(app))
 		absorbProposalsGroup.GET("/{id}", createGetAbsorbProposalHandler(app))
+		absorbProposalsGroup.DELETE("/{id}", createDeleteAbsorbProposalHandler(app))
 		absorbProposalsGroup.POST("/{id}/withdraw", createWithdrawAbsorbProposalHandler(app))
 		absorbProposalsGroup.POST("/{id}/decline", createDeclineAbsorbProposalHandler(app))
 

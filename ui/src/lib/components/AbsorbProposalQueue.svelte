@@ -12,6 +12,7 @@
     type AbsorbProposalRow,
   } from "$lib/absorbProposals";
   import DSActionButton from "./DSActionButton.svelte";
+  import DSCallout from "./DSCallout.svelte";
   import DsLabel from "./DsLabel.svelte";
   import DsList from "./DSList.svelte";
   import DSPopover from "./DSPopover.svelte";
@@ -21,7 +22,7 @@
 
   // The absorb proposal queue. Absorb holders see every proposal and review
   // or decline the pending ones; everyone else sees their own and may
-  // withdraw a pending one.
+  // withdraw a pending one. A requester may delete their withdrawn proposal.
   let {
     status,
     items,
@@ -45,6 +46,14 @@
   let declineComment = $state("");
   let declining = $state(false);
   let declineError = $state<string | null>(null);
+
+  let deleteRow = $state<AbsorbProposalRow | null>(null);
+  let showDelete = $state(false);
+  let deleting = $state(false);
+  let deleteError = $state<string | null>(null);
+  // Deleted proposals leave the list before the reload returns.
+  let deletedIds = $state<string[]>([]);
+  const visibleItems = $derived(items.filter((row) => !deletedIds.includes(row.id)));
 
   function recordNames(row: AbsorbProposalRow) {
     return row.records.map((record) => record.record_name).join(", ");
@@ -84,6 +93,29 @@
     }
   }
 
+  function openDelete(row: AbsorbProposalRow) {
+    deleteRow = row;
+    deleteError = null;
+    showDelete = true;
+  }
+
+  async function deleteProposal() {
+    if (!deleteRow) return;
+    const id = deleteRow.id;
+    deleting = true;
+    deleteError = null;
+    try {
+      await pb.send(`/api/absorb_proposals/${id}`, { method: "DELETE" });
+      deletedIds = [...deletedIds, id];
+      showDelete = false;
+      await onchange();
+    } catch (error) {
+      deleteError = getApiErrorMessage(error, "Delete failed");
+    } finally {
+      deleting = false;
+    }
+  }
+
   async function withdraw(row: AbsorbProposalRow) {
     try {
       await pb.send(`/api/absorb_proposals/${row.id}/withdraw`, { method: "POST" });
@@ -106,7 +138,7 @@
     ]}
   />
   <DsList
-    {items}
+    items={visibleItems}
     search={true}
     pagination={!pendingTab}
     bind:searchTerm
@@ -174,6 +206,13 @@
             color="neutral"
           />
         {/if}
+      {:else if row.status === "withdrawn" && row.requester === viewerId}
+        <DSActionButton
+          action={() => openDelete(row)}
+          icon="mdi:delete"
+          title="Delete"
+          color="red"
+        />
       {/if}
     {/snippet}
   </DsList>
@@ -196,4 +235,19 @@
     uiName="Why"
     placeholder="This goes to the requester"
   />
+</DSPopover>
+
+<DSPopover
+  bind:show={showDelete}
+  title="Delete Proposal?"
+  subtitle={deleteRow ? rowTitle(deleteRow) : ""}
+  error={deleteError}
+  submitting={deleting}
+  danger
+  submitLabel="Delete"
+  cancelLabel="Keep it"
+  onSubmit={deleteProposal}
+>
+  <p>Turbo removes this withdrawn proposal. The records it names don't change.</p>
+  <DSCallout tone="danger" title="This is permanent">You can't undo this.</DSCallout>
 </DSPopover>
