@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   // A small form that creates a client from its name alone, for a form that
   // picks a client (as the client or as the job owner). Creating a client
   // needs the job claim, so the caller shows its button to job holders only.
@@ -57,9 +58,10 @@
   onCancel={() => (show = false)}
 >
   <div class="flex flex-col gap-1">
-    <label class="text-sm font-semibold" for="new_client_name">Name</label>
+    <label class="text-sm font-semibold" for="new_client_name">Name<DSRequiredMark /></label>
     <input
       id="new_client_name"
+      aria-required="true"
       type="text"
       class="rounded-sm border border-neutral-300 px-2 py-1"
       placeholder="Client name"

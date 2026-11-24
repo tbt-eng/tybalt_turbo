@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
   import { beforeNavigate, goto } from "$app/navigation";
   import { safeReturnTo } from "$lib/clientWorkspace";
   import { untrack } from "svelte";
@@ -124,13 +125,20 @@
         0} invoicing profiles. Changes apply wherever this contact is used.
     </p>
   {/if}
+  <DSRequiredLegend />
   {#if error}<p role="alert" class="text-red-700">{error}</p>{/if}
   <fieldset
     disabled={busy || !$globalStore.claims.includes("job")}
     class="flex min-w-0 flex-col gap-3"
   >
-    <DsTextInput bind:value={item.given_name} {errors} fieldName="given_name" uiName="Given name" />
-    <DsTextInput bind:value={item.surname} {errors} fieldName="surname" uiName="Surname" />
+    <DsTextInput
+      bind:value={item.given_name}
+      {errors}
+      fieldName="given_name"
+      uiName="Given name"
+      required
+    />
+    <DsTextInput bind:value={item.surname} {errors} fieldName="surname" uiName="Surname" required />
     <DsTextInput bind:value={item.email} {errors} fieldName="email" uiName="Email (optional)" />
     <label class="flex items-center gap-2">
       <input

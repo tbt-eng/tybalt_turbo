@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
   import { beforeNavigate } from "$app/navigation";
   import { untrack } from "svelte";
   import MiniSearch from "minisearch";
@@ -299,6 +300,7 @@
           ? ` and ${countLabel(record.request_count, "request")}`
           : ""}. Changes apply wherever this profile is used.
       </p>{/if}
+    <DSRequiredLegend />
     {#if error}<p role="alert" class="text-red-700">{error}</p>{/if}
     <fieldset disabled={busy || !!decision || !canSave} class="flex min-w-0 flex-col gap-3">
       <DsTextInput
@@ -315,6 +317,7 @@
           {errors}
           fieldName="contact"
           uiName="Send invoices to"
+          required
         >
           {#snippet resultTemplate(row)}{contactLabel(row as WorkflowRecord)}{/snippet}
         </DsAutoComplete>
@@ -331,6 +334,7 @@
           {errors}
           fieldName="contact"
           uiName="Send invoices to"
+          required
         >
           {#snippet optionTemplate(row)}{row.label}{/snippet}
         </DsSelector>

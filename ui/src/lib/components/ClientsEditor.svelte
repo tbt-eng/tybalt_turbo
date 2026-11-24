@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import { beforeNavigate, goto } from "$app/navigation";
@@ -71,6 +72,7 @@
   onsubmit={save}
 >
   <h2 class="text-xl font-bold">{data.editing ? "Edit client information" : "Create client"}</h2>
+  <DSRequiredLegend />
   {#if error}<p role="alert" class="text-red-700">{error}</p>{/if}
   <fieldset
     disabled={busy || !$globalStore.claims.includes("job")}
@@ -81,6 +83,7 @@
       {errors}
       fieldName="name"
       uiName="Name"
+      required
       placeholder="Official or numbered company name"
     />
     <DsTextInput

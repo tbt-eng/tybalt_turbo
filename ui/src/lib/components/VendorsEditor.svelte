@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
@@ -54,7 +55,11 @@
     {/if}
   </h1>
 
-  <DsTextInput bind:value={item.name as string} {errors} fieldName="name" uiName="Name" />
+  <div class="w-full">
+    <DSRequiredLegend />
+  </div>
+
+  <DsTextInput bind:value={item.name as string} {errors} fieldName="name" uiName="Name" required />
 
   <DsTextInput bind:value={item.alias as string} {errors} fieldName="alias" uiName="Alias" />
 

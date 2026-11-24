@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import { pb } from "$lib/pocketbase";
   import DSPopover from "./DSPopover.svelte";
 
@@ -83,9 +84,10 @@
   onCancel={closePopover}
 >
   <div class="flex flex-col gap-1">
-    <label class="text-sm font-semibold" for="new_vendor_name">Name</label>
+    <label class="text-sm font-semibold" for="new_vendor_name">Name<DSRequiredMark /></label>
     <input
       id="new_vendor_name"
+      aria-required="true"
       type="text"
       class="rounded-sm border border-neutral-300 px-2 py-1"
       placeholder="Vendor name"
