@@ -14,7 +14,7 @@ Note: Rejected? Select **Recall**, edit the entries and submit the week again.
 
 1. Select the plus button beside **Entries**.
 2. Select the **Time Type**. The other fields change with the type.
-3. Enter the details and hours.
+3. Fill in each field with a red *.
 4. Select **Save**.
 
 ## Submit a week

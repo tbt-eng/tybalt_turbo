@@ -17,6 +17,8 @@
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import DsDateInput from "$lib/components/DSDateInput.svelte";
   import DsAutoComplete from "./DSAutoComplete.svelte";
   import DsActionButton from "./DSActionButton.svelte";
@@ -119,6 +121,13 @@
   });
 
   const isWorkTime = $derived(hasTimeType(["R", "RT"]));
+  // The fields the server requires for the selected time type. As on the
+  // server, a time type that lists none requires every field it allows.
+  const requiredFields = $derived.by(() => {
+    const timeType = $timeTypes.items.find((t) => t.id === item.time_type);
+    const required = timeType?.required_fields ?? [];
+    return new Set(required.length > 0 ? required : (timeType?.allowed_fields ?? []));
+  });
 
   let errors = $state({} as any);
   // Use untrack to capture initial value for form state (component recreates on navigation)
@@ -420,12 +429,18 @@
     </h1>
     {@render help?.()}
   </div>
+  <div class="w-full">
+    <DSRequiredLegend />
+  </div>
 
   <span class="flex w-full gap-2">
-    <label for="date">Date</label>
+    <label for="date"
+      >Date{#if requiredFields.has("date")}<DSRequiredMark />{/if}</label
+    >
     <DsDateInput
       class="flex-1 md:flex-none"
       name="date"
+      required={requiredFields.has("date")}
       min={DATE_INPUT_MIN}
       max={dateInputMax}
       bind:value={item.date}
@@ -482,6 +497,7 @@
         {errors}
         fieldName="division"
         uiName="Division"
+        required={requiredFields.has("division")}
         filter={jobDivisionIds ? (div) => jobDivisionIds!.has(div.id) : undefined}
       >
         {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
@@ -494,6 +510,7 @@
         {errors}
         fieldName="job"
         uiName="Job"
+        required={requiredFields.has("job")}
       >
         {#snippet resultTemplate(item)}{formatJobLabel(item)}{/snippet}
       </DsAutoComplete>
@@ -527,6 +544,7 @@
             {errors}
             fieldName="role"
             uiName="Role"
+            required
           >
             {#snippet resultTemplate(item)}{item.name}{/snippet}
           </DsAutoComplete>
@@ -573,6 +591,7 @@
       {errors}
       fieldName="category"
       uiName="Category"
+      required={requiredFields.has("category")}
       clear={true}
     >
       {#snippet optionTemplate(item: CategoriesResponse)}
@@ -587,6 +606,7 @@
       {errors}
       fieldName="work_record"
       uiName="Work Record"
+      required={requiredFields.has("work_record")}
     />
   {/if}
 
@@ -603,6 +623,7 @@
       {errors}
       fieldName="hours"
       uiName="Hours"
+      required={requiredFields.has("hours")}
       type="number"
       step={0.5}
       min={0}
@@ -616,6 +637,7 @@
       {errors}
       fieldName="meals_hours"
       uiName="Meals Hours"
+      required={requiredFields.has("meals_hours")}
       type="number"
       step={0.5}
       min={0}
@@ -629,6 +651,7 @@
       {errors}
       fieldName="description"
       uiName="Description"
+      required={requiredFields.has("description")}
     />
   {/if}
   {#if jobNumbersInDescription}
@@ -644,6 +667,7 @@
       {errors}
       fieldName="payout_request_amount"
       uiName="$"
+      required={requiredFields.has("payout_request_amount")}
       type="number"
     />
   {/if}
