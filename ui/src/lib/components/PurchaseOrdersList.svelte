@@ -318,12 +318,12 @@
         {#if ageLabels}
           {@const endState = poEndState(item)}
           {#if endState === "expired"}
-            <DsLabel tone="warning" title={`Ended on ${shortDate(item.end_date)}`}>Expired</DsLabel>
+            <DsLabel tone="danger" title={`Ended on ${shortDate(item.end_date)}`}>Expired</DsLabel>
           {:else if endState === "expiring"}
             <DsLabel tone="warning" title={`Ends on ${shortDate(item.end_date)}`}>Expiring</DsLabel>
           {/if}
           {#if poIsStale(item)}
-            <DsLabel tone="warning" title={`Approved more than ${STALE_AFTER_DAYS} days ago`}>
+            <DsLabel tone="neutral" title={`Approved more than ${STALE_AFTER_DAYS} days ago`}>
               Stale
             </DsLabel>
           {/if}
