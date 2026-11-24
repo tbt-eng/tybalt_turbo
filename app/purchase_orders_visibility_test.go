@@ -92,6 +92,12 @@ func TestPurchaseOrdersVisibilityRules(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// book@keeper.com holds payables_admin.
+	payablesToken, err := testutils.GenerateRecordToken("users", "book@keeper.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Generate token for a user with no claims (creator of cancelled PO 1cqrvp4mna33k2b)
 	noclaimsToken, err := testutils.GenerateRecordToken("users", "noclaims@example.com")
 	if err != nil {
@@ -666,7 +672,7 @@ func TestPurchaseOrdersVisibilityRules(t *testing.T) {
 			Method: http.MethodGet,
 			URL:    "/api/purchase_orders/visible?scope=stale",
 			Headers: map[string]string{
-				"Authorization": regularUserToken,
+				"Authorization": payablesToken,
 			},
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
@@ -679,7 +685,7 @@ func TestPurchaseOrdersVisibilityRules(t *testing.T) {
 			Method: http.MethodGet,
 			URL:    "/api/purchase_orders/visible?scope=stale&stale_before=2025-01-01%2000:00:00.000Z",
 			Headers: map[string]string{
-				"Authorization": regularUserToken,
+				"Authorization": payablesToken,
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
@@ -693,11 +699,37 @@ func TestPurchaseOrdersVisibilityRules(t *testing.T) {
 			Method: http.MethodGet,
 			URL:    "/api/purchase_orders/visible?scope=expiring",
 			Headers: map[string]string{
-				"Authorization": regularUserToken,
+				"Authorization": payablesToken,
 			},
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
 				`"code":"missing_expiring_before"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			Name:   "visible stale scope is refused without the payables_admin claim",
+			Method: http.MethodGet,
+			URL:    "/api/purchase_orders/visible?scope=stale&stale_before=2025-01-01%2000:00:00.000Z",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"code":"unauthorized_scope"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			Name:   "visible expiring scope is refused without the payables_admin claim",
+			Method: http.MethodGet,
+			URL:    "/api/purchase_orders/visible?scope=expiring&expiring_before=2025-10-01",
+			Headers: map[string]string{
+				"Authorization": regularUserToken,
+			},
+			ExpectedStatus: http.StatusForbidden,
+			ExpectedContent: []string{
+				`"code":"unauthorized_scope"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
 		},
@@ -720,7 +752,7 @@ func TestPurchaseOrdersVisibilityRules(t *testing.T) {
 			Method: http.MethodGet,
 			URL:    "/api/purchase_orders/visible?scope=expiring&expiring_before=2025-10-01",
 			Headers: map[string]string{
-				"Authorization": regularUserToken,
+				"Authorization": payablesToken,
 			},
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{

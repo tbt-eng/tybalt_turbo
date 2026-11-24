@@ -1,6 +1,6 @@
 # Find and print a purchase order
 
-These lists are under **Purchase Orders**. Every person can open them.
+These lists are under **Purchase Orders**. Only payables staff see **Stale** and **Expiring (Recurring)**.
 
 ## Fix a rejected PO
 
@@ -23,15 +23,15 @@ Search doesn't list a PO before its approval. Only the owner, the approvers, the
 
 ## Stale POs
 
-**Stale** lists each Active PO that got its approval more than 30 days ago. A PO in normal use is on the list too. Turbo doesn't close a stale PO.
+A PO list shows a **Stale** label on each Active PO that got its approval more than 30 days ago. Don't need yours? [Close or cancel it](/docs/close-a-purchase-order). **Provisional Remaining** is the total less all expenses, also the ones that aren't committed.
 
-Tick **Expense only** to list the POs that a person pays for themselves. **Provisional Remaining** is the total less all expenses, also the ones that aren't committed.
+Payables staff list them all in **Stale**. **Expense only** lists the POs that people pay for themselves.
 
 ## Recurring POs that end soon
 
-**Expiring (Recurring)** lists each Active Recurring PO that ends in the next 30 days or is past its end date. To look further, change the number of days and select **Load**.
+A PO list shows **Expiring** on an Active Recurring PO that ends in the next 30 days, and **Expired** after its end date. Turbo refuses an expense dated after the end date. You can't extend a Recurring PO. Create a new PO.
 
-Turbo refuses an expense with a date after the end date. You can't extend a Recurring PO. Create a new PO.
+Payables staff list them all in **Expiring (Recurring)**, and can change the number of days.
 
 ## Print a PO
 

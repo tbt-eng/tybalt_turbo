@@ -657,6 +657,25 @@ func createGetVisiblePurchaseOrdersHandler(app core.App) func(e *core.RequestEve
 			})
 		}
 
+		// The stale and expiring scopes are company-wide lists for payables
+		// staff. Everyone else sees these purchase orders with a label in
+		// their own list.
+		if scope == "stale" || scope == "expiring" {
+			isPayables, err := utilities.HasClaim(app, auth, "payables_admin")
+			if err != nil {
+				return e.JSON(http.StatusInternalServerError, map[string]string{
+					"code":    "error_checking_claim",
+					"message": fmt.Sprintf("error checking claim: %v", err),
+				})
+			}
+			if !isPayables {
+				return e.JSON(http.StatusForbidden, map[string]string{
+					"code":    "unauthorized_scope",
+					"message": "only payables staff can list stale or expiring purchase orders",
+				})
+			}
+		}
+
 		groupID := strings.TrimSpace(e.Request.URL.Query().Get("group"))
 		if scope == "group" && groupID == "" {
 			return e.JSON(http.StatusBadRequest, map[string]string{

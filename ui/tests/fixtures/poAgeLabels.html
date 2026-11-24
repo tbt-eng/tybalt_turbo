@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PO age labels fixture</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { mount } from "svelte";
+      import PurchaseOrdersList from "../../src/lib/components/PurchaseOrdersList.svelte";
+      import "/src/app.css";
+
+      const day = 24 * 60 * 60 * 1000;
+      const datetime = (offsetDays) =>
+        new Date(Date.now() + offsetDays * day).toISOString().replace("T", " ");
+      const date = (offsetDays) => {
+        const d = new Date(Date.now() + offsetDays * day);
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      };
+      const po = (id, fields) => ({
+        id,
+        po_number: `2611-${id}`,
+        status: "Active",
+        type: "Cumulative",
+        uid: "someone",
+        date: date(-60),
+        end_date: "",
+        approved: datetime(-2),
+        second_approval: "",
+        rejected: "",
+        total: 1000,
+        currency_code: "CAD",
+        remaining_amount: 400,
+        committed_expenses_count: 1,
+        vendor_name: `Vendor ${id}`,
+        description: `Purchase order ${id}`,
+        ...fields,
+      });
+      const params = new URLSearchParams(location.search);
+      mount(PurchaseOrdersList, {
+        target: document.getElementById("app"),
+        props: {
+          inListHeader: "My Purchase Orders",
+          ageLabels: !params.has("no-labels"),
+          data: {
+            realtime_source: "visible",
+            items: [
+              po("0001", {}),
+              po("0002", { approved: datetime(-45) }),
+              po("0003", { type: "Recurring", end_date: date(10) }),
+              po("0004", { type: "Recurring", end_date: date(-5), approved: datetime(-90) }),
+              po("0005", { type: "Recurring", end_date: date(200) }),
+              po("0006", { status: "Closed", approved: datetime(-90) }),
+            ],
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

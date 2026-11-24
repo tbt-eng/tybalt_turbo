@@ -342,6 +342,8 @@ The `visible` endpoints use broader read semantics than `pending`:
 - Legacy manual entries (`legacy_manual_entry` set): visible in every status to `legacy_po_create_update` claim holders
 - Revisions (`Unapproved` with a `po_number`): visible to any authenticated user, because they were visible while `Active`; see Revision
 
+The `stale` and `expiring` scopes are company-wide lists for payables staff: a caller without the `payables_admin` claim gets 403 `unauthorized_scope`, and the Stale and Expiring (Recurring) menu items and pages are for that claim only. Every other PO list (`PurchaseOrdersList`) shows the same facts as labels on the row: **Stale**, **Expiring** and **Expired** (a Recurring PO past its end date). The label rules are in `ui/src/lib/poAge.ts` and match the two scopes, with 30 days for each.
+
 `GET /api/purchase_orders/visible` supports `scope`:
 
 - `all` (default)

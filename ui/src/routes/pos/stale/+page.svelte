@@ -20,6 +20,7 @@
   inListHeader={`Stale Purchase Orders (Active before ${staleDate})`}
   {data}
   showRemaining={true}
+  ageLabels={false}
   filter={paymentTypeFilter}
 >
   {#snippet searchBarExtra()}

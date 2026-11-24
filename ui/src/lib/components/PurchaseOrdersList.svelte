@@ -16,6 +16,7 @@
   import { authStore } from "$lib/stores/auth";
   import POEndPopover from "$lib/components/POEndPopover.svelte";
   import { poMayBeCancelledBy, poMayBeClosedBy } from "$lib/poVisibility";
+  import { poEndState, poIsStale, STALE_AFTER_DAYS } from "$lib/poAge";
   import {
     formatCurrencyAmount,
     formatJobLabel,
@@ -42,6 +43,7 @@
     hideWhenEmpty = false,
     filter,
     showTemplateAction = false,
+    ageLabels = true,
     searchBarExtra,
   }: {
     inListHeader?: string;
@@ -55,6 +57,9 @@
     hideWhenEmpty?: boolean;
     filter?: ((item: VisiblePurchaseOrderResponse) => boolean) | undefined;
     showTemplateAction?: boolean;
+    // Stale, Expiring and Expired labels on Active purchase orders. The
+    // payables lists of exactly those purchase orders turn them off.
+    ageLabels?: boolean;
     searchBarExtra?: Snippet;
   } = $props();
   let items = $state(untrack(() => data.items));
@@ -309,6 +314,19 @@
           <DsLabel color={poStatusColor(item)}>
             {poDisplayStatus(item)}
           </DsLabel>
+        {/if}
+        {#if ageLabels}
+          {@const endState = poEndState(item)}
+          {#if endState === "expired"}
+            <DsLabel tone="warning" title={`Ended on ${shortDate(item.end_date)}`}>Expired</DsLabel>
+          {:else if endState === "expiring"}
+            <DsLabel tone="warning" title={`Ends on ${shortDate(item.end_date)}`}>Expiring</DsLabel>
+          {/if}
+          {#if poIsStale(item)}
+            <DsLabel tone="warning" title={`Approved more than ${STALE_AFTER_DAYS} days ago`}>
+              Stale
+            </DsLabel>
+          {/if}
         {/if}
       </span>
     {/snippet}

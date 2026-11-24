@@ -5,7 +5,7 @@
   import { fetchVisiblePOs, type VisiblePurchaseOrderResponse } from "$lib/poVisibility";
   import type { PurchaseOrdersResponse } from "$lib/pocketbase-types";
   import { onMount } from "svelte";
-  import { localIsoDate } from "$lib/localDate";
+  import { EXPIRING_WITHIN_DAYS, expiringCutoff } from "$lib/poAge";
 
   interface PurchaseOrdersListData {
     items?: VisiblePurchaseOrderResponse[];
@@ -13,7 +13,7 @@
     realtime_source?: "visible" | "pending";
   }
 
-  let days = $state(30);
+  let days = $state(EXPIRING_WITHIN_DAYS);
   let loading = $state(true);
   let errorMessage = $state<string | null>(null);
   let expiringBefore = $state("");
@@ -23,17 +23,10 @@
     realtime_source: "visible",
   });
 
-  function computeExpiringBefore(daysAhead: number): string {
-    const target = new Date();
-    target.setHours(0, 0, 0, 0);
-    target.setDate(target.getDate() + daysAhead);
-    return localIsoDate(target);
-  }
-
   async function load(): Promise<void> {
-    const safeDays = Number.isFinite(days) && days > 0 ? Math.floor(days) : 30;
+    const safeDays = Number.isFinite(days) && days > 0 ? Math.floor(days) : EXPIRING_WITHIN_DAYS;
     days = safeDays;
-    expiringBefore = computeExpiringBefore(safeDays);
+    expiringBefore = expiringCutoff(safeDays);
 
     loading = true;
     errorMessage = null;
@@ -91,6 +84,7 @@
       inListHeader={`Expiring Recurring Purchase Orders (end date on or before ${expiringBefore})`}
       data={listData}
       showRemaining={true}
+      ageLabels={false}
     >
       {#snippet searchBarExtra()}
         <DSHelp doc="find-a-purchase-order#recurring-pos-that-end-soon" label="Help" />

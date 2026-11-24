@@ -185,8 +185,15 @@ export const navSections: NavSection[] = [
       // remove all active (test replacing with search)
       //{ label: "All Active", href: "/pos/active", buttons: [] },
       { label: "Search", href: "/pos/search", buttons: [] },
-      { label: "Stale", href: "/pos/stale", buttons: [] },
-      { label: "Expiring (Recurring)", href: "/pos/expiring", buttons: [] },
+      // Company-wide lists for payables staff. Everyone else sees a label on
+      // the purchase order in their own list.
+      { label: "Stale", href: "/pos/stale", buttons: [], canView: anyClaim("payables_admin") },
+      {
+        label: "Expiring (Recurring)",
+        href: "/pos/expiring",
+        buttons: [],
+        canView: anyClaim("payables_admin"),
+      },
     ],
   },
   {
