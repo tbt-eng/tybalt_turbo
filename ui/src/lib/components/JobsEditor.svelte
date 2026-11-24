@@ -30,6 +30,7 @@
   import ClientCreatePopover from "./clients/ClientCreatePopover.svelte";
   import DSCallout from "./DSCallout.svelte";
   import DsLabel from "./DsLabel.svelte";
+  import DSRequiredLegend from "./DSRequiredLegend.svelte";
   import DSRequiredMark from "./DSRequiredMark.svelte";
   import Icon from "@iconify/svelte";
   import { profiles } from "$lib/stores/profiles";
@@ -278,6 +279,22 @@
   ];
 
   const isNewJob = $derived(data.id === null);
+  // The server wants a value, or time and materials, for these proposal
+  // statuses.
+  const proposalValueRequired = $derived(
+    !item.time_and_materials &&
+      (item.status === JobsStatusOptions.Submitted ||
+        item.status === JobsStatusOptions.Awarded ||
+        item.status === JobsStatusOptions["Not Awarded"]),
+  );
+  // An Active or Closed project needs a value. The field is locked on an
+  // existing project, whose value changes only from job details.
+  const projectValueRequired = $derived.by(
+    () =>
+      !data.editing &&
+      isProject &&
+      (item.status === JobsStatusOptions.Active || item.status === JobsStatusOptions.Closed),
+  );
 
   // While project requests are on, a new project starts as a request. The
   // nav's one plus button lands here, so this page offers each person what
@@ -320,6 +337,10 @@
       Boolean((item as unknown as Record<string, unknown>)._prefilled_from_proposal) ||
       Boolean(item.project_award_date),
   );
+
+  // A new job with no date yet can still become a project or a proposal, so
+  // the fields that only a project needs are marked once it is a project.
+  const isProject = $derived(!isProposal && (data.editing || hideProposalDates));
 
   // Hide project award date when either proposal date has a value (job is a proposal)
   const hideProjectDate = $derived.by(
@@ -918,6 +939,10 @@
       {/if}
     </div>
 
+    <div class="w-full">
+      <DSRequiredLegend />
+    </div>
+
     {#if managerAllocationsOnly}
       <p class="w-full">{item.description}</p>
     {:else}
@@ -948,10 +973,13 @@
             ? 'bg-red-200'
             : ''}"
         >
-          <label for="project_award_date">Project Award Date</label>
+          <label for="project_award_date"
+            >Project Award Date{#if isProject}<DSRequiredMark />{/if}</label
+          >
           <DsDateInput
             class="flex-1 md:flex-none"
             name="project_award_date"
+            required={isProject}
             max={dateInputMax}
             bind:value={item.project_award_date}
           />
@@ -978,14 +1006,14 @@
           <label
             for="project_completion_date"
             title="Required for Active projects. An estimate is acceptable. Update this date when the expected completion date changes."
-            >Project Completion Date{#if item.status === JobsStatusOptions.Active}<DSRequiredMark
+            >Project Completion Date{#if isProject && item.status === JobsStatusOptions.Active}<DSRequiredMark
               />{/if}</label
           >
           <DsDateInput
             class="flex-1 md:flex-none"
             name="project_completion_date"
             min={item.project_award_date || undefined}
-            required={item.status === JobsStatusOptions.Active}
+            required={isProject && item.status === JobsStatusOptions.Active}
             bind:value={item.project_completion_date}
           />
           {#if item.project_completion_date}
@@ -1008,7 +1036,9 @@
             ? 'bg-red-200'
             : ''}"
         >
-          <label for="proposal_opening_date">Proposal Opening Date</label>
+          <label for="proposal_opening_date"
+            >Proposal Opening Date{#if isProposal}<DSRequiredMark />{/if}</label
+          >
           <DsDateInput
             class="flex-1 md:flex-none"
             name="proposal_opening_date"
@@ -1033,7 +1063,9 @@
             ? 'bg-red-200'
             : ''}"
         >
-          <label for="proposal_submission_due_date">Proposal Submission Due Date</label>
+          <label for="proposal_submission_due_date"
+            >Proposal Submission Due Date{#if isProposal}<DSRequiredMark />{/if}</label
+          >
           <DsDateInput
             class="flex-1 md:flex-none"
             name="proposal_submission_due_date"
@@ -1055,7 +1087,7 @@
       {/if}
 
       <div class="flex w-full flex-col gap-1 {errors.location !== undefined ? 'bg-red-200' : ''}">
-        <label for="location">Location</label>
+        <label for="location">Location<DSRequiredMark /></label>
         <DSLocationPicker bind:value={item.location as string} {errors} fieldName="location" />
       </div>
 
@@ -1074,6 +1106,7 @@
         {errors}
         fieldName="description"
         uiName="Description"
+        required
       />
 
       {#if $clients.index !== null}
@@ -1085,6 +1118,7 @@
               {errors}
               fieldName="client"
               uiName="Client"
+              required
               disabled={(data.editing && !isProposal) || Boolean((item as any).parent)}
             >
               {#snippet resultTemplate(client)}{clientLabel({
@@ -1119,10 +1153,11 @@
       <div class="flex w-full flex-col gap-1 {errors.contact !== undefined ? 'bg-red-200' : ''}">
         <div class="flex w-full items-end gap-1">
           <span class="flex flex-1 gap-2">
-            <label for="contact">Client Contact</label>
+            <label for="contact">Client Contact<DSRequiredMark /></label>
             <select
               id="contact"
               name="contact"
+              aria-required="true"
               bind:value={item.contact}
               class="flex-1 rounded-sm border border-neutral-300 px-1"
               disabled={item.client === "" || client_contacts.length === 0}
@@ -1165,10 +1200,13 @@
         >
           <div class="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
             {#if item.client && !invoicingProfilesLoading && !invoicingProfilesError && invoicingProfiles.length}
-              <label for="invoicing_information">Invoicing profile</label>
+              <label for="invoicing_information"
+                >Invoicing profile{#if isProject}<DSRequiredMark />{/if}</label
+              >
               <select
                 id="invoicing_information"
                 name="invoicing_information"
+                aria-required={isProject || undefined}
                 class="min-w-0 flex-1 rounded-sm border border-neutral-300 px-1"
                 bind:value={item.invoicing_information}
                 ><option value="">Select invoicing profile</option
@@ -1232,6 +1270,7 @@
           {errors}
           fieldName="manager"
           uiName="Manager"
+          required
         >
           {#snippet resultTemplate(item)}
             {item.surname}, {item.given_name}
@@ -1284,10 +1323,13 @@
           class="flex w-full flex-col gap-1"
           class:bg-red-200={errors.proposal_value !== undefined}
         >
-          <label class="text-sm font-semibold" for="proposal_value">Proposal Value ($)</label>
+          <label class="text-sm font-semibold" for="proposal_value"
+            >Proposal Value ($){#if proposalValueRequired}<DSRequiredMark />{/if}</label
+          >
           <input
             id="proposal_value"
             name="proposal_value"
+            aria-required={proposalValueRequired || undefined}
             type="number"
             class="rounded-sm border border-neutral-300 px-2 py-1"
             bind:value={item.proposal_value as number}
@@ -1304,7 +1346,9 @@
           class="flex w-full flex-col gap-1"
           class:bg-red-200={errors.project_value !== undefined}
         >
-          <label class="text-sm font-semibold" for="project_value">Project Value ($)</label>
+          <label class="text-sm font-semibold" for="project_value"
+            >Project Value ($){#if projectValueRequired}<DSRequiredMark />{/if}</label
+          >
           <input
             id="project_value"
             name="project_value"
@@ -1389,6 +1433,7 @@
             {errors}
             fieldName="rate_sheet"
             uiName="Rate Sheet"
+            required={isNewJob && isProject}
             placeholder={rateSheetSearchPlaceholder}
             disabled={rateSheetLocked}
             empty
@@ -1445,7 +1490,7 @@
 
     {#if $divisions.index !== null}
       <div class="flex w-full flex-col gap-2" class:bg-red-200={errors.allocations !== undefined}>
-        <span class="font-semibold">Divisions</span>
+        <span class="font-semibold">Divisions<DSRequiredMark /></span>
         {#if errors.allocations !== undefined}
           <span class="text-sm text-red-600">{errors.allocations.message}</span>
         {/if}
@@ -1526,10 +1571,11 @@
 
       <div class="flex w-full gap-2 {errors.branch !== undefined ? 'bg-red-200' : ''}">
         <span class="flex w-full gap-2">
-          <label for="branch">Branch</label>
+          <label for="branch">Branch<DSRequiredMark /></label>
           <select
             id="branch"
             name="branch"
+            aria-required="true"
             bind:value={item.branch}
             class="flex-1 rounded-sm border border-neutral-300 px-1"
           >
