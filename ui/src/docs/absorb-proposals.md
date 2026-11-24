@@ -39,3 +39,5 @@ You can delete your own proposal after its decision or after you withdraw it.
 2. Select the trashcan beside the proposal.
 
 Turbo deletes it at once. This changes no client, contact or vendor.
+
+Turbo also deletes each proposal 30 days after its decision.

@@ -62,7 +62,12 @@ with the normal absorb. Rate sheets take no proposal.
   `proposal_pending` and must be withdrawn first; an unknown id gets 404
   `proposal_not_found`. The Decided tab shows a trashcan on the requester's
   own proposals, with no confirmation, because the delete changes no record
-  and a committed absorb keeps no record of its own either. Errors are JSON with `code` and `message`.
+  and a committed absorb keeps no record of its own either. Errors are JSON
+  with `code` and `message`.
+- Retention. The daily cron job `absorb_proposal_retention`
+  (`app/cron/absorb_proposal_retention.go`) deletes each proposal decided
+  more than `ABSORB_PROPOSAL_RETENTION_DAYS` (30) ago, with its record rows.
+  A pending proposal is never deleted.
 - Checks, on create and again when a holder absorbs from a proposal: one
   of the three collections; every record exists; the ids are distinct; the
   target isn't in the list; contacts share one client (`ParentConstraint`);

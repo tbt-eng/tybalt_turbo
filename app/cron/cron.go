@@ -56,6 +56,13 @@ func AddCronJobs(app core.App) {
 		runComputerLoginRetention(app)
 	})
 
+	// delete absorb proposals decided more than
+	// ABSORB_PROPOSAL_RETENTION_DAYS ago, a few minutes after the login
+	// retention job. Pending proposals are never deleted.
+	app.Cron().MustAdd("absorb_proposal_retention", "10 7 * * *", func() {
+		runAbsorbProposalRetention(app)
+	})
+
 	// Refresh foreign-exchange rates on weekday evenings after the Bank of Canada
 	// business-day feed is expected to be published.
 	app.Cron().MustAdd("currency_rate_sync", "0 22 * * 1-5", func() {

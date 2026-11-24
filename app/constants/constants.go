@@ -73,3 +73,8 @@ const (
 // COMPUTER_LOGIN_RETENTION_DAYS is how many days Turbo keeps a row of
 // computer_logins or computer_raw_logins. A daily cron job deletes older rows.
 const COMPUTER_LOGIN_RETENTION_DAYS = 30
+
+// ABSORB_PROPOSAL_RETENTION_DAYS is how many days Turbo keeps an absorb
+// proposal after its decision (accepted, declined, withdrawn or obsolete). A
+// daily cron job deletes older ones. A pending proposal is never deleted.
+const ABSORB_PROPOSAL_RETENTION_DAYS = 30
