@@ -3,6 +3,7 @@ package routes
 import (
 	"crypto/sha256"
 	"database/sql"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -212,6 +213,9 @@ func attachmentListHandler(app core.App) func(*core.RequestEvent) error {
 			return err
 		}
 		query := e.Request.URL.Query()
+		if query.Get("queue") == "approved_by_me" {
+			return attachmentApprovedByMe(app, e)
+		}
 		filter := "job!=''"
 		params := dbx.Params{}
 		if query.Get("queue") == "approval" {
@@ -290,6 +294,41 @@ func attachmentListHandler(app core.App) func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, map[string]any{"items": items})
 	}
+}
+
+// APPROVED_BY_ME_DAYS is how far back the approver's list of their own
+// approvals reaches.
+const APPROVED_BY_ME_DAYS = 30
+
+//go:embed job_attachments_approved_by_me.sql
+var approvedByMeQuery string
+
+// approvedByMeRow is one approval in the approver's list: a request that
+// became a job (kind new_job) or a later value change (kind value_change).
+// Date is when the job was created for a new job and when the change was
+// approved for a value change.
+type approvedByMeRow struct {
+	ID             string  `json:"id" db:"id"`
+	Job            string  `json:"job" db:"job"`
+	JobNumber      string  `json:"job_number" db:"job_number"`
+	JobDescription string  `json:"job_description" db:"job_description"`
+	ProjectValue   float64 `json:"project_value" db:"project_value"`
+	Kind           string  `json:"kind" db:"kind"`
+	Date           string  `json:"date" db:"date"`
+}
+
+// attachmentApprovedByMe lists the signed-in approver's own approvals on jobs
+// from the last APPROVED_BY_ME_DAYS days. It reads only what the list shows.
+func attachmentApprovedByMe(app core.App, e *core.RequestEvent) error {
+	if err := workflowClaim(app, e.Auth, "project_authorization"); err != nil {
+		return err
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -APPROVED_BY_ME_DAYS).Format("2006-01-02 15:04:05.000Z")
+	items := []approvedByMeRow{}
+	if err := app.DB().NewQuery(approvedByMeQuery).Bind(dbx.Params{"uid": e.Auth.Id, "cutoff": cutoff}).All(&items); err != nil {
+		return err
+	}
+	return e.JSON(http.StatusOK, map[string]any{"items": items})
 }
 
 func storedValueAllocations(app core.App, jobID string) ([]JobAllocationUpdate, error) {

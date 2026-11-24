@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/tests"
@@ -639,5 +641,98 @@ func TestJobDetailsReturnApprovedProjectValue(t *testing.T) {
 	details := clientSetupJSON(t, app, http.MethodGet, "/api/jobs/"+legacyWorkflowJob+"/details", workflowAuthor, nil, http.StatusOK)
 	if details["project_value"] != float64(10000) {
 		t.Fatalf("project_value = %#v; want 10000", details["project_value"])
+	}
+}
+
+// approvedByMe returns the ids, kinds and dates in the approver's own list of
+// approvals, in the order the server sends them.
+func approvedByMe(t *testing.T, app *tests.TestApp, email string) []map[string]any {
+	t.Helper()
+	list := clientSetupJSON(t, app, http.MethodGet, "/api/job_attachments?queue=approved_by_me", email, nil, http.StatusOK)
+	rows := []map[string]any{}
+	for _, item := range list["items"].([]any) {
+		rows = append(rows, item.(map[string]any))
+	}
+	return rows
+}
+
+func approvedByMeIDs(rows []map[string]any) []string {
+	ids := []string{}
+	for _, row := range rows {
+		ids = append(ids, row["id"].(string))
+	}
+	return ids
+}
+
+// The Approved tab lists the signed-in approver's own approvals on jobs from
+// the last 30 days. A new job counts from when the job was created; a value
+// change counts from its approval.
+//
+// The paah* rows in jobs.csv and job_attachments.csv are the fixtures. The
+// 30-day window counts back from now, so fixed dates would age out. This test
+// therefore moves four fixture dates to just before now at test time: the
+// creation of jobs paahnewrecent01 and paahothers00001, and the approval of
+// value changes paahatt00000004 and paahatt00000008. Every other paah* date
+// stays as the CSV has it, more than 30 days old.
+func TestJobValueApprovedByMeList(t *testing.T) {
+	app := newWorkflowTestApp(t, false)
+	stamp := func(d time.Duration) string {
+		return time.Now().UTC().Add(-d).Format("2006-01-02 15:04:05.000Z")
+	}
+	jobCreated := stamp(24 * time.Hour)
+	changeApproved := stamp(48 * time.Hour)
+	for _, update := range []struct{ query, id, date string }{
+		{"UPDATE jobs SET created={:date} WHERE id={:id}", "paahnewrecent01", jobCreated},
+		{"UPDATE jobs SET created={:date} WHERE id={:id}", "paahothers00001", jobCreated},
+		{"UPDATE job_attachments SET approved={:date} WHERE id={:id}", "paahatt00000004", changeApproved},
+		{"UPDATE job_attachments SET approved={:date} WHERE id={:id}", "paahatt00000008", changeApproved},
+	} {
+		if _, err := app.DB().NewQuery(update.query).Bind(dbx.Params{"id": update.id, "date": update.date}).Execute(); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The list needs project_authorization, like the approval queue.
+	clientSetupJSON(t, app, http.MethodGet, "/api/job_attachments?queue=approved_by_me", workflowAuthor, nil, http.StatusForbidden)
+
+	// Only Tier Two's approvals appear. paahatt00000001 was approved long ago,
+	// but its job was created yesterday. paahatt00000002's job is older than 30
+	// days, and paahatt00000006 was approved more than 30 days ago, although
+	// it is a value change on a job like paahatt00000004's. Tester Time
+	// approved the rest, including the new job paahothers00001.
+	rows := approvedByMe(t, app, workflowApprover)
+	if got := approvedByMeIDs(rows); !slices.Equal(got, []string{"paahatt00000001", "paahatt00000004"}) {
+		t.Fatalf("approved by me = %v", got)
+	}
+	newJob, change := rows[0], rows[1]
+	if newJob["kind"] != "new_job" || newJob["date"] != jobCreated || newJob["job"] != "paahnewrecent01" || newJob["job_number"] != "26-9881" || newJob["project_value"] != float64(50000) {
+		t.Fatalf("new job row = %#v", newJob)
+	}
+	if newJob["job_description"] != "Approved by me fixture: new job created recently from an old approval" {
+		t.Fatalf("new job description = %#v", newJob["job_description"])
+	}
+	if change["kind"] != "value_change" || change["date"] != changeApproved || change["job"] != "paahvalrecent01" || change["job_number"] != "26-9883" || change["project_value"] != float64(15000) {
+		t.Fatalf("value change row = %#v", change)
+	}
+
+	// A pending change assigned to Tier Two, and then the same change rejected,
+	// do not appear. Once approved, a change appears first, dated now.
+	pending := createValueChange(t, app, legacyWorkflowJob, 10000, "Approved by me pending")
+	if got := approvedByMeIDs(approvedByMe(t, app, workflowApprover)); len(got) != 2 {
+		t.Fatalf("pending change listed: %v", got)
+	}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_attachments/"+pending+"/reject", workflowApprover, attachmentRejectData(t, app, pending, "Correct the value."), http.StatusOK)
+	if got := approvedByMeIDs(approvedByMe(t, app, workflowApprover)); len(got) != 2 {
+		t.Fatalf("rejected change listed: %v", got)
+	}
+	clientSetupJSON(t, app, http.MethodDelete, "/api/job_attachments/"+pending, workflowAuthor, attachmentActionData(t, app, pending), http.StatusNoContent)
+	approved := createValueChange(t, app, legacyWorkflowJob, 12000, "Approved by me approved")
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_attachments/"+approved+"/approve", workflowApprover, attachmentActionData(t, app, approved), http.StatusOK)
+	rows = approvedByMe(t, app, workflowApprover)
+	if got := approvedByMeIDs(rows); !slices.Equal(got, []string{approved, "paahatt00000001", "paahatt00000004"}) {
+		t.Fatalf("approved by me after approval = %v", got)
+	}
+	if rows[0]["kind"] != "value_change" || rows[0]["job"] != legacyWorkflowJob || rows[0]["project_value"] != float64(12000) {
+		t.Fatalf("approved change row = %#v", rows[0])
 	}
 }

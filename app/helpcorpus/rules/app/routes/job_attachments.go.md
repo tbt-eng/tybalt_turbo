@@ -1,260 +1,436 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_attachments.go","sha256":"5e7141aba0e9b6c8fd4d498bb8c9ab804917c0b198d73507fd3c35ad9de2ab9e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_attachments.go","sha256":"75b646c98fcbb63002093e7fb99b039e2c18072a6cd0b3cc358cf4d0f9128c55","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_attachments.go
 
-## Authorization PDF upload size and format limits
+## Authorization PDF upload size limit
 
-Lines 24-56
+Lines 25-51
 
-Asked as: pdf file too large; upload more than one pdf; file is not a pdf; authorization pdf size limit
+Asked as: pdf too large; attachment over 20 MB; upload size limit; can't upload big pdf
 
-Turbo accepts at most one authorization PDF per upload, and the file must be at most 20 MB. Otherwise it says "The PDF must be at most 20 MB." The file must start with "%PDF-"; otherwise Turbo says "Upload a valid PDF file." A missing or extra file gives "Upload one authorization PDF."
+Turbo rejects an authorization PDF larger than 20 MB with 'The PDF must be at most 20 MB.' The whole request body is capped at 21 MB.
 
-## Optional PDF on corrections
+## Exactly one authorization PDF per upload
 
-Lines 27-34
+Lines 25-38
 
-Asked as: edit value change without pdf; keep existing pdf; do I need to reattach pdf; correction without new file
+Asked as: upload two pdfs; multiple files attached; no file selected; file missing from upload
 
-When an upload is not required (editing a value change), Turbo accepts a form with no PDF and keeps the existing one. Creating a value change requires a PDF.
+When a PDF is required, the upload must contain exactly one file in the 'document' field. Otherwise Turbo says 'Upload one authorization PDF.' When the PDF is optional and none is sent, Turbo accepts the request and keeps the existing PDF. A file that cannot be read gives 'Cannot read the authorization PDF.'
 
-## Duplicate authorization PDF is refused
+## Authorization PDF must be a real PDF
 
-Lines 57-75
+Lines 52-54
 
-Asked as: same pdf already uploaded; pdf used on another request; duplicate document refused; pdf already attached elsewhere
+Asked as: wrong file type; image instead of pdf; renamed file won't upload; not a real pdf
 
-Turbo identifies each PDF by its SHA-256 hash and refuses a PDF already attached to another project request or job approval: "This PDF already belongs to a project request or job approval." If the other copy belongs to an abandoned project request, the message names that request ID and tells the user to give it to an admin to resolve the duplicate.
+Turbo checks that the uploaded file starts with '%PDF-'. Otherwise it refuses with 'Upload a valid PDF file.'
 
-## Add, replace or remove PDF on a project request
+## Same PDF cannot be used twice
 
-Lines 76-151
+Lines 58-76
 
-Asked as: swap out the pdf; remove attached pdf from request; reupload same file; replace pdf on project request
+Asked as: same pdf uploaded twice; pdf already used elsewhere; duplicate attachment; reuse old approval pdf
 
-Only a project request that the user can see and edit, at the current version, accepts a PDF change. Removing a PDF when none exists does nothing but still marks the request edited. Uploading the same PDF again only checks that the stored file exists. A new PDF replaces the old one, clears any approval on the attachment, records the uploader, upload time and the request's project value, and increases the attachment version by 1.
+Turbo hashes each PDF (SHA-256) and refuses one that already belongs to another project request or job approval: 'This PDF already belongs to a project request or job approval.' If the other copy is on an abandoned project request, the message names that request ID and tells the person to give it to an admin to resolve the duplicate.
 
-## Who can view an authorization PDF or attachment
+## Removing a project request PDF needs valid action data
 
-Lines 152-199
+Lines 83-88
 
-Asked as: cannot open pdf; can't see attachment; access denied to document; who can view pdf
+Asked as: can't remove pdf; remove attachment button broken; invalid action data removing
 
-A user must be active in the workflow. For a project request attachment, anyone who can view that request can view it. For a job value change, staff with the job claim or admin claim can view it. The job's manager and alternate manager can view it. A holder of the project authorization claim can view it only if they are the assigned approver or the approver. Otherwise Turbo says "You cannot view this PDF."
+When someone removes the authorization PDF from a project request, Turbo reads the request's version from the submitted action. If the action data cannot be read, Turbo refuses with "Invalid action data." and removes nothing.
 
-## PDF download is not cached
+## Uploading a PDF to a project request requires a file
 
-Lines 200-207
+Lines 89-94
 
-Asked as: browser keeps old pdf; pdf download cached; attachment not showing latest copy; pdf download blank
+Asked as: upload pdf to project request; project request pdf missing; version number wrong upload
 
-Turbo serves an authorization PDF with Cache-Control "private, no-store". A missing attachment gives "Attachment not found."
+Uploading an authorization PDF to a project request always needs one PDF. A missing or extra file gets the PDF upload error. Turbo takes the request version from the form's "version" value. A version that is not a whole number counts as 0.
 
-## Value change list: queue or job required
+## Upload or remove PDF on a project request
 
-Lines 209-247
+Lines 96-145
 
-Asked as: approval queue empty; no value changes listed; pending changes list missing; value change list order
+Asked as: can't change pdf on request; replace pdf project request; delete pdf request not allowed
 
-The list of value changes needs an active workflow user. With queue=approval it needs the project authorization claim and shows only Pending changes assigned to the user. Otherwise a job must be given, or Turbo says "Select a job." Only changes the user can view appear. They are sorted by newest approval sequence, then newest creation.
+Uploading or removing the authorization PDF on a project request works only when the person can see the request, the request is editable by them, and the version they sent matches the current one. Each upload or removal marks the request as edited.
 
-## Value change list row details
+## Project request PDF actions need an editable request at the current version
 
-Lines 248-290
+Lines 96-106
 
-Asked as: current badge on value change; wrong approver shown in list; review token in row; list row details missing
+Asked as: request already changed; pdf version out of date; stale project request; locked project request
 
-Each row gives the PDF link, the job number, description, current project value, related records and names of the uploader, approver, assigned approver and rejector. A row is marked current only if it is Approved and its approval sequence matches the job's latest approval. Pending rows also carry a review token.
+To upload or remove the PDF on a project request, the request must be visible to the person, be editable by them, and match the version they sent. Turbo checks all three before it changes anything. A successful upload or removal marks the request as edited.
 
-## Value change checks use the job's stored time allocations
+## A project request's PDF upload is saved and removal is cleaned up
 
-Lines 295-305
+Lines 111-145
 
-Asked as: wrong hours in value check; time allocations ignored; check uses saved allocations; allocations sent with change
+Asked as: pdf attachment saved; remove attachment record; approval cleared after upload; attachment version goes up
 
-When Turbo checks a value change, it reads the job's saved time allocations (division and hours), sorted by division. It does not use allocations sent with the value change.
+Removing a project request's PDF deletes its attachment record. Uploading the PDF already attached, with the same hash, changes nothing except re-checking the file. A new upload records the uploader, the upload time and the request's project value. It also raises the attachment version by 1 and clears any earlier approval.
 
-## Review token ties approval to job data
+## Removing a PDF with none attached
 
-Lines 307-368
+Lines 112-118
 
-Asked as: review token mismatch; job changed since review; hash of job data; token differs after edit
+Asked as: remove pdf nothing attached; no pdf to delete; delete empty attachment
 
-The review token is a hash of the job (without created, updated and import flag), the latest approval sequence, related records, and time allocations (division and hours only). Any change to these changes the token. A save records it, a rejection compares it with the page shown, and an approval compares it with the saved token.
+Removing the PDF from a project request that has no PDF does nothing and gives no error. Otherwise Turbo deletes the attachment.
 
-## Approved value sets authorizing document to PA
+## Uploading a PDF to a project request
 
-Lines 370-376
+Lines 119-144
 
-Asked as: authorizing document set to PA; why PA on old project; project value approved sets PA
+Asked as: replace project request pdf; new pdf overwrites old; restore missing stored file
 
-An approved value change sets the job's project value and sets its authorizing document to "PA", even on older projects with no authorizing document.
+Uploading a different PDF to a project request replaces the earlier one. Turbo records the uploader, the upload time and the request's project value, clears any earlier approval, and raises the attachment version by 1. Uploading the identical PDF changes nothing except restoring a missing stored file.
 
-## Value change saved only by job editors
+## Who can view an authorization PDF
 
-Lines 389-413
+Lines 153-209
 
-Asked as: cannot create value change; need procurement access; value must be whole dollars; approver limit too low
+Asked as: can't open pdf; view authorization pdf access; pdf download forbidden; who sees the pdf
 
-Creating or editing a value change needs the job claim (procurement). The value must be a positive whole-dollar amount, or Turbo says "Enter a positive whole-dollar project value." The assigned approver's project limit must cover the value, checked by ProjectAuthorizationLimit.
+For a PDF on a project request, anyone who can view that request can view it. For a PDF on a job's value change, these people can view it: a job editor (the job claim), an admin, the project's manager or alternate manager, and an approver (the project_authorization claim) who is the assigned approver or the approver of that change. Anyone else gets 'You cannot view this PDF.' The download is not cached by browsers.
 
-## Approved value change cannot be edited
+## Value change list needs a job or a queue
 
-Lines 423-436
+Lines 210-233
 
-Asked as: edit approved value change; change approved amount; stale form reload value
+Asked as: select a job; value changes list blank; no job chosen changes
 
-Editing a value change that is Approved, or an attachment without a job, is refused: "Approved evidence cannot be edited." A stale form version gives "This value change changed. Reload it."
+The list of value changes shows either the approval queue or the changes for one job. Without the 'approval' or 'approved_by_me' queue, Turbo requires a job and otherwise says 'Select a job.'
+
+## Approval queue lists only my pending changes
+
+Lines 221-226
+
+Asked as: my approval queue; pending approvals to review; approvals waiting for me
+
+The approval queue needs the project authorization claim. It lists only pending value changes assigned to the signed-in approver. Changes the person cannot view are left out.
+
+## Value change list contents and order
+
+Lines 236-291
+
+Asked as: value change list order; newest approvals first; list shows approver names
+
+Each listed change shows the job number, description, current project value and related records. Newest approvals come first (by approval sequence, then creation time). Names of the uploader, approver, assigned approver and rejector are added. Turbo flags as current the approved change that set the job's present value. A pending change also gets a review token.
+
+## Value change list is limited by what the viewer may see
+
+Lines 244-251
+
+Asked as: missing changes in list; why can't I see change; hidden value changes
+
+The value change list skips any change the signed-in person cannot view. A job's manager and alternate manager, procurement (the job claim) and admins can view all of the job's changes. An approver (the project_authorization claim) sees only changes where they are the assigned or actual approver.
+
+## Value change list marks the current approval and gives a review token
+
+Lines 262-287
+
+Asked as: which approval is current; current approved change flag; review token missing
+
+Each row in the value change list carries a flag (current) that is true only for the approved change whose approval sequence matches the job's latest approval sequence. Each pending row also carries a current_review_token that the reviewer sends back when rejecting. Each row shows the job number, description, effective project value, and the names of the uploader, approver, assigned approver and rejector.
+
+## Approved-by-me list covers 30 days
+
+Lines 299-332
+
+Asked as: my approvals last month; approved by me list; recent approvals history
+
+An approver (the project authorization claim) can list their own approvals of new jobs and value changes from the last 30 days (APPROVED_BY_ME_DAYS). Without that claim Turbo refuses.
+
+## Value change review data token changes when job or related data change
+
+Lines 346-397
+
+Asked as: review token changed; data changed token mismatch; timestamps change token
+
+Turbo identifies the data a value change is reviewed against with a token (valueReview.token). The token covers the job's fields (not created, updated or _imported), the latest approval sequence, the related records (requestRelated) and the division and hours of the job's time allocations. A change to any of these changes the token. Timestamps and allocation row identities do not change it.
+
+## Latest approval sequence is read from approved changes only
+
+Lines 366-374
+
+Asked as: approval sequence number; delete approval invalidates review; latest approval number
+
+Turbo finds a job's latest approval sequence from its approved value changes (status Approved), highest approval_sequence first. A job with no approved change has sequence 0. The review token includes this sequence, so a new approval, or the deletion of one, invalidates earlier review tokens.
+
+## Approving a value change also sets the job's authorizing document to PA
+
+Lines 409-426
+
+Asked as: authorizing document PA; job authorizing document changed; approval sets project value
+
+When a value change is approved, Turbo sets the job's project value to the approved value and sets its authorizing document (authorizing_document) to "PA". It does this even on older projects that have no authorizing document. Turbo applies the same two changes when it checks that the job would pass validation with the new value.
+
+## Only job editors save a value change
+
+Lines 428-432
+
+Asked as: can't save value change; save value change permission; edit project value not allowed
+
+Creating or editing a project value change needs a job editor (the job claim).
+
+## New value change requires a PDF; edit keeps it
+
+Lines 433-437
+
+Asked as: value change needs pdf; edit without pdf; attach pdf to change
+
+Creating a value change requires an authorization PDF. When editing, the PDF is optional and the existing one stays if none is sent.
+
+## Project value must be positive whole dollars
+
+Lines 438-441
+
+Asked as: project value decimal; negative project value; cents not allowed value
+
+A value change must have a positive whole-dollar project value. Otherwise Turbo says 'Enter a positive whole-dollar project value.'
+
+## Assigned approver's limit must cover the value
+
+Lines 450-452
+
+Asked as: approver limit too low; assigned approver can't authorize; authorization limit exceeded
+
+The assigned approver must be able to authorize the value. Turbo checks this with ProjectAuthorizationLimit and refuses the save if the check fails.
+
+## Approved value changes cannot be edited
+
+Lines 462-469
+
+Asked as: edit approved value change; change approved evidence; approved change locked
+
+Editing an attachment that is approved, or one that has no job, is refused with 'Approved evidence cannot be edited.'
+
+## Stale value change edit is refused
+
+Lines 470-474
+
+Asked as: someone else edited change; value change changed reload; version conflict save
+
+If the version sent differs from the saved version, Turbo refuses with 'This value change changed. Reload it.'
 
 ## Proposals have no value approval
 
-Lines 437-443
+Lines 480-482
 
-Asked as: proposal job value approval; why proposal has no approval; P job value change
+Asked as: proposal project value approval; P job value change; proposal approval not needed
 
-A value change on a job whose number starts with P is refused: "Proposals do not use project-value approval."
+A job whose number starts with P is a proposal. Turbo refuses a value change on it: 'Proposals do not use project-value approval.'
 
-## Stored job details must be valid
+## Job must already be valid for a value change
 
-Lines 444-456
+Lines 483-495
 
-Asked as: job validation fails on save; allocations invalid when saving; stored job details error
+Asked as: job validation failed value change; allocations check value; job fields ignored
 
-Saving a value change checks the job's stored time allocations and the job itself as if the new value were approved. It ignores any job fields or allocations sent with the request, which are edited in the job editor.
+A value change does not edit the job's details or time allocations. Turbo checks the job's stored allocations and checks that the job would pass validation with the new value. Any job fields sent with the change are ignored.
 
-## Only one open value change per job
+## One open value change per job
 
-Lines 457-463
+Lines 496-502
 
-Asked as: second value change blocked; already pending value change; open change blocks new one
+Asked as: another pending change; already pending value change; rejected change blocks new
 
-A job cannot have a second value change that is not Approved (Pending or Rejected). Turbo says "Resolve the current pending value change first."
+A job can have only one pending or rejected value change at a time. Turbo refuses another with 'Resolve the current pending value change first.'
 
 ## Unchanged save keeps state
 
-Lines 468-481
+Lines 507-520
 
-Asked as: save without changes; resave keeps rejected status; no change on save
+Asked as: saved without changes; save same value change; rejected stays rejected
 
-Saving a value change with the same job data, value, assigned approver and PDF (or no new PDF) changes nothing. The version stays and a rejected change stays rejected. Any change to the job data or related records needs fresh approval.
+If the job data, value, assigned approver and PDF all match the last save, Turbo keeps the change as it is. A rejected change stays rejected, and the version does not change. A correction in the job editor also needs fresh approval.
 
-## Saving a change resubmits for approval
+## A real change resubmits for approval
 
-Lines 482-508
+Lines 521-547
 
-Asked as: edited value change needs approval; version goes up after edit; approver notified submitted; resubmit changed value
+Asked as: resubmit for approval after edit; submitted notice sent; approval cleared after change
 
-A real change clears the earlier approval, increases the version by 1, records the review token, and saves the new value, approver and PDF (uploader and time). It notifies the approver as "submitted". The notice says it is a revision only if the assigned approver is the same.
+Saving a changed value, approver, PDF or job data clears earlier approval details, raises the version by 1 and records the review data. It sends a 'submitted' notice. The notice says it replaces an earlier version only when the assigned approver is the same.
 
-## Saving a value change sends notices only after it succeeds
+## Value change notices go out after the save or decision is stored
 
-Lines 510-515
+Lines 548-554
 
-Asked as: email sent despite error; notice sent after failed save; notification when save fails
+Asked as: email not sent; notice after save failed; notification timing
 
-Turbo sends the notice about a submitted or revised value change only after the save has fully succeeded. If any check refuses the save, no notice goes out. On success it returns the saved value change.
+Turbo sends the notices for a submitted, approved or rejected value change only after the database transaction succeeds. If the transaction fails, Turbo sends no notice and returns the error. On success it returns the saved value change record.
 
-## Approve or reject refuses unreadable request data
+## Approving or rejecting a value change needs valid action data
 
-Lines 519-522
+Lines 556-561
 
-Asked as: approve button does nothing; invalid action data; approval data unreadable
+Asked as: approve button not working; reject invalid action; decision refused action data
 
-When Turbo cannot read the data sent with an approval or rejection of a value change, it refuses the action. It shows the message "Invalid action data." Nothing is reviewed.
+When an approver approves or rejects a value change, Turbo first reads the submitted action. If the action data cannot be read, Turbo refuses with "Invalid action data." and makes no decision.
 
-## Only the selected approver reviews a value change
+## Review needs the project authorization claim
 
-Lines 525-538
+Lines 564-574
 
-Asked as: cannot approve this change; not my approval; wrong approver reviewing; only assigned approver
+Asked as: can't approve value change; reject value change permission; only pending reviewed
 
-Approving or rejecting needs the project authorization claim. Only a Pending value change can be reviewed: "Only a pending value change can be reviewed." Only the assigned approver may do it: "Only the selected approver can review this value change."
+Approving or rejecting a value change needs the project authorization claim. Only a pending change with a job can be reviewed: 'Only a pending value change can be reviewed.'
 
-## Review needs the version and PDF seen
+## Only the selected approver reviews
 
-Lines 539-542
+Lines 575-577
 
-Asked as: value change changed reload; someone edited before my approval; reviewed version differs
+Asked as: not my approval; wrong approver reviewing; assigned approver only
 
-A review fails if the version or PDF hash differs from what the reviewer saw: "The reviewed value change changed. Reload it."
+Only the assigned approver can approve or reject a value change. Others get 'Only the selected approver can review this value change.'
 
-## Rejecting a value change
+## Review must match the version and PDF seen
 
-Lines 544-565
+Lines 578-581
 
-Asked as: reject value change reason; rejection reason required; job changed before rejecting
+Asked as: reviewed changed reload; pdf changed before approve; stale approval page
 
-Rejection needs a non-blank reason, or Turbo says "Enter a rejection reason." The job data must match the page shown, or Turbo says "The job or its related data changed. Reload it before rejecting." Then the status becomes Rejected, and the rejector, time, trimmed reason and token are recorded.
+A review applies only if the version and PDF hash match what the reviewer saw. Otherwise Turbo says 'The reviewed value change changed. Reload it.'
 
-## Approving a value change
+## Rejection needs a reason and fresh data
 
-Lines 566-616
+Lines 583-604
 
-Asked as: approval fails pdf unavailable; approve value change limit; job changed ask editor; approving project value
+Asked as: reject without reason; rejection needs comment; job changed before reject
 
-Approval needs the PDF file to exist, otherwise "The authorization PDF is unavailable. Restore or replace it before approval." The approver's limit must cover the value. The job data must match the saved token, otherwise "The job changed. Ask a job editor to save and review this value change again." The job is validated, then updated with the new value. The change records the previous value, the next approval sequence (latest plus 1, or 1), the approver, time and limit, and becomes Approved.
+Rejecting a value change needs a non-blank reason: 'Enter a rejection reason.' If the job or related data changed since the page was shown, Turbo refuses with 'The job or its related data changed. Reload it before rejecting.' A rejection records the rejector, time, reason and reviewed data, and marks the change Rejected.
 
-## Decision bumps version and notifies
+## Rejected value change keeps its token and stays rejected until corrected
 
-Lines 618-630
+Lines 597-604
 
-Asked as: delete confirmation stale; version bump after decision; notice after approval
+Asked as: rejected stays rejected; rejection record reason; correct rejected change
 
-Approval or rejection increases the attachment version by 1, so open delete confirmations become stale. It queues an "approved" or "rejected" notice.
+When a change is rejected, Turbo records the review token of the data the approver saw, together with the rejector, the time and the trimmed reason. Only a later correction, in the job editor or in a save of the change, makes the change different from this recorded data. Saving the change unchanged leaves it rejected.
 
-## Approval or rejection notices are sent only after success
+## Approval requirements
 
-Lines 634-638
+Lines 605-634
 
-Asked as: rejection email not sent; approval notice missing; notice after failed decision
+Asked as: can't approve pdf unavailable; job changed ask editor; approval validation failed
 
-Turbo sends the notice about an approved or rejected value change only after the decision is saved. If any check refuses the decision, no notice goes out. On success it returns the updated value change.
+Approving checks that the stored PDF exists. If it is missing, Turbo says 'The authorization PDF is unavailable. Restore or replace it before approval.' The approver's limit must cover the value. The job and related data must be unchanged since the last save, or Turbo says 'The job changed. Ask a job editor to save and review this value change again.' The job's stored allocations and validation must also pass.
 
-## Deleting a value change refuses unreadable request data
+## Approval refuses when the approver's limit does not cover the value
 
-Lines 643-646
+Lines 606-612
 
-Asked as: delete does nothing; delete invalid action data; deletion data unreadable
+Asked as: approval limit exceeded; approval max value; pdf missing at approve
 
-When Turbo cannot read the data sent with a delete of a value change (job attachment), it refuses the action. It shows the message "Invalid action data." Nothing is deleted.
+When approving a value change, Turbo checks the approver's project authorization limit (ProjectAuthorizationLimit) against the change's project value. It stores that limit as approval_max_value on the change. Turbo checks the stored PDF exists at approval, and refuses with "The authorization PDF is unavailable. Restore or replace it before approval." if it is missing.
+
+## Approval refuses a stale review token
+
+Lines 617-623
+
+Asked as: job changed cannot approve; approve after job edit; stale review approve
+
+Turbo refuses to approve a value change when the job or its related data changed since the change was last saved. The message is "The job changed. Ask a job editor to save and review this value change again."
+
+## What approval does
+
+Lines 636-669
+
+Asked as: approve sets value; previous value recorded; what approval does
+
+Approval sets the job's project value to the approved value. It sets the job's authorizing document to 'PA'. It records the previous value, the next approval sequence number, the approver, the time and the approver's limit, and marks the change Approved. Each decision raises the version by 1 and sends an approved or rejected notice.
+
+## Each decision on a value change raises its version and notifies
+
+Lines 657-669
+
+Asked as: version up after approve; delete confirmation stale; decision notice queued
+
+After an approval or a rejection, Turbo raises the change's version by 1, even when the PDF and value stay the same. A delete confirmation opened while the change was pending then becomes stale. Turbo also queues a notice of the decision (approved or rejected).
+
+## Decision notices follow a successful approval or rejection
+
+Lines 670-677
+
+Asked as: notice sent after approve; updated change returned; notices after rejection
+
+After an approval or rejection commits, Turbo sends the queued notices and returns the updated value change. A refused decision sends no notices.
+
+## Deleting a value change needs valid action data
+
+Lines 680-685
+
+Asked as: delete button error; delete invalid action; admin delete fails
+
+When an admin deletes a value change, Turbo first reads the submitted action. If the action data cannot be read, Turbo refuses with "Invalid action data." and deletes nothing.
 
 ## Only admins delete value changes
 
-Lines 647-665
+Lines 686-699
 
-Asked as: only admin can delete; cannot delete initial approval; delete value change permission; abandoned request deletion
+Asked as: delete value change permission; non admin delete; delete needs admin
 
-Deleting a value change needs the admin claim. An attachment without a job is refused: "Use abandoned-request deletion for this attachment." The initial project approval cannot be deleted. The version and PDF hash must match what the admin saw, or Turbo says "This value change changed. Reload it and confirm deletion again."
+Deleting a value change needs an admin. An attachment with no job gets 'Use abandoned-request deletion for this attachment.' The initial project approval cannot be deleted.
 
-## Deleting a pending or rejected value change
+## Delete value change refuses attachments of project requests and the initial approval
 
-Lines 666-666
+Lines 694-699
 
-Asked as: remove pending change; delete rejected value change; delete unapproved change
+Asked as: delete initial approval; delete project request attachment; abandoned request deletion
 
-An admin can delete a Pending or Rejected value change. It is just removed, and the job's value does not change.
+An admin cannot delete an attachment that has no job. Turbo refuses with "Use abandoned-request deletion for this attachment." An admin also cannot delete the initial project approval. Turbo refuses with "The initial project approval cannot be deleted."
 
-## Deleting an approved value change restores the old value
+## Delete needs the reviewed version
 
-Lines 667-713
+Lines 700-704
 
-Asked as: undo approved value; revert project value; delete approval restores old value; latest approved change delete
+Asked as: delete says changed reload; confirm deletion again; delete stale version
 
-Deleting an Approved value change first needs every Pending or Rejected change on the job to be deleted: "Delete the pending or rejected value change first." Only the latest approved change can be deleted: "Only the latest approved value change can be deleted." The job's current value must equal the approval's value, otherwise "The current project value does not match this approval." The job is restored to the previous project value.
+Deleting a value change requires the version and PDF hash the admin saw. Otherwise Turbo says 'This value change changed. Reload it and confirm deletion again.'
 
-## Negative restored value is kept
+## Deleting an approved value change
 
-Lines 696-705
+Lines 706-752
 
-Asked as: negative project value after delete; negative restored value; value goes below zero
+Asked as: delete approved value change; latest approval delete; pending blocks delete
 
-If the restored previous value is negative, Turbo validates the other job fields with a value of 0, then saves the exact negative value without validating it.
+An approved change can be deleted only if no pending or rejected change exists on the job ('Delete the pending or rejected value change first.'). It must be the latest approval ('Only the latest approved value change can be deleted.'). The job's value must still equal the approved value, or Turbo says 'The current project value does not match this approval.' Deleting then restores the job's previous project value.
 
-## Missing PDF file can be recovered by identical upload
+## Approved value change deletion restores the previous project value
 
-Lines 722-741
+Lines 706-733
 
-Asked as: pdf file missing; reupload missing pdf; restore missing attachment; identical pdf recovers file
+Asked as: project value restore after delete; previous value reverted; value does not match approval
 
-Turbo checks that the stored PDF exists. If it is missing and the user uploaded an identical PDF (same hash), Turbo re-uploads it. Otherwise it says "The authorization PDF is unavailable. Restore or replace it before approval."
+Deleting an approved value change sets the job's project value back to the value it had before (previous_project_value). Turbo refuses with "The current project value does not match this approval." when the job's current value differs from the approved value. The restore also runs the job's workflow checks.
+
+## Restoring a negative earlier value
+
+Lines 735-745
+
+Asked as: negative previous value; restore negative value; job value negative delete
+
+If the restored previous value is negative, Turbo validates the rest of the job with value 0, then saves the exact negative value without further validation.
+
+## Deleting a pending or rejected change
+
+Lines 752-752
+
+Asked as: delete pending change; remove rejected change; delete does not change value
+
+Deleting a pending or rejected value change just removes it. The job's value is not changed.
+
+## Missing PDF file is re-uploaded only from an identical upload
+
+Lines 761-781
+
+Asked as: pdf file missing; restore missing pdf; stored pdf gone; reupload identical pdf
+
+Before a change is approved, or when a save keeps the same PDF, Turbo checks that the stored PDF file exists. If the file is missing and the upload has the same hash as the record, Turbo restores the file from the upload. Otherwise it refuses with "The authorization PDF is unavailable. Restore or replace it before approval."

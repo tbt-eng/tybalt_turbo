@@ -101,3 +101,7 @@ Turbo removes the request and its PDF. You can't undo this.
 4. Select **Save proposed value**.
 
 The approver then opens **Value Approvals** and approves or rejects. The project value stays the same until the approver approves the change.
+
+## Your approvals
+
+**Approved** lists jobs and value changes you approved in the last 30 days.

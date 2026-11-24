@@ -10,6 +10,7 @@
   import { jobRequestsEnabled } from "$lib/stores/appConfig";
   import { wholeCAD, canViewJobCreateQueue } from "$lib/jobRequests";
   import { shortDate } from "$lib/utilities";
+  import type { ApprovedByMe } from "$lib/jobValue.svelte";
   let { data } = $props();
   type RequestRow = {
     id: string;
@@ -37,6 +38,9 @@
         ["mine", "Mine", true],
         ["all", "All", claims.includes("job")],
         ["approval", "Approvals", $jobRequestsEnabled && claims.includes("project_authorization")],
+        // Value changes do not need requests, so this tab stays while requests
+        // are disabled, like Value Approvals.
+        ["history", "Approved", claims.includes("project_authorization")],
         [
           "creation",
           "Job create queue",
@@ -52,6 +56,9 @@
         active: data.queue === queue,
       })),
   );
+  // The Approved tab's two lists, each newest first as the server sends them.
+  const newJobs = $derived(data.historyItems.filter((item) => item.kind === "new_job"));
+  const valueChanges = $derived(data.historyItems.filter((item) => item.kind === "value_change"));
 </script>
 
 {#snippet anchor(item: RequestRow)}
@@ -78,11 +85,29 @@
   {/if}
 {/snippet}
 
+{#snippet jobAnchor(item: ApprovedByMe)}
+  <a class="link" href={resolve(`/jobs/${item.job}/details`)}>{item.job_number}</a>
+{/snippet}
+{#snippet jobHeadline(item: ApprovedByMe)}
+  {item.job_description}
+{/snippet}
+{#snippet approvedValue(item: ApprovedByMe)}
+  {wholeCAD(item.project_value)}
+{/snippet}
+{#snippet jobCreated(item: ApprovedByMe)}
+  Job created {shortDate(item.date, true)}
+{/snippet}
+{#snippet valueApproved(item: ApprovedByMe)}
+  Approved {shortDate(item.date, true)}
+{/snippet}
+
 {#snippet help()}
   {#if data.queue === "approval"}
     <DSHelp doc="project-requests#approve-a-request" label="Help" />
   {:else if data.queue === "creation"}
     <DSHelp doc="project-requests#create-the-job" label="Help" />
+  {:else if data.queue === "history"}
+    <DSHelp doc="project-requests#your-approvals" label="Help" />
   {:else if data.queue === "mine"}
     <DSHelp doc="project-requests#create-a-request" label="Help" />
   {:else}
@@ -110,32 +135,56 @@
     </DSCallout>
   {/if}
 
-  <DSList
-    items={data.items}
-    search={true}
-    pagination={true}
-    inListHeader={titles[data.queue] || titles.mine}
-    emptyMessage="No requests in this list."
-    {anchor}
-    {headline}
-    {byline}
-    {line1}
-    {line2}
-  >
-    {#snippet searchBarExtra()}
-      {#if tabs.length <= 1}{@render help()}{/if}
-    {/snippet}
-  </DSList>
-
-  {#if data.approvedItems.length > 0}
+  {#if data.queue === "history"}
+    <DSCallout tone="info">
+      Your approvals from the last 30 days. A new job counts from the day procurement created it.
+    </DSCallout>
     <DSList
-      items={data.approvedItems}
-      inListHeader="Approved By Me, Awaiting Job Creation"
+      items={newJobs}
+      inListHeader="New Jobs"
+      emptyMessage="No requests you approved became jobs in the last 30 days."
+      anchor={jobAnchor}
+      headline={jobHeadline}
+      byline={approvedValue}
+      line1={jobCreated}
+    />
+    <DSList
+      items={valueChanges}
+      inListHeader="Value Changes"
+      emptyMessage="You approved no value changes in the last 30 days."
+      anchor={jobAnchor}
+      headline={jobHeadline}
+      byline={approvedValue}
+      line1={valueApproved}
+    />
+  {:else}
+    <DSList
+      items={data.items}
+      search={true}
+      pagination={true}
+      inListHeader={titles[data.queue] || titles.mine}
+      emptyMessage="No requests in this list."
       {anchor}
       {headline}
       {byline}
       {line1}
       {line2}
-    />
+    >
+      {#snippet searchBarExtra()}
+        {#if tabs.length <= 1}{@render help()}{/if}
+      {/snippet}
+    </DSList>
+
+    {#if data.approvedItems.length > 0}
+      <DSList
+        items={data.approvedItems}
+        inListHeader="Approved By Me, Awaiting Job Creation"
+        {anchor}
+        {headline}
+        {byline}
+        {line1}
+        {line2}
+      />
+    {/if}
   {/if}
 </div>

@@ -16,6 +16,25 @@ export const valueCAD = (amount: unknown) =>
 // The date part of a stored timestamp, such as 2026-10-14.
 export const valueDate = (timestamp: unknown) => String(timestamp ?? "").slice(0, 10);
 
+// One of the signed-in approver's own approvals from the last 30 days: a
+// request that became a job, or a later value change. The date is when the
+// job was created for a new job, and when the change was approved otherwise.
+export type ApprovedByMe = {
+  id: string;
+  job: string;
+  job_number: string;
+  job_description: string;
+  project_value: number;
+  kind: "new_job" | "value_change";
+  date: string;
+};
+
+// The server limits the list to 30 days and sorts it newest first.
+export async function fetchApprovedByMe(): Promise<ApprovedByMe[]> {
+  const result = await pb.send("/api/job_attachments?queue=approved_by_me", { method: "GET" });
+  return result.items ?? [];
+}
+
 export class JobValue {
   items = $state<WorkflowRecord[]>([]);
   loading = $state(true);
