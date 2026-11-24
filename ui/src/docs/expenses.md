@@ -48,7 +48,7 @@ You can't change the job, currency or branch.
 
 1. Select the plus button beside **My Expenses**.
 2. Select the payment type. You can select a job only for one of the other payment types.
-3. Enter the details and add an attachment. Allowance, Mileage and Personal Reimbursement expenses don't need one.
+3. Fill in each field with a red *. Allowance, Mileage and Personal Reimbursement expenses need no attachment.
 4. Select **Save**.
 5. Select **Submit**.
 

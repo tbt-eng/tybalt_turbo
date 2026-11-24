@@ -36,6 +36,8 @@
   import DsActionButton from "./DSActionButton.svelte";
   import CumulativePOOverflowModal from "./CumulativePOOverflowModal.svelte";
   import VendorSelector from "./VendorSelector.svelte";
+  import DSRequiredLegend from "./DSRequiredLegend.svelte";
+  import DSRequiredMark from "./DSRequiredMark.svelte";
   import { jobs } from "$lib/stores/jobs";
   import { untrack, type Snippet } from "svelte";
   import { expensesEditingEnabled } from "$lib/stores/appConfig";
@@ -185,6 +187,13 @@
   );
   const showSettledTotalInput = $derived.by(
     () => selectedCurrencyCode !== "CAD" && item.payment_type === "Expense",
+  );
+  // The server wants an attachment except for these three payment types. An
+  // older expense saved with a reason for its missing receipt needs none.
+  const attachmentRequired = $derived.by(
+    () =>
+      !["Allowance", "Mileage", "PersonalReimbursement"].includes(item.payment_type) &&
+      !(data.editing && (item.attachment_missing_reason ?? "").trim() !== ""),
   );
   const suggestedSettledTotal = $derived.by(() =>
     showSettledTotalInput
@@ -471,6 +480,9 @@
     </h1>
     {@render help?.()}
   </div>
+  <div class="w-full">
+    <DSRequiredLegend />
+  </div>
 
   {#if isEditingAnotherUsersExpense}
     <div class="w-full rounded-sm border border-amber-300 bg-amber-100 p-2 text-sm text-amber-900">
@@ -479,10 +491,11 @@
   {/if}
 
   <span class="flex w-full gap-2 {errors.date !== undefined ? 'bg-red-200' : ''}">
-    <label for="date">Date</label>
+    <label for="date">Date<DSRequiredMark /></label>
     <DsDateInput
       class="flex-1 md:flex-none"
       name="date"
+      required
       min={DATE_INPUT_MIN}
       max={dateInputMax}
       bind:value={item.date}
@@ -546,6 +559,7 @@
       {errors}
       fieldName="division"
       uiName="Division"
+      required
     >
       {#snippet resultTemplate(item)}{item.code} - {item.name}{/snippet}
     </DsAutoComplete>
@@ -619,7 +633,7 @@
         : ''}"
     >
       <span class="flex w-full gap-4">
-        <label for="allowanceTypes">Type</label>
+        <label for="allowanceTypes">Type<DSRequiredMark /></label>
         {#each Object.keys(allowanceTypes) as type (type)}
           <span class="flex items-center gap-1">
             <input
@@ -651,6 +665,7 @@
         {errors}
         fieldName="cc_last_4_digits"
         uiName="Credit Card"
+        required
         placeholder="Last 4 Digits of Corporate Credit Card"
       />
     {/if}
@@ -660,6 +675,7 @@
       {errors}
       fieldName="description"
       uiName="Description"
+      required
     />
 
     {#if item.payment_type !== "Mileage"}
@@ -671,6 +687,7 @@
         amountFieldName="total"
         currencyFieldName="currency"
         uiName="Total"
+        required
         disabledCurrency={currencySelectionDisabled}
         homeEquivalent={selectedCurrency && selectedCurrency.code !== "CAD"
           ? Number(item.total ?? 0) * Number(selectedCurrency.rate ?? 1)
@@ -687,17 +704,23 @@
           amountFieldName="settled_total"
           currencyFieldName="settled_total_currency"
           uiName="Settled CAD Total"
+          required
           disabledCurrency={true}
           helperText={settledTotalHelperText}
         />
       {/if}
-      <VendorSelector bind:value={item.vendor as string} {errors} />
+      <VendorSelector
+        bind:value={item.vendor as string}
+        {errors}
+        required={item.payment_type !== "PersonalReimbursement"}
+      />
     {:else}
       <DsTextInput
         bind:value={item.distance as number}
         {errors}
         fieldName="distance"
         uiName="Distance"
+        required
         placeholder="in kilometers"
         type="number"
         step={1}
@@ -718,6 +741,7 @@
       {errors}
       fieldName="attachment"
       uiName="Attachment"
+      required={attachmentRequired}
       fileHref={existingAttachmentHref}
       fileAction={() => {
         if (!data.id) return;
