@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
@@ -198,6 +200,7 @@
   </p>
 
   <form onsubmit={save} class="flex flex-col gap-4">
+    <DSRequiredLegend />
     {#if isRevising}
       <!-- A revision keeps its sheet's code and name. -->
       <DSFieldList>
@@ -223,11 +226,12 @@
       class="flex w-full flex-col gap-2 {errors.effective_date !== undefined ? 'bg-red-200' : ''}"
     >
       <span class="flex w-full gap-2">
-        <label for="effective_date">Effective Date</label>
+        <label for="effective_date">Effective Date<DSRequiredMark /></label>
         <DsDateInput
           class="flex-1 rounded-sm border border-neutral-300 px-1 md:flex-none"
           id="effective_date"
           name="effective_date"
+          required
           bind:value={effective_date}
         />
       </span>
@@ -256,8 +260,8 @@
             </tr>
             <tr class="border-b border-neutral-300">
               <th class="px-3 py-2 text-left">Role</th>
-              <th class="px-3 py-2 text-left">Rate</th>
-              <th class="px-3 py-2 text-left">Overtime Rate</th>
+              <th class="px-3 py-2 text-left">Rate<DSRequiredMark /></th>
+              <th class="px-3 py-2 text-left">Overtime Rate<DSRequiredMark /></th>
             </tr>
           </thead>
           <tbody>

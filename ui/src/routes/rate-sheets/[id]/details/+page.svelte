@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import { pb } from "$lib/pocketbase";
   import { downloadCsvRows, shortDate } from "$lib/utilities";
   import { globalStore } from "$lib/stores/global";
@@ -647,12 +649,14 @@
   <!-- Add Entry Form (when incomplete) -->
   {#if !isComplete && canCreate}
     <div class="rounded-sm border border-neutral-300 bg-neutral-50 p-4">
-      <h3 class="mb-3 font-semibold">Add Entry</h3>
+      <h3 class="font-semibold">Add Entry</h3>
+      <div class="mb-3"><DSRequiredLegend /></div>
       <form onsubmit={saveEntry} class="flex flex-wrap items-end gap-4">
         <div class="flex flex-col">
-          <label for="role" class="mb-1 text-sm font-medium">Role</label>
+          <label for="role" class="mb-1 text-sm font-medium">Role<DSRequiredMark /></label>
           <select
             id="role"
+            aria-required="true"
             bind:value={newEntry.role}
             class="rounded-sm border border-neutral-300 px-3 py-2"
           >
@@ -664,9 +668,10 @@
         </div>
 
         <div class="flex flex-col">
-          <label for="rate" class="mb-1 text-sm font-medium">Rate</label>
+          <label for="rate" class="mb-1 text-sm font-medium">Rate<DSRequiredMark /></label>
           <input
             id="rate"
+            aria-required="true"
             type="number"
             min="1"
             step="0.01"
@@ -676,9 +681,12 @@
         </div>
 
         <div class="flex flex-col">
-          <label for="overtime_rate" class="mb-1 text-sm font-medium">Overtime Rate</label>
+          <label for="overtime_rate" class="mb-1 text-sm font-medium"
+            >Overtime Rate<DSRequiredMark /></label
+          >
           <input
             id="overtime_rate"
+            aria-required="true"
             type="number"
             min="1"
             step="0.01"

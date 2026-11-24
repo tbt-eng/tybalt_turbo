@@ -1,4 +1,6 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
+  import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll, beforeNavigate, replaceState } from "$app/navigation";
   import { fullName } from "$lib/jobRequests";
@@ -490,25 +492,32 @@
   }}
 >
   {#if error}<div role="alert"><DSCallout tone="danger">{error}</DSCallout></div>{/if}
+  <!-- A draft saves with fields missing, so the asterisks mark what the
+    server checks when the request is submitted. -->
+  <DSRequiredLegend label="Required to submit" />
   <fieldset disabled={saving} class="flex flex-col gap-2">
     <span class="flex w-full items-center gap-2">
-      <label for="project_award_date">Project Award Date</label>
+      <label for="project_award_date">Project Award Date<DSRequiredMark /></label>
       <DsDateInput
         class="flex-1 md:flex-none"
         name="project_award_date"
+        required
         bind:value={item.project_award_date}
       />
     </span>
     <span class="flex w-full items-center gap-2">
-      <label for="project_completion_date">Project Completion Date</label>
+      <label for="project_completion_date"
+        >Project Completion Date{#if item.project_status === "Active"}<DSRequiredMark />{/if}</label
+      >
       <DsDateInput
         class="flex-1 md:flex-none"
         name="project_completion_date"
+        required={item.project_status === "Active"}
         bind:value={item.project_completion_date}
       />
     </span>
     <div class="flex w-full flex-col gap-1">
-      <span>Location</span>
+      <span>Location<DSRequiredMark /></span>
       <DSLocationPicker bind:value={item.location} errors={{}} fieldName="location" />
     </div>
     <DsTextInput
@@ -516,6 +525,7 @@
       errors={noFieldErrors}
       fieldName="description"
       uiName="Description"
+      required
     />
     {#if $clients.index !== null}
       <div class="flex w-full items-end gap-1">
@@ -526,6 +536,7 @@
             errors={noFieldErrors}
             fieldName="client"
             uiName="Client"
+            required
             disabled={!!item.parent}
           >
             {#snippet resultTemplate(row)}{clientLabel({
@@ -553,6 +564,7 @@
           fieldName="contact"
           fill
           uiName="Client Contact"
+          required
           disabled={!item.client}
         >
           {#snippet optionTemplate(row: WorkflowRecord)}{row.id
@@ -573,7 +585,7 @@
     </div>
     {#if item.client && !profiles.length}
       <div class="flex flex-col gap-1">
-        <h3 class="text-sm font-semibold">Invoicing profile</h3>
+        <h3 class="text-sm font-semibold">Invoicing profile<DSRequiredMark /></h3>
         <InvoicingProfileEmptyState
           canCreate={canCreateInvoicingProfile($globalStore.claims)}
           canManageContacts={$globalStore.claims.includes("job")}
@@ -590,6 +602,7 @@
         fieldName="invoicing_information"
         fill
         uiName="Invoicing profile"
+        required
         disabled={!item.client}
       >
         {#snippet optionTemplate(row: WorkflowRecord)}{row.id
@@ -611,6 +624,7 @@
       errors={noFieldErrors}
       fieldName="manager"
       uiName="Manager"
+      required
     >
       {#snippet resultTemplate(row)}{managerLabel(row)}{/snippet}
     </DsAutoComplete>
@@ -624,11 +638,12 @@
       {#snippet resultTemplate(row)}{managerLabel(row)}{/snippet}
     </DsAutoComplete>
     <div class="flex w-full items-center gap-2">
-      <span id="request-fn-agreement">First Nations agreement</span>
+      <span id="request-fn-agreement">First Nations agreement<DSRequiredMark /></span>
       <DSToggle
         bind:value={item.fn_agreement_answer}
         options={answerOptions}
         ariaLabelledBy="request-fn-agreement"
+        required
       />
     </div>
     <div class="flex w-full items-center gap-2">
@@ -648,10 +663,11 @@
       fieldName="project_value"
       stacked
       uiName="Project value (CAD, before tax)"
+      required
     />
     <div class="flex w-full items-center gap-2">
-      <span id="request-fee-basis">Fee basis</span>
-      <DSToggle bind:value={fee} options={feeOptions} ariaLabelledBy="request-fee-basis" />
+      <span id="request-fee-basis">Fee basis<DSRequiredMark /></span>
+      <DSToggle bind:value={fee} options={feeOptions} ariaLabelledBy="request-fee-basis" required />
     </div>
     <DsTextInput
       bind:value={item.client_po}
@@ -701,6 +717,7 @@
         errors={noFieldErrors}
         fieldName="rate_sheet"
         uiName="Rate Sheet"
+        required
         placeholder={rateSheetSearchPlaceholder}
         empty
       >
@@ -744,7 +761,7 @@
     {/if}
   </fieldset>
   <fieldset disabled={saving} class="flex flex-col gap-2">
-    <legend class="font-semibold">Divisions</legend>
+    <legend class="font-semibold">Divisions<DSRequiredMark /></legend>
     {#if $divisions.index !== null}
       {#each allocations as allocation, index}
         <div class="flex flex-wrap items-center gap-2">
@@ -818,6 +835,7 @@
       fieldName="branch"
       fill
       uiName="Branch"
+      required
     >
       {#snippet optionTemplate(row: WorkflowRecord)}{row.code ?? row.name}{/snippet}
     </DsSelector>
@@ -841,6 +859,7 @@
       fieldName="approver"
       fill
       uiName="Selected approver"
+      required
       disabled={!hasProjectValue && !item.approver}
       helperText={approverHint}
     >

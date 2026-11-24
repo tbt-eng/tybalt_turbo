@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DSRequiredLegend from "$lib/components/DSRequiredLegend.svelte";
   import type { PageData } from "./$types";
   import { pb } from "$lib/pocketbase";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
@@ -92,13 +93,21 @@
       <DSHelp doc="profile#change-your-profile" label="Help" />
     {/snippet}
   </DSPageHeader>
+  <DSRequiredLegend />
   <DsTextInput
     bind:value={item.given_name as string}
     {errors}
     fieldName="given_name"
     uiName="Given Name"
+    required
   />
-  <DsTextInput bind:value={item.surname as string} {errors} fieldName="surname" uiName="Surname" />
+  <DsTextInput
+    bind:value={item.surname as string}
+    {errors}
+    fieldName="surname"
+    uiName="Surname"
+    required
+  />
   {#if $managers.index !== null}
     <DSAutoComplete
       bind:value={item.manager as string}
@@ -106,6 +115,7 @@
       {errors}
       fieldName="manager"
       uiName="Manager"
+      required
     >
       {#snippet resultTemplate(item)}{item.surname}, {item.given_name}{/snippet}
     </DSAutoComplete>
