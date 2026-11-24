@@ -7,13 +7,14 @@
   import { page } from "$app/stores";
   import { globalStore } from "$lib/stores/global";
   import { canAbsorbDirectly } from "$lib/absorbProposals";
-  const INDEX_THRESHOLD = 30;
+  import { pickerDropdownLimit } from "$lib/components/DSPicker.svelte";
   export let data: PageData;
 
   const availableRecords: ClientContactsResponse[] = data.contacts;
   let autoCompleteIndex: MiniSearch<ClientContactsResponse> | null = null;
 
-  if (availableRecords.length > INDEX_THRESHOLD) {
+  // A dropdown for a short list, a search for a longer one, as in DSPicker.
+  if (availableRecords.length > pickerDropdownLimit) {
     autoCompleteIndex = new MiniSearch<ClientContactsResponse>({
       // include "id" to allow searching by id when a result is selected
       fields: ["id", "given_name", "surname", "email"],
