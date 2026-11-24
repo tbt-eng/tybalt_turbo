@@ -13,6 +13,9 @@
   import { getAbsorbRedirectUrl } from "$lib/utilities";
   import { jobsEditingEnabled, expensesEditingEnabled } from "$lib/stores/appConfig";
   import DsTextInput from "./DSTextInput.svelte";
+  import DSCallout from "./DSCallout.svelte";
+  import { resolve } from "$app/paths";
+  import type { AbsorbProposalRow } from "$lib/absorbProposals";
 
   let {
     collectionName,
@@ -22,6 +25,7 @@
     autoCompleteIndex = null,
     returnTo,
     propose = false,
+    proposal = null,
   }: {
     collectionName: string;
     targetRecordId: string;
@@ -33,7 +37,22 @@
     // Propose the absorb for an absorb holder to review, instead of
     // absorbing. For users without the absorb permission.
     propose?: boolean;
+    // Review this proposal: the editor starts with its records, and the
+    // holder may remove a record or keep another one before absorbing.
+    proposal?: AbsorbProposalRow | null;
   } = $props();
+
+  // In review, the record that the holder chose to keep instead.
+  let swappedTarget = $state<string | null>(null);
+  const targetId = $derived(swappedTarget ?? targetRecordId);
+  const reviewing = $derived(!propose && proposal !== null);
+  // The proposal's copies of the names, for a record that no longer exists.
+  const proposalNames = $derived(
+    new Map<string, string>([
+      ...(proposal ? ([[proposal.target_id, proposal.target_name]] as [string, string][]) : []),
+      ...(proposal?.records ?? []).map((r) => [r.record_id, r.record_name] as [string, string]),
+    ]),
+  );
 
   // Collections that affect jobs when absorbed
   const collectionsAffectingJobs = ["clients", "client_contacts", "rate_sheets"];
@@ -63,9 +82,7 @@
 
   // Update items whenever availableRecords or recordsToAbsorb changes
   $effect(() => {
-    items = availableRecords.filter(
-      (c) => c.id !== targetRecordId && !recordsToAbsorb.includes(c.id),
-    );
+    items = availableRecords.filter((c) => c.id !== targetId && !recordsToAbsorb.includes(c.id));
   });
 
   // Check for existing absorb action on mount
@@ -77,9 +94,15 @@
 
   // Get target record
   $effect(() => {
-    const record = availableRecords.find((r) => r.id === targetRecordId);
-    if (record) {
-      targetRecord = record as unknown as T;
+    const record = availableRecords.find((r) => r.id === targetId);
+    targetRecord = record ? (record as unknown as T) : null;
+  });
+
+  // A proposal under review fills in its records.
+  $effect(() => {
+    if (proposal && !propose) {
+      recordsToAbsorb = proposal.records.map((record) => record.record_id);
+      swappedTarget = null;
     }
   });
 
@@ -114,7 +137,7 @@
     // in the list, to the list of records to absorb.
     if (
       selectedRecord !== "" &&
-      selectedRecord !== targetRecordId &&
+      selectedRecord !== targetId &&
       !recordsToAbsorb.includes(selectedRecord)
     ) {
       recordsToAbsorb = [...recordsToAbsorb, selectedRecord];
@@ -127,10 +150,11 @@
   async function handleAbsorb() {
     errors = {};
     try {
-      await pb.send(`/api/${collectionName}/${targetRecordId}/absorb`, {
+      await pb.send(`/api/${collectionName}/${targetId}/absorb`, {
         method: "POST",
         body: {
           ids_to_absorb: recordsToAbsorb,
+          ...(reviewing && proposal ? { proposal: proposal.id } : {}),
         },
       });
 
@@ -163,7 +187,7 @@
           reason,
         },
       });
-      goto("/absorb/proposals");
+      goto(resolve("/absorb/proposals"));
     } catch (error: unknown) {
       errors = {
         global: { message: error instanceof Error ? error.message : "An unknown error occurred" },
@@ -177,9 +201,21 @@
     recordsToAbsorb = recordsToAbsorb.filter((recordId) => recordId !== id);
   }
 
+  // Keep this record instead of the target, which joins the records to absorb.
+  function keepRecord(id: string) {
+    recordsToAbsorb = [...recordsToAbsorb.filter((recordId) => recordId !== id), targetId];
+    swappedTarget = id;
+  }
+
+  function cancel() {
+    if (reviewing) return goto(resolve("/absorb/proposals"));
+    if (returnTo) return goto(returnTo);
+    return getAbsorbRedirectUrl(collectionName, targetRecordId, $page.params.cid).then(goto);
+  }
+
   function addRecord(id: string | number) {
     const idStr = id.toString();
-    if (idStr !== targetRecordId && !recordsToAbsorb.includes(idStr)) {
+    if (idStr !== targetId && !recordsToAbsorb.includes(idStr)) {
       recordsToAbsorb = [...recordsToAbsorb, idStr];
     }
   }
@@ -215,22 +251,31 @@
       <AbsorbList {collectionName} {returnTo} />
     </div>
   {:else}
+    {#if reviewing && proposal}
+      <DSCallout tone="info" title={`Proposed by ${proposal.requester_name}`}>
+        {proposal.reason}
+      </DSCallout>
+    {/if}
     <div class="flex flex-col gap-2">
       <h2 class="text-xl font-bold">Target Record</h2>
       {#if targetRecord}
         {@render recordSnippet(targetRecord)}
+      {:else if proposalNames.has(targetId)}
+        {proposalNames.get(targetId)} (no longer exists)
       {/if}
     </div>
 
     <div class="flex flex-col gap-2">
       <h2 class="text-xl font-bold">Records to Absorb</h2>
-      {#if items.length > 0}
+      {#if reviewing}
+        <!-- A review absorbs only records from the proposal. -->
+      {:else if items.length > 0}
         {#if autoCompleteIndex}
           <DsAutoComplete
             multi
             bind:this={autoCompleteRef}
             index={autoCompleteIndex as unknown as MiniSearch<unknown>}
-            excludeIds={[targetRecordId, ...recordsToAbsorb]}
+            excludeIds={[targetId, ...recordsToAbsorb]}
             value={selectedRecord}
             choose={addRecord}
             {errors}
@@ -260,18 +305,31 @@
 
       {#if recordsToAbsorb.length > 0}
         <ul class="flex flex-col gap-2">
-          {#each recordsToAbsorb as recordId}
-            {#each availableRecords.filter((c) => c.id === recordId) as record}
+          {#each recordsToAbsorb as recordId (recordId)}
+            {@const record = availableRecords.find((c) => c.id === recordId)}
+            {#if record || reviewing}
               <li class="flex items-center gap-2 rounded-sm bg-neutral-100 p-2">
-                {@render recordSnippet(record as unknown as T)}
+                {#if record}
+                  {@render recordSnippet(record as unknown as T)}
+                {:else}
+                  {proposalNames.get(recordId) ?? recordId} (no longer exists)
+                {/if}
+                {#if reviewing && record}
+                  <DsActionButton
+                    action={() => keepRecord(recordId)}
+                    icon="mdi:swap-vertical"
+                    title="Keep this record instead"
+                    color="blue"
+                  />
+                {/if}
                 <DsActionButton
-                  action={() => removeRecord(record.id)}
+                  action={() => removeRecord(recordId)}
                   icon="mdi:delete"
                   title="Remove"
                   color="red"
                 />
               </li>
-            {/each}
+            {/if}
           {/each}
         </ul>
       {/if}
@@ -297,15 +355,11 @@
           disabled={recordsToAbsorb.length === 0 || reason.trim() === ""}>Propose</DsActionButton
         >
       {:else}
-        <DsActionButton action={handleAbsorb}>Absorb</DsActionButton>
+        <DsActionButton action={handleAbsorb} disabled={recordsToAbsorb.length === 0}
+          >Absorb</DsActionButton
+        >
       {/if}
-      <DsActionButton
-        action={() =>
-          returnTo
-            ? goto(returnTo)
-            : getAbsorbRedirectUrl(collectionName, targetRecordId, $page.params.cid).then(goto)}
-        >Cancel</DsActionButton
-      >
+      <DsActionButton action={cancel}>Cancel</DsActionButton>
     </div>
 
     {#if errors.global}

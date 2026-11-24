@@ -34,6 +34,7 @@
     {availableRecords}
     autoCompleteIndex={autoCompleteIndex as unknown as any}
     propose={!canAbsorbDirectly($globalStore.claims)}
+    proposal={data.proposal}
   >
     {#snippet recordSnippet(item: ClientContactsResponse)}
       {item.given_name} {item.surname} — {item.email}

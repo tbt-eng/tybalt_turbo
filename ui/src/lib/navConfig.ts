@@ -382,6 +382,11 @@ export const navSections: NavSection[] = [
         canView: anyClaim("absorb"),
       },
       {
+        label: "Absorb Proposals",
+        href: "/absorb/proposals",
+        buttons: [],
+      },
+      {
         label: "PO Approvers",
         href: "/pos/approval-limits",
         buttons: [],

@@ -9,13 +9,13 @@
     size = "md",
   }: {
     status: string;
-    kind?: "job" | "po" | "expense" | "request" | "uncommit";
+    kind?: "job" | "po" | "expense" | "request" | "uncommit" | "proposal";
     // "sm" for compact list rows.
     size?: "md" | "sm";
   } = $props();
 
   const tonesByKind: Record<
-    "job" | "po" | "expense" | "request" | "uncommit",
+    "job" | "po" | "expense" | "request" | "uncommit" | "proposal",
     Record<string, LabelTone>
   > = {
     job: {
@@ -53,6 +53,13 @@
       Approved: "success",
       Declined: "danger",
       Cancelled: "neutral",
+    },
+    proposal: {
+      Pending: "warning",
+      Accepted: "success",
+      Declined: "danger",
+      Withdrawn: "neutral",
+      Obsolete: "neutral",
     },
   };
 

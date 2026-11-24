@@ -2,6 +2,9 @@
 // vendors be absorbed, and an absorb holder reviews the proposal. The server
 // routes are under /api/absorb_proposals (app/routes/absorb_proposals.go).
 
+import { error } from "@sveltejs/kit";
+import { pb } from "$lib/pocketbase";
+
 // The collections whose absorb can be proposed.
 export type AbsorbProposalCollection = "clients" | "client_contacts" | "vendors";
 
@@ -57,4 +60,20 @@ export function absorbProposalReviewHref(row: AbsorbProposalRow): string {
     return `/clients/${row.client_id}/contacts/${row.target_id}/absorb${query}`;
   if (row.collection_name === "vendors") return `/vendors/${row.target_id}/absorb${query}`;
   return `/clients/${row.target_id}/absorb${query}`;
+}
+
+// The proposal named by ?proposal= on an absorb page, or null.
+export async function loadAbsorbProposal(url: URL): Promise<AbsorbProposalRow | null> {
+  const id = url.searchParams.get("proposal");
+  if (!id) return null;
+  try {
+    return await pb.send<AbsorbProposalRow>(`/api/absorb_proposals/${encodeURIComponent(id)}`, {
+      method: "GET",
+      requestKey: null,
+    });
+  } catch (cause: unknown) {
+    const status = Number((cause as { status?: number })?.status);
+    if (status >= 400 && status <= 599) error(status, "Absorb proposal not found.");
+    throw cause;
+  }
 }

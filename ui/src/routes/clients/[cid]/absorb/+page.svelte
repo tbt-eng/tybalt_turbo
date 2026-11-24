@@ -6,6 +6,9 @@
   import { page } from "$app/stores";
   import { globalStore } from "$lib/stores/global";
   import { canAbsorbDirectly } from "$lib/absorbProposals";
+  import type { PageData } from "./$types";
+
+  let { data }: { data: PageData } = $props();
 </script>
 
 <AbsorbEditor
@@ -14,6 +17,7 @@
   availableRecords={$clients.items}
   autoCompleteIndex={$clients.index as unknown as any}
   propose={!canAbsorbDirectly($globalStore.claims)}
+  proposal={data.proposal}
 >
   {#snippet recordSnippet(item: ClientsResponse)}
     {clientLabel(item)}

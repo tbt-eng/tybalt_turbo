@@ -151,6 +151,8 @@ export type AbsorbActionsRecord<Tabsorbed_records = unknown, Tupdated_references
   collection_name: string;
   created: IsoDateString;
   id: string;
+  // The absorb proposal that the action carries out, if any.
+  proposal?: string;
   target_id: string;
   updated: IsoDateString;
   updated_references: null | Tupdated_references;

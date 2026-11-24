@@ -6,6 +6,9 @@
   import { trimmedOrEmpty } from "$lib/utilities";
   import { globalStore } from "$lib/stores/global";
   import { canAbsorbDirectly } from "$lib/absorbProposals";
+  import type { PageData } from "./$types";
+
+  let { data }: { data: PageData } = $props();
 
   // initialize the stores, noop if already initialized
   vendors.init();
@@ -17,6 +20,7 @@
   availableRecords={$vendors.items}
   autoCompleteIndex={$vendors.index as unknown as any}
   propose={!canAbsorbDirectly($globalStore.claims)}
+  proposal={data.proposal}
 >
   {#snippet recordSnippet(item: VendorsResponse)}
     {item.name}
