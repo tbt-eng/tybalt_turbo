@@ -840,7 +840,7 @@
       {#snippet optionTemplate(row: WorkflowRecord)}{row.code ?? row.name}{/snippet}
     </DsSelector>
     <label class="flex flex-col gap-1">
-      Notes (optional)
+      Notes
       <textarea
         rows="3"
         maxlength="1000"

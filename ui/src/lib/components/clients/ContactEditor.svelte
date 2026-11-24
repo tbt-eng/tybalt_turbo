@@ -139,7 +139,7 @@
       required
     />
     <DsTextInput bind:value={item.surname} {errors} fieldName="surname" uiName="Surname" required />
-    <DsTextInput bind:value={item.email} {errors} fieldName="email" uiName="Email (optional)" />
+    <DsTextInput bind:value={item.email} {errors} fieldName="email" uiName="Email" />
     <label class="flex items-center gap-2">
       <input
         type="checkbox"
@@ -149,7 +149,7 @@
       />
       No email address
     </label>
-    <DsTextInput bind:value={item.phone} {errors} fieldName="phone" uiName="Phone (optional)" />
+    <DsTextInput bind:value={item.phone} {errors} fieldName="phone" uiName="Phone" />
     <details
       open={Boolean(
         record.address ||
@@ -159,7 +159,7 @@
         record.country,
       )}
     >
-      <summary class="cursor-pointer">Postal address (optional)</summary>
+      <summary class="cursor-pointer">Postal address</summary>
       <div class="mt-3 flex flex-col gap-3"><PostalFields bind:item {errors} /></div>
     </details>
   </fieldset>

@@ -307,7 +307,7 @@
         bind:value={item.name}
         {errors}
         fieldName="name"
-        uiName="Profile name (optional)"
+        uiName="Profile name"
         placeholder="For example, Capital projects"
       />
       {#if contacts.length > 10}
@@ -437,7 +437,7 @@
         </div>
       {/if}
       <label class="flex flex-col gap-2" for="invoicing-instructions"
-        >Invoice instructions (optional)
+        >Invoice instructions
         <textarea
           id="invoicing-instructions"
           name="invoicing_instructions"
@@ -448,7 +448,7 @@
       {#if errors.invoicing_instructions}<p class="text-red-600">
           {errors.invoicing_instructions.message}
         </p>{/if}
-      <DsTextInput bind:value={item.fax} {errors} fieldName="fax" uiName="Fax (optional)" />
+      <DsTextInput bind:value={item.fax} {errors} fieldName="fax" uiName="Fax" />
     </fieldset>
     <div class="flex flex-wrap gap-2">
       <button

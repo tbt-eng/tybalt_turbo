@@ -399,7 +399,7 @@ await runBrowserHarness(
       /project_contact=contact1/,
     );
     await page
-      .getByLabel(/^Notes \(optional\)/)
+      .getByLabel(/^Notes/)
       .fill("Legal description: Part 2, Plan 55R-1234, City of Example");
     const value = page.getByLabel("Project value (CAD, before tax)");
     await value.fill("1.25");

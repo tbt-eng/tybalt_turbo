@@ -340,7 +340,7 @@ await runBrowserHarness(
     await contacts().getByRole("link", { name: "Contact011 Sample", exact: true }).click();
     await page.getByRole("heading", { name: "Edit contact", exact: true }).waitFor();
     assert.match(new URL(page.url()).searchParams.get("return_to"), /contacts_page=2/);
-    await page.getByLabel("Email (optional)", { exact: true }).fill("changed@example.test");
+    await page.getByLabel("Email", { exact: true }).fill("changed@example.test");
     await page.getByRole("button", { name: "Save contact", exact: true }).click();
     await contacts().getByRole("searchbox").waitFor();
     assert.match(await contacts().innerText(), /Page 2 \/ 10/);
@@ -611,13 +611,11 @@ await runBrowserHarness(
       .click();
     await contacts().getByRole("link", { name: "Contact001 Sample", exact: true }).click();
     await page.getByRole("heading", { name: "Edit contact", exact: true }).waitFor();
-    await page.getByLabel("Email (optional)", { exact: true }).fill("workflow@example.test");
+    await page.getByLabel("Email", { exact: true }).fill("workflow@example.test");
     await page.getByRole("button", { name: "Save contact", exact: true }).click();
     await invoicing().getByRole("link", { name: "Setup001", exact: true }).click();
     await page.getByRole("heading", { name: "Edit invoicing profile", exact: true }).waitFor();
-    await page
-      .getByLabel("Profile name (optional)", { exact: true })
-      .fill("Updated workflow setup");
+    await page.getByLabel("Profile name", { exact: true }).fill("Updated workflow setup");
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     await page.getByRole("link", { name: "Return to the project request", exact: true }).click();
     await scope().waitFor();
@@ -643,7 +641,7 @@ await runBrowserHarness(
       .getByRole("link", { name: "Manage client contacts and invoicing", exact: true })
       .click();
     await invoicing().getByRole("link", { name: "Updated workflow setup", exact: true }).click();
-    await page.getByLabel("Profile name (optional)", { exact: true }).fill("Only this request");
+    await page.getByLabel("Profile name", { exact: true }).fill("Only this request");
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     const copyChoice = page.getByRole("dialog", { name: "Save invoicing profile", exact: true });
     await copyChoice.waitFor();
@@ -739,7 +737,7 @@ await runBrowserHarness(
     assert.equal(new URL(page.url()).pathname, `/clients/${client.id}/contacts/add`);
     await page.getByLabel("Given name", { exact: true }).fill(fixture.createdContact.given_name);
     await page.getByLabel("Surname", { exact: true }).fill(fixture.createdContact.surname);
-    await page.getByLabel("Email (optional)", { exact: true }).fill(fixture.createdContact.email);
+    await page.getByLabel("Email", { exact: true }).fill(fixture.createdContact.email);
     const beforeNewContact = writes.length;
     await page.getByRole("button", { name: "Save contact", exact: true }).click();
     await contacts()
@@ -778,11 +776,9 @@ await runBrowserHarness(
     assert.equal(profileWrites.length, beforeWorkspaceCreate, "cancelling creation must not write");
     await invoicing().getByTitle("Add invoicing profile", { exact: true }).click();
     await page.getByRole("button", { name: "Same as project contact", exact: true }).click();
+    await page.getByLabel("Profile name", { exact: true }).fill(fixture.createdProfile.name);
     await page
-      .getByLabel("Profile name (optional)", { exact: true })
-      .fill(fixture.createdProfile.name);
-    await page
-      .getByLabel("Invoice instructions (optional)", { exact: true })
+      .getByLabel("Invoice instructions", { exact: true })
       .fill(fixture.createdProfile.invoicing_instructions);
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     await invoicing()
@@ -851,11 +847,9 @@ await runBrowserHarness(
     assert.equal(await page.getByRole("button", { name: "Add contact", exact: true }).count(), 0);
     assert.equal(await page.getByRole("button", { name: "Edit contact", exact: true }).count(), 0);
     await page.getByRole("button", { name: "Same as project contact", exact: true }).click();
+    await page.getByLabel("Profile name", { exact: true }).fill(fixture.createdProfile.name);
     await page
-      .getByLabel("Profile name (optional)", { exact: true })
-      .fill(fixture.createdProfile.name);
-    await page
-      .getByLabel("Invoice instructions (optional)", { exact: true })
+      .getByLabel("Invoice instructions", { exact: true })
       .fill(fixture.createdProfile.invoicing_instructions);
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     await scope().waitFor();

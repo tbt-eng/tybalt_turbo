@@ -10,11 +10,5 @@
 </script>
 
 {#each Object.entries(postalFields) as [key, label]}
-  <DsTextInput
-    bind:value={item[key]}
-    {errors}
-    fieldName={key}
-    uiName={`${label} (optional)`}
-    {disabled}
-  />
+  <DsTextInput bind:value={item[key]} {errors} fieldName={key} uiName={`${label}`} {disabled} />
 {/each}

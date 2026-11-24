@@ -151,7 +151,7 @@ await runBrowserHarness(
     await page.getByRole("button", { name: "Create one", exact: true }).click();
     await page.getByRole("heading", { name: "Add invoicing profile", exact: true }).waitFor();
     await page.getByRole("button", { name: "Same as project contact", exact: true }).click();
-    await page.getByLabel("Profile name (optional)").fill(fixture.createdProfile.name);
+    await page.getByLabel("Profile name").fill(fixture.createdProfile.name);
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     await assertDraft(fixture.createdProfile.id);
     await selectedNotice().waitFor();
@@ -165,7 +165,7 @@ await runBrowserHarness(
     await page
       .getByTitle(`Edit invoicing profile ${fixture.createdProfile.name}`, { exact: true })
       .click();
-    await page.getByLabel("Profile name (optional)").fill(fixture.copiedProfile.name);
+    await page.getByLabel("Profile name").fill(fixture.copiedProfile.name);
     await page.getByRole("button", { name: "Save as new profile", exact: true }).click();
     await assertDraft(fixture.copiedProfile.id);
     await manage().click();

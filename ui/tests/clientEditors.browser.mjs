@@ -90,12 +90,12 @@ await runBrowserHarness(
     await page.getByLabel("Surname", { exact: true }).fill("Contact");
     const noEmail = page.getByLabel("No email address", { exact: true });
     await noEmail.check();
-    await page.getByLabel("Email (optional)", { exact: true }).fill("not-email");
+    await page.getByLabel("Email", { exact: true }).fill("not-email");
     assert.equal(await noEmail.isDisabled(), true, "an email address replaces the no-email mark");
     assert.equal(await noEmail.isChecked(), false);
     await page.getByRole("button", { name: "Save contact", exact: true }).click();
     await page.getByText("Enter a valid email address.", { exact: true }).waitFor();
-    await page.getByLabel("Email (optional)", { exact: true }).fill("new@example.com");
+    await page.getByLabel("Email", { exact: true }).fill("new@example.com");
     page.once("dialog", (dialog) => dialog.dismiss());
     const navigationCancelled = await page.evaluate(() => {
       let cancelled = false;
@@ -169,12 +169,10 @@ await runBrowserHarness(
     await page.waitForFunction(() => window.deleted === 1);
 
     await page.goto(`${origin}/tests/fixtures/clientEditors.html?edit`);
-    await page.getByLabel("Profile name (optional)", { exact: true }).fill("Capital projects");
-    await page
-      .getByLabel("Invoice instructions (optional)", { exact: true })
-      .fill("Include our PO number.");
+    await page.getByLabel("Profile name", { exact: true }).fill("Capital projects");
+    await page.getByLabel("Invoice instructions", { exact: true }).fill("Include our PO number.");
     await page.getByRole("button", { name: "Edit contact", exact: true }).click();
-    await page.getByLabel("Email (optional)", { exact: true }).fill("alex-updated@example.com");
+    await page.getByLabel("Email", { exact: true }).fill("alex-updated@example.com");
     page.once("dialog", (dialog) => dialog.dismiss());
     assert.equal(
       await page.evaluate(() => {
@@ -193,11 +191,11 @@ await runBrowserHarness(
     await page.getByRole("button", { name: "Save contact", exact: true }).click();
     await page.getByRole("heading", { name: "Edit invoicing profile", exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel("Profile name (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Profile name", { exact: true }).inputValue(),
       "Capital projects",
     );
     assert.equal(
-      await page.getByLabel("Invoice instructions (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Invoice instructions", { exact: true }).inputValue(),
       "Include our PO number.",
     );
     assert.match(
@@ -207,7 +205,7 @@ await runBrowserHarness(
     await page.getByRole("button", { name: "Add contact", exact: true }).click();
     await page.getByLabel("Given name", { exact: true }).fill("Billing");
     await page.getByLabel("Surname", { exact: true }).fill("Person");
-    await page.getByLabel("Email (optional)", { exact: true }).fill("billing@example.com");
+    await page.getByLabel("Email", { exact: true }).fill("billing@example.com");
     await page.getByRole("button", { name: "Save contact", exact: true }).click();
     await page.getByRole("heading", { name: "Edit invoicing profile", exact: true }).waitFor();
     assert.equal(
@@ -216,7 +214,7 @@ await runBrowserHarness(
     );
     await page.getByText("Uses the client address.", { exact: true }).waitFor();
     assert.equal(
-      await page.getByLabel("Profile name (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Profile name", { exact: true }).inputValue(),
       "Capital projects",
     );
     const choice = page.getByRole("dialog", { name: "Save invoicing profile", exact: true });
@@ -245,7 +243,7 @@ await runBrowserHarness(
     await choice.waitFor({ state: "hidden" });
     assert.equal(writes.length, beforeCancel, "cancelling sends no update");
     assert.equal(
-      await page.getByLabel("Profile name (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Profile name", { exact: true }).inputValue(),
       "Capital projects",
     );
     assert.equal(
@@ -253,7 +251,7 @@ await runBrowserHarness(
       "contact-new",
     );
     assert.equal(
-      await page.getByLabel("Invoice instructions (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Invoice instructions", { exact: true }).inputValue(),
       "Include our PO number.",
     );
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
@@ -291,9 +289,7 @@ await runBrowserHarness(
       jobCount = count;
       requestCount = 0;
       await page.goto(`${origin}/tests/fixtures/clientEditors.html?edit`);
-      await page
-        .getByLabel("Profile name (optional)", { exact: true })
-        .fill(`Profile for ${count} jobs`);
+      await page.getByLabel("Profile name", { exact: true }).fill(`Profile for ${count} jobs`);
       await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
       if (count > 1) {
         await choice.waitFor();
@@ -328,9 +324,7 @@ await runBrowserHarness(
         assert.equal(writes.at(-1).method, "PATCH");
         // Copy remains available even for an unused or single-job profile.
         await page.goto(`${origin}/tests/fixtures/clientEditors.html?edit`);
-        await page
-          .getByLabel("Profile name (optional)", { exact: true })
-          .fill("Separate arrangement");
+        await page.getByLabel("Profile name", { exact: true }).fill("Separate arrangement");
         await page.getByRole("button", { name: "Save as new profile", exact: true }).click();
         await page.waitForFunction(() => window.saved.length === 1);
         assert.equal(writes.at(-1).method, "POST");
@@ -348,7 +342,7 @@ await runBrowserHarness(
     );
     assert.equal(await choice.isVisible(), false, "unchanged fields need no confirmation");
     await page.goto(`${origin}/tests/fixtures/clientEditors.html?edit&fail-return`);
-    await page.getByLabel("Profile name (optional)", { exact: true }).fill("Saved once");
+    await page.getByLabel("Profile name", { exact: true }).fill("Saved once");
     const beforeReturnFailure = writes.length;
     await page.getByRole("button", { name: "Save as new profile", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Retry the return" }).waitFor();
@@ -401,9 +395,7 @@ await runBrowserHarness(
       0,
       "short instructions use the shared single-text display without a disclosure",
     );
-    await page
-      .getByLabel("Profile name (optional)", { exact: true })
-      .fill("Another capital profile");
+    await page.getByLabel("Profile name", { exact: true }).fill("Another capital profile");
     page.once("dialog", (dialog) => dialog.dismiss());
     const beforeReuse = writes.length;
     await existingProfiles
@@ -411,7 +403,7 @@ await runBrowserHarness(
       .first()
       .click();
     assert.equal(
-      await page.getByLabel("Profile name (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Profile name", { exact: true }).inputValue(),
       "Another capital profile",
     );
     assert.equal(await page.evaluate(() => window.saved.length), 0);
@@ -432,13 +424,13 @@ await runBrowserHarness(
     await page.goto(`${origin}/tests/fixtures/clientEditors.html?time&profiles`);
     await page.getByRole("button", { name: "Same as project contact", exact: true }).click();
     await page
-      .getByLabel("Invoice instructions (optional)", { exact: true })
+      .getByLabel("Invoice instructions", { exact: true })
       .fill("Use a different project code.");
     failSave = true;
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Save failed. Try again." }).waitFor();
     assert.equal(
-      await page.getByLabel("Invoice instructions (optional)", { exact: true }).inputValue(),
+      await page.getByLabel("Invoice instructions", { exact: true }).inputValue(),
       "Use a different project code.",
     );
     failSave = false;
@@ -469,10 +461,7 @@ await runBrowserHarness(
     assert.equal(await page.evaluate(() => window.saved[0].id), "capital-99");
 
     await page.goto(`${origin}/tests/fixtures/clientEditors.html?time&edit`);
-    assert.equal(
-      await page.getByLabel("Profile name (optional)", { exact: true }).isDisabled(),
-      true,
-    );
+    assert.equal(await page.getByLabel("Profile name", { exact: true }).isDisabled(), true);
     assert.equal(
       await page.getByRole("button", { name: "Save invoicing profile", exact: true }).isDisabled(),
       true,
@@ -531,7 +520,7 @@ await runBrowserHarness(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       true,
     );
-    await page.getByLabel("Profile name (optional)", { exact: true }).fill("Mobile profile");
+    await page.getByLabel("Profile name", { exact: true }).fill("Mobile profile");
     await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
     await choice.waitFor();
     const bounds = await choice.boundingBox();

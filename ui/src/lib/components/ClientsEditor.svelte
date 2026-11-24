@@ -90,10 +90,10 @@
       bind:value={item.alias}
       {errors}
       fieldName="alias"
-      uiName="Alias (optional)"
+      uiName="Alias"
       placeholder="Name the client is commonly known by"
     />
-    <DsTextInput bind:value={item.phone} {errors} fieldName="phone" uiName="Phone (optional)" />
+    <DsTextInput bind:value={item.phone} {errors} fieldName="phone" uiName="Phone" />
     <PostalFields bind:item {errors} />
   </fieldset>
   <div class="flex gap-2">

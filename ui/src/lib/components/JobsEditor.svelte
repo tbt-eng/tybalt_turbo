@@ -1356,12 +1356,8 @@
             type="number"
             class="rounded-sm border border-neutral-300 px-2 py-1"
             bind:value={item.project_value as number}
-            required={item.status === JobsStatusOptions.Active ||
-              item.status === JobsStatusOptions.Closed}
-            min={item.status === JobsStatusOptions.Active ||
-            item.status === JobsStatusOptions.Closed
-              ? 1
-              : 0}
+            aria-required={projectValueRequired || undefined}
+            min={0}
             step={1}
           />
           {#if data.editing}<a
