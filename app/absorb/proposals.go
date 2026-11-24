@@ -201,8 +201,10 @@ func DecideProposal(app core.App, proposal *core.Record, status string, decidedB
 	proposal.Set("decided_by", decidedBy)
 	proposal.Set("decided_at", types.NowDateTime())
 	if comment != "" {
-		if len(comment) > ProposalTextMaxLength {
-			comment = comment[:ProposalTextMaxLength]
+		// Cut by characters, not bytes, so that a name is not left with half
+		// a character.
+		if runes := []rune(comment); len(runes) > ProposalTextMaxLength {
+			comment = string(runes[:ProposalTextMaxLength])
 		}
 		proposal.Set("decision_comment", comment)
 	}
