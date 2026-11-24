@@ -1,5 +1,5 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/routes.go","sha256":"bd260c361e199546043662755d82c68c53c2ac7cae5c49b390b3c3477b0837ed","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/routes.go","sha256":"aba3172dde10780d6be40a0189da7a0f99fe425106c4876f92c2c95335a3ca62","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/routes.go
 
@@ -7,94 +7,102 @@
 
 Lines 14-31
 
-Asked as: expenses editing disabled; can't edit expenses; purchase orders locked; vendor changes refused; expenses flag off
+Asked as: expenses editing disabled; can't edit expenses; purchase orders locked; vendor changes refused
 
-When the expenses editing feature flag is off, Turbo refuses actions on expenses, purchase orders and vendors with the message from ErrExpensesEditingDisabled. Other collections skip this check. If the flag cannot be read, the request fails with that error.
+When the expenses editing feature flag is off, Turbo refuses actions on expenses, purchase orders and vendors with the message in ErrExpensesEditingDisabled. Other collections skip this check. The wording of the message is defined in another file.
 
 ## Time editing needs the time feature flag
 
 Lines 33-43
 
-Asked as: time editing disabled; can't change timesheet; time entries locked; time feature flag; cannot edit time
+Asked as: cannot edit time; time editing off; timesheet edits blocked; time feature disabled
 
-When the time editing feature flag is off, Turbo refuses the action with the message from ErrTimeEditingDisabled. If the flag cannot be read, the request fails with that error.
+When the time editing feature flag is off, Turbo refuses with the message in ErrTimeEditingDisabled. The wording of the message is defined in another file.
 
 ## Reports need the report claim
 
 Lines 45-54
 
-Asked as: report access denied; not authorized to view report; can't open payroll report; missing report permission; reports blocked
+Asked as: can't view report; report access denied; not authorized report; no reports permission
 
-A person without the report claim cannot use the report routes. Turbo refuses them with "you are not authorized to view this report". These routes are under /api/reports, such as payroll, weekly time, expense, receipts, payables spreadsheet, branch mismatch and active jobs reports.
+A person without the report claim cannot view a report. Turbo refuses with 'you are not authorized to view this report'.
 
-## KPI reports need the kpi claim
+## KPI reports need the KPI claim
 
 Lines 56-65
 
-Asked as: KPI report denied; can't see KPI reports; kpi permission missing; employee branch hours access; KPI not authorized
+Asked as: KPI report denied; can't see KPI; KPI access missing; kpi permission needed
 
-A person without the kpi claim cannot use the KPI report routes. Turbo refuses them with "you are not authorized to view KPI reports". The employee branch hours report is under this group.
+A person without the kpi claim cannot view KPI reports. Turbo refuses with 'you are not authorized to view KPI reports'.
 
-## Turbo checks expenditure kinds config at startup
+## Startup fails if expenditure kinds config is invalid
 
 Lines 88-91
 
-Asked as: server won't start; expenditure kinds invalid; startup error expenditure; config fails on boot; expenditure config broken
+Asked as: server won't start; startup error expenditure; expenditure kinds invalid; app fails to boot
 
-When the server starts, Turbo validates the expenditure kinds configuration. If it is invalid, the startup fails with that error.
+When the server starts, Turbo validates the expenditure kinds configuration. If it is invalid, the server does not start the routes.
 
 ## Version endpoint is public
 
 Lines 93-105
 
-Asked as: version without login; app version number; build number lookup; git commit shown; version check no sign-in
+Asked as: app version check; version without login; build number endpoint; which version running
 
-The /api/version endpoint needs no sign-in. It returns the app name, version, build, full version, git commit, short commit, git branch and build time.
+GET /api/version needs no sign-in. It returns the app name, version, build, full version, git commit, short commit, git branch and build time.
 
-## Most custom routes require a signed-in user
+## Most Turbo API routes need a signed-in user
 
 Lines 107-437
 
-Asked as: need to log in; api says unauthorized; signed in required; route needs login; session missing for endpoint
+Asked as: API needs login; unauthorized api call; sign in required api; 401 on timesheets
 
-The time sheet, expense, expense uncommit request, absorb proposal, time amendment, time entry, user, nav, admin profile, purchase order, client, vendor, job, WIP, report, stats, machine secret, attachment audit, currency, rate sheet, claim and work record routes all need a signed-in user. The legacy export routes and radiator routes use machine secrets instead.
+Time sheet, expense, expense uncommit request, absorb proposal, time amendment, time entry, user, nav, admin profile, purchase order, client, vendor, job, WIP, stats, machine secret, attachment audit, currency, rate sheet, claim and work record routes all require sign-in as a user. The legacy export routes use machine secrets instead. The radiator routes also use machine secrets (role radiator).
 
-## Legacy export routes use machine secrets
+## Time sheet commit also covers time amendments
+
+Lines 115-117
+
+Asked as: who can commit; commit amendment; committing timesheets permission; commit time amendments
+
+Committers commit time sheets through the time sheet commit route. Time amendments have their own commit route. Who may commit is decided in the handler, in another file.
+
+## Legacy export routes use machine secrets, not sign-in
 
 Lines 133-136
 
-Asked as: export without login; legacy export failing; machine secret export; timesheet export api key; jobs export secret
+Asked as: export without login; legacy export access; machine secret export; export failing auth
 
-The legacy export routes for time sheets, jobs and expenses do not require a user sign-in. They authenticate with machine secrets.
+The legacy export routes for time sheets, jobs and expenses do not need a signed-in user. They authenticate with machine secrets, and the check is in another file.
 
-## Absorb routes exist for several record types
+## Purchase order changes are blocked when expenses editing is off
 
-Lines 185-192
+Lines 238-254
 
-Asked as: absorb duplicates; merge duplicate clients; propose merge vendor; undo merge; combine rate sheets
+Asked as: can't approve purchase order; PO approve blocked; cancel PO not working; purchase order frozen
 
-Absorb and undo absorb routes exist for clients, client contacts, vendors and rate sheets. Proposing an absorb is open to any signed-in person, and absorb holders review proposals.
+Approve, reject, cancel, close, make cumulative and revise on a purchase order, and previewing or creating a purchase order group, need a signed-in user and the expenses editing flag on. Viewing purchase orders is not behind this flag. Legacy purchase order routes do not have this check in this file.
 
-## Purchase order changes need expenses editing enabled
+## Report routes require the report claim
 
-Lines 237-253
+Lines 330-349
 
-Asked as: can't approve purchase order; PO approve blocked; cancel PO refused; close purchase order fails; revise PO disabled
+Asked as: spreadsheet report denied; payroll report access; weekly time report blocked; active jobs report access
 
-Approve, reject, cancel, close, make cumulative, revise, and group preview and create for purchase orders are refused when the expenses editing flag is off. Read routes and the legacy purchase order routes do not run this check.
+All routes under /api/reports require sign-in and the report claim. They cover the payroll, weekly time, expense, receipts and payables spreadsheet reports, the time entry branch mismatches report and the active jobs report.
 
-## Branch hours report checks access for the requested branch
+## KPI report routes require the KPI claim
 
-Lines 360-368
+Lines 351-359
 
-Asked as: branch hours report blocked; can't run branch hours; branch access denied; hours report for branch; branch report permission
+Asked as: employee hours report access; branch KPI hours denied; hours KPI not visible; KPI hours report permission
 
-Before the branch hours report runs, Turbo calls requireBranchHoursAccess with the signed-in person and the branch query parameter. The result of that check is defined in another file.
+The employee branch hours KPI report requires sign-in and the kpi claim.
 
-## Rate sheet routes and who can use them
+## Branch hours report checks branch access
 
-Lines 398-417
+Lines 361-369
 
-Asked as: can't create rate sheet; activate rate sheet denied; rename rate sheet; delete old rate sheet; roll projects to latest revision
+Asked as: branch hours access denied; can't see branch hours; branch report permission; hours report wrong branch
 
-The rate sheet routes for creating, activating, deactivating and renaming need the job claim according to the comment. Deleting an inactive unused sheet and rolling projects out to the latest revision are admin actions. Absorbing duplicate rate sheets is for admin, or for absorb with rate_sheet_revise. The checks are in other files.
+The branch hours report requires sign-in. Turbo also runs requireBranchHoursAccess on the branch given in the request's 'branch' query parameter. That function is in another file, so its rule is not stated here.
