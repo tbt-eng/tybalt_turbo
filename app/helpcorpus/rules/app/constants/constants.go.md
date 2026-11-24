@@ -1,5 +1,5 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/constants/constants.go","sha256":"7b69fd2afd7b410f88abcc2d68b5e0a1776534c0693b5a13cc7507f37fb7b053","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/constants/constants.go","sha256":"faf00b3fae171ee1660e3519bdedbada410363fd9010994d24d9d2f0a43da4b8","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/constants/constants.go
 
@@ -7,81 +7,73 @@
 
 Lines 18-21
 
-Asked as: plus code format; location code invalid; open location code wrong; plus code characters allowed
+Asked as: plus code format; location plus code invalid; open location code characters; plus code length wrong
 
-A location Plus Code (LocationPlusCodeRegex) must be 8 characters, then '+', then 2 or 3 characters. Only the characters 23456789CFGHJMPQRVWX are valid.
+A location Plus Code (LocationPlusCodeRegex) must be 8 characters, then a '+', then 2 or 3 characters. Only the characters 23456789CFGHJMPQRVWX are valid.
 
-## Default work week hours on admin profile
-
-Lines 24-25
-
-Asked as: default work week hours; standard weekly hours admin; 40 hours default week; admin profile work week
-
-The default work week on an admin profile is 40 hours (DEFAULT_WORK_WEEK_HOURS).
-
-## Default charge out rate on admin profile
+## Default work week hours and charge-out rate
 
 Lines 24-26
 
-Asked as: default charge out rate; admin profile hourly rate; standard charge rate; default rate 50
+Asked as: default work week hours; admin default charge out rate; standard weekly hours admin; default hourly rate admin
 
-The default charge out rate on an admin profile is 50 (DEFAULT_CHARGE_OUT_RATE).
+An admin profile defaults to a work week of 40 hours (DEFAULT_WORK_WEEK_HOURS). Its default charge-out rate is 50 (DEFAULT_CHARGE_OUT_RATE).
 
 ## Default branch ID constant
 
 Lines 28-30
 
-Asked as: default branch id; ThunderBay branch code; which branch is default; branch id test database
+Asked as: default branch id; thunderbay branch id; branch id constant; which branch is default
 
-The default branch ID (DEFAULT_BRANCH_ID) is 80875lm27v8wgi4. The code comment says it is the ThunderBay branch in the test database.
+The constant DEFAULT_BRANCH_ID is "80875lm27v8wgi4". The code comment says it is the ThunderBay branch in the test database.
 
-## Recurring purchase order maximum length
+## Recurring purchase order maximum span
 
 Lines 32-34
 
-Asked as: recurring po too long; recurring purchase order 400 days; max length recurring order; recurring po date range limit
+Asked as: recurring purchase order max days; recurring po too long; recurring po span limit; how long can recurring po run
 
-A recurring purchase order can span at most 400 days between its start and end dates (RECURRING_MAX_DAYS).
+A recurring purchase order can have at most 400 days between its start date and its end date (RECURRING_MAX_DAYS).
 
-## Allowed excess on purchase order expenses
+## Default allowed excess on PO expenses
 
 Lines 36-40
 
-Asked as: expense over po amount; expense exceeds purchase order; how much over po allowed; po excess tolerance percent
+Asked as: po expense over amount; expense exceeds purchase order; allowed excess on po; change po excess percent
 
-By default an expense on a purchase order may exceed the PO by 5% (MAX_PURCHASE_ORDER_EXCESS_PERCENT = 0.05) or by 100.0 (MAX_PURCHASE_ORDER_EXCESS_VALUE). An admin can override these in app_config, domain "expenses", property "po_expense_allowed_excess".
+By default, an expense on a purchase order may exceed it by 5% (MAX_PURCHASE_ORDER_EXCESS_PERCENT = 0.05) or by 100.0 (MAX_PURCHASE_ORDER_EXCESS_VALUE). An admin can override these values in app_config, in the "expenses" domain, under "po_expense_allowed_excess".
 
 ## Limit on expenses without a purchase order
 
 Lines 42-45
 
-Asked as: expense without po limit; non po expenses cap; expense no purchase order max; 100 limit no po
+Asked as: expense without purchase order limit; non po expense cap; expense no po 100 limit; why non po expense rejected
 
-Turbo limits the total of expenses that have no purchase order (LIMIT_NON_PO_AMOUNTS is true). The limit is 100.0 (NO_PO_EXPENSE_LIMIT).
+The limit on the total of expenses that have no purchase order is switched on (LIMIT_NON_PO_AMOUNTS = true). The limit is 100.0 (NO_PO_EXPENSE_LIMIT).
 
-## Maximum total for second approver
+## Maximum total for a second approver
 
 Lines 47-49
 
-Asked as: second approver limit; approve large po; po total approval cap; second approver million
+Asked as: second approver limit; approval total too high; co approver max amount; po over million approval
 
-A second approver can approve a purchase order whose approval_total is at most 1,000,000.0 (MAX_APPROVAL_TOTAL).
+A second approver can approve a purchase order only if its approval_total is at most 1,000,000.0 (MAX_APPROVAL_TOTAL).
 
 ## PO approver claim ID
 
 Lines 51-52
 
-Asked as: po approver claim; which claim approves po; po approver permission id; claim id for po approving
+Asked as: po approver claim id; po_approver claim code; which id is po approver; po approver permission id
 
-The po_approver claim has the ID 5vh881k048bboim (PO_APPROVER_CLAIM_ID).
+The ID of the po_approver claim is "5vh881k048bboim" (PO_APPROVER_CLAIM_ID).
 
 ## Legacy PO create/update claim
 
 Lines 54-55
 
-Asked as: hidden legacy po screen; old po create form; legacy po permission; access old purchase order editor
+Asked as: legacy po form; hidden po create screen; old purchase order editor access; legacy purchase order claim
 
-The claim named legacy_po_create_update gives access to the hidden legacy purchase order create and update flow (LEGACY_PO_CREATE_UPDATE_CLAIM_NAME).
+The claim named "legacy_po_create_update" gives access to the hidden legacy flow that creates and updates purchase orders.
 
 ## Payroll epoch date
 
@@ -95,30 +87,38 @@ The payroll epoch (PAYROLL_EPOCH) is 1 March 2025 UTC.
 
 Lines 62-64
 
-Asked as: when is payday; pay date after period end; days until pay day; friday pay date calculation
+Asked as: when do I get paid; pay date after period; payday after pay period end; pay day calculation
 
 The pay day is 13 days after a Saturday pay_period_ending, which is a Friday (PAY_DATE_DAYS_AFTER_PERIOD_ENDING).
 
-## Uncommit window for payroll-paid expenses
+## Uncommit request window for payroll-paid expenses
 
 Lines 65-67
 
-Asked as: uncommit payroll expense deadline; cannot uncommit paid expense; how long to uncommit payroll; uncommit lock after pay period
+Asked as: uncommit payroll expense deadline; can't uncommit paid expense; how late to uncommit payroll; uncommit window payroll
 
-A payroll-paid expense can be requested for uncommit until 7 days after its pay_period_ending (UNCOMMIT_PAYROLL_LOCK_DAYS).
+A person can request an uncommit of a payroll-paid expense up to 7 days after its pay_period_ending (UNCOMMIT_PAYROLL_LOCK_DAYS).
 
-## Uncommit window for other expenses
+## Uncommit request window for other expenses
 
 Lines 68-70
 
-Asked as: uncommit expense time limit; how long can I uncommit; 90 day uncommit window; expense uncommit deadline
+Asked as: uncommit expense time limit; how long to uncommit expense; old expense uncommit request; uncommit deadline 90 days
 
-Any other expense can be requested for uncommit until 90 days after its commit (UNCOMMIT_NON_PAYROLL_LOCK_DAYS).
+A person can request an uncommit of any other expense up to 90 days after its commit (UNCOMMIT_NON_PAYROLL_LOCK_DAYS).
 
 ## Computer login retention
 
 Lines 73-75
 
-Asked as: how long are computer logins kept; login history deleted; computer login log retention; old login records removed
+Asked as: how long login history kept; computer login deleted; login records retention; old computer logins removed
 
 Turbo keeps a row of computer_logins or computer_raw_logins for 30 days (COMPUTER_LOGIN_RETENTION_DAYS). A daily cron job deletes older rows.
+
+## Absorb proposal retention after decision
+
+Lines 77-80
+
+Asked as: absorb proposal deleted; how long absorb proposals kept; old absorb proposal removed; proposal auto delete after decision
+
+Turbo keeps an absorb proposal for 30 days after its decision: accepted, declined, withdrawn or obsolete (ABSORB_PROPOSAL_RETENTION_DAYS). A daily cron job deletes older ones. A pending proposal is never deleted.

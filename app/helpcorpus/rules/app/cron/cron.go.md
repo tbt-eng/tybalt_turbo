@@ -1,5 +1,5 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/cron/cron.go","sha256":"a72cda950845f07287a41fd3f4633660b46a85b75b10853a1531e75828e2af2d","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/cron/cron.go","sha256":"aabf2fff634aba1b18e482b631ca2b1412e774789c8308a71782507dd26920b8","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/cron/cron.go
 
@@ -7,62 +7,70 @@
 
 Lines 11-15
 
-Asked as: litestream backup stale; snapshot older than 35 minutes; replication health alert; S3 backup not updating
+Asked as: litestream snapshot old; replication stale alert; backup snapshot not updated; S3 backup check failing
 
-Every 5 minutes, Turbo checks litestream replication health. It verifies that the latest snapshot in S3 is not older than 35 minutes.
+Every 5 minutes (litestream_replication_check), Turbo checks that the latest litestream snapshot in S3 is not older than 35 minutes.
 
-## Second approver reminder runs daily at 9pm UTC
+## Second approver PO reminder runs daily at 9pm UTC
 
 Lines 17-26
 
-Asked as: PO waiting for second approval; second approver reminder email; purchase order not approved after 24 hours; who needs to approve the PO
+Asked as: PO waiting for second approval; reminder to second approver; priority approver hasn't approved PO; purchase order second sign off
 
-Turbo sends po_second_approval_required notifications every day at 9pm UTC. They go to the qualified second approvers of a purchase order (PO) that awaits second approval. Turbo sends one only when the priority second approver (priority_second_approver) has not approved the PO after 24 hours. Turbo sends them immediately.
+Every day at 9pm UTC (po_second_approval_notifications), Turbo sends po_second_approval_required notifications to the qualified second approvers. It sends them when a purchase order awaits second approval and the priority second approver (priority_second_approver) has not approved it after 24 hours. Turbo sends them immediately.
 
-## Timesheet submission reminders on Tuesday to Thursday at 8am UTC
+## Time sheet submission reminders on Tuesday to Thursday
 
 Lines 28-32
 
-Asked as: timesheet reminder email; haven't submitted my timesheet; why am I getting timesheet emails; last week's time sheet reminder
+Asked as: timesheet not submitted reminder; why did I get timesheet nag; remind me to submit my hours; last week's timesheet missing email
 
-Turbo sends timesheet_submission_reminder notifications at 8am UTC on Tuesday, Wednesday and Thursday. They remind staff who have not submitted their time sheet for the previous week. Turbo sends them immediately.
+At 8am UTC on Tuesday, Wednesday and Thursday (timesheet_submission_reminders), Turbo sends timesheet_submission_reminder notifications. They go to staff who have not submitted their time sheet for the previous week.
 
-## Expense approval reminders on Thursday and Friday at 9am UTC
+## Expense approval reminders on Thursday and Friday
 
 Lines 34-38
 
-Asked as: expense approval reminder; manager reminder to approve expenses; expense approval emails Thursday; staff expenses waiting for me
+Asked as: manager expense approval nudge; expenses waiting for my approval email; reminder to approve staff expenses; Thursday expense reminder
 
-Turbo sends expense_approval_reminder notifications at 9am UTC on Thursday and Friday. They remind managers to approve the expenses that their staff submitted. Turbo sends them immediately.
+At 9am UTC on Thursday and Friday (expense_approval_reminders), Turbo sends expense_approval_reminder notifications. They remind managers to approve the expenses that their staff submitted.
 
-## Timesheet approval reminders on Tuesday to Thursday at noon UTC
+## Time sheet approval reminders on Tuesday to Thursday
 
 Lines 40-44
 
-Asked as: timesheet approval reminder; approve staff time sheets reminder; timesheets waiting for my approval; time sheet approval emails
+Asked as: timesheets waiting for approval email; manager timesheet approval nudge; reminder to approve team hours; noon timesheet reminder
 
-Turbo sends timesheet_approval_reminder notifications at 12pm UTC on Tuesday, Wednesday and Thursday. They remind managers to approve the time sheets that their staff submitted. Turbo sends them immediately.
+At 12pm UTC on Tuesday, Wednesday and Thursday (timesheet_approval_reminders), Turbo sends timesheet_approval_reminder notifications. They remind managers to approve the time sheets that their staff submitted.
 
-## Expense uncommit request reminders on weekdays at 1pm UTC
+## Expense uncommit request reminders on weekdays
 
 Lines 46-50
 
-Asked as: uncommit request reminder; admin reminder uncommit; uncommit requests waiting; expense uncommit emails
+Asked as: uncommit requests waiting; admin reminder uncommit; expense uncommit email; weekday uncommit alert
 
-Turbo sends expense_uncommit_reminder notifications at 1pm UTC, Monday to Friday. They remind admin holders that uncommit requests are waiting. Turbo sends them immediately.
+At 1pm UTC on Monday to Friday (expense_uncommit_request_reminders), Turbo sends expense_uncommit_reminder notifications. They remind admin holders that uncommit requests are waiting.
 
-## Old computer logins are deleted daily at 7am UTC
+## Old computer logins and raw logins are deleted daily
 
 Lines 52-57
 
-Asked as: old computer logins removed; login history deleted; why are my logins gone; computer login cleanup
+Asked as: old logins deleted; login history cleanup; raw login logs purge; computer logins removed automatically
 
-Every day at 7am UTC (2am or 3am Eastern), Turbo deletes computer logins and raw logins that are older than COMPUTER_LOGIN_RETENTION_DAYS. Turbo never deletes computers in this job.
+Every day at 7am UTC (computer_login_retention), Turbo deletes computer logins and raw logins older than COMPUTER_LOGIN_RETENTION_DAYS. Turbo never deletes the computers themselves.
 
-## Currency rates refresh on weekday evenings at 10pm UTC
+## Decided absorb proposals are deleted after retention period
 
-Lines 59-65
+Lines 59-64
 
-Asked as: exchange rates not updating; currency rate refresh failed; foreign exchange rate missing; Bank of Canada rates not loaded
+Asked as: old absorb proposals removed; decided proposals cleanup; absorb proposal history deleted; proposals disappearing
 
-Turbo refreshes foreign-exchange rates at 10pm UTC, Monday to Friday. The time is set for after the Bank of Canada business-day feed is expected to be published. When the refresh fails, Turbo logs an error and does not retry until the next scheduled run.
+Every day at 7:10am UTC (absorb_proposal_retention), Turbo deletes absorb proposals that were decided more than ABSORB_PROPOSAL_RETENTION_DAYS ago. Turbo never deletes pending proposals.
+
+## Currency rates refresh on weekday evenings
+
+Lines 66-72
+
+Asked as: exchange rates not updating; currency rate refresh failed; FX rates missing in evening; Bank of Canada rate sync
+
+At 10pm UTC on Monday to Friday (currency_rate_sync), Turbo refreshes foreign-exchange rates, after the Bank of Canada business-day feed is expected to be published. If the refresh fails, Turbo only logs the error and does not retry until the next run.
