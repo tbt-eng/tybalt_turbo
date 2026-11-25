@@ -47,6 +47,10 @@
   // was made on this page, so the bucket can be updated after the commit.
   type Pending = {
     bucketKey: string | null;
+    // What the absorb took, fixed when it was made: the bucket's own ticks
+    // are not the record of it.
+    keepId: string;
+    absorbedIds: string[];
     targetName: string;
     absorbed: string[];
     created: string;
@@ -130,6 +134,8 @@
         pending: action
           ? {
               bucketKey: null,
+              keepId: action.target_id,
+              absorbedIds: [],
               targetName: action.target_name || action.target_id,
               absorbed: action.absorbed,
               created: action.created,
@@ -207,6 +213,8 @@
       const keep = bucket.members.find((member) => member.id === bucket.keepId);
       tabs[collection].pending = {
         bucketKey: bucket.key,
+        keepId: bucket.keepId,
+        absorbedIds: picked,
         targetName: keep?.name ?? bucket.keepId,
         absorbed: bucket.members.filter((m) => picked.includes(m.id)).map((m) => m.name),
         created: "",
@@ -249,21 +257,28 @@
     modalOpen = false;
     tabs[collection].pending = null;
     const bucket = tabs[collection].buckets.find((b) => b.key === pending?.bucketKey);
-    if (!bucket) return;
+    if (!pending || !bucket) {
+      // The absorb was not made from this list. An undo brings its records
+      // back, so the list is read again.
+      if (outcome === "undone") load(collection, data.level);
+      return;
+    }
     if (outcome === "undone") {
       // The bucket is as it was, with its ticks.
       focusAfter(collection, bucket.key);
       return;
     }
     const next = neighbourKey(collection, bucket.key);
-    const absorbed = new Set(bucket.picked);
+    const absorbed = new Set(pending.absorbedIds);
     const moved = bucket.members
       .filter((member) => absorbed.has(member.id))
       .reduce((sum, member) => sum + member.references, 0);
     bucket.members = bucket.members
       .filter((member) => !absorbed.has(member.id))
       .map((member) =>
-        member.id === bucket.keepId ? { ...member, references: member.references + moved } : member,
+        member.id === pending.keepId
+          ? { ...member, references: member.references + moved }
+          : member,
       );
     bucket.picked = [];
     // A bucket keeps the records left unticked; one record alone is done.
@@ -356,7 +371,7 @@
           bind:picked={bucket.picked}
           suggestedId={bucket.suggestedId}
           {countLabel}
-          disabled={bucket.busy}
+          disabled={bucket.busy || current.pending?.bucketKey === bucket.key}
         >
           {#snippet actions()}
             <DsActionButton
