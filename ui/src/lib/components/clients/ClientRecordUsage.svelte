@@ -62,7 +62,6 @@
               >{job.number}</a
             >
             <span class="min-w-0 flex-1 truncate" title={job.description}>{job.description}</span>
-            {#if job.number.startsWith("P")}<DsLabel size="sm">Proposal</DsLabel>{/if}
             <DSStatusLabel status={job.status} kind="job" size="sm" />
             {@render roles(job)}
           </li>
