@@ -272,6 +272,8 @@ user as well as the applicable claim or ownership rule.
 | View the Job Create Queue and its badge | Active holders of `job`, when the request workflow is enabled. |
 | Create an invoicing profile using an existing client contact | Active holders of `time` or `job`. No separate profile approval is required. |
 | Edit existing invoicing profiles, or maintain clients and contacts | Holders of `job`. A profile creator without `job` cannot edit it. |
+| Delete an unused invoicing profile, or replace one that is in use | Active holders of `job`. A profile creator without `job` cannot delete or replace it. |
+| List the jobs and requests that use a contact or invoicing profile | Any active user. The list leaves out requests the user may not read and says how many. |
 | Add or remove division allocations, or change allocated hours on an existing job | Holders of `job`, or the user assigned to `jobs.manager` or `jobs.alternate_manager` on that job. Managers and alternate managers do not need `job` for these allocation edits. Existing allocation validation applies. |
 | Edit other job fields, including proposing a new project value and uploading its PDF | Holders of `job`, subject to validation and additional field permissions. Client is immutable except through the controlled merge process or **Change Client**. The server also accepts a proposal's field edits from its manager or alternate manager without `job`; the job editor shows them allocations only. |
 | Change a project's client with **Change Client** | Active holders of `job`, with a written reason. |
@@ -765,6 +767,27 @@ Show how many jobs and requests use a contact or invoicing profile before saving
 shared changes. Preserve contact
 merge actions and block deletion while references exist. Counts for contacts
 include their use as both project contacts and invoice recipients.
+
+Each count opens a list of those jobs and requests
+(`GET /api/clients/{id}/contacts/{record}/usage` and
+`.../invoicing_profiles/{record}/usage`). For a contact, each row is labelled
+**Project contact**, **Invoice recipient**, or both; a job that uses the contact
+in both roles is listed once. Jobs are open to every active user. Requests
+follow the `job_requests` read rule, and the response counts the ones it leaves
+out.
+
+The profile editor has a **More actions** section for holders of `job`.
+**Delete invoicing profile** removes a profile that no job or request uses.
+**Replace with…** retires a profile that is in use
+(`POST /api/clients/{id}/invoicing_profiles/{record}/replace`): in one
+transaction it moves every job and request to another profile of the same
+client, then deletes the old profile. It cannot be undone and is not an absorb.
+It updates the rows with direct SQL, as an absorb does, so it works for Closed
+jobs and for requests in any status; the jobs are marked for writeback. A moved
+request gets a new version, so one that is awaiting approval or creation must be
+approved again. The replace is refused while job editing is off, and while a
+client or contact absorb that touches those records is waiting to be committed
+or undone.
 
 When saving changed fields on an existing profile, refresh its usage counts.
 If more than one job uses it, offer **Update shared profile**, **Save as new

@@ -15,7 +15,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Contract              | The agreement between the company and a client on the work and its rates. A project's rate sheet must match it.                                     |                 |
 | Default branch        | The branch that an admin sets on your admin profile. Turbo uses it when a record has no job or PO.                                                  |                 |
 | Expense               | The accounting record of a purchase. It records the actual amount spent.                                                                            |                 |
-| Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile.                                                      | billing profile |
+| Invoicing profile     | Who receives a client's invoices, and any invoice instructions. Many jobs can use one profile. See [Clients](/docs/clients).                        | billing profile |
 | Job                   | A project or a proposal. A proposal's number starts with P.                                                                                         |                 |
 | Last user             | The person who last signed in to a computer. Turbo can assign the computer to them. See [Computers](/docs/computers).                               |                 |
 | Payables staff        | Staff who can cancel, close or convert a purchase order, and settle foreign-currency expenses.                                                      |                 |

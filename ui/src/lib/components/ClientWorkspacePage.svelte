@@ -4,6 +4,7 @@
   import { untrack } from "svelte";
   import { navigating, page } from "$app/state";
   import { goto, replaceState } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsList from "$lib/components/DSList.svelte";
   import DsLabel, { type LabelShade } from "$lib/components/DsLabel.svelte";
@@ -436,6 +437,11 @@
                 <p>
                   Changes apply to all jobs and requests that use the profile. Create a separate
                   profile when one job needs different invoice details.
+                </p>
+                <p>
+                  Procurement can delete a profile that nothing uses, or replace one that is in use.
+                  See
+                  <a class="link" href={resolve("/docs/[slug]", { slug: "clients" })}>Clients</a> in Help.
                 </p>
               </DSHelp>
             </div>
