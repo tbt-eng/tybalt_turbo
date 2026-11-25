@@ -192,6 +192,13 @@ func AddRoutes(app core.App) {
 		absorbProposalsGroup.POST("/{id}/withdraw", createWithdrawAbsorbProposalHandler(app))
 		absorbProposalsGroup.POST("/{id}/decline", createDeclineAbsorbProposalHandler(app))
 
+		// Absorb suggestions: probable duplicate clients and vendors, for
+		// absorb holders.
+		absorbSuggestionsGroup := se.Router.Group("/api/absorb_suggestions")
+		absorbSuggestionsGroup.Bind(apis.RequireAuth("users"))
+		absorbSuggestionsGroup.GET("/{collection}", createGetAbsorbSuggestionsHandler(app))
+		absorbSuggestionsGroup.POST("/{collection}/dismiss", createDismissAbsorbSuggestionHandler(app))
+
 		timeAmendmentsGroup := se.Router.Group("/api/time_amendments")
 		timeAmendmentsGroup.Bind(apis.RequireAuth("users"))
 		timeAmendmentsGroup.POST("/{id}/commit", createCommitRecordHandler(app, "time_amendments"))

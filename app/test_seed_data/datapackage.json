@@ -416,6 +416,50 @@
       ]
     },
     {
+      "name": "absorb_dismissals",
+      "path": "data/absorb_dismissals.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "collection_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "dismissed_by",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "record_ids",
+            "type": "string",
+            "x-sqlite-type": "JSON"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
       "name": "absorb_proposals",
       "path": "data/absorb_proposals.csv",
       "schema": {

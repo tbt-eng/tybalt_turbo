@@ -1,6 +1,6 @@
 # Duplicate clients, contacts and vendors
 
-When two clients, contacts or vendors are the same, staff with absorb access absorb them into one record. Anyone can propose an absorb for them to review.
+When two clients, contacts or vendors are the same, staff with absorb access absorb them into one record. Anyone can propose an absorb for them to review. To find duplicate clients and vendors, see [Absorb suggestions](/docs/absorb-suggestions).
 
 ## Propose an absorb
 

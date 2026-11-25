@@ -33,6 +33,7 @@
   import DSCopyButton from "$lib/components/DSCopyButton.svelte";
   import DSCodeBlock from "$lib/components/DSCodeBlock.svelte";
   import DSSection from "$lib/components/DSSection.svelte";
+  import DSMergeGroup from "$lib/components/DSMergeGroup.svelte";
   import DSSelector from "$lib/components/DSSelector.svelte";
   import DSStatusLabel from "$lib/components/DSStatusLabel.svelte";
   import DSTabBar from "$lib/components/DSTabBar.svelte";
@@ -108,6 +109,14 @@
     { id: "1", name: "First record", detail: "Byline for the first record" },
     { id: "2", name: "Second record", detail: "Byline for the second record" },
   ];
+
+  const mergeRows = [
+    { id: "m1", label: "Acme Paving", count: 12, href: "/clients/list" },
+    { id: "m2", label: "Acme Paving Ltd", detail: "(Acme)", count: 3 },
+    { id: "m3", label: "ACME Paving Inc.", count: 0, locked: "In a proposal" },
+  ];
+  let mergeKeep = $state("m1");
+  let mergePicked = $state<string[]>([]);
 
   let modalSize = $state<"sm" | "md" | "lg">("md");
   let showModal = $state(false);
@@ -618,6 +627,25 @@
           ]}
         />
       </div>
+    </DSSection>
+
+    <DSSection title="DSMergeGroup">
+      <DSMergeGroup
+        id="gallery-merge"
+        title="3 clients"
+        subtitle="96% match"
+        rows={mergeRows}
+        bind:keepId={mergeKeep}
+        bind:picked={mergePicked}
+        suggestedId="m1"
+        countLabel="Jobs"
+      >
+        {#snippet actions()}
+          <DSActionButton variant="primary" disabled={mergePicked.length === 0}
+            >Absorb</DSActionButton
+          >
+        {/snippet}
+      </DSMergeGroup>
     </DSSection>
 
     <DSSection title="DSCollapsible">

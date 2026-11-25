@@ -311,6 +311,35 @@ A small icon button that copies a value, such as a code, to the clipboard. It si
 - It has `data-print-hide`, so it never prints.
 - `copyText()` in `ui/src/lib/clipboard.ts` does the copy and returns whether it worked. Use it for any other copy control.
 
+#### `DSMergeGroup`
+
+A dense grey box of records where one is kept and others are ticked to merge
+into it, such as a bucket on the absorb suggestions page. Each row has a radio
+to keep it and, unless it is kept, a checkbox. The rest of the row is the
+checkbox's label, so a click anywhere on it ticks. Choosing another record to
+keep clears its tick, and the old one becomes an unticked row. A `locked` row
+shows its reason as a warning label and can't be ticked. Each row may link to
+its record in a new tab. The box has `tabindex="-1"`, so a page can move focus
+to it.
+
+```ts
+{
+  id: string;                 // DOM id, also the base of the inputs' ids
+  title: string;
+  subtitle?: string;
+  rows: { id: string; label: string; detail?: string; count?: number; href?: string; locked?: string }[];
+  keepId: string;             // $bindable
+  picked: string[];           // $bindable
+  suggestedId?: string;       // marked "Suggested" when another row is kept
+  keepLabel?: string;         // column headings: "Keep", "Absorb"
+  pickLabel?: string;
+  countLabel?: string;
+  disabled?: boolean;         // nothing can be kept or ticked (busy)
+  actions?: Snippet;          // buttons at the right of the title row
+  notice?: Snippet;           // a callout under the rows
+}
+```
+
 #### `DSCodeBlock`
 
 Preformatted text, such as JSON, in a bordered box that scrolls past 24rem, with a `DSCopyButton` at the top right. It renders the text as text, never as HTML, so it is safe for data that came from outside Turbo, such as a rejected radiator report.

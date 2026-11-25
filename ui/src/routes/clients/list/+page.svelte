@@ -6,6 +6,7 @@
   import { clientLabel } from "$lib/clientWorkspace";
   import { globalStore } from "$lib/stores/global";
   import { canAbsorbDirectly } from "$lib/absorbProposals";
+  import { absorbSuggestionsHref } from "$lib/absorbSuggestions";
   import { errorFieldCode, errorStatus, saveErrorMessage } from "$lib/utilities";
 
   // initialize the stores, noop if already initialized
@@ -57,6 +58,14 @@
     uiName="search clients..."
     collectionName="clients"
   >
+    {#snippet searchBarExtra()}
+      {#if canAbsorbDirectly($globalStore.claims)}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- absorbSuggestionsHref resolves the path -->
+        <a class="link whitespace-nowrap" href={absorbSuggestionsHref("clients")}
+          >Absorb suggestions</a
+        >
+      {/if}
+    {/snippet}
     {#snippet headline({ id, name, alias })}
       <a href={`/clients/${id}/details`} class="text-blue-600 hover:underline"
         >{clientLabel({ name, alias })}</a

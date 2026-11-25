@@ -7,6 +7,7 @@
   import { expensesEditingEnabled } from "$lib/stores/appConfig";
   import { globalStore } from "$lib/stores/global";
   import { canAbsorbDirectly } from "$lib/absorbProposals";
+  import { absorbSuggestionsHref } from "$lib/absorbSuggestions";
   import { errorStatus, saveErrorMessage, trimmedOrEmpty } from "$lib/utilities";
 
   // initialize the stores, noop if already initialized
@@ -36,6 +37,14 @@
     uiName="search vendors..."
     collectionName="vendors"
   >
+    {#snippet searchBarExtra()}
+      {#if canAbsorbDirectly($globalStore.claims)}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- absorbSuggestionsHref resolves the path -->
+        <a class="link whitespace-nowrap" href={absorbSuggestionsHref("vendors")}
+          >Absorb suggestions</a
+        >
+      {/if}
+    {/snippet}
     {#snippet headline({ id, name, alias }: VendorApiResponse)}
       <span class="flex items-center gap-2">
         <a href={`/vendors/${id}/details`} class="text-blue-600 hover:underline">

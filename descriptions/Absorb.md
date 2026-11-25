@@ -93,6 +93,68 @@ with the normal absorb. Rate sheets take no proposal.
   `_obsolete`), unless they decided it themself. Holders get no message per
   proposal; the menu badge counts the pending ones.
 
+# Absorb suggestions
+
+`/absorb/suggestions` lists buckets of probable duplicate clients and
+vendors, best first, for `absorb` holders (`absorb.HasRequiredClaims`).
+Client contacts are out of scope. The clients and vendors list pages link to
+it beside the search bar (`?tab=clients` or `?tab=vendors`; `&level=` keeps
+the level). There is no menu entry.
+
+- Matching (`app/absorb/suggest`, pure: rows in, buckets out). Name and
+  alias are normalised apart: lowercase, accents folded, `'`, `’`, backtick
+  and `.` deleted, other non-alphanumerics a space, stop words (inc, ltd,
+  limited, corp, corporation, co, company, the, of, and, llc, lp, llp,
+  incorporated, ltee) dropped, runs of single letters joined (`R & L` is
+  `rl`). A token weighs `ln(N/df) + 0.5`, df over names. Tokens match when
+  equal; a token with a digit, or a shorter token under 4 letters, must be
+  equal; otherwise Damerau-Levenshtein (OSA) over the longer length within
+  the tolerance scores `1 - ratio`, and with the prefix rule a shared
+  prefix of at least 4 letters and 2/3 of the longer scores 0.8. Two
+  adjacent tokens joined match one token when equal (1) or one edit apart
+  with both at least 6 letters (0.9). Pairs align greedily by
+  similarity × weight; a 1:1 match counts `2 × min(w)`, a joined match the
+  sum of its three weights; score = matched / (matched weight + unmatched A
+  - unmatched B + min(unmatched A, B)); an unmatched digit token scores 0.
+    A record's score is its best name/alias pair.
+- Levels: Strict ≥ 0.90, tolerance 0.20, no prefix rule; Normal (default)
+  ≥ 0.80, 0.25, prefix; Loose ≥ 0.70 (clients) or 0.75 (vendors), 0.25,
+  prefix.
+- Only records that share an equal or similar token, a whole joined name, or
+  a joined pair within one edit of a token are scored (inverted indexes), so
+  a list of about 6,000 takes about 0.2 s. It runs on each request; there is
+  no cache, cron or stored table.
+- Buckets are stars, so they don't chain: the unassigned record with the
+  most unassigned matches (ties: more references, then the lower id) is a
+  centre, and its bucket is it with those matches. The suggested target is
+  the member with the most references: jobs as client plus as job owner for
+  clients, purchase orders plus expenses for vendors. Rank is
+  `conf² × ((n − 1) + log2(1 + moved))`, conf the mean score of the others
+  against the target, moved the references of the others. Ties sort by
+  target id; input order doesn't matter.
+- Routes (`app/routes/absorb_suggestions.go`): `GET
+/api/absorb_suggestions/{collection}?level=` returns the buckets, each
+  member's references, score against the target and the open proposal that
+  names it (as an item or as the target), the number of dismissed buckets
+  and the collection's pending absorb action (target, absorbed names,
+  created). `absorb_actions` doesn't record who absorbed, so the UI can't
+  say. `POST /api/absorb_suggestions/{collection}/dismiss` with `record_ids`
+  saves "Not duplicates". Errors are JSON with `code` and `message`
+  (`invalid_collection`, `unauthorized`, `invalid_level`, `too_few_records`,
+  `duplicate_records`, `record_not_found`).
+- Dismissals (`absorb_dismissals`, no API rules): the collection, the ids of
+  the bucket at that moment, who and when, shared by all users. A bucket is
+  hidden while one dismissal holds all its members, so it shows again when a
+  new record joins it.
+- UI. Absorb calls the normal absorb route, then a `DSModal` shows the
+  pending action through `AbsorbList` (`embedded`, `onresolved`). Commit
+  removes the absorbed rows and moves focus to the next bucket; a bucket with
+  two or more records left stays. Undo keeps the bucket and its ticks. The
+  list keeps its order for the session. While the tab's collection has a
+  pending action, a notice reopens the modal and Absorb is off on that tab.
+  A record in an open proposal can't be ticked; the plain absorb route
+  doesn't refuse it, so this is a UI rule. `DSMergeGroup` draws each bucket.
+
 # Optional config hooks
 
 `absorb.Config` (`app/absorb/config.go`) has optional fields. A collection that

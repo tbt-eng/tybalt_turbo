@@ -9,6 +9,7 @@ Use these words in Turbo and in these docs. One word has one meaning.
 | Admin profile         | The record that Turbo keeps about you: your payroll ID, default branch and time off balances. See [Admin profiles](/docs/admin-profiles).           | staff profile   |
 | Approver              | A person who approves a time sheet, expense, purchase order, project request or project value change. See **Who approves what**.                    |                 |
 | Authorization PDF     | The signed PDF that authorizes a project or a value change. It must legally bind the company and the client.                                        |                 |
+| Bucket                | A group of clients or vendors that Turbo thinks are duplicates. See [Absorb suggestions](/docs/absorb-suggestions).                                 |                 |
 | Category              | A group of costs within one job.                                                                                                                    |                 |
 | Child PO              | A One-Time PO for an expense that takes a Cumulative PO over its total. Its number is its parent's number plus a suffix, such as 2611-0379-01.      |                 |
 | Committer             | Staff who commit time sheets and expenses. Commit is the final step.                                                                                |                 |
