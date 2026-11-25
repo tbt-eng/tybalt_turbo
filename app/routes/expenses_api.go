@@ -266,6 +266,11 @@ type PaginatedExpensesResponse struct {
 	TotalPages int                    `json:"total_pages"`
 }
 
+// PurchaseOrderExpensesResponse is the unpaged list of expenses on one PO.
+type PurchaseOrderExpensesResponse struct {
+	Data []ExpensesAugmentedRow `json:"data"`
+}
+
 // Default page size used by expenses list endpoints unless overridden via query param
 const defaultPageLimit = 20
 
@@ -424,48 +429,22 @@ func createGetPurchaseOrderExpensesHandler(app core.App) func(e *core.RequestEve
 			})
 		}
 
-		q := e.Request.URL.Query()
-		page := 1
-		if s := q.Get("page"); s != "" {
-			if p, err := strconv.Atoi(s); err == nil && p > 0 {
-				page = p
-			}
-		}
-		limit := defaultPageLimit
-		if s := q.Get("limit"); s != "" {
-			if l, err := strconv.Atoi(s); err == nil && l > 0 {
-				if l > 200 {
-					l = 200
-				}
-				limit = l
-			}
-		}
-		offset := (page - 1) * limit
-
+		// No paging: the PO details page shows every linked expense the caller
+		// may see, and one PO rarely has more than a few dozen. Paging here once
+		// hid every expense past the first 20 without saying so.
 		params, err := expenseVisibilityParams(app, auth)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "error checking expense visibility claims", err)
 		}
 		params["purchase_order"] = purchaseOrderID
-		params["limit"] = limit
-		params["offset"] = offset
 
 		// Note that the route does not simply mean "all expenses under a visible
 		// PO". The PO id narrows the set, but expenseVisibilityPredicate still
 		// controls which of those rows the caller may inspect.
 		whereClause := "e.purchase_order = {:purchase_order} AND (\n" + expenseVisibilityPredicate + "\n)"
 
-		countQuery := buildCountQuery(whereClause)
-		var total int
-		if err := app.DB().NewQuery(countQuery).Bind(params).Row(&total); err != nil {
-			return e.JSON(http.StatusInternalServerError, map[string]string{
-				"code":    "error_counting_purchase_order_expenses",
-				"message": fmt.Sprintf("failed to count purchase order expenses: %v", err),
-			})
-		}
-
-		listQuery := expensesSelectBaseQuery + "\nWHERE " + whereClause + "\nORDER BY e.committed DESC, e.date DESC, e.created DESC\nLIMIT {:limit} OFFSET {:offset}"
-		var rows []ExpensesAugmentedRow
+		listQuery := expensesSelectBaseQuery + "\nWHERE " + whereClause + "\nORDER BY e.committed DESC, e.date DESC, e.created DESC"
+		rows := []ExpensesAugmentedRow{}
 		if err := app.DB().NewQuery(listQuery).Bind(params).All(&rows); err != nil {
 			return e.JSON(http.StatusInternalServerError, map[string]string{
 				"code":    "error_loading_purchase_order_expenses",
@@ -473,14 +452,7 @@ func createGetPurchaseOrderExpensesHandler(app core.App) func(e *core.RequestEve
 			})
 		}
 
-		resp := PaginatedExpensesResponse{
-			Data:       rows,
-			Page:       page,
-			Limit:      limit,
-			Total:      total,
-			TotalPages: (total + limit - 1) / limit,
-		}
-		return e.JSON(http.StatusOK, resp)
+		return e.JSON(http.StatusOK, PurchaseOrderExpensesResponse{Data: rows})
 	}
 }
 

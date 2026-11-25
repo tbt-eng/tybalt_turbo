@@ -4428,9 +4428,10 @@ func TestPurchaseOrderExpensesRouteRespectsExpenseVisibility(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"id":"6569323gg8184uh"`,
-				`"total":1`,
 			},
-			TestAppFactory: testutils.SetupTestApp,
+			NotExpectedContent: []string{`"total_pages"`},
+			TestAppFactory:     testutils.SetupTestApp,
+			AfterTestFunc:      expectPurchaseOrderExpenseIDs([]string{"6569323gg8184uh"}),
 		},
 		{
 			Name:           "report holder does not see uncommitted related expenses on purchase order details route",
@@ -4440,7 +4441,6 @@ func TestPurchaseOrderExpensesRouteRespectsExpenseVisibility(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"id":"su3hyft6n9rlt7d"`,
-				`"total":1`,
 			},
 			NotExpectedContent: []string{
 				`"id":"eqhozipupteogp8"`,
@@ -4448,6 +4448,7 @@ func TestPurchaseOrderExpensesRouteRespectsExpenseVisibility(t *testing.T) {
 				`"id":"um1uoad5a4mhfcu"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc:  expectPurchaseOrderExpenseIDs([]string{"su3hyft6n9rlt7d"}),
 		},
 		{
 			Name:           "commit holder cannot use purchase order details route when purchase order itself is not visible",
@@ -4462,6 +4463,77 @@ func TestPurchaseOrderExpensesRouteRespectsExpenseVisibility(t *testing.T) {
 				`"id":"6569323gg8184uh"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
+// expectPurchaseOrderExpenseIDs checks that the PO expenses route returned
+// exactly these expense ids, in this order.
+func expectPurchaseOrderExpenseIDs(want []string) func(testing.TB, *tests.TestApp, *http.Response) {
+	return func(tb testing.TB, _ *tests.TestApp, res *http.Response) {
+		defer res.Body.Close()
+		var payload struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+			tb.Fatalf("failed to decode purchase order expenses response: %v", err)
+		}
+		got := make([]string, 0, len(payload.Data))
+		for _, row := range payload.Data {
+			got = append(got, row.ID)
+		}
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			tb.Fatalf("expense ids = %v (%d), want %v (%d)", got, len(got), want, len(want))
+		}
+	}
+}
+
+// TestPurchaseOrderExpensesRouteReturnsEveryVisibleExpense guards against the
+// route paging its results. The PO details page reads one response and shows
+// its length, so a page size cut a PO with 58 expenses down to 20.
+//
+// Fixtures: poexplist000001 is a Closed Cumulative PO owned by
+// po.expenses.list@example.com with 21 committed expenses
+// (poexplistexp001 to poexplistexp021), all owned by that user.
+func TestPurchaseOrderExpensesRouteReturnsEveryVisibleExpense(t *testing.T) {
+	ownerToken, err := testutils.GenerateRecordToken("users", "po.expenses.list@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Newest commit first, matching the route's ORDER BY.
+	want := make([]string, 0, 21)
+	for i := 21; i >= 1; i-- {
+		want = append(want, fmt.Sprintf("poexplistexp%03d", i))
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:               "owner sees all 21 expenses on a PO with more than 20",
+			Method:             http.MethodGet,
+			URL:                "/api/purchase_orders/visible/poexplist000001/expenses",
+			Headers:            map[string]string{"Authorization": ownerToken},
+			ExpectedStatus:     200,
+			ExpectedContent:    []string{`"id":"poexplistexp001"`, `"id":"poexplistexp021"`},
+			NotExpectedContent: []string{`"total_pages"`},
+			TestAppFactory:     testutils.SetupTestApp,
+			AfterTestFunc:      expectPurchaseOrderExpenseIDs(want),
+		},
+		{
+			Name:            "page and limit query params are ignored",
+			Method:          http.MethodGet,
+			URL:             "/api/purchase_orders/visible/poexplist000001/expenses?page=2&limit=5",
+			Headers:         map[string]string{"Authorization": ownerToken},
+			ExpectedStatus:  200,
+			ExpectedContent: []string{`"id":"poexplistexp001"`, `"id":"poexplistexp021"`},
+			TestAppFactory:  testutils.SetupTestApp,
+			AfterTestFunc:   expectPurchaseOrderExpenseIDs(want),
 		},
 	}
 
