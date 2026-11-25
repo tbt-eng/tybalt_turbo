@@ -10,6 +10,13 @@
   import InvoicingEditor from "./InvoicingEditor.svelte";
   let { data }: { data: Awaited<ReturnType<typeof loadClientEditor>> } = $props();
 
+  // A path in the client workspace, which safeReturnTo checked when the
+  // editor loaded.
+  function leaveTo(path: string) {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- safeReturnTo checks the path
+    return goto(path);
+  }
+
   async function savedProfile(
     record: WorkflowRecord,
     mode?: "create" | "update" | "copy" | "reuse",
@@ -60,6 +67,9 @@
           projectContact={data.projectContact}
           onSaved={savedProfile}
           onCancel={() => goto(data.returnTo)}
+          onDeleted={() => leaveTo(data.returnTo)}
+          onReplaced={(replacement) =>
+            leaveTo(savedReturnTo(data.returnTo, "invoicing", replacement.id))}
         />
       {/if}
     {/key}

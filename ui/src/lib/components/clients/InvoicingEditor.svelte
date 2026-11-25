@@ -4,12 +4,22 @@
   import { untrack } from "svelte";
   import MiniSearch from "minisearch";
   import { pb } from "$lib/pocketbase";
+  import { ClientResponseError } from "pocketbase";
   import { globalStore } from "$lib/stores/global";
   import DsList from "$lib/components/DSList.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
+  import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSCollapsible from "$lib/components/DSCollapsible.svelte";
+  import DSPicker from "$lib/components/DSPicker.svelte";
+  import DSPopover from "$lib/components/DSPopover.svelte";
+  import { invoicingProfileLabel } from "$lib/utilities";
+  import type {
+    ClientContactsResponse,
+    ClientInvoicingInformationResponse,
+  } from "$lib/pocketbase-types";
   import ContactEditor from "./ContactEditor.svelte";
   import InvoicingInstructions from "./InvoicingInstructions.svelte";
   import {
@@ -34,6 +44,8 @@
     projectContact = "",
     onSaved,
     onCancel,
+    onDeleted,
+    onReplaced,
   }: {
     client: WorkflowRecord;
     contacts: WorkflowRecord[];
@@ -44,6 +56,10 @@
       mode?: "create" | "update" | "copy" | "reuse",
     ) => void | Promise<void>;
     onCancel: () => void;
+    // Given, the editor offers to delete an unused profile and to replace it.
+    onDeleted?: () => void | Promise<void>;
+    // Receives the profile that took over this profile's jobs and requests.
+    onReplaced?: (replacement: WorkflowRecord) => void | Promise<void>;
   } = $props();
   // A blank billing_name bills the official name, as does "name".
   let item = $state(
@@ -243,6 +259,90 @@
     } catch (e: any) {
       errors = e?.data?.data || {};
       error = workflowError(e);
+    } finally {
+      busy = false;
+    }
+  }
+  // A profile in use can't be deleted; replacing it moves its jobs and
+  // requests to another profile of the client, then deletes it.
+  const inUse = $derived(Number(record.job_count || 0) + Number(record.request_count || 0) > 0);
+  const otherProfiles = $derived(
+    ((client.invoicing_profiles || []) as ClientInvoicingInformationResponse[]).filter(
+      (profile) => profile.client === client.id && profile.id !== record.id,
+    ),
+  );
+  const profileIndex = $derived.by(() => {
+    const index = new MiniSearch<ClientInvoicingInformationResponse>({
+      fields: ["name", "invoicing_instructions", "fax"],
+      storeFields: ["name", "contact", "invoicing_instructions", "created"],
+      searchOptions: { combineWith: "AND", prefix: true },
+    });
+    index.addAll(otherProfiles);
+    return index;
+  });
+  function profileLabel(profile: ClientInvoicingInformationResponse) {
+    return invoicingProfileLabel(
+      profile,
+      otherProfiles,
+      contacts as unknown as ClientContactsResponse[],
+    );
+  }
+  let replacing = $state(false);
+  let replacement = $state("");
+  let replaceErrors = $state<FieldErrors>({});
+  let replaceError = $state<string | null>(null);
+  // Leave the editor without the unsaved-changes prompt: the profile is gone.
+  async function leaveAfter(action: () => void | Promise<void>) {
+    saved = JSON.stringify(item);
+    contactDirty = false;
+    savedForNavigation = true;
+    await action();
+  }
+  async function deleteProfile() {
+    if (busy || inUse || !canManage || !record.id) return;
+    if (!window.confirm("Delete this invoicing profile?")) return;
+    busy = true;
+    savedForNavigation = false;
+    error = "";
+    try {
+      await pb.collection("client_invoicing_information").delete(record.id);
+      await leaveAfter(() => onDeleted?.());
+    } catch (e) {
+      error = workflowError(e);
+    } finally {
+      busy = false;
+    }
+  }
+  function openReplace() {
+    if (busy || !canManage) return;
+    replacement = "";
+    replaceErrors = {};
+    replaceError = null;
+    replacing = true;
+  }
+  async function replaceProfile() {
+    if (busy || !canManage || !record.id) return;
+    if (!replacement) {
+      replaceErrors = { replacement: { message: "Select the invoicing profile to use instead." } };
+      return;
+    }
+    busy = true;
+    savedForNavigation = false;
+    replaceErrors = {};
+    replaceError = null;
+    try {
+      await pb.send(`/api/clients/${client.id}/invoicing_profiles/${record.id}/replace`, {
+        method: "POST",
+        body: { replacement },
+      });
+      const chosen = otherProfiles.find((profile) => profile.id === replacement) ?? {
+        id: replacement,
+      };
+      await leaveAfter(() => onReplaced?.(chosen));
+    } catch (e: unknown) {
+      const response = e instanceof ClientResponseError ? e.data : {};
+      replaceErrors = (response?.data as FieldErrors | undefined) ?? {};
+      replaceError = response?.message ?? "The profile could not be replaced. Try again.";
     } finally {
       busy = false;
     }
@@ -486,7 +586,66 @@
     <p id={helpId + "-form"} class="min-h-10 text-sm text-neutral-600" aria-live="polite">
       {actionHelp}
     </p>
+    {#if record.id && onDeleted && canManage}
+      <DSCollapsible title="More actions">
+        <div class="flex flex-wrap gap-2">
+          {#if onReplaced && otherProfiles.length}
+            <DsActionButton action={openReplace} disabled={busy || !!decision}
+              >Replace with…</DsActionButton
+            >
+          {/if}
+          <DsActionButton action={deleteProfile} disabled={busy || !!decision || inUse} color="red"
+            >Delete invoicing profile</DsActionButton
+          >
+        </div>
+        {#if inUse}<p class="text-sm text-neutral-600">
+            This profile is in use and cannot be deleted.
+            {#if onReplaced && otherProfiles.length}Use <strong>Replace with…</strong> to move its jobs
+              and requests to another profile.{/if}
+          </p>{/if}
+      </DSCollapsible>
+    {/if}
   </form>
+{/if}
+
+{#if replacing}
+  <DSPopover
+    bind:show={replacing}
+    title="Replace invoicing profile"
+    subtitle="Move the jobs and requests that use this profile to another profile of this client, then delete this profile."
+    error={replaceError}
+    submitting={busy}
+    submitLabel="Replace profile"
+    submitDisabled={!replacement}
+    danger
+    onSubmit={replaceProfile}
+    onCancel={() => {
+      if (!busy) replacing = false;
+    }}
+  >
+    <DSPicker
+      bind:value={replacement}
+      items={otherProfiles}
+      index={profileIndex}
+      errors={replaceErrors}
+      fieldName="replacement"
+      uiName="Replace with"
+      placeholder="Find an invoicing profile"
+      disabled={busy}
+      required
+      empty
+    >
+      {#snippet option(profile)}{profileLabel(profile)}{/snippet}
+    </DSPicker>
+    <DSCallout tone="warning">
+      <p>
+        {countLabel(Number(record.job_count || 0), "job")} and {countLabel(
+          Number(record.request_count || 0),
+          "request",
+        )} will move to the chosen profile. This profile is then deleted. This cannot be undone.
+      </p>
+    </DSCallout>
+  </DSPopover>
 {/if}
 
 <dialog

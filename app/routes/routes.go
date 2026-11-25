@@ -269,6 +269,7 @@ func AddRoutes(app core.App) {
 		clientsGroup.GET("/{id}/rate_sheets", createGetClientRateSheetsHandler(app))
 		clientsGroup.GET("/{id}/contacts/{record}/usage", createGetClientUsageHandler(app, "client_contacts"))
 		clientsGroup.GET("/{id}/invoicing_profiles/{record}/usage", createGetClientUsageHandler(app, "client_invoicing_information"))
+		clientsGroup.POST("/{id}/invoicing_profiles/{record}/replace", createReplaceInvoicingProfileHandler(app))
 		clientsGroup.POST("/{id}/absorb", CreateAbsorbRecordsHandler(app, "clients"))
 		clientsGroup.POST("/undo_absorb", CreateUndoAbsorbHandler(app, "clients"))
 

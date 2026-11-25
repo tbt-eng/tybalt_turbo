@@ -286,26 +286,42 @@ func checkPendingClientMerges(tx core.App, req jobChangeClientRequest, ids []any
 	for _, note := range notes {
 		tracked[note.Id] = true
 	}
-	actions, err := tx.FindRecordsByFilter("absorb_actions", "collection_name = 'clients' || collection_name = 'client_contacts'", "", 0, 0)
+	pending, err := pendingClientMergeTouches(tx, tracked)
 	if err != nil {
 		return err
+	}
+	if pending {
+		return jobChangeClientError(http.StatusConflict, "", "", "A client or contact merge that involves this project or the chosen contact or invoicing profile is waiting to be committed or undone. Finish it before changing the client.")
+	}
+	return nil
+}
+
+// pendingClientMergeTouches reports whether a client or contact merge that is
+// waiting to be committed or undone rewrote a reference on any record whose id
+// is in tracked. Undo restores the references it recorded, so an action that
+// changes such a record first could be overwritten, or leave undo unable to
+// finish.
+func pendingClientMergeTouches(tx core.App, tracked map[string]bool) (bool, error) {
+	actions, err := tx.FindRecordsByFilter("absorb_actions", "collection_name = 'clients' || collection_name = 'client_contacts'", "", 0, 0)
+	if err != nil {
+		return false, err
 	}
 	for _, action := range actions {
 		var updates map[string]map[string]map[string]string
 		if err := action.UnmarshalJSONField("updated_references", &updates); err != nil {
-			return err
+			return false, err
 		}
 		for _, fields := range updates {
 			for _, records := range fields {
 				for id := range records {
 					if tracked[id] {
-						return jobChangeClientError(http.StatusConflict, "", "", "A client or contact merge that involves this project or the chosen contact or invoicing profile is waiting to be committed or undone. Finish it before changing the client.")
+						return true, nil
 					}
 				}
 			}
 		}
 	}
-	return nil
+	return false, nil
 }
 
 // queueClientChangeNotice emails the managers of the moved jobs and the people

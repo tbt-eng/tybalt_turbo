@@ -367,3 +367,185 @@ func TestClientWorkspaceUsageLists(t *testing.T) {
 	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "inactive@example.com", nil, http.StatusForbidden)
 	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "", nil, http.StatusUnauthorized)
 }
+
+const replaceProfilePath = "/api/clients/" + workspaceClient + "/invoicing_profiles/"
+
+// replaceProfile posts a replace request and returns the response body.
+func replaceProfile(t *testing.T, app *tests.TestApp, profile, email string, body any, status int) string {
+	t.Helper()
+	token := ""
+	if email != "" {
+		auth, err := app.FindAuthRecordByEmail("users", email)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if token, err = auth.NewAuthToken(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	response := performJSONRequest(t, app, http.MethodPost, replaceProfilePath+profile+"/replace", token, body)
+	mustStatus(t, response, status)
+	return response.Body.String()
+}
+
+// profileUses returns the ids of the jobs and requests that use a profile.
+func profileUses(t *testing.T, app *tests.TestApp, table, profile string) []string {
+	t.Helper()
+	ids := []string{}
+	if err := app.DB().Select("id").From(table).Where(dbx.HashExp{"invoicing_information": profile}).OrderBy("id").Column(&ids); err != nil {
+		t.Fatal(err)
+	}
+	return ids
+}
+
+// Replacing cwinvoice000001 with cwinvoice000002 moves both Closed jobs and
+// both requests of test_seed_data/client_workspace, and deletes the old profile.
+func TestClientWorkspaceReplaceInvoicingProfile(t *testing.T) {
+	app := newClientWorkspaceTestApp(t)
+	// Test-time changes to fixture data: cwrequest000002 is put in Awaiting
+	// approval, so a request past Draft moves too, and cwjob0000000001 is
+	// marked imported, to show that a moved job is marked for writeback.
+	execSQL(t, app,
+		"UPDATE job_requests SET status = 'Awaiting approval' WHERE id = 'cwrequest000002'",
+		"UPDATE jobs SET _imported = 1 WHERE id = 'cwjob0000000001'",
+	)
+
+	body := replaceProfile(t, app, "cwinvoice000001", "author@soup.com", map[string]any{"replacement": "cwinvoice000002"}, http.StatusOK)
+	result := map[string]any{}
+	if err := json.Unmarshal([]byte(body), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["jobs"] != float64(2) || result["requests"] != float64(2) {
+		t.Fatalf("moved counts = %#v; want 2 jobs and 2 requests", result)
+	}
+	if _, err := app.FindRecordById("client_invoicing_information", "cwinvoice000001"); err == nil {
+		t.Fatal("the replaced profile was not deleted")
+	}
+	if got := profileUses(t, app, "jobs", "cwinvoice000002"); fmt.Sprint(got) != "[cwjob0000000001 cwjob0000000002]" {
+		t.Errorf("jobs on the replacement = %v", got)
+	}
+	if got := profileUses(t, app, "job_requests", "cwinvoice000002"); fmt.Sprint(got) != "[cwrequest000001 cwrequest000002]" {
+		t.Errorf("requests on the replacement = %v", got)
+	}
+	for _, id := range []string{"cwjob0000000001", "cwjob0000000002"} {
+		job, err := app.FindRecordById("jobs", id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if job.GetBool("_imported") || job.GetString("status") != "Closed" || !job.GetDateTime("updated").Time().After(job.GetDateTime("created").Time()) {
+			t.Errorf("job %s: _imported %v, status %s, updated %s; want marked for writeback, still Closed, and updated", id, job.GetBool("_imported"), job.GetString("status"), job.GetString("updated"))
+		}
+	}
+	// A changed request makes an open review stale, as an edit does.
+	for id, status := range map[string]string{"cwrequest000001": "Draft", "cwrequest000002": "Awaiting approval"} {
+		request, err := app.FindRecordById("job_requests", id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if request.GetInt("version") != 2 || request.GetString("status") != status {
+			t.Errorf("request %s: version %d, status %s; want version 2 and %s", id, request.GetInt("version"), request.GetString("status"), status)
+		}
+	}
+	// The client details count the moved records on the replacement.
+	details := clientSetupJSON(t, app, http.MethodGet, "/api/clients/"+workspaceClient, "author@soup.com", nil, http.StatusOK)
+	profiles := details["invoicing_profiles"].([]any)
+	if len(profiles) != 2 {
+		t.Fatalf("profiles = %d; want 2 after the replace", len(profiles))
+	}
+	for _, value := range profiles {
+		profile := value.(map[string]any)
+		if profile["id"] == "cwinvoice000002" && (profile["job_count"] != float64(2) || profile["request_count"] != float64(2)) {
+			t.Errorf("replacement counts = %#v", profile)
+		}
+	}
+
+	// An unused profile can be replaced too; nothing moves.
+	body = replaceProfile(t, app, "cwinvoice000003", "author@soup.com", map[string]any{"replacement": "cwinvoice000002"}, http.StatusOK)
+	if !strings.Contains(body, `"jobs":0`) || !strings.Contains(body, `"requests":0`) {
+		t.Errorf("replace of an unused profile = %s", body)
+	}
+}
+
+// A refused replace changes nothing.
+func TestClientWorkspaceReplaceInvoicingProfileRejections(t *testing.T) {
+	app := newClientWorkspaceTestApp(t)
+	for _, tc := range []struct {
+		name, profile string
+		body          any
+		status        int
+		want          string
+	}{
+		{"no replacement", "cwinvoice000001", map[string]any{}, http.StatusBadRequest, `"replacement":{"code":"required"`},
+		{"same profile", "cwinvoice000001", map[string]any{"replacement": "cwinvoice000001"}, http.StatusBadRequest, `"replacement":{"code":"unchanged"`},
+		{"profile of another client", "cwinvoice000001", map[string]any{"replacement": "painvoice000001"}, http.StatusBadRequest, `"replacement":{"code":"client_mismatch"`},
+		{"missing replacement", "cwinvoice000001", map[string]any{"replacement": "missingprofile0"}, http.StatusBadRequest, `"replacement":{"code":"invalid_reference"`},
+		{"missing profile", "missingprofile0", map[string]any{"replacement": "cwinvoice000002"}, http.StatusNotFound, "not found for this client"},
+		{"profile of another client in the path", "painvoice000001", map[string]any{"replacement": "cwinvoice000002"}, http.StatusNotFound, "not found for this client"},
+		{"contact id as the profile", "cwcontact000001", map[string]any{"replacement": "cwinvoice000002"}, http.StatusNotFound, "not found for this client"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if body := replaceProfile(t, app, tc.profile, "author@soup.com", tc.body, tc.status); !strings.Contains(body, tc.want) {
+				t.Errorf("response %s does not contain %s", body, tc.want)
+			}
+		})
+	}
+
+	// Only active holders of job may replace a profile.
+	replacement := map[string]any{"replacement": "cwinvoice000002"}
+	replaceProfile(t, app, "cwinvoice000001", "time@test.com", replacement, http.StatusForbidden)
+	replaceProfile(t, app, "cwinvoice000001", "inactive@example.com", replacement, http.StatusForbidden)
+	replaceProfile(t, app, "cwinvoice000001", "", replacement, http.StatusUnauthorized)
+
+	if got := profileUses(t, app, "jobs", "cwinvoice000001"); len(got) != 2 {
+		t.Errorf("a refused replace moved jobs: %v remain", got)
+	}
+	if got := profileUses(t, app, "job_requests", "cwinvoice000001"); len(got) != 2 {
+		t.Errorf("a refused replace moved requests: %v remain", got)
+	}
+	if _, err := app.FindRecordById("client_invoicing_information", "cwinvoice000001"); err != nil {
+		t.Errorf("a refused replace deleted the profile: %v", err)
+	}
+}
+
+// A holder of job whose account is inactive may not replace a profile.
+func TestClientWorkspaceReplaceInvoicingProfileRequiresActiveAccount(t *testing.T) {
+	app := newClientWorkspaceTestApp(t)
+	// Test-time change to fixture data: author@soup.com, who holds job, is
+	// made inactive.
+	execSQL(t, app, "UPDATE admin_profiles SET active = 0 WHERE uid = 'f2j5a8vk006baub'")
+	replaceProfile(t, app, "cwinvoice000001", "author@soup.com", map[string]any{"replacement": "cwinvoice000002"}, http.StatusForbidden)
+	if got := profileUses(t, app, "jobs", "cwinvoice000001"); len(got) != 2 {
+		t.Errorf("an inactive user moved jobs: %v remain", got)
+	}
+}
+
+// While a contact merge that moved a job of the profile can still be undone,
+// the profile can't be replaced: undo would restore the job's references.
+func TestClientWorkspaceReplaceInvoicingProfileWaitsForMerge(t *testing.T) {
+	app := newClientWorkspaceTestApp(t)
+	// Test-time change to fixture data: book@keeper.com merges Blair
+	// (cwcontact000002) into Alex (cwcontact000001), which moves
+	// cwjob0000000002, cwrequest000002 and cwinvoice000003 to Alex.
+	auth, err := app.FindAuthRecordByEmail("users", "book@keeper.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := auth.NewAuthToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustStatus(t, performJSONRequest(t, app, http.MethodPost, "/api/client_contacts/cwcontact000001/absorb", token, map[string]any{"ids_to_absorb": []string{"cwcontact000002"}}), http.StatusOK)
+
+	body := replaceProfile(t, app, "cwinvoice000001", "author@soup.com", map[string]any{"replacement": "cwinvoice000002"}, http.StatusConflict)
+	if !strings.Contains(body, "waiting to be committed or undone") {
+		t.Errorf("response %s does not name the pending merge", body)
+	}
+	// The merge moved cwinvoice000003 itself, so it can't be the replacement either.
+	replaceProfile(t, app, "cwinvoice000002", "author@soup.com", map[string]any{"replacement": "cwinvoice000003"}, http.StatusConflict)
+	if _, err := app.FindRecordById("client_invoicing_information", "cwinvoice000001"); err != nil {
+		t.Errorf("a refused replace deleted the profile: %v", err)
+	}
+	if got := profileUses(t, app, "jobs", "cwinvoice000001"); len(got) != 2 {
+		t.Errorf("a refused replace moved jobs: %v remain", got)
+	}
+}
