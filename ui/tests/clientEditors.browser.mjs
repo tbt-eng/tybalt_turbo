@@ -226,14 +226,16 @@ await runBrowserHarness(
     await choice
       .getByText("Apply these changes everywhere this profile is used.", { exact: true })
       .waitFor();
-    await choice.getByRole("button", { name: "Save as new profile", exact: true }).hover();
+    // The dialog opens with focus on Cancel, its first button, so the keyboard
+    // check moves focus to another button and the pointer check covers Cancel.
+    await choice.getByRole("button", { name: "Save as new profile", exact: true }).focus();
     await choice
       .getByText(
         "Keep the original profile unchanged and create a new profile from these fields.",
         { exact: true },
       )
       .waitFor();
-    await choice.getByRole("button", { name: "Cancel", exact: true }).focus();
+    await choice.getByRole("button", { name: "Cancel", exact: true }).hover();
     await choice
       .getByText("Return to editing without saving. Your changes stay in the form.", {
         exact: true,

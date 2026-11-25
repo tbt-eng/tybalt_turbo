@@ -8,6 +8,7 @@
   import { globalStore } from "$lib/stores/global";
   import DsTextInput from "$lib/components/DSTextInput.svelte";
   import DsActionButton from "$lib/components/DSActionButton.svelte";
+  import DSCollapsible from "$lib/components/DSCollapsible.svelte";
   import PostalFields from "./PostalFields.svelte";
   import {
     contactFields,
@@ -170,9 +171,8 @@
     <DsActionButton action={cancelEdit} disabled={busy}>Cancel</DsActionButton>
   </div>
   {#if record.id && onDeleted && $globalStore.claims.includes("job")}
-    <details>
-      <summary class="cursor-pointer">More actions</summary>
-      <div class="mt-3 flex flex-wrap gap-2">
+    <DSCollapsible title="More actions">
+      <div class="flex flex-wrap gap-2">
         {#if $globalStore.claims.includes("absorb")}
           <DsActionButton
             action={() => {
@@ -186,10 +186,10 @@
           >Delete contact</DsActionButton
         >
       </div>
-      {#if inUse}<p class="mt-2 text-sm text-neutral-600">
+      {#if inUse}<p class="text-sm text-neutral-600">
           This contact is in use and cannot be deleted.
           {#if $globalStore.claims.includes("absorb")}Use merge to combine duplicate contacts.{/if}
         </p>{/if}
-    </details>
+    </DSCollapsible>
   {/if}
 </form>

@@ -14,7 +14,6 @@
     "src/lib/components/StoredFileHashRepairPopover.svelte": 4,
     "src/lib/components/TimeEntriesEditor.svelte": 2,
     "src/lib/components/VersionInfo.svelte": 2,
-    "src/lib/components/clients/InvoicingEditor.svelte": 6,
     "src/lib/components/clients/InvoicingInstructions.svelte": 1,
     "src/lib/components/clients/InvoicingProfileEmptyState.svelte": 2,
     "src/lib/components/jobs/ChangeClientPopover.svelte": 3,
@@ -48,7 +47,7 @@
     "src/routes/time/tracking/[weekEnding]/+page.svelte": 1
   },
   "raw-details": {
-    "src/lib/components/clients/ContactEditor.svelte": 2
+    "src/lib/components/clients/ContactEditor.svelte": 1
   },
   "off-palette-grey": {
     "src/lib/components/ExpensesList.svelte": 1,
@@ -79,7 +78,6 @@
     "src/lib/components/StoredFileHashRepairPopover.svelte": 1,
     "src/lib/components/TimeEntriesEditor.svelte": 1,
     "src/lib/components/VersionInfo.svelte": 1,
-    "src/lib/components/clients/InvoicingEditor.svelte": 2,
     "src/lib/components/jobs/JobValueLine.svelte": 1,
     "src/lib/components/jobs/JobValueProposal.svelte": 5,
     "src/lib/components/jobs/WIPSummary.svelte": 1,

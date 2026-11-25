@@ -15,6 +15,8 @@
     type = "button",
     disabled = false,
     variant = "chip",
+    onexplain,
+    describedBy,
   }: {
     icon?: string;
     title?: string;
@@ -31,6 +33,11 @@
     // secondary: filled grey, for Cancel beside a primary or danger button.
     // plain: text only, styled like a link.
     variant?: "chip" | "primary" | "danger" | "secondary" | "plain";
+    // Called when the pointer or keyboard focus reaches the button, so a form
+    // can explain what the button does in a line of text. Give that line's
+    // id as describedBy, so a screen reader reads it with the button.
+    onexplain?: () => void;
+    describedBy?: string;
   } = $props();
 
   // Full class strings so Tailwind sees every class. `bg` is dropped when
@@ -125,7 +132,16 @@
 </script>
 
 {#if variant === "chip"}
-  <button onclick={handleClick} {type} {title} disabled={isLoading || disabled} class={chipClasses}>
+  <button
+    onclick={handleClick}
+    onmouseenter={onexplain}
+    onfocus={onexplain}
+    aria-describedby={describedBy}
+    {type}
+    {title}
+    disabled={isLoading || disabled}
+    class={chipClasses}
+  >
     {#if isLoading}
       <span class="flex h-6 w-5 items-center">
         <LoadingAnimation />
@@ -142,6 +158,9 @@
 {:else}
   <button
     onclick={handleClick}
+    onmouseenter={onexplain}
+    onfocus={onexplain}
+    aria-describedby={describedBy}
     {type}
     {title}
     disabled={isLoading || disabled}

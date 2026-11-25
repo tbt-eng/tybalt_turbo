@@ -92,6 +92,8 @@ All new components use the `DS` prefix (decision D5). Existing components keep t
 - `"secondary"`: filled grey. For Cancel beside a primary or danger button (added in phase 2 so `DSPopover` keeps its look).
 - `"plain"`: text-only, styled like a link.
 
+`onexplain` runs when the pointer or keyboard focus reaches the button, so a form can explain each button in one line of text below them; `describedBy` is that line's id. The invoicing profile editor uses it.
+
 Colour classes move into a static map. This replaces the raw buttons inside `DSPopover` and most of the 144 raw buttons elsewhere.
 
 **`DsLabel`**:

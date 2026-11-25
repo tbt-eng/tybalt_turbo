@@ -12,6 +12,8 @@
   import DsAutoComplete from "$lib/components/DSAutoComplete.svelte";
   import DsSelector from "$lib/components/DSSelector.svelte";
   import DSCallout from "$lib/components/DSCallout.svelte";
+  import DSCard from "$lib/components/DSCard.svelte";
+  import DSModal from "$lib/components/DSModal.svelte";
   import DSCollapsible from "$lib/components/DSCollapsible.svelte";
   import DSPicker from "$lib/components/DSPicker.svelte";
   import DSPopover from "$lib/components/DSPopover.svelte";
@@ -84,7 +86,6 @@
     unchanged: boolean;
   } | null>(null);
   let decision = $state<{ jobs: number; requests: number } | null>(null);
-  let dialog: HTMLDialogElement;
   const helpId = $props.id();
   const explanations = {
     choose: "Choose how to save your changes.",
@@ -99,11 +100,6 @@
   let actionHelp = $state(defaultHelp);
   // Show the explanation for the action under the pointer or keyboard focus.
   const explain = (text: string) => () => (actionHelp = text);
-  $effect(() => {
-    if (!dialog) return;
-    if (decision && !dialog.open) dialog.showModal();
-    else if (!decision && dialog.open) dialog.close();
-  });
   function cancelDecision() {
     if (busy) return;
     decision = null;
@@ -527,21 +523,24 @@
         </p>
       {/if}
       {#if recipient}
-        <div class="rounded-sm bg-neutral-100 p-3 text-sm">
-          <p class="font-semibold">Invoice address</p>
-          <p>{billingName(client as { name: string; alias?: string }, item)}</p>
-          <p class="whitespace-pre-line">
-            {addressText(recipient) || addressText(client) || "No postal address entered"}
-          </p>
-          {#if !addressText(recipient)}<p class="text-neutral-600">Uses the client address.</p>{/if}
-        </div>
+        <DSCard title="Invoice address">
+          <div class="text-sm">
+            <p>{billingName(client as { name: string; alias?: string }, item)}</p>
+            <p class="whitespace-pre-line">
+              {addressText(recipient) || addressText(client) || "No postal address entered"}
+            </p>
+            {#if !addressText(recipient)}<p class="text-neutral-600">
+                Uses the client address.
+              </p>{/if}
+          </div>
+        </DSCard>
       {/if}
       <label class="flex flex-col gap-2" for="invoicing-instructions"
         >Invoice instructions
         <textarea
           id="invoicing-instructions"
           name="invoicing_instructions"
-          class="rounded border border-neutral-300 p-2"
+          class="rounded-sm border border-neutral-300 p-2"
           rows="4"
           bind:value={item.invoicing_instructions}></textarea>
       </label>
@@ -551,36 +550,28 @@
       <DsTextInput bind:value={item.fax} {errors} fieldName="fax" uiName="Fax" />
     </fieldset>
     <div class="flex flex-wrap gap-2">
-      <button
+      <DsActionButton
         type="submit"
         disabled={busy || !!decision || !canSave}
-        aria-describedby={helpId + "-form"}
-        onmouseenter={explain(record.id ? explanations.update : explanations.create)}
-        onfocus={explain(record.id ? explanations.update : explanations.create)}
-        class="rounded-xs bg-yellow-200 px-2 py-1 hover:bg-yellow-300 disabled:opacity-40"
-        >Save invoicing profile</button
+        describedBy={helpId + "-form"}
+        onexplain={explain(record.id ? explanations.update : explanations.create)}
+        >Save invoicing profile</DsActionButton
       >
       {#if record.id && canManage}
-        <button
-          type="button"
+        <DsActionButton
+          action={() => save(undefined, true)}
           disabled={busy || !!decision || !canManage}
-          onclick={() => save(undefined, true)}
-          aria-describedby={helpId + "-form"}
-          onmouseenter={explain(explanations.copy)}
-          onfocus={explain(explanations.copy)}
-          class="rounded-xs bg-neutral-200 px-2 py-1 hover:bg-neutral-300 disabled:opacity-40"
-          >Save as new profile</button
+          color="neutral"
+          describedBy={helpId + "-form"}
+          onexplain={explain(explanations.copy)}>Save as new profile</DsActionButton
         >
       {/if}
-      <button
-        type="button"
-        onclick={cancelEdit}
+      <DsActionButton
+        action={cancelEdit}
         disabled={busy || !!decision}
-        aria-describedby={helpId + "-form"}
-        onmouseenter={explain(explanations.leave)}
-        onfocus={explain(explanations.leave)}
-        class="rounded-xs bg-neutral-200 px-2 py-1 hover:bg-neutral-300 disabled:opacity-40"
-        >Cancel</button
+        color="neutral"
+        describedBy={helpId + "-form"}
+        onexplain={explain(explanations.leave)}>Cancel</DsActionButton
       >
     </div>
     <p id={helpId + "-form"} class="min-h-10 text-sm text-neutral-600" aria-live="polite">
@@ -648,59 +639,47 @@
   </DSPopover>
 {/if}
 
-<dialog
-  bind:this={dialog}
-  oncancel={(event) => {
-    event.preventDefault();
-    cancelDecision();
-  }}
-  aria-labelledby={helpId + "-title"}
-  aria-describedby={helpId + "-usage"}
-  class="m-auto w-[32rem] max-w-[calc(100vw-2rem)] rounded-md border border-neutral-300 bg-white p-5 text-neutral-800 shadow-lg backdrop:bg-black/40"
+<DSModal
+  show={!!decision}
+  title="Save invoicing profile"
+  dismissible={!busy}
+  onclose={cancelDecision}
 >
   {#if decision}
-    <h2 id={helpId + "-title"} class="mb-3 text-xl font-semibold">Save invoicing profile</h2>
-    <p id={helpId + "-usage"}>
-      This profile is used by {countLabel(decision.jobs, "job")}{decision.requests > 0
-        ? ` and ${countLabel(decision.requests, "request")}`
-        : ""}.
-    </p>
-    <p class="mt-2">Update the shared profile, or save your changes as a new profile?</p>
-    {#if error}<p role="alert" class="mt-2 text-red-700">{error}</p>{/if}
-    <div class="mt-4 flex flex-wrap gap-2">
-      <button
-        type="button"
-        disabled={busy}
-        onclick={() => saveDecision("update")}
-        aria-describedby={helpId + "-choice"}
-        onmouseenter={explain(explanations.update)}
-        onfocus={explain(explanations.update)}
-        class="rounded-xs bg-yellow-200 px-2 py-1 hover:bg-yellow-300 disabled:opacity-40"
-        >Update shared profile</button
-      >
-      <button
-        type="button"
-        disabled={busy}
-        onclick={() => saveDecision("copy")}
-        aria-describedby={helpId + "-choice"}
-        onmouseenter={explain(explanations.copy)}
-        onfocus={explain(explanations.copy)}
-        class="rounded-xs bg-neutral-200 px-2 py-1 hover:bg-neutral-300 disabled:opacity-40"
-        >Save as new profile</button
-      >
-      <button
-        type="button"
-        disabled={busy}
-        onclick={cancelDecision}
-        aria-describedby={helpId + "-choice"}
-        onmouseenter={explain(explanations.cancel)}
-        onfocus={explain(explanations.cancel)}
-        class="rounded-xs bg-neutral-200 px-2 py-1 hover:bg-neutral-300 disabled:opacity-40"
-        >Cancel</button
-      >
+    <div class="space-y-2">
+      <p>
+        This profile is used by {countLabel(decision.jobs, "job")}{decision.requests > 0
+          ? ` and ${countLabel(decision.requests, "request")}`
+          : ""}.
+      </p>
+      <p>Update the shared profile, or save your changes as a new profile?</p>
+      {#if error}<p role="alert" class="text-red-700">{error}</p>{/if}
+      <p id={helpId + "-choice"} class="min-h-10 text-sm text-neutral-600" aria-live="polite">
+        {actionHelp}
+      </p>
     </div>
-    <p id={helpId + "-choice"} class="mt-3 min-h-10 text-sm text-neutral-600" aria-live="polite">
-      {actionHelp}
-    </p>
   {/if}
-</dialog>
+  {#snippet footer()}
+    <DsActionButton
+      variant="secondary"
+      action={cancelDecision}
+      disabled={busy}
+      describedBy={helpId + "-choice"}
+      onexplain={explain(explanations.cancel)}>Cancel</DsActionButton
+    >
+    <DsActionButton
+      variant="secondary"
+      action={() => saveDecision("copy")}
+      disabled={busy}
+      describedBy={helpId + "-choice"}
+      onexplain={explain(explanations.copy)}>Save as new profile</DsActionButton
+    >
+    <DsActionButton
+      variant="primary"
+      action={() => saveDecision("update")}
+      disabled={busy}
+      describedBy={helpId + "-choice"}
+      onexplain={explain(explanations.update)}>Update shared profile</DsActionButton
+    >
+  {/snippet}
+</DSModal>

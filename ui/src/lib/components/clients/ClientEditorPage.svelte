@@ -48,7 +48,7 @@
 </script>
 
 <ClientWorkspaceShell clientId={data.client.id} clientName={data.client.name}>
-  <div class="mx-auto w-full max-w-3xl p-3">
+  <div class="w-full max-w-3xl">
     {#key `${data.client.id}/${data.kind}/${data.record.id || "new"}`}
       {#if data.kind === "contact"}
         <ContactEditor
