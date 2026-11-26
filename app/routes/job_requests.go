@@ -824,8 +824,16 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				if err != nil {
 					return err
 				}
-				if a.GetString("status") != "Approved" || a.GetInt("request_version") != r.GetInt("version") || a.GetFloat("project_value") != r.GetFloat("project_value") || !approvedToken || input.ReviewToken != token || input.DocumentHash != a.GetString("document_hash") {
+				if a.GetString("status") != "Approved" || a.GetInt("request_version") != r.GetInt("version") || a.GetFloat("project_value") != r.GetFloat("project_value") || !approvedToken || input.DocumentHash != a.GetString("document_hash") {
 					return apis.NewApiError(http.StatusConflict, "The approval is stale. Recall the request for a new approval.", nil)
+				}
+				// The saved approval still covers the request, and only the
+				// page is out of date: a colleague changed the invoicing
+				// profile, or the page was loaded before a deploy changed the
+				// digest. A reload is enough; a recall would throw away a
+				// valid approval.
+				if input.ReviewToken != token {
+					return apis.NewApiError(http.StatusConflict, "The request changed after this page loaded. Reload the page, then create the job.", nil)
 				}
 				if a.GetString("approver") != r.GetString("approver") || a.GetString("approved") == "" || a.GetFloat("approval_max_value") < r.GetFloat("project_value") || a.GetString("rejected") != "" || r.GetString("rejected") != "" {
 					return workflowError("The saved approval is incomplete. Recall the request for a new approval.")
