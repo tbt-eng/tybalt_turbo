@@ -288,9 +288,6 @@
     <DSCallout tone="danger" title="Rejected">
       Rejection reason: {request.rejection_reason}. The creator must make a correction before
       submission.
-      {#snippet actions()}
-        {#if canEdit}<DSActionButton action={editHref}>Edit request</DSActionButton>{/if}
-      {/snippet}
     </DSCallout>
   {/if}
   <DSCardGrid>

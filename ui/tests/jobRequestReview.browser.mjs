@@ -143,8 +143,8 @@ await runBrowserHarness(
     });
     await page.getByText("Rejection reason: Wrong client", { exact: false }).waitFor();
     assert.equal(await submit.count(), 0);
-    assert.equal(await editRequest.count(), 2, "the header and the notice offer Edit");
-    await editRequest.last().click();
+    assert.equal(await editRequest.count(), 1, "only the header offers Edit");
+    await editRequest.click();
     assert.equal(await page.evaluate(() => window.lastNavigation), "/job-requests/request1/edit");
 
     // A viewer who can't edit gets no Edit.
