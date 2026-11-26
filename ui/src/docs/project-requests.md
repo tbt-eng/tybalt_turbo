@@ -20,7 +20,7 @@ This is the preferred start.
 4. Enter the division hours and select an approver.
 5. Select **Save request**.
 
-Only an In Progress, Submitted or Awarded proposal has the button. Procurement must award it before you submit.
+Only an In Progress, Submitted or Awarded proposal has the button.
 
 ## Create a request
 
@@ -58,10 +58,11 @@ Requests that you approved stay below your list, under **Approved By Me, Awaitin
 
 1. Open **Job Create Queue**. Open the request.
 2. Check the request, PDF and **Duplicate-work review**.
-3. Confirm the checklist.
-4. Select **Create Job**.
+3. Select **Award proposal** if Turbo shows it.
+4. Confirm the checklist.
+5. Select **Create Job**.
 
-The review lists exact matches and the client's open projects with an award or time in the last year.
+The review lists exact matches and the client's recent open projects.
 
 For [proposed rates](proposed-rates#after-approval), you can change **Rate sheet name** first.
 

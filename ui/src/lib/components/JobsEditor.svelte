@@ -867,7 +867,7 @@
           To request the project, find its proposal and select the yellow briefcase
           <DsLabel color="yellow" size="sm"><Icon icon="mdi:briefcase-plus" width="16px" /></DsLabel
           >
-          on its row. Procurement must award the proposal before you can submit the request.
+          on its row. You can submit the request before procurement awards the proposal.
         </p>
         <p>
           Only for work that has no proposal:

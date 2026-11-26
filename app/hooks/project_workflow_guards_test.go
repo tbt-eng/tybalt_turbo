@@ -76,6 +76,15 @@ func TestProjectRequestDataAndSharedRelations(t *testing.T) {
 	if err = ValidateProjectRequestData(app, request); err != nil {
 		t.Fatalf("complete request: %v", err)
 	}
+	// An In Progress or Submitted proposal does not stop the check; only job
+	// creation needs it Awarded. The record is changed in memory only.
+	for _, proposal := range []string{"pawardinprog001", "pawardsubmit001"} {
+		request.Set("proposal", proposal)
+		if err = ValidateProjectRequestData(app, request); err != nil {
+			t.Fatalf("request with open proposal %s: %v", proposal, err)
+		}
+	}
+	request.Set("proposal", "")
 	request.Set("contact", "235g6k01xx3sdjk")
 	if err = ValidateProjectRequestData(app, request); err == nil {
 		t.Fatal("different client contact allowed")

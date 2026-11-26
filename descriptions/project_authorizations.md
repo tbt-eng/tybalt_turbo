@@ -486,6 +486,15 @@ that stored approved digest with the current request. Approval and creation
 reject requests with an empty submission token. An old digest causes a conflict
 response; the user must reload and complete the checklist again.
 
+The digest holds each related record, but it leaves out the linked proposal's
+`status`, `updated` and `_imported`, because procurement may award the proposal
+between approval and creation, and the first save of an imported proposal clears
+its `_imported` mark. Every other proposal field stays in the digest, so
+another edit to the proposal makes the approval stale. A request approved
+before this rule saved the digest of the whole proposal record; creation also
+accepts that saved digest, while the caller's digest must be the current one.
+Remove that allowance once no such request is awaiting creation.
+
 Reads, printing, and approval do not rotate `submission_token`. Failed workflow
 transactions do not persist a new or cleared token. Token changes alone do not
 advance the business-data `version` or reset `last_edited`, so resubmission does
@@ -1012,10 +1021,22 @@ route when one exists. One proposal can produce several projects; creating a
 project does not replace the proposal.
 
 A draft request can select a proposal with status `In Progress`, `Submitted`,
-or `Awarded`. Other proposal statuses cannot be selected. A selected proposal
-must be `Awarded` at submission, approval, and creation, including resubmission.
-If it is no longer awarded, fail the action without creating a job or deleting
-the request. Notify the user that the proposal must first be set to Awarded.
+or `Awarded`. Other proposal statuses cannot be selected. Submission and
+approval, including resubmission, accept the same three statuses and refuse
+`Not Awarded`, `Cancelled`, `No Bid` and any other status, naming the
+proposal and its status. Only creation needs `Awarded`. Until then, creation
+fails without creating a job, changing the request or clearing its approval.
+The refusal carries the jobs hook's code: field `proposal`, code
+`proposal_not_awarded`, and `data.proposal_id`. The server never awards the
+proposal itself.
+
+The request page shows a linked proposal's number and status to everyone who
+can see the request. While the proposal is `In Progress` or `Submitted`, a
+`job` holder gets **Award proposal**, which sets the proposal to `Awarded`
+through the jobs API as that user, so the proposal's own rules apply. If
+**Create Job** returns `proposal_not_awarded`, the page offers to award the
+proposal and then retries creation. A failed award shows the server's reason
+and a link to edit the proposal.
 
 With the flag on, **Create Project from Proposal** becomes **Create Project Request
 from Proposal**. Copy available values and the proposal relation. The creator
@@ -1083,8 +1104,10 @@ Creation must complete in one database transaction:
 
 1. Check the flag, the actor's `job` claim, and `Awaiting creation` state.
 2. Reload the request and verify that its version, PDF, and value match the
-   approval. Validate current related records and allocations, including an
-   `Awarded` linked proposal. Fail if approval is stale or data is invalid.
+   approval. Validate current related records and allocations. Refuse a
+   linked proposal that is not `Awarded` with `proposal_not_awarded` before the
+   approval checks, so the user sees that refusal rather than a stale approval.
+   Fail if approval is stale or data is invalid.
 3. Create the job and allocations through the existing validation and
    number-generation logic. Map `fn_agreement_answer` to `jobs.fn_agreement`.
    Never treat an unanswered draft value as No. Map the approved request's
@@ -1740,8 +1763,9 @@ Acceptance tests must cover these cases:
 * Both flag states on every creation path, including imports and admin routes.
   Flag changes retain request state and age. Existing-job value changes still
   require approval while the creation flag is off.
-* Allowed draft proposal statuses; award checks at submission, resubmission,
-  approval, and creation; and the same rules for subjobs. Test multiple projects
+* Allowed proposal statuses at draft, submission, resubmission and approval;
+  the coded `Awarded` check at creation; an award after approval that keeps the
+  approval; and the same rules for subjobs. Test multiple projects
   per proposal, requests without proposals, and proposal replacement/removal.
 * With the request flag on, an active employee with `time` and without `job`
   can use **Create Subjob Request** on an eligible parent's detail page, load the form,

@@ -318,13 +318,40 @@ func validateRequestDraftAuthority(app core.App, r *core.Record, checkAuthority 
 		if !strings.HasPrefix(p.GetString("number"), "P") || p.GetString("client") != r.GetString("client") {
 			return workflowError("Select a proposal for this client.")
 		}
-		switch p.GetString("status") {
+		switch status := p.GetString("status"); status {
 		case "In Progress", "Submitted", "Awarded":
 		default:
-			return workflowError("Select an In Progress, Submitted, or Awarded proposal.")
+			return workflowError(fmt.Sprintf("Proposal %s is %s. Select an In Progress, Submitted, or Awarded proposal.", p.GetString("number"), status))
 		}
 	}
 	return nil
+}
+
+// requireAwardedProposal is the creation gate. A request may be submitted and
+// approved while its proposal is In Progress or Submitted, but the job is
+// created only from an Awarded proposal. The refusal carries the code and the
+// proposal id in the shape the jobs hook uses, so the page can offer to award
+// the proposal and try again. It never awards the proposal itself.
+func requireAwardedProposal(app core.App, r *core.Record) error {
+	id := r.GetString("proposal")
+	if id == "" {
+		return nil
+	}
+	p, err := app.FindRecordById("jobs", id)
+	if err != nil {
+		return err
+	}
+	if p.GetString("status") == "Awarded" {
+		return nil
+	}
+	message := fmt.Sprintf("Proposal %s is %s. Award it before you create the job.", p.GetString("number"), p.GetString("status"))
+	return &errs.HookError{
+		Status:  http.StatusBadRequest,
+		Message: message,
+		Data: map[string]errs.CodeError{
+			"proposal": {Code: "proposal_not_awarded", Message: message, Data: map[string]string{"proposal_id": id}},
+		},
+	}
 }
 func validateRequestComplete(app core.App, r *core.Record, checkAuthority bool) (*core.Record, error) {
 	if err := validateRequestDraftAuthority(app, r, checkAuthority); err != nil {
@@ -341,15 +368,8 @@ func validateRequestComplete(app core.App, r *core.Record, checkAuthority bool) 
 	if r.GetFloat("project_value") <= 0 {
 		return nil, workflowError("Project value must be positive.")
 	}
-	if id := r.GetString("proposal"); id != "" {
-		p, err := app.FindRecordById("jobs", id)
-		if err != nil {
-			return nil, err
-		}
-		if p.GetString("status") != "Awarded" {
-			return nil, workflowError("Procurement must award the linked proposal before this request can continue.")
-		}
-	}
+	// The draft check above limits a linked proposal to In Progress, Submitted
+	// or Awarded. Only job creation needs Awarded (requireAwardedProposal).
 	if err := utilities.ValidateClientReferences(app, r); err != nil {
 		return nil, err
 	}
@@ -784,11 +804,29 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				if err != nil {
 					return err
 				}
+				// Before the approval checks, so an unawarded proposal gets
+				// its own coded refusal rather than a stale-approval one.
+				if err = requireAwardedProposal(tx, r); err != nil {
+					return err
+				}
 				token, err := requestReviewToken(tx, r)
 				if err != nil {
 					return err
 				}
-				if a.GetString("status") != "Approved" || a.GetInt("request_version") != r.GetInt("version") || a.GetFloat("project_value") != r.GetFloat("project_value") || a.GetString("review_token") != token || input.ReviewToken != token || input.DocumentHash != a.GetString("document_hash") {
+				approvedToken := a.GetString("review_token") == token
+				if !approvedToken && r.GetString("proposal") != "" {
+					// A request approved before the digest left out the
+					// proposal's status saved the digest of the whole
+					// proposal record. Accept it for the saved approval only;
+					// the page must send the current digest. Remove this once
+					// no request approved before that change awaits creation.
+					legacy, err := requestLegacyReviewToken(tx, r)
+					if err != nil {
+						return err
+					}
+					approvedToken = a.GetString("review_token") == legacy
+				}
+				if a.GetString("status") != "Approved" || a.GetInt("request_version") != r.GetInt("version") || a.GetFloat("project_value") != r.GetFloat("project_value") || !approvedToken || input.ReviewToken != token || input.DocumentHash != a.GetString("document_hash") {
 					return apis.NewApiError(http.StatusConflict, "The approval is stale. Recall the request for a new approval.", nil)
 				}
 				if a.GetString("approver") != r.GetString("approver") || a.GetString("approved") == "" || a.GetFloat("approval_max_value") < r.GetFloat("project_value") || a.GetString("rejected") != "" || r.GetString("rejected") != "" {

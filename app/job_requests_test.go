@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 	"tybalt/internal/testutils"
+	"tybalt/routes"
 	"tybalt/utilities"
 
 	"github.com/pocketbase/dbx"
@@ -827,23 +828,215 @@ func TestJobRequestDraftRelationsAndChecklistShape(t *testing.T) {
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+ready+"/approve", workflowApprover, reviewed, http.StatusConflict)
 }
 
-// A draft may link a proposal that is still In Progress, but it cannot be
-// submitted until procurement awards that proposal.
-func TestJobRequestSubmitNeedsAwardedProposal(t *testing.T) {
-	app := newWorkflowTestApp(t, true)
-	const id = "parequest000001"
-	// Link the fixture draft to an In Progress proposal of the same client
-	// through the API, as a user would.
-	clientSetupJSON(t, app, http.MethodPatch, "/api/job_requests/"+id, "time@test.com", map[string]any{"version": 1, "request": map[string]any{"proposal": "fcpropnimpinpr"}}, http.StatusOK)
-	token := workflowToken(t, app, "time@test.com")
-	response := performJSONRequest(t, app, http.MethodPost, "/api/job_requests/"+id+"/submit", token, requestActionData(t, app, id))
+// The award tests use the fixture draft parequest000001 (client
+// pqpd90fqd5ohjcs, created by time@test.com) and these proposals of its client:
+// pawardinprog001 (In Progress) and pawardsubmit001 (Submitted) have a value,
+// so they can be awarded; fcpropnimpinpr (In Progress) has no value and is not
+// Time and Materials, so the jobs hook refuses to award it.
+const awardRequest = "parequest000001"
+
+// linkRequestProposal links the fixture draft to a proposal through the API,
+// as the requester would.
+func linkRequestProposal(t *testing.T, app *tests.TestApp, proposal string) {
+	t.Helper()
+	r := workflowRecord(t, app, "job_requests", awardRequest)
+	clientSetupJSON(t, app, http.MethodPatch, "/api/job_requests/"+awardRequest, "time@test.com", map[string]any{"version": r.GetInt("version"), "request": map[string]any{"proposal": proposal}}, http.StatusOK)
+}
+
+// approveAwardRequest submits the fixture draft and approves it.
+func approveAwardRequest(t *testing.T, app *tests.TestApp) {
+	t.Helper()
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/submit", "time@test.com", requestActionData(t, app, awardRequest), http.StatusOK)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/approve", workflowApprover, requestActionData(t, app, awardRequest), http.StatusOK)
+	if workflowRecord(t, app, "job_requests", awardRequest).GetString("status") != "Awaiting creation" {
+		t.Fatal("approval did not enter the creation queue")
+	}
+}
+
+// awardProposal sets a proposal to Awarded through the jobs API, as the
+// request page does for a job holder.
+func awardProposal(t *testing.T, app *tests.TestApp, proposal string, status int) *httptest.ResponseRecorder {
+	t.Helper()
+	response := performJSONRequest(t, app, http.MethodPatch, "/api/collections/jobs/records/"+proposal, workflowToken(t, app, workflowAuthor), map[string]any{"status": "Awarded"})
+	mustStatus(t, response, status)
+	return response
+}
+
+// A request may be submitted and approved while its proposal is In Progress
+// or Submitted. Only job creation needs the proposal to be Awarded.
+func TestJobRequestSubmitAndApproveAllowUnawardedProposal(t *testing.T) {
+	for _, proposal := range []string{"pawardinprog001", "pawardsubmit001"} {
+		t.Run(proposal, func(t *testing.T) {
+			app := newWorkflowTestApp(t, true)
+			linkRequestProposal(t, app, proposal)
+			approveAwardRequest(t, app)
+		})
+	}
+}
+
+// A proposal that is Not Awarded, Cancelled or No Bid stops submission and
+// approval. The API refuses to link such a proposal, so each case links an In
+// Progress fixture proposal and then changes its status in the database, as if
+// procurement had closed the proposal later.
+func TestJobRequestClosedProposalStopsSubmitAndApprove(t *testing.T) {
+	for _, status := range []string{"Not Awarded", "Cancelled", "No Bid"} {
+		t.Run(status, func(t *testing.T) {
+			app := newWorkflowTestApp(t, true)
+			linkRequestProposal(t, app, "pawardinprog001")
+			setProposalStatus := func(value string) {
+				if _, err := app.DB().NewQuery("UPDATE jobs SET status={:status} WHERE id='pawardinprog001'").Bind(dbx.Params{"status": value}).Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			setProposalStatus(status)
+			response := performJSONRequest(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/submit", workflowToken(t, app, "time@test.com"), requestActionData(t, app, awardRequest))
+			mustStatus(t, response, http.StatusBadRequest)
+			if want := "Proposal P88-9107 is " + status + ". Select an In Progress, Submitted, or Awarded proposal."; !strings.Contains(response.Body.String(), want) {
+				t.Fatalf("unexpected refusal: %s", response.Body.String())
+			}
+			if workflowRecord(t, app, "job_requests", awardRequest).GetString("status") != "Draft" {
+				t.Fatal("refused submission changed the request status")
+			}
+			// Submit while the proposal is open, then close it before approval.
+			setProposalStatus("In Progress")
+			clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/submit", "time@test.com", requestActionData(t, app, awardRequest), http.StatusOK)
+			setProposalStatus(status)
+			clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/approve", workflowApprover, requestActionData(t, app, awardRequest), http.StatusBadRequest)
+			if workflowRecord(t, app, "job_requests", awardRequest).GetString("status") != "Awaiting approval" {
+				t.Fatal("refused approval changed the request status")
+			}
+		})
+	}
+}
+
+// requireProposalNotAwarded checks that creation refuses with the coded error
+// that the request page reads, and that the request keeps its approval.
+func requireProposalNotAwarded(t *testing.T, app *tests.TestApp, proposal string) {
+	t.Helper()
+	response := performJSONRequest(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/create", workflowToken(t, app, workflowAuthor), requestActionData(t, app, awardRequest))
 	mustStatus(t, response, http.StatusBadRequest)
-	if !strings.Contains(response.Body.String(), "Procurement must award the linked proposal before this request can continue.") {
-		t.Fatalf("unexpected refusal: %s", response.Body.String())
+	var body struct {
+		Message string `json:"message"`
+		Data    map[string]struct {
+			Code string            `json:"code"`
+			Data map[string]string `json:"data"`
+		} `json:"data"`
 	}
-	if workflowRecord(t, app, "job_requests", id).GetString("status") != "Draft" {
-		t.Fatal("refused submission changed the request status")
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
 	}
+	if got := body.Data["proposal"]; got.Code != "proposal_not_awarded" || got.Data["proposal_id"] != proposal || body.Message == "" {
+		t.Fatalf("creation refusal is not the coded proposal error: %s", response.Body.String())
+	}
+	if workflowRecord(t, app, "job_requests", awardRequest).GetString("status") != "Awaiting creation" {
+		t.Fatal("refused creation changed the request status")
+	}
+	a := workflowRecord(t, app, "job_attachments", "paattachment001")
+	if a.GetString("status") != "Approved" || a.GetString("approved") == "" || a.GetString("review_token") == "" || a.GetString("job") != "" || a.GetString("request") != awardRequest {
+		t.Fatal("refused creation changed the saved approval")
+	}
+}
+
+// Creation refuses an unawarded proposal with a code and the proposal id. Once
+// a job holder awards the proposal through the jobs API, the same approval
+// creates the job: the award does not make the approval stale.
+//
+// pawardimport001 came from the import: its award also clears the _imported
+// mark, which must not make the approval stale either.
+func TestJobRequestCreateNeedsAwardedProposal(t *testing.T) {
+	for _, proposal := range []string{"pawardinprog001", "pawardimport001"} {
+		t.Run(proposal, func(t *testing.T) {
+			app := newWorkflowTestApp(t, true)
+			linkRequestProposal(t, app, proposal)
+			approveAwardRequest(t, app)
+			requireProposalNotAwarded(t, app, proposal)
+			before := requestActionData(t, app, awardRequest)
+			awardProposal(t, app, proposal, http.StatusOK)
+			after := requestActionData(t, app, awardRequest)
+			if before["review_token"] != after["review_token"] {
+				t.Fatal("awarding the proposal changed the review token")
+			}
+			result := clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/create", workflowAuthor, after, http.StatusOK)
+			jobID, _ := result["job_id"].(string)
+			if job := workflowRecord(t, app, "jobs", jobID); job.GetString("proposal") != proposal {
+				t.Fatal("the created job does not link the proposal")
+			}
+		})
+	}
+}
+
+// A proposal that the jobs hook refuses to award keeps creation refused, and
+// the request keeps its approval.
+func TestJobRequestFailedAwardKeepsCreationRefused(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	linkRequestProposal(t, app, "fcpropnimpinpr")
+	approveAwardRequest(t, app)
+	requireProposalNotAwarded(t, app, "fcpropnimpinpr")
+	response := awardProposal(t, app, "fcpropnimpinpr", http.StatusBadRequest)
+	if !strings.Contains(response.Body.String(), "value_required_for_status") {
+		t.Fatalf("unexpected award refusal: %s", response.Body.String())
+	}
+	requireProposalNotAwarded(t, app, "fcpropnimpinpr")
+}
+
+// The digest leaves out only the proposal's status and updated time. Any other
+// edit to the proposal after approval still makes the approval stale. The
+// description edit is made in the database, like the shared contact edit above.
+func TestJobRequestOtherProposalEditMakesApprovalStale(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	linkRequestProposal(t, app, "pawardinprog001")
+	approveAwardRequest(t, app)
+	awardProposal(t, app, "pawardinprog001", http.StatusOK)
+	if _, err := app.DB().NewQuery("UPDATE jobs SET description='Revised proposal description' WHERE id='pawardinprog001'").Execute(); err != nil {
+		t.Fatal(err)
+	}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/create", workflowAuthor, requestActionData(t, app, awardRequest), http.StatusConflict)
+	if workflowRecord(t, app, "job_requests", awardRequest).GetString("status") != "Awaiting creation" {
+		t.Fatal("refused creation changed the request status")
+	}
+}
+
+// A request approved before the digest left out the proposal's status saved
+// the digest of the whole proposal record. Creation still accepts that saved
+// approval, but the page must send the current digest. Under the earlier rule
+// the proposal was Awarded before approval, so the test awards it first. It
+// then replaces the saved digest in the database with the legacy one,
+// computed by the server code (not a hardcoded hash), to stand in for an
+// approval saved before the change.
+func TestJobRequestCreationAcceptsLegacyApprovalDigest(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	linkRequestProposal(t, app, "pawardinprog001")
+	awardProposal(t, app, "pawardinprog001", http.StatusOK)
+	approveAwardRequest(t, app)
+	legacy, err := routes.RequestLegacyReviewTokenForTest(app, awardRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := requestActionData(t, app, awardRequest)
+	if legacy == current["review_token"] {
+		t.Fatal("the legacy digest equals the current digest, so this test proves nothing")
+	}
+	if _, err = app.DB().NewQuery("UPDATE job_attachments SET review_token={:token} WHERE id='paattachment001'").Bind(dbx.Params{"token": legacy}).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// The page's digest is compared with the current digest only.
+	page := requestActionData(t, app, awardRequest)
+	page["review_token"] = legacy
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/create", workflowAuthor, page, http.StatusConflict)
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/create", workflowAuthor, requestActionData(t, app, awardRequest), http.StatusOK)
+}
+
+// A saved digest that matches neither the current nor the legacy digest is
+// stale. The test writes it in the database.
+func TestJobRequestCreationRefusesUnknownApprovalDigest(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	linkRequestProposal(t, app, "pawardsubmit001")
+	awardProposal(t, app, "pawardsubmit001", http.StatusOK)
+	approveAwardRequest(t, app)
+	if _, err := app.DB().NewQuery("UPDATE job_attachments SET review_token='not-a-digest' WHERE id='paattachment001'").Execute(); err != nil {
+		t.Fatal(err)
+	}
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+awardRequest+"/create", workflowAuthor, requestActionData(t, app, awardRequest), http.StatusConflict)
 }
 
 func TestJobRequestCreationRetainsValidApprovalAfterAuthorityRemoval(t *testing.T) {

@@ -6,7 +6,8 @@
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
-  import { jobRequestsEnabled } from "$lib/stores/appConfig";
+  import { jobRequestsEnabled, jobsEditingEnabled } from "$lib/stores/appConfig";
+  import { JobsStatusOptions } from "$lib/pocketbase-types";
   import DSLocationPicker from "$lib/components/DSLocationPicker.svelte";
   import ProposedRatesReview from "$lib/components/rateSheets/ProposedRatesReview.svelte";
   import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
@@ -133,10 +134,74 @@
   async function refresh() {
     await Promise.all([invalidateAll(), globalStore.refreshAttentionCounts()]);
   }
+  // A request can be submitted and approved while its proposal is In Progress
+  // or Submitted. The job is created only from an Awarded proposal, and only
+  // procurement can award it, here or on the proposal.
+  const proposal = $derived(related.proposal as WorkflowRecord | undefined);
+  const proposalOpen = $derived(
+    proposal?.status === JobsStatusOptions["In Progress"] ||
+      proposal?.status === JobsStatusOptions.Submitted,
+  );
+  const canAward = $derived(
+    $globalStore.claims.includes("job") && $jobsEditingEnabled && $jobRequestsEnabled,
+  );
+  let awardError = $state(""),
+    // The proposal of a failed award, for the link to edit it.
+    awardFailedId = $state(""),
+    // Set when creation answers proposal_not_awarded: the proposal to award.
+    confirmAwardId = $state(""),
+    confirmingAward = $state(false);
+  // Award through the jobs API as the signed-in user, so the proposal's own
+  // rules apply. Returns false and shows the server's reason on failure.
+  async function awardProposal(id: string): Promise<boolean> {
+    awardError = "";
+    awardFailedId = "";
+    try {
+      await pb.collection("jobs").update(id, { status: JobsStatusOptions.Awarded });
+      return true;
+    } catch (e) {
+      awardError = workflowError(e);
+      awardFailedId = id;
+      return false;
+    }
+  }
+  async function award() {
+    if (!proposal) return;
+    busy = true;
+    error = "";
+    try {
+      if (await awardProposal(proposal.id)) await refresh();
+    } finally {
+      busy = false;
+    }
+  }
+  // The award leaves the review digest unchanged, so the same answers and
+  // digest create the job.
+  async function awardAndCreate() {
+    busy = true;
+    const awarded = await awardProposal(confirmAwardId);
+    busy = false;
+    confirmingAward = false;
+    if (!awarded) return;
+    await action("create");
+    // A creation refused for another reason leaves the page open: show the
+    // proposal as Awarded.
+    if (actionError) await refresh();
+  }
+  // The proposal id of a proposal_not_awarded refusal, in the shape the jobs
+  // hook uses: data.proposal.code and data.proposal.data.proposal_id.
+  type FieldErrors = { data?: { proposal?: { code?: string; data?: { proposal_id?: unknown } } } };
+  function proposalNotAwarded(e: unknown): string {
+    const failure = e as { data?: FieldErrors; response?: FieldErrors };
+    const field = (failure?.response ?? failure?.data)?.data?.proposal;
+    const id = field?.data?.proposal_id;
+    return field?.code === "proposal_not_awarded" && typeof id === "string" ? id : "";
+  }
   async function action(name: string) {
     busy = true;
     error = "";
     actionError = "";
+    awardError = "";
     try {
       const result = await pb.send(
         `/api/job_requests/${request.id}${name === "delete" ? "" : `/${name}`}`,
@@ -170,9 +235,14 @@
         await goto(permission.can_edit ? "/job-requests" : "/job-requests?queue=abandoned");
       } else await refresh();
     } catch (e) {
+      const unawarded = name === "create" && canAward ? proposalNotAwarded(e) : "";
+      if (unawarded) {
+        confirmAwardId = unawarded;
+        confirmingAward = true;
+      }
       // Delete is confirmed in a dialog, which shows its error. The other
       // actions show theirs in the Workflow actions section.
-      if (name === "delete") error = workflowError(e);
+      else if (name === "delete") error = workflowError(e);
       else actionError = workflowError(e);
     } finally {
       busy = false;
@@ -284,6 +354,28 @@
     <DSCallout tone="warning">Request processing is disabled. Printing remains available.</DSCallout
     >
   {/if}
+  {#snippet awardAction()}
+    <DSActionButton disabled={busy} action={award}>Award proposal</DSActionButton>
+  {/snippet}
+  {#if proposal && proposalOpen}
+    <DSCallout
+      tone="info"
+      title={`Proposal ${proposal.number} is ${proposal.status}`}
+      actions={canAward ? awardAction : undefined}
+    >
+      Procurement must award the proposal before the job can be created.
+    </DSCallout>
+  {/if}
+  {#if awardError}<div role="alert">
+      <DSCallout tone="danger" title="Cannot award the proposal">
+        <p>{awardError}</p>
+        <p>
+          <a class="link" href={resolve("/jobs/[jid]/edit", { jid: awardFailedId })}
+            >Edit the proposal</a
+          >
+        </p>
+      </DSCallout>
+    </div>{/if}
   {#if request.rejection_reason}
     <DSCallout tone="danger" title="Rejected">
       Rejection reason: {request.rejection_reason}. The creator must make a correction before
@@ -331,6 +423,7 @@
             label="Proposal"
             value={`${related.proposal.number} — ${related.proposal.description}`}
             href={resolve("/jobs/[jid]/details", { jid: related.proposal.id })}
+            hint={related.proposal.status}
           />
         {/if}
         {#if request.notes}
@@ -597,6 +690,18 @@
         </div>{/if}
     </DSSection>
   {/if}
+  <DSPopover
+    bind:show={confirmingAward}
+    title="Award the proposal"
+    submitLabel="Award and create"
+    submitting={busy}
+    onSubmit={awardAndCreate}
+  >
+    <p>
+      Proposal {proposal?.number} is not marked as Awarded. Set it to Awarded and continue? Turbo then
+      creates the job.
+    </p>
+  </DSPopover>
   {#if permission.can_delete}
     {@const deleteLabel = permission.can_edit ? "Delete request" : "Delete abandoned request"}
     <DSActionButton color="red" disabled={busy} action={() => (confirmingDelete = true)}>

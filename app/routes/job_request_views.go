@@ -103,6 +103,28 @@ func workflowPerson(app core.App, user *core.Record) map[string]any {
 // workflow-state checks remain separate. A draft can have an empty submission
 // token for viewing/printing, but approve/create must reject an empty token.
 func requestReviewToken(app core.App, r *core.Record) (string, error) {
+	return requestReviewDigest(app, r, false)
+}
+
+// requestLegacyReviewToken is the digest as it was before the proposal's
+// status and updated time were left out: it holds the whole proposal record.
+// Job creation accepts it as the saved approval of a request approved before
+// that change. Remove it once no such request is awaiting creation.
+func requestLegacyReviewToken(app core.App, r *core.Record) (string, error) {
+	return requestReviewDigest(app, r, true)
+}
+
+// RequestLegacyReviewTokenForTest lets a test save the legacy digest that an
+// approval made before the change would hold. Remove it with the legacy digest.
+func RequestLegacyReviewTokenForTest(app core.App, id string) (string, error) {
+	r, err := app.FindRecordById("job_requests", id)
+	if err != nil {
+		return "", err
+	}
+	return requestLegacyReviewToken(app, r)
+}
+
+func requestReviewDigest(app core.App, r *core.Record, legacy bool) (string, error) {
 	related, err := requestRelated(app, r)
 	if err != nil {
 		return "", err
@@ -133,6 +155,18 @@ func requestReviewToken(app core.App, r *core.Record) (string, error) {
 		delete(sheet, "code")
 		delete(sheet, "name")
 		delete(sheet, "updated")
+	}
+	// Procurement may award the linked proposal after approval and before
+	// creation, by design: creation needs an Awarded proposal, and approval
+	// does not. So the award must not make the approval stale. The status and
+	// updated time are left out; every other field of the proposal stays, so
+	// another edit to the proposal still makes the approval stale. The first
+	// save of a proposal that came from the import also clears its _imported
+	// mark, so that mark is left out too.
+	if proposal, ok := related["proposal"].(map[string]any); ok && !legacy {
+		delete(proposal, "status")
+		delete(proposal, "updated")
+		delete(proposal, "_imported")
 	}
 	data := map[string]any{"version": r.GetInt("version"), "submission_token": r.GetString("submission_token"), "related": related}
 	for _, key := range requestBusinessFields {

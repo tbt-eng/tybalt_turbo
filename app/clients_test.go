@@ -312,7 +312,7 @@ func TestClientsApi_JobOwnerCountsAndBalances(t *testing.T) {
 				// Billed for cjf0kt0defhq480 among its 42 jobs.
 				"lb0fnenkeyitsny": {42, 100, true},
 				// Both billed for and owns fcprojimpauto01.
-				"pqpd90fqd5ohjcs": {31, 50, true},
+				"pqpd90fqd5ohjcs": {34, 50, true},
 			}
 			for _, row := range rows {
 				w, ok := want[row.ID]

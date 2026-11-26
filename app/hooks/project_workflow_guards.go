@@ -376,6 +376,18 @@ func ValidateProjectRequestData(app core.App, request *core.Record) error {
 	}
 	job.Set("status", request.GetString("project_status"))
 	job.Set("authorizing_document", "PA")
+	// A request may be submitted and approved while its proposal is In
+	// Progress or Submitted. Only job creation needs it Awarded: the request
+	// route refuses creation until then, and the job save checks the proposal
+	// again. So an open proposal is left out of this check. The request route
+	// checks that it exists, is a proposal and has the request's client.
+	if id := job.GetString("proposal"); id != "" {
+		if p, err := app.FindRecordById("jobs", id); err == nil {
+			if status := p.GetString("status"); status == "In Progress" || status == "Submitted" {
+				job.Set("proposal", "")
+			}
+		}
+	}
 	if request.GetString("fn_agreement_answer") != "Yes" && request.GetString("fn_agreement_answer") != "No" {
 		return workflowError("First Nations agreement answer is required")
 	}

@@ -10,6 +10,7 @@
       import { mount } from "svelte";
       import { pb } from "$lib/pocketbase";
       import { appConfig } from "$lib/stores/appConfig";
+      import { globalStore } from "$lib/stores/global";
       import "/src/app.css";
       import Harness from "./JobRequestReviewHarness.svelte";
 
@@ -18,11 +19,11 @@
           key: `question${index}`,
           text: `Statement ${index}`,
         }));
-      const detail = (status, permissions) => ({
+      const detail = (status, permissions, related) => ({
         request: { id: "request1", version: 3, status },
         allocations: [],
         attachment: { id: "attachment1", document_hash: "hash1" },
-        related: {},
+        related,
         review_token: "token1",
         checklist:
           status === "Awaiting creation"
@@ -30,10 +31,15 @@
             : { version: 1, questions: statements(6) },
         permissions,
       });
-      window.requestData = (status = "Awaiting approval", permissions = { can_approve: true }) => ({
-        detail: detail(status, permissions),
+      window.requestData = (
+        status = "Awaiting approval",
+        permissions = { can_approve: true },
+        related = {},
+      ) => ({
+        detail: detail(status, permissions, related),
         duplicates: { jobs: [], requests: [] },
       });
+      window.setClaims = (claims) => globalStore.set({ claims });
       pb.authStore.save("test-token", { id: "user1" });
       await appConfig.init();
       mount(Harness, { target: document.getElementById("app") });
