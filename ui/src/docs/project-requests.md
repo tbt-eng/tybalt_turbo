@@ -29,8 +29,12 @@ Only when no proposal exists.
 1. Select the plus button beside **Jobs**. For a subjob, select **Create Subjob Request** on the parent project.
 2. Select **Request a project without a proposal**.
 3. Enter the details and division hours. Subjobs copy the parent's hours.
-4. Select an invoicing profile and approver. The list shows approvers whose limit covers the project value.
+4. Select an approver. The list shows approvers whose limit covers the project value.
 5. Select **Save request**.
+
+## Invoicing profile
+
+The invoicing profile is optional. Select one only if you know who receives the client's invoices. Otherwise [procurement selects it](/docs/clients#set-the-profile-of-a-project-request).
 
 ## Upload and submit
 

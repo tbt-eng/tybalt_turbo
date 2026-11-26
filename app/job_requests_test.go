@@ -853,8 +853,10 @@ func TestJobRequestDraftRelationsAndChecklistShape(t *testing.T) {
 	}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+ready+"/approve", workflowApprover, outdated, http.StatusConflict)
 	reviewed := requestActionData(t, app, ready)
-	// Change the fixture billing instructions after the review, before approval.
-	if _, err := app.DB().NewQuery("UPDATE client_invoicing_information SET invoicing_instructions='Updated instructions' WHERE id='painvoice000001'").Execute(); err != nil {
+	// Change the fixture project contact after the review, before approval.
+	// The invoicing profile is not part of the review
+	// (TestJobRequestProfileEditKeepsApproval).
+	if _, err := app.DB().NewQuery("UPDATE client_contacts SET surname='Revised' WHERE id='184qbpajciwrrp2'").Execute(); err != nil {
 		t.Fatal(err)
 	}
 	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/"+ready+"/approve", workflowApprover, reviewed, http.StatusConflict)
@@ -1040,7 +1042,7 @@ func TestJobRequestCreationAcceptsLegacyApprovalDigest(t *testing.T) {
 	linkRequestProposal(t, app, "pawardinprog001")
 	awardProposal(t, app, "pawardinprog001", http.StatusOK)
 	approveAwardRequest(t, app)
-	legacy, err := routes.RequestLegacyReviewTokenForTest(app, awardRequest)
+	legacy, err := routes.RequestLegacyReviewTokenForTest(app, awardRequest, "proposal")
 	if err != nil {
 		t.Fatal(err)
 	}

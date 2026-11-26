@@ -1,5 +1,5 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/jobRequests.ts","sha256":"0851130dab80f6d88acd1289c430073e29cc19c7d1587d66f3b75f218d01c3bd","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/jobRequests.ts","sha256":"e73caab2f42414fb18bf9898727ba24f30c1d0ca05a54761ce6c5f74cb7f7521","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/jobRequests.ts
 
@@ -7,166 +7,158 @@
 
 Lines 41-43
 
-Asked as: request still draft; says not submitted; never sent my request; why hasn't it gone out
+Asked as: request not submitted; draft says not submitted; creator hasn't submitted; why not submitted yet
 
-For a Draft request, the creator sees "You have not submitted this request." Other viewers see "[creator] has not submitted this request." When the creator's name is missing, they see "Not submitted yet."
+A Draft request tells its creator "You have not submitted this request." Other viewers see "<creator> has not submitted this request." If the creator's name is blank, they see "Not submitted yet."
 
 ## Next-step message for a recalled project request
 
 Lines 44-48
 
-Asked as: I recalled my request; recalled request message; pulled back request; withdrawn request status
+Asked as: recalled request; request was recalled; resubmit recalled request; recalled message wrong
 
-For a Recalled request, the creator sees "Recalled. You have not submitted it again." Other viewers see the creator's name in the message. When the name is missing, they see "Recalled. Not submitted again yet."
+A Recalled request tells its creator "Recalled. You have not submitted it again." Other viewers see the creator's name in that sentence. Without a name they see "Recalled. Not submitted again yet."
 
 ## Next-step message while awaiting approval
 
 Lines 49-51
 
-Asked as: who is approving my request; waiting on approver; stuck pending approval; approver name missing
+Asked as: waiting for approval; who is the approver; stuck waiting on approver; approver name missing
 
-For an Awaiting approval request, the selected approver sees "Waiting for your approval." Other viewers see "Waiting for approval by [approver]." When the approver's name is missing, they see "Waiting for approval." Turbo never puts a role in place of a missing name.
+The selected approver sees "Waiting for your approval." Other viewers see "Waiting for approval by <approver>." If the approver's name is blank, they see "Waiting for approval."
 
 ## Next-step message when awaiting job creation
 
 Lines 52-59
 
-Asked as: approved but no job; who creates the job; job not created yet; proposal needs awarding
+Asked as: approved but no job; who creates the job; waiting for job creation; approved request stuck
 
-For an Awaiting creation request, the message depends on whether procurement can create the job. If a linked proposal is not yet Awarded, the message names it: someone who can create is told to award it and then create the job, and others are told procurement must award it and create the job. With no unawarded proposal, a person who can create sees "Approved. Waiting for you or another procurement user to create the job." Others see "Approved. Waiting for procurement to create the job."
+For an approved request in Awaiting creation, procurement who can create the job see "Approved. Waiting for you or another procurement user to create the job." Others see "Approved. Waiting for procurement to create the job."
+
+## Linked proposal must be awarded before job creation
+
+Lines 53-56
+
+Asked as: proposal not awarded; can't create job yet; job blocked by proposal; award proposal first
+
+If a linked proposal is not yet Awarded, the Awaiting creation message names that proposal. Procurement who can create are told "Award proposal <number>, then create the job." Others are told procurement must award the proposal and create the job.
 
 ## Next-step message for a rejected request
 
-Lines 60-64
+Lines 60-66
 
-Asked as: request was rejected; what to fix when rejected; sent back to me; why was it declined
+Asked as: request was rejected; why was it rejected; what to do rejected; rejected request next step
 
-For a Rejected request, the creator sees "Rejected. Correct the request, then submit it again." Other viewers see "Rejected. Waiting for [creator] to correct it." When the name is missing, they see "Rejected. Waiting for a correction."
-
-## No next-step message for other statuses
-
-Lines 65-66
-
-Asked as: blank status line; no message under status; status text missing
-
-For any status other than Draft, Recalled, Awaiting approval, Awaiting creation or Rejected, the next-step sentence is empty.
+A Rejected request tells its creator "Rejected. Correct the request, then submit it again." Other viewers see "Rejected. Waiting for <creator> to correct it." Without a creator name they see "Rejected. Waiting for a correction." Any other status gives an empty message.
 
 ## Proposal statuses a request can link
 
 Lines 68-72
 
-Asked as: can't link proposal; proposal won't attach; link proposal error; wrong proposal status
+Asked as: proposal won't link; can't link proposal; which proposal statuses allowed; proposal link refused
 
-A project request can link a proposal only when its status is In Progress, Submitted or Awarded. The server refuses other statuses when the request is saved.
+A project request can link a proposal only if its status is In Progress, Submitted or Awarded. The server refuses a proposal in any other status when the request is saved.
 
 ## Copied allocations skip inactive divisions
 
 Lines 77-94
 
-Asked as: inactive division missing from copy; allocations missing when copying; copy from proposal lost rows; hours became zero
+Asked as: allocations missing after copy; copied job lost divisions; inactive division removed; copied hours show zero
 
 A request started from a proposal or a parent job copies that job's allocations (division and hours). Rows whose division is inactive are left out, because a save refuses an inactive division. Hours that are not a number become 0.
 
-## Allocation rows without a division do not count
+## Allocations rows without a division don't count
 
 Lines 95-99
 
-Asked as: empty allocation row; blank division row; allocation not counting; proposal not filling allocations
+Asked as: allocation row ignored; blank division row; proposal not filling allocations; allocations list empty
 
-An allocation row with no division chosen does not count as an allocation. A proposal chosen later can still fill the list.
+A request has allocations only if at least one row has a division chosen. Rows with no division are ignored, so a proposal chosen later can still fill the list.
 
-## New checklist starts with every answer false
-
-Lines 100-102
-
-Asked as: checklist all no; checklist won't continue; questions default to false; can't proceed checklist
-
-A new checklist starts with each question answered false. Each question must be answered true to continue.
-
-## Contact with no email shows a note
+## Contact email display fallback
 
 Lines 103-106
 
-Asked as: no email address showing; contact missing email note; no_email flag; contact shows no email
+Asked as: contact shows no email; contact email missing; no email address shown; email field blank
 
-A contact's email shows as its address. If the contact has no email and is marked no_email, Turbo shows "No email address". Otherwise it shows nothing.
+A contact shows its email address. If it has none but is marked no email (no_email), it shows "No email address". Otherwise it shows nothing.
 
-## Billing address falls back to the client's address
+## Name display fallback
+
+Lines 107-109
+
+Asked as: name missing on record; blank name shows first last; contact name empty; name not displaying
+
+A record shows its name. If it has no name, Turbo joins its given name and surname with a space.
+
+## Billing address falls back to the client address
 
 Lines 110-123
 
-Asked as: billing address blank; where billing address comes from; invoice address empty; address falls back to client
+Asked as: billing address empty; which address for billing; address missing on invoice; billing uses client address
 
-The billing address is the invoicing profile's address. When that is empty, Turbo uses the client's address. An address joins the non-empty parts of address, city, province/state, postal code and country with commas.
+The billing address is the invoicing profile's address. If that is empty, Turbo uses the client's address. An address joins its non-empty street, city, province or state, postal code and country with commas.
 
-## Whole-dollar CAD display
+## Whole-dollar CAD format
 
 Lines 124-132
 
-Asked as: project value shows not provided; cents showing on value; CAD amount formatting; value displays wrong
+Asked as: project value not provided; value shows cents; dollar amount format; value displays wrong
 
-A project value shows as Canadian dollars with no cents only when it is a positive whole number. Any other value (zero, negative, fractional or not a number) shows "Not provided".
+A project value shows as Canadian dollars with no cents only if it is a whole number above 0. Zero, negative, fractional or non-number values show "Not provided".
 
-## Print needs client name and description
+## Print checklist: client, description and location
 
-Lines 137-138
+Lines 137-143
 
-Asked as: print check client name; print says description missing; print warning missing description; can't print client name
+Asked as: plus code location error; location flagged on printout; print checklist location missing; invalid plus code location
 
-The print check lists "Client name" as missing when the client has no name, and "Description" when the request has none. Blank spaces alone count as empty.
+A project request is missing Client name or Description if either is blank. It is missing "Valid Plus Code location" if the location is blank or is not a Plus Code of 8 characters, a plus sign, then 2 or 3 characters (letters 2-9, C, F, G, H, J, M, P, Q, R, V, W, X, any case).
 
-## Print needs a valid Plus Code location
+## Print checklist: contacts
 
-Lines 139-143
+Lines 144-153
 
-Asked as: plus code location error; print location invalid; location format plus code; print says location missing
+Asked as: contact flagged on printout; email invalid on checklist; billing contact check; printout contact problem
 
-The print check lists "Valid Plus Code location" as missing when the location is empty or does not match a Plus Code pattern: 8 characters, a +, then 2 or 3 characters from the Plus Code alphabet.
+The project contact must have a name and an email. A billing contact is checked the same way, but only when the request has one. An invoicing profile is optional, so without a billing contact the printout leaves out the billing details. A contact marked no email needs no email address. Otherwise the email must look like name@domain.tld.
 
-## Print needs contact names and emails
-
-Lines 144-151
-
-Asked as: print contact email error; billing contact missing name; print invalid contact email; contact without email print
-
-For both the project contact and the billing contact, the print check lists a missing name. It also lists a missing email when the contact is not marked no_email and the email is not a valid address. A contact marked no_email passes without an email.
-
-## Print needs a positive whole project value
-
-Lines 152-153
-
-Asked as: print project value error; value must be whole number; print value not positive; can't print project amount
-
-The print check lists "Positive whole-dollar project value" as missing when the project value is not a whole number above 0.
-
-## Print needs the fee basis set
+## Print checklist: project value
 
 Lines 154-155
 
-Asked as: print fee basis missing; time and materials not set; fee basis error print; can't print fee
+Asked as: project value flagged print; value missing from checklist; printout value error; positive value needed
 
-The print check lists "Fee basis" as missing unless time and materials has been set and is true or false.
+A project request is missing "Positive whole-dollar project value" unless the project value is a whole number above 0.
 
-## Print needs a ready rate sheet
+## Print checklist: fee basis
 
-Lines 156-163
+Lines 156-157
 
-Asked as: print rate sheet missing; rate sheet not chosen; inactive rate sheet; proposed rates missing role
+Asked as: fee basis flagged; time and materials not set; print says fee basis; fee type not chosen
 
-The print check lists "Rate sheet" as missing when no rate sheet is chosen. Proposed rates are ready only when no role lacks a rate. A chosen existing sheet must be active.
+The request is missing "Fee basis" unless time and materials has been explicitly set to yes or no (time_and_materials_set is true and time_and_materials is a boolean).
 
-## Time and materials needs client billing rates
+## Print checklist: rate sheet readiness
 
-Lines 164-173
+Lines 158-165
 
-Asked as: client billing rates missing; rate sheet no entries print; overtime rate missing; time materials rates error
+Asked as: rate sheet flagged print; rate sheet not ready; missing roles on rate sheet; rate sheet inactive
 
-When the fee basis is time and materials, the print check lists "Client billing rates" as missing if the rate sheet has no entries, or if any entry lacks a finite rate or overtime rate.
+With proposed rates, the rate sheet is ready when no role lacks a rate (rate_sheet_missing_roles is empty). With a chosen existing sheet, the sheet must be active. If no sheet is selected or it is not ready, the request is missing "Rate sheet".
 
-## Job creation queue visibility
+## Print checklist: client billing rates
 
-Lines 176-183
+Lines 166-175
 
-Asked as: can't see creation queue; queue missing from menu; job holder queue hidden; creation queue not showing
+Asked as: client billing rates flagged; no rates on rate sheet; overtime rate missing; rate entries incomplete
 
-A person sees the job creation queue only when requests are enabled, they hold the job claim, and the server has sent a count for the creation queue. The server adds that count only for an active job holder.
+For a time and materials request, "Client billing rates" is missing if the rate sheet has no entries or any entry lacks a finite rate or overtime rate. Fixed-fee requests skip this check.
+
+## Who sees the job creation queue
+
+Lines 178-185
+
+Asked as: job creation queue hidden; can't see creation queue; no job queue tab; queue count missing
+
+The job creation queue is visible only when requests are enabled, the user holds the job claim (procurement), and the server has sent a count for "/job-requests?queue=creation".

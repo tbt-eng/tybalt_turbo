@@ -51,6 +51,9 @@ type Job struct {
 	Manager                string  `db:"manager" json:"manager"`
 	OutstandingBalance     float64 `db:"outstanding_balance" json:"outstanding_balance"`
 	OutstandingBalanceDate string  `db:"outstanding_balance_date" json:"outstanding_balance_date"`
+	// NoInvoicingProfile is true for a job with no invoicing profile. Only
+	// the jobs list (jobs.sql) reads it.
+	NoInvoicingProfile bool `db:"no_invoicing_profile" json:"no_invoicing_profile"`
 }
 
 // latestJobsLimit controls how many proposals and how many projects are returned.

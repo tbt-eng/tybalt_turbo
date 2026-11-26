@@ -49,6 +49,7 @@
     "test:job-requests-browser": "node tests/projectRequests.browser.mjs",
     "test:job-request-review-browser": "node tests/jobRequestReview.browser.mjs",
     "test:job-request-award-browser": "node tests/jobRequestAward.browser.mjs",
+    "test:job-request-invoicing-browser": "node tests/jobRequestInvoicing.browser.mjs",
     "test:job-value-navigation-browser": "node tests/jobValueNavigation.browser.mjs",
     "test:job-value-rejection-browser": "node tests/jobValueRejection.browser.mjs",
     "test:job-value-review-browser": "node tests/jobValueReview.browser.mjs",

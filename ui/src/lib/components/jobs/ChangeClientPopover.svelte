@@ -211,12 +211,10 @@
           >Try again</button
         >
       </p>
-    {:else if !contacts.length || !profiles.length}
+    {:else if !contacts.length}
       <div class="rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
         <p>
-          {newClientName || "This client"} needs
-          {!contacts.length ? "a contact and an invoicing profile" : "an invoicing profile"} before a
-          project can move to it.
+          {newClientName || "This client"} needs a contact before a project can move to it.
         </p>
         <p class="mt-1">
           <a
@@ -225,7 +223,7 @@
             rel="noopener"
             class="text-blue-700 underline">Open the client in a new tab</a
           >
-          to add {!contacts.length ? "them" : "one"}, then
+          to add one, then
           <button type="button" class="text-blue-700 underline" onclick={() => load(client)}
             >check again</button
           >.
@@ -246,22 +244,25 @@
         </select>
         {#if errors.contact}<span class="text-sm text-red-600">{errors.contact.message}</span>{/if}
       </label>
-      <label class="flex flex-col gap-1 {errors.invoicing_information ? 'bg-red-200' : ''}">
-        <span>Invoicing profile</span>
-        <select
-          bind:value={invoicingInformation}
-          class="rounded-sm border border-neutral-300 px-1"
-          disabled={submitting}
+      <!-- The invoicing profile is optional. A client without one shows no list. -->
+      {#if profiles.length}<label
+          class="flex flex-col gap-1 {errors.invoicing_information ? 'bg-red-200' : ''}"
         >
-          <option value="">Select invoicing profile</option>
-          {#each profiles as row (row.id)}
-            <option value={row.id}>{invoicingProfileLabel(row, profiles, contacts)}</option>
-          {/each}
-        </select>
-        {#if errors.invoicing_information}<span class="text-sm text-red-600"
-            >{errors.invoicing_information.message}</span
-          >{/if}
-      </label>
+          <span>Invoicing profile</span>
+          <select
+            bind:value={invoicingInformation}
+            class="rounded-sm border border-neutral-300 px-1"
+            disabled={submitting}
+          >
+            <option value="">No invoicing profile</option>
+            {#each profiles as row (row.id)}
+              <option value={row.id}>{invoicingProfileLabel(row, profiles, contacts)}</option>
+            {/each}
+          </select>
+          {#if errors.invoicing_information}<span class="text-sm text-red-600"
+              >{errors.invoicing_information.message}</span
+            >{/if}
+        </label>{/if}
     {/if}
   {/if}
 

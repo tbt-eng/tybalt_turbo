@@ -23,7 +23,8 @@ func TestJobBillingOnProjectEdits(t *testing.T) {
 		name, patch, code, profile string
 		status                     int
 	}{
-		{"old job needs profile", `{"description":"Billing edit"}`, "required", "", 400},
+		// The invoicing profile is optional, also on an edit of an old job.
+		{"old job edit without profile accepted", `{"description":"Billing edit"}`, "", "", 200},
 		{"same client profile accepted", `{"description":"Billing edit","invoicing_information":"painvoice000002"}`, "", "painvoice000002", 200},
 		{"other client profile rejected", `{"description":"Billing edit","invoicing_information":"painvoice000001"}`, "client_mismatch", "", 400},
 		{"unknown profile rejected", `{"invoicing_information":"doesnotexist001"}`, "invalid_reference", "", 400},
@@ -57,9 +58,9 @@ func TestJobBillingOnProjectEdits(t *testing.T) {
 	}
 }
 
-// Closing an older project needs no profile, but setting it Active again runs
-// full project validation: a profile is required, and its contact and profile
-// must belong to the job's client.
+// Setting a closed project Active again runs full project validation. A
+// profile is optional, but its contact and profile must belong to the job's
+// client.
 func TestJobBillingReopening(t *testing.T) {
 	token, err := testutils.GenerateRecordToken("users", "author@soup.com")
 	if err != nil {
@@ -69,7 +70,7 @@ func TestJobBillingReopening(t *testing.T) {
 		name, setup, content string
 		status               int
 	}{
-		{"without profile", "", `"invoicing_information":{"code":"required"`, http.StatusBadRequest},
+		{"without profile", "", `"status":"Active"`, http.StatusOK},
 		{"with another client's contact", ", invoicing_information = 'painvoice000002', contact = '184qbpajciwrrp2'", `"contact":{"code":"contact_client_mismatch"`, http.StatusBadRequest},
 		{"with valid billing details", ", invoicing_information = 'painvoice000002'", `"status":"Active"`, http.StatusOK},
 	} {
@@ -132,9 +133,8 @@ func TestJobBillingOnProjectCreation(t *testing.T) {
 				t.Fatal(err)
 			}
 			status, content := 200, []string{`"id":`}
-			if profile == "" {
-				status, content = 400, []string{`"invoicing_information":{"code":"required"`}
-			} else if profile == "painvoice000001" {
+			// A project may be created without an invoicing profile.
+			if profile == "painvoice000001" {
 				status, content = 400, []string{`"code":"client_mismatch"`}
 			}
 			scenario := tests.ApiScenario{Name: profile + " " + url, Method: http.MethodPost, URL: url, Body: strings.NewReader(string(body)), Headers: map[string]string{"Authorization": token}, ExpectedStatus: status, ExpectedContent: content, TestAppFactory: testutils.SetupTestApp}

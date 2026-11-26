@@ -272,6 +272,13 @@ export const navSections: NavSection[] = [
             color: "blue",
           },
           {
+            action: "/jobs/no-invoicing",
+            canView: anyClaim("job"),
+            icon: "mdi:file-alert-outline",
+            title: "Projects Without an Invoicing Profile",
+            color: "blue",
+          },
+          {
             action: "/jobs/latest",
             canView: anyClaim("job"),
             icon: "mdi:timeline-text-outline",

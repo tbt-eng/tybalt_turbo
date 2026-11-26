@@ -108,7 +108,7 @@ work may break across pages. Use this section order:
 | References | Linked proposal number and description when present; client PO and client reference number when supplied. For a subjob, show the parent project number and description. Omit unused optional references. |
 | Project contacts | Client project contact name, email, and available phone. Show the TBT project manager's name, available business email/phone, and branch name. Do not substitute the internal approver as the TBT contact or signatory. |
 | Fees | Prominent **Project value (CAD, before tax)** with thousands separators and whole dollars. Show **Fee basis: Fixed fee** when T&M is false, or **Fee basis: Time and materials** when true. State **Applicable taxes are additional.** Identify the selected rate sheet by code and revision (issue 207). The name is left off: it is an optional description, and the code is the sheet's printed label. The effective date is left off too: the code and revision identify the sheet, and the stored date of proposed rates is a placeholder that job creation overwrites. |
-| Invoicing | **Bill to** the name the invoicing profile chooses: the client's official name, or its alias when the profile bills the alias (`utilities.BillingName`); billing contact name, email, available phone, and billing fax when supplied. Use the billing contact's address when present, otherwise the client's address. Use one address source; do not combine partial addresses from different records. Show the invoicing instructions verbatim when present. Always show this section, even when the project and billing contacts are the same. |
+| Invoicing | **Bill to** the name the invoicing profile chooses: the client's official name, or its alias when the profile bills the alias (`utilities.BillingName`); billing contact name, email, available phone, and billing fax when supplied. Use the billing contact's address when present, otherwise the client's address. Use one address source; do not combine partial addresses from different records. Show the invoicing instructions verbatim when present. Always show this section, even when the project and billing contacts are the same. A request without an invoicing profile (it is optional, see Invoicing Profile Is Optional) prints **Bill to** the client's official name and address, with no billing contact, fax, or instructions and no blank labels; the missing profile does not make the printout a draft. |
 | Agreement and signatures | The agreement text and two signature blocks defined below. |
 
 For T&M work, append the selected rate sheet's client billing rates, using the
@@ -490,10 +490,29 @@ The digest holds each related record, but it leaves out the linked proposal's
 `status`, `updated` and `_imported`, because procurement may award the proposal
 between approval and creation, and the first save of an imported proposal clears
 its `_imported` mark. Every other proposal field stays in the digest, so
-another edit to the proposal makes the approval stale. A request approved
-before this rule saved the digest of the whole proposal record; creation also
-accepts that saved digest, while the caller's digest must be the current one.
-Remove that allowance once no such request is awaiting creation.
+another edit to the proposal makes the approval stale.
+
+The digest also leaves out the invoicing profile: the request's
+`invoicing_information`, the profile record, its billing contact, and the
+bill-to name the profile chooses (November 2026, issue 213). The profile is not
+part of what an approval covers, so setting, changing, or clearing it, editing
+the profile itself, or **Replace with…** does not make an approval stale. The
+client record stays in the digest. The request `version` is not advanced by
+these changes, so the approval's `request_version` still matches.
+
+An approval saved before either rule holds an older form of the digest: with
+the profile, and, before the proposal rule, with the whole proposal record
+(`requestLegacyReviewTokens`). An older form holds more than the current one,
+so a match proves nothing the current digest covers has changed. Creation
+accepts a saved digest that matches the current form or an older one, while the
+caller's digest must be the current one. When the server starts, it gives
+each approval awaiting creation whose saved digest matches an older form the
+current form instead (`upgradeLegacyRequestApprovals`); procurement's profile
+change and **Replace with…** do the same for the requests they touch. After
+that, a later profile change cannot make such an approval stale. A saved digest
+that matches no form is left alone. A review page opened before a deploy holds
+the old digest and must be reloaded. Remove the older forms once no request
+approved before November 2026 is awaiting creation.
 
 Reads, printing, and approval do not rotate `submission_token`. Failed workflow
 transactions do not persist a new or cleared token. Token changes alone do not
@@ -580,13 +599,45 @@ to an admin to resolve the duplicate."
 Different PDF files can describe the same work. A unique hash does not replace
 the duplicate-work review.
 
+### Invoicing Profile Is Optional
+
+Decided November 2026 (issue 213). A requester often does not know who receives
+the client's invoices, so a guessed profile was worse than none. Nothing uses
+the profile yet except display, validation and the printed Project
+Authorization.
+
+* Requesters may still select or create a profile (the create rule of
+  `client_invoicing_information` is unchanged) but need not. A request needs
+  no profile at any status, including submission and approval.
+* A project job needs no profile on create or edit, including a job created
+  from a request and **Change Client**. A chosen profile and the contact must
+  still belong to the job's client.
+* The profile is not part of what an approval covers (see the review digest
+  above).
+* Procurement sets, changes, or clears the profile of a request awaiting job
+  creation, on anyone's request, without changing its status, version, or
+  approval: `POST /api/job_requests/{id}/invoicing_profile` with `version` and
+  `invoicing_information` (empty to clear). Active holders of `job` only, while
+  requests and job editing are on. Only the profile changes. The profile must
+  belong to the request's client, and its billing contact needs an email or the
+  **No email address** mark. The request page shows **Set profile** or
+  **Change profile** on the Invoicing card to them (`can_set_invoicing`), in a
+  dialog with a profile picker. **Create an invoicing profile** opens the
+  client's profile editor in a new tab; **Check again** reloads the list.
+* Holders of `job` see a warning on the Invoicing card of a job or request with
+  no profile; others see no empty card on a job. **Projects Without an
+  Invoicing Profile**, a procurement button beside **Jobs** (`/jobs/no-invoicing`),
+  lists the Active projects and subjobs with no profile, from the jobs list
+  data (`no_invoicing_profile` in `/api/jobs`).
+
 ### Required Project And Billing Data
 
 Before submission, require description, client, project contact, manager,
 branch, Plus Code location, award date, active rate sheet, positive project
 value, T&M indicator, at least one active division allocation, an explicit
 First Nations agreement answer (`Yes` or `No`), one PDF, and a qualified selected
-approver. Require the project's invoicing profile and validate its relations.
+approver. The invoicing profile is optional (see Invoicing Profile Is
+Optional); when one is chosen, validate its relations.
 An `Active` project also needs a project completion date; an estimate is acceptable.
 Keep `job_owner` optional, matching the current schema and validation. If set,
 it must reference a valid client. Add no new owner-detail requirements.
@@ -607,8 +658,10 @@ client has no email, rather than that nobody asked, and cannot be combined with
 an email address. Entering an email clears the mark.
 
 Require an email only where one is used. At request submission, approval, and
-creation, the project contact and the profile's billing contact must each have
-an email or be marked **No email address**. Ordinary job edits, value changes,
+creation, the project contact and, when the request has a profile, the
+profile's billing contact must each have an email or be marked **No email
+address**. Procurement's profile change on a request checks the new billing
+contact the same way. Ordinary job edits, value changes,
 and contact or profile saves do not require an email.
 
 Use `client_contacts` for both project and billing contacts. Each job has a
@@ -616,7 +669,8 @@ project `contact` relation and an `invoicing_information` relation. The latter
 points to a reusable `client_invoicing_information` profile with a `client`,
 one `contact` relation to `client_contacts`, an optional profile name (up to 120
 characters), and optional free-form invoicing notes.
-The notes can be empty; the profile and contact relations are still required.
+The notes can be empty; the profile's contact relation is still required. The
+job's and request's `invoicing_information` may be empty.
 Several profiles can belong to the same client. Support a billing fax number.
 Do not track HST exemption. Report-delivery information is outside this work;
 do not add report-delivery fields or validation.
@@ -645,7 +699,7 @@ If any part fails, roll back the entire merge.
 in error or whose work now belongs to another client. It is not a merge: both
 clients remain. Active holders of `job` use it from the project's details page,
 on a top-level project; a subjob always uses its parent's client. They choose
-the new client, a contact and an invoicing profile of that client, and give a
+the new client, a contact and, optionally, an invoicing profile of that client, and give a
 reason of 20 to 500 characters, short enough that the notes quoting it with
 both client names and the subjob numbers fit the note limit. When the project
 has subjobs, they tick "I understand that the client will also be changed for"
@@ -792,9 +846,11 @@ The profile editor has a **More actions** section for holders of `job`.
 transaction it moves every job and request to another profile of the same
 client, then deletes the old profile. It cannot be undone and is not an absorb.
 It updates the rows with direct SQL, as an absorb does, so it works for Closed
-jobs and for requests in any status; the jobs are marked for writeback. A moved
-request gets a new version, so one that is awaiting approval or creation must be
-approved again. The replace is refused while job editing is off, and while a
+jobs and for requests in any status; the jobs are marked for writeback. The
+profile is not part of an approval, so a moved request that is awaiting
+approval or creation keeps its version and its approval. A moved Draft,
+Recalled or Rejected request gets a new version, so an edit form opened before
+the replace reloads instead of saving the deleted profile. The replace is refused while job editing is off, and while a
 client or contact absorb that touches those records is waiting to be committed
 or undone.
 
@@ -890,7 +946,7 @@ limits and checklist versions are retained but not shown there. Holders of `job`
 propose a new value from the same line. The proposal form takes only the value,
 approver, and PDF; project details are changed in the job editor, and such an
 edit after a rejection counts as a correction. When the job lacks a detail that
-approval requires, such as an invoicing profile, division hours, a completion
+approval requires, such as division hours, a completion
 date for an Active project, a location, or a branch, the form names it and links
 to the job editor instead of saving. A refusal that names other job fields also
 links to the job editor. Many older projects have no authorizing document; their
@@ -909,8 +965,8 @@ against the proposed positive value, while retaining the historical effective
 value until approval. Other job fields must pass their normal validation.
 Ordinary job edits must pass the new validation, including a status-only edit
 that sets a project to `Active`. An older project whose stored value is still
-zero can be edited without setting a value, for example to add the
-invoicing profile a value change needs; setting a value, or changing its status
+zero can be edited without setting a value, for example to add an
+invoicing profile; setting a value, or changing its status
 to `Active`, still requires a positive value. An edit that only sets a project
 to `Closed` or `Cancelled` does not require the new validation, including the
 authorizing document and project value, so staff can retire older projects
@@ -1437,7 +1493,7 @@ in the profile; do not add copied contact/address fields or a fallback flag.
 
 | Columns | SQLite / PocketBase definition |
 | --- | --- |
-| `invoicing_information` | `TEXT`; relation to `client_invoicing_information`. Empty on existing jobs until completed under the edit rules. |
+| `invoicing_information` | `TEXT`; relation to `client_invoicing_information`. Optional; empty until procurement chooses a profile. |
 | `request_creator` | `TEXT`; relation to `users`; original request creator. |
 | `request_created`, `request_submitted` | `TEXT`; original creation and final submission dates copied from the request. |
 | `created_by`, `creation_completed` | `TEXT`; user relation and date for the separate creation action. |
@@ -1815,8 +1871,8 @@ Acceptance tests must cover these cases:
   Profiles are reusable and hold a contact reference rather than copied data.
   Shared edits remain visible through their references and cannot break client
   ownership rules. Changing a job's contact does not rewrite its profile.
-* Empty invoicing notes are allowed, but required profile/contact relations
-  remain enforced. `job_owner` can be empty; a supplied owner must reference a
+* Empty invoicing notes are allowed, but the profile's contact relation remains
+  enforced. A job or request may have no profile. `job_owner` can be empty; a supplied owner must reference a
   valid client. No report-delivery fields are required.
 * Client workspace navigation, the direct tab routes, all three job lists, note
   associations, removal of the old client edit route, and safe editor return
@@ -1945,13 +2001,11 @@ PA1 shipped `1790969510_client_setup.go` and:
 * The client workspace: separate Client details, Jobs, and Notes routes, client
   addresses and phone numbers, contacts, and reusable invoicing profiles with the
   shared-update, save-as-new, and reuse choices.
-* A required invoicing profile, with a project contact and profile of the same
+* An optional invoicing profile, with a project contact and profile of the same
   client, on project creation and ordinary project edits. This applies through
   the collection API and the custom job API, including parent projects and
-  subjobs. Existing projects receive no guessed profile. Setting only the
-  status of an older project to `Closed` or `Cancelled` needs no profile;
-  setting it to `Active` does. The stale and unused job lists show save errors
-  beside the job.
+  subjobs. Existing projects receive no guessed profile. The stale and unused
+  job lists show save errors beside the job.
 * The return from client maintenance to an unsaved job form, with the new,
   copied, or reused profile selected but not saved.
 * Complete removal of the legacy PDF workflow listed in section 4, including its

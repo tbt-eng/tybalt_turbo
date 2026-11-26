@@ -611,7 +611,7 @@
     </div>
     {#if item.client && !profiles.length}
       <div class="flex flex-col gap-1">
-        <h3 class="text-sm font-semibold">Invoicing profile<DSRequiredMark /></h3>
+        <h3 class="text-sm font-semibold">Invoicing profile</h3>
         <InvoicingProfileEmptyState
           canCreate={canCreateInvoicingProfile($globalStore.claims)}
           canManageContacts={$globalStore.claims.includes("job")}
@@ -628,13 +628,12 @@
         fieldName="invoicing_information"
         fill
         uiName="Invoicing profile"
-        required
         disabled={!item.client}
       >
         {#snippet optionTemplate(row: WorkflowRecord)}{row.id
             ? invoicingProfileLabel(row)
             : item.client
-              ? "Select an invoicing profile"
+              ? "Not known — procurement selects it"
               : "Select a client first"}{/snippet}
       </DsSelector>
       {#if item.client}<a

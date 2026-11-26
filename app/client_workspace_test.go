@@ -436,14 +436,18 @@ func TestClientWorkspaceReplaceInvoicingProfile(t *testing.T) {
 			t.Errorf("job %s: _imported %v, status %s, updated %s; want marked for writeback, still Closed, and updated", id, job.GetBool("_imported"), job.GetString("status"), job.GetString("updated"))
 		}
 	}
-	// A changed request makes an open review stale, as an edit does.
-	for id, status := range map[string]string{"cwrequest000001": "Draft", "cwrequest000002": "Awaiting approval"} {
+	// The profile is not part of an approval, so a submitted request keeps
+	// its version. A draft gets a new one, so an open edit form reloads.
+	for id, want := range map[string]struct {
+		status  string
+		version int
+	}{"cwrequest000001": {"Draft", 2}, "cwrequest000002": {"Awaiting approval", 1}} {
 		request, err := app.FindRecordById("job_requests", id)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if request.GetInt("version") != 2 || request.GetString("status") != status {
-			t.Errorf("request %s: version %d, status %s; want version 2 and %s", id, request.GetInt("version"), request.GetString("status"), status)
+		if request.GetInt("version") != want.version || request.GetString("status") != want.status {
+			t.Errorf("request %s: version %d, status %s; want version %d and %s", id, request.GetInt("version"), request.GetString("status"), want.version, want.status)
 		}
 	}
 	// The client details count the moved records on the replacement.

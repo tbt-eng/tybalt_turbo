@@ -82,10 +82,12 @@ func createReplaceInvoicingProfileHandler(app core.App) func(e *core.RequestEven
 //     set to false and updated to now, as MarkReferencingJobsNotImported does,
 //     so the jobs writeback picks them up. The writeback does not send the
 //     profile, so the legacy system sees no other change.
-//   - The requests get a new version and last_edited, as a merge gives them.
-//     The profile is part of what an approver reviews, so a review in progress
-//     or an approval waiting for creation becomes stale, as it would after an
-//     edit, and the request must be reviewed again.
+//   - The profile is not part of what an approval covers (the review digest
+//     leaves it out), so a request awaiting approval or job creation keeps its
+//     version and its approval. A request its creator can edit (Draft,
+//     Recalled or Rejected) gets a new version and last_edited, as a merge
+//     gives them, so an edit form opened before the replace must reload
+//     instead of saving the deleted profile.
 //
 // This works the same for every status, so Closed jobs and requests in any
 // status move too.
@@ -151,6 +153,18 @@ func replaceInvoicingProfile(tx core.App, e *core.RequestEvent, clientID, profil
 		return result, replaceProfileError(http.StatusConflict, "", "", "A client or contact merge that involves these invoicing profiles or their jobs or requests is waiting to be committed or undone. Finish it before replacing the profile.")
 	}
 
+	// An approval saved before the profile left the digest holds the profile.
+	// Give it the current digest first, so the move does not make it stale.
+	for _, id := range requestIDs {
+		r, err := tx.FindRecordById("job_requests", id)
+		if err != nil {
+			return result, err
+		}
+		if err := upgradeLegacyRequestApproval(tx, r); err != nil {
+			return result, err
+		}
+	}
+
 	params := dbx.Params{"profile": profile.Id, "replacement": replacement.Id}
 	if _, err := tx.DB().NewQuery(`
 		UPDATE jobs
@@ -164,8 +178,8 @@ func replaceInvoicingProfile(tx core.App, e *core.RequestEvent, clientID, profil
 	if _, err := tx.DB().NewQuery(`
 		UPDATE job_requests
 		SET invoicing_information = {:replacement},
-		    version = version + 1,
-		    last_edited = strftime('%Y-%m-%d %H:%M:%fZ', 'now'),
+		    version = CASE WHEN status IN ('Draft', 'Recalled', 'Rejected') THEN version + 1 ELSE version END,
+		    last_edited = CASE WHEN status IN ('Draft', 'Recalled', 'Rejected') THEN strftime('%Y-%m-%d %H:%M:%fZ', 'now') ELSE last_edited END,
 		    updated = strftime('%Y-%m-%d %H:%M:%fZ', 'now')
 		WHERE invoicing_information = {:profile}
 	`).Bind(params).Execute(); err != nil {

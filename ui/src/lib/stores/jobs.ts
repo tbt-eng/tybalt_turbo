@@ -12,6 +12,8 @@ export interface JobApiResponse {
   manager: string; // manager name
   outstanding_balance: number;
   outstanding_balance_date: string;
+  // True when the job has no invoicing profile. The jobs list filters on it.
+  no_invoicing_profile: boolean;
 }
 
 import { createCollectionStore } from "./collectionStore";
@@ -43,6 +45,7 @@ export const jobs = createCollectionStore<any>(
       "manager",
       "outstanding_balance",
       "outstanding_balance_date",
+      "no_invoicing_profile",
     ],
     extractField: (document, fieldName) =>
       (document as Record<string, unknown>)[fieldName] as string,

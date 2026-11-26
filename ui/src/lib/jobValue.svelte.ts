@@ -149,17 +149,15 @@ export class JobValue {
 // The server checks the job in full when the change is saved; this catches the
 // common gaps on older projects before the form is filled in. A missing
 // authorizing document is not listed: the server treats the project as PA and
-// approval records it.
+// approval records it, nor is a missing invoicing profile, which is optional.
 export function valueBlockers(job: {
   status?: string;
-  invoicing_information?: string;
   project_completion_date?: string;
   location?: string;
   branch_id?: string;
   allocations?: unknown[] | null;
 }): string[] {
   const missing: string[] = [];
-  if (!job.invoicing_information) missing.push("an invoicing profile");
   if (!job.allocations?.length) missing.push("division hours");
   if (job.status === "Active" && !job.project_completion_date)
     missing.push("a project completion date");

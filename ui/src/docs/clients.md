@@ -32,4 +32,23 @@ Procurement can replace an invoicing profile. Turbo moves its jobs and project r
 4. Select the other profile in **Replace with**.
 5. Select **Replace profile**.
 
-A moved request that waits for approval or creation needs approval again.
+A moved project request keeps its approval.
+
+## Set the profile of a project request
+
+Procurement can set, change or clear the invoicing profile of a request in the **Job Create Queue**. The approval stays valid.
+
+1. Open the request.
+2. On the **Invoicing** card, select **Set profile** or **Change profile**.
+3. Select the profile.
+4. Select **Save profile**.
+
+No profile fits? Select **Create an invoicing profile**. It opens in a new tab. Then select **Check again**.
+
+## Find projects without a profile
+
+The invoicing profile is optional. Procurement can list the Active projects that have none.
+
+1. Select the **Projects Without an Invoicing Profile** button beside **Jobs**.
+2. Open a project. Select **Edit Job**.
+3. Select an invoicing profile. Save the job.

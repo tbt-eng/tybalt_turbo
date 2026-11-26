@@ -1,404 +1,348 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/jobs.go","sha256":"3f38ac0e1c6dbbc77925e50763b33db9ba3aac32771b79994bb185db33d049da","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/jobs.go","sha256":"0d87555c56f6882be1171e3dfde64ca45972ffdcf524eb76fe2bc49f71558370","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/jobs.go
 
-## Job saves go through one set of business rules
+## Only project retirement skips full validation for projects
 
-Lines 20-22
+Lines 20-36
 
-Asked as: job save rules; who can save jobs; job save permissions; checks applied when saving
+Asked as: close project without validation error; retire project status only; cancel project skips checks; why project save skips validation; mark project closed quickly
 
-Turbo applies the job rules (ProcessJob, ProcessJobCore) to every job save made through a request. The rules use the saving user's record (the auth record) to check permissions such as editing the outstanding balance.
-
-## Which saves get full validation
-
-Lines 27-36
-
-Asked as: why project fully validated; project save validation; strict project checks; which project saves are checked
-
-Turbo fully validates every project save, except a save that only sets an existing project to Closed or Cancelled (a retirement). Setting a project Active is not a retirement. Proposal saves get the relaxed status-only check when only the status changes. The strict path (ProcessJobCoreStrict) always validates fully.
+A save that changes only a project's status to Closed or Cancelled counts as a retirement (isProjectRetirement) and skips the full job validation. Setting a project to Active never counts as a retirement. A save that also changes any other field (besides authorizing_document) gets full validation. The strict path (ProcessJobCoreStrict) always applies full validation, even to status-only edits.
 
 ## Job editing can be switched off
 
-Lines 40-48
+Lines 41-48
 
-Asked as: can't edit jobs; job editing disabled; jobs locked down; editing jobs turned off
+Asked as: cannot save job at all; job editing turned off; jobs are read only; can't create or update jobs; editing disabled message
 
-When job editing is disabled in the app configuration, Turbo refuses every job create or update. It returns the error utilities.ErrJobsEditingDisabled. The setting comes from IsJobsEditingEnabled.
+When job editing is disabled in the app configuration, Turbo refuses every job create and update. It returns the error utilities.ErrJobsEditingDisabled. The setting is read by utilities.IsJobsEditingEnabled.
 
 ## Cancelled proposals cannot be changed
 
 Lines 53-67
 
-Asked as: edit cancelled proposal; cancelled proposal locked; can't change cancelled proposal; proposal already cancelled
+Asked as: cannot edit cancelled proposal; proposal locked after cancelling; change a cancelled proposal; cancelled proposal won't save; reopen cancelled proposal
 
-Turbo refuses any edit to a proposal whose saved status is Cancelled. It says "cancelled proposals cannot be modified" (this proposal has been cancelled and cannot be modified).
+Turbo refuses any change to a proposal whose saved status is Cancelled. The message is "cancelled proposals cannot be modified".
 
-## Cancelled proposal check uses the original number and status
-
-Lines 53-58
-
-Asked as: reopen cancelled proposal; uncancel proposal; cancelled proposal status change; restore cancelled proposal
-
-Turbo decides that a proposal is cancelled from the saved record, not from the incoming change. A proposal already Cancelled is refused even if the edit would change the status.
-
-## New job numbers are generated
+## Job numbers are assigned automatically
 
 Lines 88-126
 
-Asked as: how job numbers are assigned; next job number; job number sequence; sub-job numbering scheme
+Asked as: how job numbers get assigned; new job has no number; automatic job number; unable to generate unique number; job number ran out
 
-On create, Turbo assigns the number. A top-level job gets the next number for the current two-digit year in the form YY-NNNN, with a P prefix for proposals. The next number is one above the highest existing 3- or 4-digit sequence for that year. A sub-job gets its parent's number plus a two-digit suffix, one above the highest existing suffix. Turbo allows at most 99 sub-jobs per parent. A sub-job parent must be a top-level number, so a sub-job cannot have sub-jobs.
+Turbo assigns a number on create. A top-level job gets the current two-digit year and the next 4-digit sequence, such as 26-0015, or P26-0015 for a proposal. The sequence follows the highest existing 3- or 4-digit number for that year. Turbo fails with "unable to generate a unique job number" if the sequence passes 9999.
 
-## Number generation failure is reported
+## Sub-job number errors show as number-generation errors
 
-Lines 100-126
+Lines 96-126
 
-Asked as: job number error; error generating job number; can't get job number; sub-job number failed
+Asked as: sub-job number error; error generating job number; number generation failed; cannot create sub-job number; job numbering error on save
 
-When Turbo cannot generate a job number, it refuses the save with "error generating job number" for top-level jobs, or "error generating sub-job number" for sub-jobs.
+When Turbo cannot generate a sub-job or top-level job number, it refuses with 'error generating sub-job number' or 'error generating job number'.
 
-## Edited jobs lose imported flag
+## Edited jobs are marked as not imported
 
 Lines 140-144
 
-Asked as: job no longer imported; legacy system modified flag; imported job edited; why job marked modified
+Asked as: job flagged as not imported; job goes back to legacy system; edited job resent to legacy; imported flag cleared after edit; why job is re-exported
 
-When an update changes any field of a job, Turbo marks the job as no longer imported. The legacy system then receives the job as modified.
+When an existing job is updated and any field changes, Turbo marks it as no longer imported. The job is then written back to the legacy system.
 
-## Outstanding balance date is set automatically
+## Outstanding balance date is set automatically for projects
 
 Lines 150-171
 
-Asked as: balance date not updating; outstanding date set automatically; when balance date changes; outstanding balance date
+Asked as: outstanding balance date wrong; balance date changed automatically; why balance date updated today; project balance date not saved; balance date keeps old value
 
-On a project, Turbo sets the outstanding balance date (outstanding_balance_date) to today when the balance changes. On create, any nonzero balance counts as a change. If the balance is unchanged on an update, the old date is kept.
+On a project, when the outstanding balance changes, Turbo sets the outstanding balance date to today. On create, any non-zero balance counts as a change. If the balance does not change on an update, the saved date is kept.
 
-## Who may change a job's outstanding balance
+## Only jobs or payables_admin claim can change outstanding balance
 
-Lines 173-245
+Lines 173-244
 
-Asked as: can't edit outstanding balance; outstanding balance permission denied; who can change balance; balance edit not allowed
+Asked as: cannot change outstanding balance; no permission to edit balance; balance edit denied; need payables admin for balance; not logged in balance edit
 
-Changing the outstanding balance of an existing job needs the job claim or the payables_admin claim. Without either, Turbo says "insufficient permissions to edit outstanding balance". Without a signed-in user, it says "authentication required to edit outstanding balance". Creating a job skips this check, and so does leaving the balance unchanged.
+Changing a job's outstanding balance needs the jobs claim (job) or the payables_admin claim. Without either, Turbo refuses with "insufficient permissions to edit outstanding balance". Without a signed-in user, Turbo says "authentication required to edit outstanding balance". Saving the same balance needs no claim. Creating a job skips this check.
 
-## Active projects need a completion date
+## Active project needs a completion date
 
 Lines 247-262
 
-Asked as: active project no end date; completion date required; project end date missing; active project needs finish date
+Asked as: active project completion date missing; project completion date required; active project won't save no end date; blank completion date error; estimated completion date for active
 
-An Active project must have a project completion date. Otherwise Turbo says "project completion date is required" (an estimate is acceptable). Closed and Cancelled projects, and proposals, may leave it blank.
+An Active project must have a project completion date. Otherwise Turbo says "project completion date is required" (an estimate is acceptable). Closed and Cancelled projects may leave it blank.
 
-## Completion date cannot precede award date
+## Completion date must not be before award date
 
-Lines 263-294
+Lines 263-295
 
-Asked as: completion date before award; end date earlier than award; award date after completion; project finish before start
+Asked as: completion date before award date; project end date earlier than award; completion date invalid compared to award; end date must follow award date; award date and completion date conflict
 
-A project completion date must be a valid YYYY-MM-DD date. It must be on or after the project award date, so the same day is allowed. Turbo compares the two only when an award date exists, since legacy projects may have none. Otherwise it says "project completion date must be on or after project award date".
+A project completion date must be a valid YYYY-MM-DD date. It may equal the project award date but not fall before it. Otherwise Turbo says "project completion date must be on or after project award date". The comparison runs only when the project has an award date, because legacy projects may have none.
 
-## Proposal due date must not precede opening date
+## Proposal submission due date must not precede opening date
 
 Lines 298-332
 
-Asked as: due date before opening; submission date before open date; proposal dates wrong order; proposal due date error
+Asked as: proposal due date before opening; submission date earlier than opening; due date invalid for proposal; opening date after due date; proposal dates out of order
 
-A proposal's submission due date must be on or after its opening date, so the same day is allowed. Both dates must be in YYYY-MM-DD format. Otherwise Turbo says "proposal submission due date must be on or after opening date".
+A proposal's submission due date may equal its opening date but not fall before it. Otherwise Turbo says "proposal submission due date must be on or after opening date". Both dates must be in YYYY-MM-DD format.
 
-## Retiring a project skips billing and contact checks
+## Retiring a project skips full validation
 
 Lines 351-361
 
-Asked as: close project without contact; cancel project no invoicing; close project quickly; retire project without checks
+Asked as: retire project without full checks; closing project skips invoicing check; project cancelled no contact needed; retiring project status change; why closing project needs no manager
 
-A save that only sets an existing project to Closed or Cancelled skips the later field checks. It does not need an invoicing profile, a project value, a contact or a manager. Active and Closed still need a project completion date check on the new status.
+When a save only changes an existing project's status to Closed or Cancelled, Turbo skips the full job validation. Retiring needs no invoicing profile, project value, contact or manager. Setting a project to Active does not qualify and gets full validation. The completion-date check on the new status still runs. Changing authorizing_document does not count as another change.
 
-## Proposals lose project-only fields on save
+## Projects and proposals are cleaned on every save
 
-Lines 370-398
+Lines 363-400
 
-Asked as: proposal fields cleared; why client PO disappeared; proposal project value cleared; proposal lost values on save
+Asked as: proposal fields cleared on save; project value reset to zero; authorizing document changed to PA; client PO spaces removed; why fields blank after saving
 
-On every save Turbo trims whitespace from the client PO. On a proposal it clears authorizing document, client PO, client reference number, rate sheet, outstanding balance and its date, proposal link and project value.
+On a project, Turbo sets proposal value to 0 and authorizing document to PA. On a proposal, Turbo blanks authorizing document, client PO, client reference number, rate sheet, outstanding balance (set to 0), outstanding balance date, linked proposal, and project value (set to 0). Turbo trims spaces from client PO.
 
-## Projects get fixed authorizing document and no proposal value
-
-Lines 379-387
-
-Asked as: authorizing document changed to PA; PO became PA; why authorizing doc is PA; project document reset
-
-On every project save, Turbo sets the authorizing document (authorizing_document) to PA and the proposal value to 0. Older projects with PO or Unauthorized become PA on their next save.
-
-## Job number format and sub-job eligibility
+## Only top-level jobs can be parents of sub-jobs
 
 Lines 418-450
 
-Asked as: invalid job number format; sub-job of sub-job; job number pattern; which numbers can be parents
+Asked as: cannot add sub-job to sub-job; invalid base number; sub-job under sub-job; numbering under a sub-job; parent number not allowed
 
-Only a base job number can be a parent: an optional P, 2-digit year, a dash and 3 or 4 digits, such as 25-123 or P25-0123. A number with a sub-job suffix, such as 25-0123-01, is not a base number. Sub-jobs cannot have their own sub-jobs.
+A sub-job number can be created only under a base job number: [P]YY-NNN or [P]YY-NNNN. A job that is itself a sub-job (such as 25-0123-01) cannot be a parent. Turbo refuses to number a sub-job under it with 'invalid base number'.
 
-## Job type comes from the number prefix
+## Proposals are recognized by a leading P in the number
 
 Lines 452-464
 
-Asked as: proposal or project by number; meaning of P prefix; job type wrong; job type from number
+Asked as: how proposal is identified; what P prefix means; job starts with P; proposal number format; is this a proposal or project
 
-Turbo treats a job as a proposal when its number starts with P, after removing any sub-job suffix. Every other number is a project. On update, the type comes from the existing job number.
+Turbo treats a job as a proposal when its number starts with P, including a sub-job suffix such as P25-0123-01. Every other number is a project.
 
-## Job type is set by the dates on create
+## New job type comes from its dates
 
 Lines 478-500
 
-Asked as: not a project or proposal; exactly one date configuration; date configurations required; job type from dates
+Asked as: exactly one date configuration required; job type from dates; why job is project or proposal; new job type wrong; project or proposal dates mix
 
-On create, a job with a proposal link, or with only a project award date, is a project. A job with both proposal dates and no award date is a proposal. Any other combination is refused with "exactly one of project or proposal date configurations is required". After creation, the job number fixes the type: a leading P means proposal.
+A new job is a project when it links a proposal, or when it has a project award date and no proposal dates. It is a proposal when it has both proposal dates and no award date. Any other mix gives "exactly one of project or proposal date configurations is required". An existing job's type comes from its number: a P prefix means proposal.
 
-## New job with a proposal reference is a project
+## Proposal status-only change skips full validation
 
-Lines 480-497
+Lines 507-561
 
-Asked as: job linked to proposal is project; create project from proposal; proposal reference project type; project created from proposal
+Asked as: proposal status change only error; changing proposal status to active; invalid status for proposal change; status only edit proposal blocked; proposal status update fails
 
-On create, a job that names a proposal (proposal) is a project, whatever dates it has. Without a proposal, a project has an award date and no proposal dates, and a proposal has both proposal dates and no award date. Any other date mix is refused with "exactly one of project or proposal date configurations is required".
-
-## Status-only edit of a project skips full validation
-
-Lines 507-515
-
-Asked as: limited checks on project save; why location not checked; status only project save; project save skips checks
-
-When a save of an existing project is not full validation, the date and completion checks run and then validation ends. Location, branch, contact, manager, status list and other checks do not run.
-
-## Proposal status-only change is checked separately
-
-Lines 517-560
-
-Asked as: change proposal status only; proposal status update checks; status change proposal validation; proposal status-only save
-
-When only the status of a proposal changes, Turbo checks the status list, the value requirement, and the comment for No Bid or Cancelled, then skips the other checks. A proposal save where another field changes gets full validation.
-
-## Allowed statuses for proposals
-
-Lines 522-532
-
-Asked as: invalid status for proposal; proposal can't be active; which proposal statuses; proposal status options
-
-A proposal may be In Progress, Submitted, Awarded, Not Awarded, Cancelled or No Bid. Turbo refuses Active and Closed with "invalid status for proposal". A new proposal must start as In Progress or Submitted.
-
-## Comment required for No Bid or Cancelled proposals
-
-Lines 533-557
-
-Asked as: no bid needs comment; cancel proposal comment required; comment to set status; why comment needed proposal
-
-Before a proposal moves to No Bid or Cancelled, the job needs a client note whose status change matches that status. Otherwise Turbo says "a comment is required to set this status". This applies when the status actually changes.
+When only the status of a proposal changes, Turbo does not run the full validation. Active and Closed are refused with "invalid status for proposal". The value requirement still applies. No Bid or Cancelled needs a comment first. Fields that Turbo blanks on save can make the update count as a full edit.
 
 ## Date rules on create
 
 Lines 563-594
 
-Asked as: invalid dates for project; new project dates wrong; new proposal dates error; create project date rules
+Asked as: invalid dates for project; invalid dates for proposal; new project date error; new proposal dates rejected; create project date combination wrong
 
-A new project needs a project award date and must have both proposal dates empty ("invalid dates for project"). A new proposal needs both proposal dates and no award date ("invalid dates for proposal").
+A new project must have a project award date and no proposal dates, or Turbo says "invalid dates for project". A new proposal must have both proposal dates and no award date, or Turbo says "invalid dates for proposal".
 
-## Date rules on update
+## Date rules on update only apply when a date changes
 
 Lines 595-647
 
-Asked as: can't change award date; update project dates error; proposal dates changed error; editing project dates rejected
+Asked as: date check on update; changing award date fails; edit proposal dates error; date combination when updating; project dates changed refused
 
-On update, Turbo checks dates only if the award, opening or due date changed. It then uses the new values, or the old ones where the new are blank. A project must keep an award date and no proposal dates. A proposal must keep both proposal dates and no award date.
+On update, Turbo checks the date combination only if an award, opening or due date changed. It uses the new value, or the saved value where the new one is blank. A project must keep an award date and no proposal dates. A proposal must keep both proposal dates, no award date, and a due date that is not before the opening date.
 
 ## Location is required
 
 Lines 649-659
 
-Asked as: plus code location; invalid location job; missing location; location not accepted
+Asked as: invalid or missing location; location plus code error; job location not accepted; plus code wrong; no location on job
 
-Every job needs a location as a valid Plus Code. Otherwise Turbo says "invalid or missing location".
+Every job needs a location that is a valid Plus Code. Otherwise Turbo says "invalid or missing location".
 
 ## Branch is required
 
 Lines 661-670
 
-Asked as: no branch on job; branch missing error; pick a branch; job branch needed
+Asked as: branch missing on job; choose branch error; job has no branch; branch required message; cannot save without branch
 
-A job without a branch is refused with "branch is required".
+Every job needs a branch. Otherwise Turbo says "branch is required".
 
-## Contact and manager are required
+## Contact and manager are required on full edits
 
 Lines 672-714
 
-Asked as: job needs contact; no manager on job; contact missing on save; manager missing error
+Asked as: contact required on job; manager required error; who is the manager needed; job needs contact and manager; full edit missing contact
 
-A fully validated job must have a client contact and a manager. Turbo says "contact is required" or "manager is required". Turbo does not fill them in. A status-only retirement of a project, or a status-only proposal change, does not need them.
+Creates and full edits need a contact and a manager. Turbo says "contact is required" or "manager is required". Status-only updates and project retirements skip this. Turbo never fills these fields in.
 
 ## Allowed statuses for projects
 
-Lines 716-728
+Lines 717-728
 
-Asked as: invalid status for project; project in progress not allowed; project status options; project can't be submitted
+Asked as: invalid status for project; project status not allowed; awarded status on project; submitted project status refused; which statuses can a project have
 
-A project may be Active, Closed or Cancelled. Turbo refuses In Progress, Submitted, Awarded, Not Awarded and No Bid with "invalid status for project".
+A project may be Active, Closed or Cancelled. Awarded, Not Awarded, Submitted, In Progress and No Bid give "invalid status for project".
 
-## A project's value is checked against its status when Active or Closed
+## Allowed statuses for proposals
 
-Lines 729-731
+Lines 732-754
 
-Asked as: project value zero error; active project value above zero; value greater than zero; project value must be positive
+Asked as: invalid status for proposal; proposal can't be active; new proposal start status; new proposals must start in progress; proposal closed status not allowed
 
-When a project's status is Active or Closed, Turbo checks that the project value is greater than zero. If it is zero or less, Turbo refuses with "project value must be greater than zero". Other project statuses skip this check, and the field named in the error depends on the caller (project_value on a full edit).
+A proposal may be In Progress, Submitted, Awarded, Not Awarded, Cancelled or No Bid. Active and Closed give "invalid status for proposal". A new proposal must start as In Progress or Submitted, or Turbo says "new proposals must start as In Progress or Submitted".
 
-## Proposals cannot be Active or Closed
+## No Bid or Cancelled proposal needs a comment first
 
-Lines 732-743
+Lines 758-784
 
-Asked as: proposal set active; proposal closed not allowed; active proposal error; proposal can't be closed
+Asked as: comment required to set status; no bid needs note; cancel proposal needs comment; client note before no bid; status change needs comment
 
-On a full edit or create, a proposal with status Active or Closed is refused with "invalid status for proposal". The message says proposals may be In Progress, Submitted, Awarded, Not Awarded, Cancelled or No Bid.
+Setting a proposal to No Bid or Cancelled needs a client note whose status-change-to matches that status. Otherwise Turbo says "a comment is required to set this status". The check runs only when the status changes, and not on create.
 
-## New proposals must start In Progress or Submitted
-
-Lines 744-754
-
-Asked as: new proposal starting status; new proposals must start; proposal starts as awarded; first status of proposal
-
-A new proposal with any other status is refused with "new proposals must start as In Progress or Submitted".
-
-## Proposal value is checked on full edits
-
-Lines 755-757
-
-Asked as: proposal value required submitted; T&M required proposal; awarded proposal no value; proposal value needed on save
-
-On a full edit or create, a proposal set Submitted, Awarded or Not Awarded needs a proposal value above zero or time and materials. Otherwise Turbo refuses with "proposal value or time and materials required".
-
-## Comment check on full proposal edits
-
-Lines 758-785
-
-Asked as: comment on proposal no bid edit; full edit proposal comment; proposal edit needs comment; comment check proposal update
-
-On a full proposal edit, the same comment is required when the status changes to No Bid or Cancelled. A new proposal is not checked.
-
-## Referenced proposal must be Awarded
+## Project linked to a proposal needs an Awarded proposal
 
 Lines 788-841
 
-Asked as: proposal not awarded linked project; referenced proposal error; link project to proposal; proposal must be awarded
+Asked as: proposal must be awarded; linked proposal not awarded; project linked to proposal status; proposal has invalid status; link project to proposal error
 
-A project that points to a proposal needs a proposal that exists, is a proposal, and has status Awarded. In Progress or Submitted gives "proposal must be awarded". Not Awarded, Cancelled or No Bid gives "proposal has invalid status". A missing job gives "invalid referenced proposal", and a non-proposal gives "referenced job is not a proposal".
+A project's linked proposal must exist and be a proposal. If it is In Progress or Submitted, Turbo says "proposal must be awarded". If it is Not Awarded, Cancelled or No Bid, Turbo says "proposal has invalid status".
 
 ## Sub-job parent rules
 
 Lines 843-889
 
-Asked as: sub-job parent client; sub-job different client; parent proposal sub-job; sub-job parent rules
+Asked as: parent job rules for sub-job; proposals cannot have sub-jobs; sub-job client mismatch; different client than parent; sub-job parent missing
 
-A sub-job's parent must exist and must not be a proposal ("proposals cannot have sub-jobs"). The parent must have a client. A different client is refused with "sub-job must have same client as parent". Turbo writes the parent's client onto the sub-job.
+A sub-job's parent must exist and must not be a proposal ("proposals cannot have sub-jobs"). The parent must have a client. A different client gives "sub-job must have same client as parent". Turbo sets the sub-job's client to the parent's.
 
-## Contact must belong to the client
+## Contact must belong to the job's client
 
-Lines 891-923
+Lines 891-927
 
-Asked as: contact wrong client; contact not for client; contact requires client; contact from another client
+Asked as: contact does not belong to client; contact requires client; wrong contact for client; client contact mismatch; invoicing profile client check
 
-A contact needs a client ("contact requires a client"). The contact must exist and belong to that client ("contact does not belong to client").
+A job with a contact needs a client ("contact requires a client"). The contact must exist and belong to that client, or Turbo says "contact does not belong to client". Contact and invoicing profile are checked against the client by utilities.ValidateClientReferences. The invoicing profile is optional.
 
-## Job number cannot change type
+## Job type check on update uses the existing number
 
-Lines 929-941
+Lines 928-942
 
-Asked as: job number type conflict; change proposal to project number; number type mismatch; renumber job type
+Asked as: job number type conflict; changed job type on update; cannot switch project to proposal; number type doesn't match save; job type change refused
 
-On update, the type implied by the existing number must match the derived type. Otherwise Turbo says "job number type conflict".
+On update, Turbo takes the job type from the existing job number. A number that starts with P is a proposal, and any other number is a project. A save that implies a different type is refused with 'job number type conflict'.
 
-## Projects need an invoicing profile
+## Manager and alternate manager must be active
 
-Lines 956-984
+Lines 943-946
 
-Asked as: no invoicing profile; profile required for project; invoicing profile error; billing profile missing
+Asked as: manager not active user; alternate manager inactive; manager must be active; inactive user as manager; alternate manager must be active
 
-A project must name an invoicing profile. Otherwise Turbo says "invoicing profile is required". A status-only change to Closed or Cancelled is exempt. Setting a project Active still needs one. Turbo also checks that the contact and profile belong to the client.
+The manager and the alternate manager must be active users. Otherwise Turbo says "manager must be an active user" or "alternate manager must be an active user".
 
-## Status-only change ignores authorizing document
+## Invoicing profile is optional but must match the client
 
-Lines 986-992
+Lines 951-957
 
-Asked as: authorizing document status change; PA change counts as status; status only ignores document; document change not status
+Asked as: invoicing profile must match client; optional invoicing profile error; invoicing profile wrong client; profile not for this client; remove invoicing profile
 
-When Turbo decides whether an update changes only the status, it ignores the authorizing document field.
+A job may have no invoicing profile. When one is set, Turbo checks through ValidateClientReferences that the contact and invoicing profile belong to the job's client.
 
-## Project value required for Active or Closed
+## Proposals can use time and materials instead of a value
 
-Lines 1010-1041
+Lines 979-1030
 
-Asked as: active project zero value; time and materials project value; project value needed for active; closed project value zero
+Asked as: proposal value or time materials; proposal needs value for submitted; time and materials proposal required; proposal value missing on status change; awarded proposal zero value
 
-A project that is Active or Closed needs a project value greater than zero, including time and materials. Otherwise Turbo says "project value must be greater than zero". An existing project with a stored zero value may still be edited if its status stays the same. A value-restore workflow operation skips the check.
+A proposal set to Submitted, Awarded or Not Awarded needs a proposal value above zero or time and materials marked. Otherwise Turbo refuses with 'proposal value or time and materials required'. The error appears on the status field for a status-only change and on proposal_value for a full edit.
 
-## Zero-value legacy projects can be edited without a value
+## Project value must be positive for Active or Closed
 
-Lines 1013-1029
+Lines 983-1014
 
-Asked as: old project zero value edit; legacy project no value; stored zero value project; edit project without value
+Asked as: project value must be above zero; active project zero value; closed project value required; time and materials project value error; project value greater than zero
 
-An existing project whose stored project value is 0, and still 0, can be edited if its status does not change. A status change, such as to Closed, still needs a value above zero. A project value restore through the project workflow skips this value check.
+A project that is Active or Closed needs a project value above zero, including Time and Materials projects. Otherwise Turbo says "project value must be greater than zero". An older project whose saved value and new value are both zero can be edited if the status does not change. A value restore from the project workflow skips the check.
 
-## New projects require a value for Active or Closed in the value check
+## Zero-value legacy projects can be edited without a new value
 
-Lines 1025-1041
+Lines 986-1002
 
-Asked as: new project active zero value; create project value error; new active project no value; new closed project value
+Asked as: zero value project save; legacy project with zero value; edit old project value zero; restore project value; value zero edit blocked
 
-A new project set Active or Closed with a project value of zero or less is refused with "project value must be greater than zero". The zero-value exception applies only to existing projects.
+An existing project with a stored project value of 0 can be saved with its value still 0 and its status unchanged, without the 'project value must be greater than zero' error. A status change to Active or Closed still needs a value above zero. Restoring a value through the project workflow (ProjectWorkflowMutationRestoreValue) skips this check.
 
-## Proposal value or time and materials required
+## Submitted, Awarded or Not Awarded proposal needs value
 
-Lines 1042-1057
+Lines 1015-1028
 
-Asked as: proposal value required; submitted proposal no value; turn on time and materials; proposal needs value or T&M
+Asked as: proposal value needed for awarded; submitted proposal without value; time and materials not ticked; not awarded proposal value missing; proposal value or T and M
 
-A proposal that is Submitted, Awarded or Not Awarded needs a proposal value above zero or time and materials turned on. Otherwise Turbo says "proposal value or time and materials required".
+A proposal with status Submitted, Awarded or Not Awarded needs a proposal value above zero or Time and Materials turned on. Otherwise Turbo says "proposal value or time and materials required".
 
-## New projects need an active rate sheet
+## New project needs an active rate sheet
 
-Lines 1066-1165
+Lines 1039-1059
 
-Asked as: rate sheet required; inactive rate sheet; invalid rate sheet project; new project rate sheet
+Asked as: rate sheet required new project; rate sheet must be active; no rate sheet on new project; active rate sheet needed; new project rate sheet error
 
-A new project must have a rate sheet, or Turbo says "rate sheet is required for new projects". A rate sheet set on a save must exist ("invalid rate sheet") and be active ("rate sheet must be active"). Proposals skip this check.
+A new project must have a rate sheet, or Turbo says "rate sheet is required for new projects". The rate sheet must exist and be active, or Turbo says "rate sheet must be active". Proposals skip this.
 
-## Rate sheet cannot change on a job save once set
+## Proposals do not use rate sheets
 
-Lines 1100-1130
+Lines 1043-1046
 
-Asked as: clear rate sheet; change rate sheet; rate sheet history; rate sheet locked
+Asked as: proposal rate sheet cleared; why proposal has no rate sheet; rate sheet not used on proposals; proposal rate sheet removed; rate sheet checks skipped proposal
 
-Once a project has a rate sheet, a job save cannot clear it ("rate sheet cannot be cleared"). A job save cannot change it either ("change the rate sheet from the rate sheet history"). A project with no rate sheet can be given one. Turbo records who set the first rate sheet.
+Turbo skips the rate sheet checks for proposals. It clears the rate sheet on proposals.
 
-## Managers must be active users
+## Rate sheet cannot change through a job save
 
-Lines 1167-1215
+Lines 1073-1098
 
-Asked as: manager inactive; alternate manager not active; manager must be active user; inactive user as manager
+Asked as: rate sheet cannot be cleared; change rate sheet from history; cannot change rate sheet on save; rate sheet locked on project; set rate sheet on project
 
-The manager and alternate manager must be active users. Otherwise Turbo says "manager must be an active user" or "alternate manager must be an active user".
+Once a project has a rate sheet, a job save cannot clear it ("rate sheet cannot be cleared"). A job save also cannot change it ("change the rate sheet from the rate sheet history"). A project with no rate sheet can be given one by any job editor.
 
-## Top-level job number generation
+## Rate sheet setter is recorded on the job
 
-Lines 1237-1282
+Lines 1100-1103
 
-Asked as: next project number; job number 9999 full; how new job number built; top-level number sequence
+Asked as: who set the rate sheet; rate sheet setter recorded; first rate sheet user; rate sheet actor; record who chose rate sheet
 
-A new top-level job gets the current 2-digit year, a dash and a 4-digit sequence, one more than the highest sequence for that year. Proposals start with P. Both 3-digit legacy and 4-digit numbers count toward the highest. Turbo skips numbers already in use and fails if none is free up to 9999.
+When a job save sets or changes the rate sheet and the user is signed in, Turbo records that user as the person who set the first rate sheet (rateSheetActorKey).
 
-## Sub-job number generation
+## Rate sheet must exist when set on a new project
 
-Lines 1284-1321
+Lines 1105-1138
 
-Asked as: sub-job number error; more than 99 sub-jobs; sub-job suffix; sub-job number already exists
+Asked as: invalid rate sheet; rate sheet not found; inactive rate sheet chosen; rate sheet must be active error; setting rate sheet on project fails
 
-A new sub-job gets its parent's number plus a 2-digit suffix: one more than the highest existing suffix among the parent's sub-jobs, starting at 01. Turbo refuses with "error generating sub-job number" at more than 99 sub-jobs, or if the number already exists. It reads at most 100 sub-jobs of a parent when it finds the highest suffix.
+When a project sets a rate sheet, Turbo looks it up. It refuses with 'invalid rate sheet' if the sheet is not found. It refuses with 'rate sheet must be active' if the sheet is inactive. Turbo checks only when the rate sheet is being set or changed.
+
+## Alternate manager is optional but must be active
+
+Lines 1140-1188
+
+Asked as: alternate manager optional check; inactive alternate manager; alternate manager not active; manager inactive refused; backup manager must be active
+
+The alternate manager is optional. When one is set, Turbo checks that the user is active. If not, it refuses with 'alternate manager must be an active user'. An inactive manager is refused with 'manager must be an active user'.
+
+## Top-level job numbers count up within the year
+
+Lines 1190-1255
+
+Asked as: next job number for year; how top-level numbers count up; new project number sequence; job number highest plus one; out of job numbers this year
+
+A new top-level job gets the next number for the current two-digit year: YY-NNNN for a project or PYY-NNNN for a proposal. Turbo takes the highest existing 3- or 4-digit sequence for that prefix and adds 1. It always writes new numbers with four digits. Sub-jobs are not counted. If no unused number remains up to 9999, number generation fails with an error.
+
+## Sub-job numbers follow the parent
+
+Lines 1257-1294
+
+Asked as: sub-job number suffix; how sub-job numbers are made; parent already has suffix; too many sub-jobs; sub-job limit 99
+
+A sub-job number is the parent's number plus a two-digit suffix, one above the highest existing suffix. A parent that already has a suffix cannot have sub-jobs. A parent allows at most 99 sub-jobs.

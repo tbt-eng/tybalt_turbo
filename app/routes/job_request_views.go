@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -103,31 +104,85 @@ func workflowPerson(app core.App, user *core.Record) map[string]any {
 // workflow-state checks remain separate. A draft can have an empty submission
 // token for viewing/printing, but approve/create must reject an empty token.
 func requestReviewToken(app core.App, r *core.Record) (string, error) {
-	return requestReviewDigest(app, r, false)
+	return requestReviewDigest(app, r, reviewDigestCurrent)
 }
 
-// requestLegacyReviewToken is the digest as it was before the proposal's
-// status and updated time were left out: it holds the whole proposal record.
-// Job creation accepts it as the saved approval of a request approved before
-// that change. Remove it once no such request is awaiting creation.
-func requestLegacyReviewToken(app core.App, r *core.Record) (string, error) {
-	return requestReviewDigest(app, r, true)
+// reviewDigestRule names a form of the review digest. Only the current form is
+// issued. The older forms are what approvals saved before a change hold.
+type reviewDigestRule int
+
+const (
+	// reviewDigestCurrent leaves out the invoicing profile and the proposal's
+	// status.
+	reviewDigestCurrent reviewDigestRule = iota
+	// reviewDigestWithProfile is the digest before the invoicing profile was
+	// left out: it holds the profile, its billing contact and the bill-to name.
+	reviewDigestWithProfile
+	// reviewDigestWholeProposal is the digest before the proposal's status was
+	// left out: it also holds the whole proposal record.
+	reviewDigestWholeProposal
+)
+
+// requestLegacyReviewTokens are the older forms of a request's digest, from
+// its current data. An approval saved before a change holds one of them.
+func requestLegacyReviewTokens(app core.App, r *core.Record) ([]string, error) {
+	tokens := []string{}
+	for _, rule := range []reviewDigestRule{reviewDigestWithProfile, reviewDigestWholeProposal} {
+		token, err := requestReviewDigest(app, r, rule)
+		if err != nil {
+			return nil, err
+		}
+		tokens = append(tokens, token)
+	}
+	return tokens, nil
 }
 
-// RequestLegacyReviewTokenForTest lets a test save the legacy digest that an
-// approval made before the change would hold. Remove it with the legacy digest.
-func RequestLegacyReviewTokenForTest(app core.App, id string) (string, error) {
+// approvedDigestMatches reports whether an approval's saved digest still covers
+// the request's current data: it equals the current digest, or an older form
+// of it. An older form holds more than the current one, so a match proves that
+// none of the data the current digest covers changed since the approval.
+func approvedDigestMatches(app core.App, r *core.Record, saved string) (bool, error) {
+	current, err := requestReviewToken(app, r)
+	if err != nil || saved == current {
+		return err == nil, err
+	}
+	legacy, err := requestLegacyReviewTokens(app, r)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(legacy, saved), nil
+}
+
+// RequestLegacyReviewTokenForTest lets a test save an older form of the digest
+// that an approval made before a change would hold: "profile" for the digest
+// that holds the invoicing profile, "proposal" for the one that also holds the
+// whole proposal. Remove it with the older forms.
+func RequestLegacyReviewTokenForTest(app core.App, id, form string) (string, error) {
 	r, err := app.FindRecordById("job_requests", id)
 	if err != nil {
 		return "", err
 	}
-	return requestLegacyReviewToken(app, r)
+	rule := map[string]reviewDigestRule{"profile": reviewDigestWithProfile, "proposal": reviewDigestWholeProposal}[form]
+	if rule == reviewDigestCurrent {
+		return "", fmt.Errorf("unknown digest form %q", form)
+	}
+	return requestReviewDigest(app, r, rule)
 }
 
-func requestReviewDigest(app core.App, r *core.Record, legacy bool) (string, error) {
+func requestReviewDigest(app core.App, r *core.Record, rule reviewDigestRule) (string, error) {
 	related, err := requestRelated(app, r)
 	if err != nil {
 		return "", err
+	}
+	// The invoicing profile is not part of what an approval covers: procurement
+	// may set, change or clear it until the job is created, and it may edit or
+	// replace the profile itself. So the profile, its billing contact and the
+	// bill-to name it chooses are left out. The client stays, so a change to
+	// the client's name or alias still makes the approval stale.
+	if rule == reviewDigestCurrent {
+		delete(related, "invoicing_information")
+		delete(related, "billing_contact")
+		delete(related, "bill_to_name")
 	}
 	delete(related, "approver")
 	delete(related, "creator")
@@ -163,13 +218,16 @@ func requestReviewDigest(app core.App, r *core.Record, legacy bool) (string, err
 	// another edit to the proposal still makes the approval stale. The first
 	// save of a proposal that came from the import also clears its _imported
 	// mark, so that mark is left out too.
-	if proposal, ok := related["proposal"].(map[string]any); ok && !legacy {
+	if proposal, ok := related["proposal"].(map[string]any); ok && rule != reviewDigestWholeProposal {
 		delete(proposal, "status")
 		delete(proposal, "updated")
 		delete(proposal, "_imported")
 	}
 	data := map[string]any{"version": r.GetInt("version"), "submission_token": r.GetString("submission_token"), "related": related}
 	for _, key := range requestBusinessFields {
+		if key == "invoicing_information" && rule == reviewDigestCurrent {
+			continue
+		}
 		data[key] = r.Get(key)
 	}
 	allocs, err := requestAllocations(app, r.Id)
@@ -270,7 +328,11 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 				approvalBlockedReason = "You do not have project approval authority."
 			}
 		}
-		result = map[string]any{"request": r, "allocations": allocs, "attachment": attachment, "related": related, "review_token": token, "checklist": map[string]any{"version": checklistVersion, "questions": checklistQuestions}, "enabled": enabled, "approval_blocked_reason": approvalBlockedReason, "permissions": map[string]bool{"can_edit": enabled && editable, "can_submit": enabled && editable && r.GetString("status") != "Rejected", "can_recall": enabled && submitted && r.GetString("creator") == e.Auth.Id, "can_reject": enabled && canReject, "can_approve": enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr == nil, "can_create": enabled && hasJob && r.GetString("status") == "Awaiting creation", "can_delete": (enabled && editable) || (hasAdmin && abandonedRequest(r))}}
+		canSetInvoicing, err := canSetRequestInvoicing(tx, r, e.Auth)
+		if err != nil {
+			return err
+		}
+		result = map[string]any{"request": r, "allocations": allocs, "attachment": attachment, "related": related, "review_token": token, "checklist": map[string]any{"version": checklistVersion, "questions": checklistQuestions}, "enabled": enabled, "approval_blocked_reason": approvalBlockedReason, "permissions": map[string]bool{"can_edit": enabled && editable, "can_submit": enabled && editable && r.GetString("status") != "Rejected", "can_recall": enabled && submitted && r.GetString("creator") == e.Auth.Id, "can_reject": enabled && canReject, "can_approve": enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr == nil, "can_create": enabled && hasJob && r.GetString("status") == "Awaiting creation", "can_set_invoicing": canSetInvoicing, "can_delete": (enabled && editable) || (hasAdmin && abandonedRequest(r))}}
 		return nil
 	})
 	if err != nil {

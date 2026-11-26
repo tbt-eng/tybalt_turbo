@@ -21,7 +21,7 @@
       type="button"
       class="text-sm text-blue-700 underline hover:text-blue-800"
       onclick={oncreate}>Create one</button
-    > to continue.
+    >, or leave it empty.
   {:else if canManageContacts}
     <button
       type="button"

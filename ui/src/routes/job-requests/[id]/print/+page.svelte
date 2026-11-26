@@ -141,8 +141,10 @@
             <div class="columns">
               <div>
                 <p><strong>Bill to:</strong> {shown(d.bill_to_name)}</p>
-                <p>Billing contact: {shown(fullName(d.billing_contact))}</p>
-                <p>{shown(contactEmail(d.billing_contact))}</p>
+                <!-- The invoicing profile is optional. Without one, the
+                  billing contact, fax and instructions are left out. -->
+                {#if d.billing_contact}<p>Billing contact: {shown(fullName(d.billing_contact))}</p>
+                  <p>{shown(contactEmail(d.billing_contact))}</p>{/if}
                 {#if d.billing_contact?.phone}<p>
                     Phone: {d.billing_contact.phone}
                   </p>{/if}{#if d.invoicing_information?.fax}<p>

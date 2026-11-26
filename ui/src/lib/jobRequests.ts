@@ -141,9 +141,11 @@ export function printMissing(detail: RequestDetail): string[] {
     !/^[23456789CFGHJMPQRVWX]{8}\+[23456789CFGHJMPQRVWX]{2,3}$/i.test(r.location.trim())
   )
     missing.push("Valid Plus Code location");
+  // The invoicing profile is optional. Without one there is no billing
+  // contact, and the printout leaves the billing details out.
   for (const [label, contact] of [
     ["Project contact", d.contact],
-    ["Billing contact", d.billing_contact],
+    ...(d.billing_contact ? [["Billing contact", d.billing_contact] as const] : []),
   ] as const) {
     if (!fullName(contact).trim()) missing.push(`${label} name`);
     if (!contact?.no_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact?.email || ""))

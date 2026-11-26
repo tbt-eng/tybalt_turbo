@@ -146,7 +146,7 @@ func TestChangeJobClientRefusals(t *testing.T) {
 		{"same client", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"client": clientChangeOldClient, "contact": "184qbpajciwrrp2", "invoicing_information": "painvoice000001"}), http.StatusBadRequest, `"unchanged"`},
 		{"short reason", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"reason": "  wrong client     "}), http.StatusBadRequest, `"reason":{"code":"too_short"`},
 		{"long reason", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"reason": strings.Repeat("x", 501)}), http.StatusBadRequest, `"reason":{"code":"too_long"`},
-		{"missing selections", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"contact": "", "invoicing_information": ""}), http.StatusBadRequest, `"invoicing_information":{"code":"required"`},
+		{"missing selections", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"contact": "", "invoicing_information": ""}), http.StatusBadRequest, `"contact":{"code":"required"`},
 		{"contact of the old client", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"contact": "184qbpajciwrrp2"}), http.StatusBadRequest, "contact"},
 		{"profile of the old client", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"invoicing_information": "painvoice000001"}), http.StatusBadRequest, "invoicing_information"},
 		{"unknown client", clientChangeJob, horaceEmail, clientChangeBody(map[string]any{"client": "nosuchclient000"}), http.StatusBadRequest, "not found"},

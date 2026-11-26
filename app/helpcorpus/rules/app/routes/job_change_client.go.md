@@ -1,180 +1,260 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_change_client.go","sha256":"0587968120e4de0026b12da5a1b6b73ab0b72e3814585c926519c78b831f880b","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_change_client.go","sha256":"2c06dcc321d7b97396f9f3b0d615e15a415e7da2bf08ff3fe468ac3b2d841384","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_change_client.go
 
-## Reason length limits for a client change
+## Client change reason length limits
 
 Lines 20-27
 
-Asked as: reason too short; reason character limit; how long must the reason be; reason too long for client change
+Asked as: reason too short; reason too long; character limit reason; how many characters reason
 
-The reason for moving a project to another client must have at least 20 characters and at most 500 characters. Turbo trims the spaces at both ends of the reason before it counts them.
+The reason for moving a project to another client must be at least 20 characters (jobClientChangeReasonMinLength) and at most 500 (jobClientChangeReasonMaxLength). Turbo trims spaces from the reason before it counts the characters.
 
-## Approved requests and value changes keep their old client
+## Client change request fields
+
+Lines 29-36
+
+Asked as: what to send to change client; data needed for client move; fields in client change
+
+The change-client request takes the new client, the contact, the invoicing profile (invoicing_information), the reason and the list of confirmed subjobs.
+
+## Approved requests keep their original client
 
 Lines 59-59
 
-Asked as: approved requests after client change; approved value changes keep old client; old client on approved request; client change approved items
+Asked as: approved requests after moving client; approved values keep old client; old client on approved requests
 
-A client change moves the project, its subjobs, their client notes and the contact and invoicing profile. It does not change approved project requests or approved value changes. They keep the client they were approved for.
+Changing the client does not alter approved requests or value changes. They keep the client they were approved for.
 
-## Client change requires a signed-in user
+## Changing a project's client requires a signed-in user
 
 Lines 62-64
 
-Asked as: change client not logged in; client change unauthorized; no user signed in client change; change client without login
+Asked as: not logged in client change; unauthorized error changing client; session expired move project
 
-The change-client action on a project refuses a request that has no signed-in user and answers 'unauthorized'.
+Turbo refuses the change-client request when the person is not signed in (e.Auth is nil), with the message "unauthorized".
 
-## Client change runs as one all-or-nothing step
+## Client change reason is trimmed before checks
+
+Lines 70-70
+
+Asked as: extra spaces in reason; trailing spaces reason; whitespace reason saved
+
+Turbo removes leading and trailing spaces from the reason before it checks the length and saves it in the notes.
+
+## Client change runs in one transaction
 
 Lines 72-90
 
-Asked as: client change partly failed; all or nothing client change; client change rollback; moved some jobs but not others
+Asked as: half done client change; partial client change saved; client change failed midway
 
-Turbo changes the client of the project, its subjobs, the client notes and the new notes in one transaction. If any step fails, nothing changes. Turbo queues the email notice only after the transaction succeeds.
+Turbo does the whole client change in one transaction. If any check or save fails, nothing is changed. Turbo sends the notification emails only after the change succeeds.
 
-## Client change returns the new client on success
+## Client change success returns the new client
 
 Lines 89-90
 
-Asked as: what does client change return; client change success response; new client id after change; confirmation after moving client
+Asked as: what id returned after move; client change reply; new client id response
 
-When the change succeeds, Turbo answers with the id of the new client.
+When the change succeeds, Turbo replies with the new client's id.
 
-## Who can change a project's client
+## Who may change a project's client
 
 Lines 95-105
 
-Asked as: who can move project to another client; cannot change client permission; need procurement role to change client; job claim client change
+Asked as: who can move project to another client; permission to change client; no access change client
 
-Only an active user who holds the job claim (procurement) can move a project to another client. Anyone else gets: "An active user with the job claim is required to change a project's client."
+Only an active user with the job claim can change a project's client. Anyone else gets: "An active user with the job claim is required to change a project's client."
 
-## Client change blocked when job editing is off
+## Client change blocked when job editing is disabled
 
 Lines 106-112
 
-Asked as: cannot change client job editing off; client change disabled; job editing disabled error; editing turned off client
+Asked as: cannot edit jobs right now; job editing turned off; client change greyed out
 
-Turbo refuses to change a project's client while job editing is disabled. It returns the error utilities.ErrJobsEditingDisabled; its message text is defined in another file.
+Turbo refuses to change a project's client while job editing is turned off. It returns the jobs-editing-disabled error (ErrJobsEditingDisabled).
 
-## Project must exist
+## Project must exist to change its client
 
 Lines 114-117
 
-Asked as: project not found client change; missing project when changing client; cannot find project to move
+Asked as: project not found moving client; missing project client change; cannot find job to move
 
-If the project cannot be found, Turbo says "Project not found."
+If the project is not found, Turbo answers "Project not found."
 
 ## Proposal client is changed in the job editor
 
 Lines 118-120
 
-Asked as: change client of proposal; proposal client cannot change; P job client change; proposal client job editor
+Asked as: change client on proposal; proposal client wrong; P job client change
 
-A job whose number starts with P (a proposal) cannot use this action. Turbo says "A proposal's client can be changed in the job editor."
+This action refuses a proposal (a job whose number starts with P). Turbo says: "A proposal's client can be changed in the job editor."
 
-## Subjob client cannot be changed directly
+## Subjob cannot change client by itself
 
 Lines 121-123
 
-Asked as: change subjob client; subjob client wrong; why can't I move subjob; subjob different client than parent
+Asked as: change client of subjob; subjob client cannot change; subjob different client than parent
 
-A subjob cannot have its client changed by itself. Turbo says "A subjob uses its parent project's client. Change the parent project's client instead."
+A subjob always uses its parent project's client. Turbo refuses with "A subjob uses its parent project's client. Change the parent project's client instead."
 
-## Required fields and reason length
+## Required fields and reason length for client change
 
-Lines 125-144
+Lines 125-141
 
-Asked as: missing fields client change; select contact required; which fields needed to move client; highlighted fields client form
+Asked as: select new client error; missing contact client change; complete highlighted fields
 
-Turbo requires a new client ("Select the new client."), a contact ("Select a contact for the new client.") and an invoicing profile ("Select an invoicing profile for the new client."). The reason is trimmed of surrounding spaces and must be 20 to 500 characters. Shorter gives "Explain why the client is changing, in at least 20 characters." and longer gives "Keep the reason to 500 characters or fewer." Turbo reports all missing fields together as "Complete the highlighted fields."
+The new client, a contact and a reason are required. Turbo says "Select the new client." and "Select a contact for the new client." when they are missing. The reason is trimmed of spaces and must be 20 to 500 characters. Shorter gives "Explain why the client is changing, in at least 20 characters." and longer gives "Keep the reason to 500 characters or fewer." Turbo reports all of these together with "Complete the highlighted fields." The invoicing profile is optional.
+
+## Invoicing profile is optional in a client change
+
+Lines 128-133
+
+Asked as: no invoicing profile needed; skip invoice profile moving project; invoicing info empty after move
+
+Turbo does not require an invoicing profile when it moves a project. The new client and the contact are required, and so is the reason. If the request sends no profile, the project and its subjobs get an empty profile (invoicing_information). Turbo checks the client, contact and profile against the new client.
 
 ## New client must differ and exist
 
-Lines 146-153
+Lines 143-150
 
-Asked as: same client selected; pick another client; selected client not found; client does not exist when moving
+Asked as: same client selected; pick different client; client does not exist
 
-The new client must differ from the project's current client, or Turbo says "Select a different client." If the selected client does not exist, Turbo says "The selected client was not found."
+If the chosen client is the project's current client, Turbo says "Select a different client." If the chosen client does not exist, it says "The selected client was not found."
 
-## Subjob confirmation must match exactly
+## Subjobs must be confirmed exactly
 
-Lines 155-161
+Lines 152-158
 
-Asked as: subjob list changed; confirm subjobs again; subjob confirmation wrong; subjobs do not match when moving client
+Asked as: subjob added while dialog open; subjobs do not match confirmation; confirm subjobs again
 
-The user must confirm exactly the project's current subjobs. If the confirmed list differs, Turbo refuses with "The subjobs confirmed do not match this project's subjobs, which may have changed. Review the current list and confirm again."
+The request must list exactly the project's current subjobs. If the list differs, for example because a subjob was added after the dialog opened, Turbo refuses with "The subjobs confirmed do not match this project's subjobs, which may have changed. Review the current list and confirm again."
 
-## Client notes follow the project
+## Client notes follow the project to the new client
 
-Lines 171-226
+Lines 168-223
 
-Asked as: client notes after moving project; notes stay with old client; client notes move with project; old client notes transfer
+Asked as: notes after moving client; client notes move with project; old notes new client
 
-Client notes about the moved jobs that belong to the old client move to the new client.
+Client notes about the project and its subjobs that belong to the old client move to the new client.
 
-## Combined notes must fit 1000 characters
+## Pending client or contact absorb blocks client change
 
-Lines 180-198
+Lines 173-175
 
-Asked as: note too long client change; shorten reason notes too long; client change note limit; reason too long for notes
+Asked as: client merge pending; absorb waiting commit blocks; contact merge in progress
 
-Turbo builds two notes from the old and new client names, any subjobs and the reason. Each must fit 1000 characters. If either is too long, Turbo asks the user to shorten the reason by the excess.
+Turbo refuses if an absorb of clients or contacts, still waiting to be committed or undone, changed references on the project, its subjobs, their client notes, or the chosen contact or invoicing profile. The message is "A client or contact merge that involves this project or the chosen contact or invoicing profile is waiting to be committed or undone. Finish it before changing the client."
 
-## Change is recorded in notes
+## Client change notes must fit 1000 characters
 
-Lines 180-236
+Lines 177-195
 
-Asked as: history of client change; where is client change recorded; client moved note on project; departure note old client
+Asked as: note too long client change; 1000 characters notes; notes exceed limit move
 
-Turbo adds a note to the project: "Client changed from X to Y.", with subjobs moved and the reason. If the project had an old client, that client also gets a note "Project N moved to Y." with the reason. A project with no old client shows "no client" and gets no departure note.
+Turbo records two notes of up to 1000 characters: one on the project and one under the old client. They include both client names and any subjobs. If either would be too long, Turbo refuses and tells the user how many characters to cut from the reason. The old client label is "no client" if there is none.
 
-## Project and subjobs move together
+## Old client is named "no client" when it has none
 
-Lines 200-219
+Lines 177-180
 
-Asked as: subjobs contact not updated; invoicing profile moved with project; jobs imported flag after client move; contact must belong to new client
+Asked as: no client old client; project had no client; blank old client email
 
-The project and all its subjobs take the new client, contact and invoicing profile in one transaction. Turbo checks that the contact and profile belong to the new client. It saves the jobs without checking their other fields, and marks them as changed from the legacy import (imported false).
+When the project has no old client label, Turbo writes "no client" in the notes and in the email.
 
-## Subjob confirmation mismatch message
+## Client change notes list moved subjobs and reason
 
-Lines 241-253
+Lines 182-191
 
-Asked as: subjob confirm error message; extra subjob confirmation error; missing subjob confirmation; confirmed list mismatch
+Asked as: what note is written; history note client change; list of moved subjobs note
 
-If the confirmed subjobs are not exactly the project's current subjobs, Turbo refuses with 'The subjobs confirmed do not match this project's subjobs, which may have changed. Review the current list and confirm again.' A missing or extra subjob causes the refusal.
+The note on the project says "Client changed from X to Y." and lists the subjobs that moved, then gives the reason. The note on the old client says "Project N moved to Y." with the same subjob list and reason.
+
+## Client change notes too long: shorten the reason
+
+Lines 192-195
+
+Asked as: reason too long for note; shorten reason by characters; note over limit
+
+If the client names, subjob numbers and reason make either note longer than 1000 characters, Turbo refuses and says to shorten the reason by the number of characters over.
+
+## Client change moves project and subjobs together
+
+Lines 199-216
+
+Asked as: subjobs move with project; all subjobs new client; legacy job zero value move
+
+The project and all its subjobs get the new client, contact and invoicing profile. Turbo checks that the contact and profile belong to the new client. The jobs are marked as not imported, so they are written back to the legacy system. Other fields are not revalidated, so legacy jobs with a zero value or missing branch can still move.
+
+## Moved jobs are marked as not imported
+
+Lines 211-212
+
+Asked as: job written back legacy; not imported flag jobs; resend job to legacy system
+
+Turbo marks each moved job as not imported (MarkImportedFalseIfChanged), so the job is written back to the legacy system.
+
+## Client change records notes on both clients
+
+Lines 225-233
+
+Asked as: note on old client; record reason both clients; history on previous client
+
+Turbo records the reason as a note on the project. It also adds a note under the old client, with no job attached, saying where the project went. The old-client note is skipped if the project had no client.
+
+## Subjobs confirmed must match exactly
+
+Lines 238-250
+
+Asked as: confirmation subjobs mismatch; no confirmation subjobs error; subjob added since dialog
+
+The set of subjobs that the user confirms must equal the project's current subjobs. If a subjob was added since the dialog opened, or the user gave no confirmation, Turbo refuses with "The subjobs confirmed do not match this project's subjobs, which may have changed. Review the current list and confirm again."
+
+## Value changes that are not approved block a client change
+
+Lines 252-263
+
+Asked as: value change not approved client; pending value change blocks move; rejected value change client
+
+Turbo refuses a client change when the project or a subjob has a value change that is not Approved, that is, awaiting approval or rejected. The message says to have it approved, or ask an admin to delete it.
 
 ## Unapproved value change blocks client change
 
-Lines 259-266
+Lines 256-263
 
-Asked as: value change blocks client move; unapproved job attachment client change; rejected value change stops move; awaiting approval blocks client change
+Asked as: attachment awaiting approval move; value awaiting approval client change; admin delete value change
 
-Turbo refuses if the project or any subjob has a value change (job attachment) whose status is not Approved, whether awaiting approval or rejected. The message says to have it approved, or ask an admin to delete it, first.
+Turbo refuses to change the client while the project or any subjob has a value change (job attachment) that is not Approved, meaning it is awaiting approval or was rejected. The message tells the user to get it approved or ask an admin to delete it.
 
 ## Open subjob request blocks client change
 
-Lines 267-273
+Lines 264-270
 
-Asked as: open subjob request blocks; subjob request stops client change; delete subjob request to move client; request still open client change
+Asked as: subjob request open client; pending subjob request move; delete subjob request first
 
-Turbo refuses while any project request names this project as its parent. It says "A subjob request for this project is still open. Create or delete it before changing the client."
+Turbo refuses to change the client while a project request for a subjob of this project exists. The message is "A subjob request for this project is still open. Create or delete it before changing the client."
 
-## Pending client or contact merge blocks client change
+## Pending client or contact absorb blocks a client change
 
-Lines 277-325
+Lines 273-322
 
-Asked as: merge pending client change; absorb not committed; client merge blocks move; undo pending merge contact
+Asked as: absorb not committed client; merge clients waiting undo; finish merge first
 
-Turbo refuses while a client or contact absorb that rewrote references on the project, its subjobs, their client notes, or the chosen contact or invoicing profile is still waiting to be committed or undone. The message says to finish it first.
+Turbo refuses a client change while an absorb of clients or client contacts, not yet committed or undone, rewrote a reference on the project, a subjob, their client notes, the chosen contact or the chosen invoicing profile. The message says to finish it first.
 
-## Email notice after client change
+## Pending absorb check scope
 
-Lines 327-367
+Lines 278-322
 
-Asked as: who gets client changed email; notify managers client change; approvers email job moved; client change notification
+Asked as: which absorb blocks client; merge check which records; absorb affects project client
 
-Turbo queues a job_client_changed email to the managers of the moved jobs and the approvers of their approved value changes. People who are no longer active get none. The email marks which recipients are approvers.
+The pending-absorb check looks at absorb actions on the clients and client contacts collections. It matches any record that the action's updated references touched and that is among the tracked records.
+
+## Client change emails managers and approvers
+
+Lines 324-364
+
+Asked as: who gets email client change; managers notified moved jobs; approvers email client change
+
+Turbo emails the managers of the moved jobs and the people who approved their values (Approved job attachments). People who are no longer active are skipped. The email gives the old and new client, subjobs and reason, and marks recipients who are approvers.

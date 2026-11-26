@@ -14,7 +14,9 @@ SELECT
   COALESCE(b.code, '') AS branch,
   COALESCE(m.given_name || ' ' || m.surname, '') AS manager,
   COALESCE(j.outstanding_balance, 0) AS outstanding_balance,
-  COALESCE(j.outstanding_balance_date, '') AS outstanding_balance_date
+  COALESCE(j.outstanding_balance_date, '') AS outstanding_balance_date,
+  -- Procurement lists active projects that have no invoicing profile yet.
+  COALESCE(j.invoicing_information, '') = '' AS no_invoicing_profile
 FROM jobs j
 LEFT JOIN clients c ON c.id = j.client
 LEFT JOIN branches b ON b.id = j.branch

@@ -285,10 +285,6 @@ func TestLegacyZeroValueCompletesBillingInEditorThenProposesValue(t *testing.T) 
 	clearLegacyJobBilling(t, app)
 	fields := map[string]string{"job": legacyWorkflowJob, "project_value": "10000", "assigned_approver": "6bq4j0eb26631dy"}
 	document := "%PDF-1.4\nLegacy zero billing\n%%EOF"
-	workflowUpload(t, app, "/api/job_attachments", workflowAuthor, document, fields, http.StatusBadRequest)
-	if count, err := app.CountRecords("job_attachments", dbx.HashExp{"job": legacyWorkflowJob}); err != nil || count != 0 {
-		t.Fatalf("refused value change was retained: %v %d", err, count)
-	}
 	edit := func(job string, status int) {
 		t.Helper()
 		body := `{"job":` + job + `,"allocations":[{"division":"fy4i9poneukvq9u","hours":10}]}`
@@ -386,19 +382,14 @@ func TestJobValueSaveFailuresLeaveNothing(t *testing.T) {
 	}
 	scenarios := []struct {
 		name, email, document string
-		incomplete            bool
 		status                int
 	}{
-		{"unauthorized editor", workflowApprover, "%PDF-1.4\nUnauthorized\n%%EOF", false, http.StatusForbidden},
-		{"missing invoicing profile", workflowAuthor, "%PDF-1.4\nIncomplete billing\n%%EOF", true, http.StatusBadRequest},
-		{"duplicate PDF", workflowAuthor, string(duplicate), false, http.StatusBadRequest},
+		{"unauthorized editor", workflowApprover, "%PDF-1.4\nUnauthorized\n%%EOF", http.StatusForbidden},
+		{"duplicate PDF", workflowAuthor, string(duplicate), http.StatusBadRequest},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			app := newWorkflowTestApp(t, false)
-			if scenario.incomplete {
-				clearLegacyJobBilling(t, app)
-			}
 			before := workflowRecord(t, app, "jobs", legacyWorkflowJob)
 			fields := map[string]string{"job": legacyWorkflowJob, "project_value": "10000", "assigned_approver": "6bq4j0eb26631dy"}
 			workflowUpload(t, app, "/api/job_attachments", scenario.email, scenario.document, fields, scenario.status)

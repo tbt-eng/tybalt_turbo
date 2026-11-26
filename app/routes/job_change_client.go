@@ -131,9 +131,6 @@ func changeJobClient(tx core.App, e *core.RequestEvent, jobID string, req jobCha
 	if req.Contact == "" {
 		fieldErrors["contact"] = errs.CodeError{Code: "required", Message: "Select a contact for the new client."}
 	}
-	if req.InvoicingInformation == "" {
-		fieldErrors["invoicing_information"] = errs.CodeError{Code: "required", Message: "Select an invoicing profile for the new client."}
-	}
 	if n := utf8.RuneCountInString(req.Reason); n < jobClientChangeReasonMinLength {
 		fieldErrors["reason"] = errs.CodeError{Code: "too_short", Message: fmt.Sprintf("Explain why the client is changing, in at least %d characters.", jobClientChangeReasonMinLength)}
 	} else if n > jobClientChangeReasonMaxLength {

@@ -646,7 +646,7 @@ await runBrowserHarness(
     await page.getByRole("button", { name: "Propose new value", exact: true }).click();
     await page
       .getByRole("alert")
-      .filter({ hasText: "Approval needs an invoicing profile and a location on this project." })
+      .filter({ hasText: "Approval needs a location on this project." })
       .waitFor();
     assert.equal(
       await page.getByRole("link", { name: "Edit the project", exact: true }).getAttribute("href"),

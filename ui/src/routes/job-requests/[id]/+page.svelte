@@ -10,6 +10,7 @@
   import { JobsStatusOptions } from "$lib/pocketbase-types";
   import DSLocationPicker from "$lib/components/DSLocationPicker.svelte";
   import ProposedRatesReview from "$lib/components/rateSheets/ProposedRatesReview.svelte";
+  import RequestInvoicingPopover from "$lib/components/jobs/RequestInvoicingPopover.svelte";
   import {
     emptyChecklist,
     contactEmail,
@@ -91,7 +92,9 @@
     confirmingDelete = $state(false),
     confirmingRemovePDF = $state(false),
     // Notes may be internal, so the printout leaves them out unless chosen.
-    printNotes = $state(false);
+    printNotes = $state(false),
+    // Procurement's invoicing profile dialog, for a request in the Job Create Queue.
+    settingInvoicing = $state(false);
   let checklist = $state<Record<string, boolean>>({}),
     rejectionReason = $state(""),
     // Procurement can correct the name of proposed rates as they create the job.
@@ -543,6 +546,18 @@
       </DSFieldList>
     </DSCard>
     <DSCard title="Invoicing">
+      {#snippet actions()}
+        {#if permission.can_set_invoicing}
+          <DSActionButton variant="chip" disabled={busy} action={() => (settingInvoicing = true)}
+            >{related.invoicing_information ? "Change profile" : "Set profile"}</DSActionButton
+          >
+        {/if}
+      {/snippet}
+      <!-- The profile is optional. Procurement sees that it is missing, so it
+        can be set before the project is invoiced. -->
+      {#if !related.invoicing_information && jobHolder}
+        <DSCallout tone="warning">No invoicing profile.</DSCallout>
+      {/if}
       <DSFieldList>
         <DSField
           label="Invoicing profile"
@@ -557,7 +572,7 @@
         />
         <DSField
           label="Billing contact"
-          value={withEmail(related.billing_contact) || missing}
+          value={withEmail(related.billing_contact)}
           href={withEmail(related.billing_contact)
             ? contactHref(related.billing_contact)
             : undefined}
@@ -598,6 +613,18 @@
       </DSCard>
     {/if}
   </DSCardGrid>
+  {#if settingInvoicing}
+    <RequestInvoicingPopover
+      bind:show={settingInvoicing}
+      request={{
+        id: request.id,
+        version: request.version,
+        client: request.client,
+        invoicing_information: request.invoicing_information,
+      }}
+      onchanged={refresh}
+    />
+  {/if}
   {#if related.rate_sheet_proposed}<ProposedRatesReview
       {related}
       canApprove={permission.can_approve}

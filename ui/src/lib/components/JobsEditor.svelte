@@ -611,22 +611,19 @@
     const allocationsOnly =
       managerAllocationsOnly ||
       (data.editing && JSON.stringify($state.snapshot(item)) === loadedJob);
+    // The invoicing profile is optional. A chosen one must still be one of the
+    // client's profiles, so wait for the list before saving it.
     if (
       !isProposal &&
       !allocationsOnly &&
-      (invoicingProfilesLoading ||
-        invoicingProfilesError ||
-        !invoicingProfiles.some((profile) => profile.id === item.invoicing_information))
+      item.invoicing_information &&
+      (invoicingProfilesLoading || invoicingProfilesError)
     ) {
       setFieldError(
         "invoicing_information",
         invoicingProfilesError
           ? "Could not load invoicing profiles. Try again."
-          : invoicingProfilesLoading
-            ? "Invoicing profiles are still loading. Try again in a moment."
-            : invoicingProfiles.length
-              ? "Select an invoicing profile for this client."
-              : "This client needs an invoicing profile before project changes can be saved.",
+          : "Invoicing profiles are still loading. Try again in a moment.",
       );
       return;
     }
@@ -1200,16 +1197,13 @@
         >
           <div class="flex w-full flex-wrap items-center gap-x-2 gap-y-1">
             {#if item.client && !invoicingProfilesLoading && !invoicingProfilesError && invoicingProfiles.length}
-              <label for="invoicing_information"
-                >Invoicing profile{#if isProject}<DSRequiredMark />{/if}</label
-              >
+              <label for="invoicing_information">Invoicing profile</label>
               <select
                 id="invoicing_information"
                 name="invoicing_information"
-                aria-required={isProject || undefined}
                 class="min-w-0 flex-1 rounded-sm border border-neutral-300 px-1"
                 bind:value={item.invoicing_information}
-                ><option value="">Select invoicing profile</option
+                ><option value="">No invoicing profile</option
                 >{#each invoicingProfiles as profile}<option value={profile.id}
                     >{invoicingProfileLabel(profile, invoicingProfiles, client_contacts)}</option
                   >{/each}</select
@@ -1248,12 +1242,6 @@
           {#if returnedProfile && item.invoicing_information === returnedProfile}
             <p role="status" class="text-sm text-green-800">
               Invoicing profile selected. Save the job to keep it.
-            </p>
-          {:else if data.editing && !item.invoicing_information}
-            <p class="text-sm text-neutral-700">
-              {invoicingProfiles.length
-                ? "This project has no invoicing profile yet. Choose one to save changes to the project; division hours can be saved without one."
-                : "Division hours can still be saved without an invoicing profile."}
             </p>
           {/if}
           {#if errors.invoicing_information !== undefined}

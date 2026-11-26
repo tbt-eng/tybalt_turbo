@@ -61,6 +61,11 @@ test("optional contacts, owner, references and addresses do not block signature 
   d.related.billing_contact = d.related.contact;
   assert.deepEqual(printMissing(d), []);
 });
+test("a request without an invoicing profile is ready for signature", () => {
+  const d = complete();
+  delete d.related.billing_contact;
+  assert.deepEqual(printMissing(d), []);
+});
 test("each required client value is independently checked", () => {
   const mutations: ((d: RequestDetail) => void)[] = [
     (d) => (d.related.client.name = ""),

@@ -53,6 +53,7 @@ type workflowAction struct {
 }
 
 func registerJobRequestRoutes(se *core.ServeEvent, app core.App) {
+	upgradeLegacyApprovalsOnServe(app)
 	r := se.Router.Group("/api/job_requests")
 	r.Bind(apis.RequireAuth("users"))
 	r.BindFunc(workflowResponseErrors)
@@ -70,6 +71,7 @@ func registerJobRequestRoutes(se *core.ServeEvent, app core.App) {
 	for _, action := range []string{"submit", "recall", "reject", "approve", "create"} {
 		r.POST("/{id}/"+action, requestActionHandler(app, action))
 	}
+	r.POST("/{id}/invoicing_profile", requestInvoicingHandler(app))
 	r.DELETE("/{id}", requestDeleteHandler(app))
 	se.Router.GET("/api/project_authorization/approvers", authorizationApproversHandler(app)).Bind(apis.RequireAuth("users"))
 	a := se.Router.Group("/api/job_attachments")
@@ -357,7 +359,7 @@ func validateRequestComplete(app core.App, r *core.Record, checkAuthority bool) 
 	if err := validateRequestDraftAuthority(app, r, checkAuthority); err != nil {
 		return nil, err
 	}
-	for _, key := range []string{"description", "location", "client", "contact", "manager", "branch", "rate_sheet", "project_award_date", "invoicing_information", "approver", "fn_agreement_answer"} {
+	for _, key := range []string{"description", "location", "client", "contact", "manager", "branch", "rate_sheet", "project_award_date", "approver", "fn_agreement_answer"} {
 		if strings.TrimSpace(r.GetString(key)) == "" {
 			return nil, workflowError("Required field: " + key)
 		}
@@ -813,18 +815,14 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 				if err != nil {
 					return err
 				}
-				approvedToken := a.GetString("review_token") == token
-				if !approvedToken && r.GetString("proposal") != "" {
-					// A request approved before the digest left out the
-					// proposal's status saved the digest of the whole
-					// proposal record. Accept it for the saved approval only;
-					// the page must send the current digest. Remove this once
-					// no request approved before that change awaits creation.
-					legacy, err := requestLegacyReviewToken(tx, r)
-					if err != nil {
-						return err
-					}
-					approvedToken = a.GetString("review_token") == legacy
+				// A request approved before a change to the digest saved an
+				// older form of it (requestLegacyReviewTokens). Accept a match
+				// for the saved approval only; the page must send the current
+				// digest. The server also upgrades such approvals when it
+				// starts (upgradeLegacyRequestApprovals).
+				approvedToken, err := approvedDigestMatches(tx, r, a.GetString("review_token"))
+				if err != nil {
+					return err
 				}
 				if a.GetString("status") != "Approved" || a.GetInt("request_version") != r.GetInt("version") || a.GetFloat("project_value") != r.GetFloat("project_value") || !approvedToken || input.ReviewToken != token || input.DocumentHash != a.GetString("document_hash") {
 					return apis.NewApiError(http.StatusConflict, "The approval is stale. Recall the request for a new approval.", nil)

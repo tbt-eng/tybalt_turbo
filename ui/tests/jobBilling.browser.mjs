@@ -133,9 +133,6 @@ await runBrowserHarness(
         .filter({ hasText: "Invoicing profile selected. Save the job to keep it." });
     await page.goto(edit);
     await page.getByRole("button", { name: "Create one", exact: true }).waitFor();
-    await page
-      .getByText("Division hours can still be saved without an invoicing profile.", { exact: true })
-      .waitFor();
     assert.equal(await invoice().count(), 0, "empty profile list has no selector");
     assert.equal(await manage().count(), 0, "empty profile list has one action");
     await description().fill("Unsaved job scope");
@@ -299,22 +296,18 @@ await runBrowserHarness(
     assert.equal(jobWrites.length, writesBefore + 1);
     assert.equal(jobWrites.at(-1).job, undefined, "an allocation-only save sends no job fields");
     assert.equal(jobWrites.at(-1).allocations[0].hours, 14);
-    // A holder of job can also save only hours, but any other change requires a profile.
+    // The invoicing profile is optional, so a holder of job saves other
+    // changes without one too.
     claims = ["job"];
     await page.goto(edit);
-    await page
-      .getByText("Division hours can still be saved without an invoicing profile.", { exact: true })
-      .waitFor();
     await description().fill("Changed scope");
     await page
       .locator('form[enctype="multipart/form-data"]')
       .evaluate((form) => form.requestSubmit());
-    await page
-      .getByText("This client needs an invoicing profile before project changes can be saved.", {
-        exact: true,
-      })
-      .waitFor();
-    assert.equal(jobWrites.length, writesBefore + 1);
+    await page.getByText("Keep the draft open for inspection.", { exact: true }).waitFor();
+    assert.equal(jobWrites.length, writesBefore + 2);
+    assert.equal(jobWrites.at(-1).job.description, "Changed scope");
+    assert.equal(jobWrites.at(-1).job.invoicing_information || "", "");
     failJob = true;
     await page.goto(edit);
     await page.getByText("Could not load this job.", { exact: true }).waitFor();

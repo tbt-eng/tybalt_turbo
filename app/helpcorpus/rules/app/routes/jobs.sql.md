@@ -1,68 +1,60 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/jobs.sql","sha256":"600e691cc47a3dc70ea5aa4f406b2b44061f0cc73793e00ddabbe4d3bbefe11e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/jobs.sql","sha256":"bb84838383769b6dcf5140df1599924da7b5783f7494ef38ba2b3c8327b4de71","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/jobs.sql
 
-## Jobs list shows status, location and imported flag
+## Job list includes status, location and imported flag
 
-Lines 9-11
+Lines 6-12
 
-Asked as: job status column; job location missing; imported flag jobs; which jobs were imported
+Asked as: job list columns; job status and location; imported job flag; which fields show on jobs
 
-Each job in the list shows its status (status), its location (location) and whether it was imported (imported, from _imported).
+Each job row includes its status, its location and whether it was imported (_imported, shown as imported). It also includes the client id (client_id), the number and the description.
 
-## Jobs list includes client name and client id
+## Jobs without a client still appear in the list
 
-Lines 12-13
+Lines 13-23
 
-Asked as: client name missing on job; job shows no client; client id on jobs list; job without client
+Asked as: job missing client; job without client; client name blank; jobs disappearing from list
 
-Each job in the list carries its client's name (client) and the client's id (client_id). The client join is a left join, so a job without a matching client still appears, with no client name.
+The jobs query joins clients, branches and managers with LEFT JOINs, so a job stays in the list when any of them is missing. A job with no client has an empty client name (client). The query does not replace that empty value with a default.
 
-## Missing branch shows as empty text
+## Job list shows blank branch and manager when none is set
 
-Lines 14-14
+Lines 14-15
 
-Asked as: branch blank on job; no branch code showing; job branch empty
+Asked as: blank branch on job; job with no manager; empty manager name; no branch showing
 
-If a job has no branch, the jobs list shows an empty branch (branch) instead of a branch code.
+A job with no branch shows an empty branch (branch code). A job with no manager shows an empty manager name. The manager name is the manager's given name and surname with a space between them.
 
-## Missing manager shows as empty text
+## Outstanding balance defaults to 0 and its date to blank
 
-Lines 15-15
+Lines 16-17
 
-Asked as: manager blank on job; job has no manager name; who manages this job; manager name empty
+Asked as: outstanding balance shows zero; balance date empty; job amount owed; no balance date
 
-The job manager appears as given name and surname joined by a space. If the job has no manager profile, the manager (manager) is an empty string.
+A job with no outstanding balance (outstanding_balance) shows 0. A job with no outstanding balance date shows an empty value.
 
-## Missing outstanding balance shows as 0
+## Flag for jobs without an invoicing profile
 
-Lines 16-16
+Lines 18-19
 
-Asked as: outstanding amount shows zero; job balance is 0; owed amount blank; unpaid balance missing
+Asked as: no invoicing profile flag; jobs missing invoicing details; procurement invoicing check; invoice profile not set
 
-If a job has no outstanding balance (outstanding_balance), the jobs list shows 0.
+The no_invoicing_profile flag is true when the job's invoicing profile (invoicing_information) is empty or not set. Procurement uses it to find jobs with no invoicing profile. The query does not filter by status. The comment says the list is of active projects, but the flag itself is only set from the invoicing profile.
 
-## Missing outstanding balance date shows as empty text
+## Jobs list returns all jobs or one job by id
 
-Lines 17-17
+Lines 24-24
 
-Asked as: outstanding date blank; balance due date empty; no date on balance; unpaid date missing
+Asked as: show one job; filter jobs by id; all jobs query; look up job by id
 
-If a job has no outstanding balance date (outstanding_balance_date), the jobs list shows an empty string.
+The jobs query returns every job when no job id is given (empty or null). When an id is given, it returns only the job with that id (j.id).
 
-## Jobs list returns all jobs or a single job
+## Jobs are listed newest number first
 
-Lines 22-22
+Lines 25-25
 
-Asked as: show only one job; list every job; search job by id; filter jobs by id
+Asked as: job list order; newest jobs first; sort jobs by number; job numbers order wrong
 
-The jobs query returns every job when no job id (:id) is given or the id is empty. When an id is given, it returns only the job with that id.
-
-## Jobs are sorted by number, highest first
-
-Lines 23-23
-
-Asked as: jobs order wrong; newest job numbers first; job list sorting; latest job at top
-
-The jobs list is ordered by job number (j.number) in descending order, so the highest numbers appear first.
+The jobs list is sorted by job number in descending order (ORDER BY j.number DESC). It is a text sort of the number, not a sort by date created.

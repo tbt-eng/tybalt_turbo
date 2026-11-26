@@ -922,7 +922,7 @@ func validateJob(app core.App, record *core.Record, forceFullValidation bool) (j
 		}
 	}
 
-	if err := validateInvoicingProfile(app, record, derived); err != nil {
+	if err := validateInvoicingProfile(app, record); err != nil {
 		return 0, err
 	}
 
@@ -948,38 +948,11 @@ func validateJob(app core.App, record *core.Record, forceFullValidation bool) (j
 	return derived, nil
 }
 
-// activatesJob reports a save that sets a job Active from another status.
-func activatesJob(record *core.Record) bool {
-	return record.GetString("status") == "Active" && record.Original().GetString("status") != "Active"
-}
-
-// requireInvoicingProfile requires a project save to name an invoicing profile.
-// Older projects may have none. Changing only their status to Closed or Cancelled
-// does not require one, but any other edit, or setting them Active, does: an
-// Active project can receive new time, expenses, and purchase orders.
-func requireInvoicingProfile(record *core.Record, derived jobType) error {
-	if derived != jobTypeProject || record.GetString("invoicing_information") != "" {
-		return nil
-	}
-	statusOnly := !record.IsNew() && !hasChangesBesidesStatus(record)
-	if statusOnly && !activatesJob(record) {
-		return nil
-	}
-	return &errs.HookError{
-		Status:  http.StatusBadRequest,
-		Message: "invoicing profile is required",
-		Data: map[string]errs.CodeError{
-			"invoicing_information": {Code: "required", Message: "Select an invoicing profile for this client."},
-		},
-	}
-}
-
-// validateInvoicingProfile checks a project's required profile and that its
-// contact and profile belong to its client.
-func validateInvoicingProfile(app core.App, record *core.Record, derived jobType) error {
-	if err := requireInvoicingProfile(record, derived); err != nil {
-		return err
-	}
+// validateInvoicingProfile checks that a job's contact and invoicing profile
+// belong to its client. A project may have no invoicing profile: the person
+// who requests a project often does not know who receives the client's
+// invoices, so procurement sets the profile when it knows.
+func validateInvoicingProfile(app core.App, record *core.Record) error {
 	return utilities.ValidateClientReferences(app, record)
 }
 
