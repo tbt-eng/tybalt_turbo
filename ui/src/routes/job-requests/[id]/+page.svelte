@@ -353,6 +353,29 @@
   const missing = "Not provided";
   const withEmail = (person?: WorkflowRecord) =>
     fullName(person) ? [fullName(person), contactEmail(person)].filter(Boolean).join(" · ") : "";
+  // Values that have a page of their own link to it. Every signed-in user can
+  // open a client's page and a rate sheet's page. A contact or a profile is
+  // shown on its own client's page, so each link uses the record's client.
+  const clientHref = (clientId?: string, section = "") =>
+    clientId ? `${resolve("/clients/[cid]/details", { cid: clientId })}${section}` : undefined;
+  const contactHref = (contact?: WorkflowRecord) =>
+    contact ? clientHref(contact.client, "#contacts") : undefined;
+  // The client page highlights the profile that show_invoicing names.
+  const profileHref = $derived(
+    related.invoicing_information
+      ? clientHref(
+          related.invoicing_information.client,
+          `?show_invoicing=${related.invoicing_information.id}#invoicing`,
+        )
+      : undefined,
+  );
+  // Proposed rates have no page until the job is created, so only a chosen
+  // sheet links.
+  const rateSheetHref = $derived(
+    related.rate_sheet && !related.rate_sheet_proposed
+      ? resolve("/rate-sheets/[id]/details", { id: related.rate_sheet.id })
+      : undefined,
+  );
   const feeBasis = $derived(
     request.time_and_materials_set
       ? request.time_and_materials
@@ -444,14 +467,23 @@
   <DSCardGrid>
     <DSCard title="Project">
       <DSFieldList>
-        <DSField label="Client" value={related.client ? clientLabel(related.client) : missing} />
-        <DSField label="Project contact" value={withEmail(related.contact) || missing} />
+        <DSField
+          label="Client"
+          value={related.client ? clientLabel(related.client) : missing}
+          href={related.client ? clientHref(related.client.id) : undefined}
+        />
+        <DSField
+          label="Project contact"
+          value={withEmail(related.contact) || missing}
+          href={withEmail(related.contact) ? contactHref(related.contact) : undefined}
+        />
         <DSField label="Manager" value={fullName(related.manager) || missing} />
         <DSField label="Alternate manager" value={fullName(related.alternate_manager)} />
         <DSField label="Branch" value={related.branch?.name || missing} />
         <DSField
           label="Job owner"
           value={related.job_owner ? clientLabel(related.job_owner) : ""}
+          href={related.job_owner ? clientHref(related.job_owner.id) : undefined}
         />
         <!-- A location that is set shows on the map in its own card. -->
         {#if !request.location}<DSField label="Location" value={missing} />{/if}
@@ -477,6 +509,7 @@
             href={resolve("/jobs/[jid]/details", { jid: related.parent.id })}
           />
         {/if}
+        <!-- A request should start from a proposal, so its absence shows. -->
         {#if related.proposal}
           <DSField
             label="Proposal"
@@ -484,6 +517,8 @@
             href={resolve("/jobs/[jid]/details", { jid: related.proposal.id })}
             hint={related.proposal.status}
           />
+        {:else}
+          <DSField label="Proposal" value="None" />
         {/if}
         {#if request.notes}
           <DSField label="Notes">
@@ -499,6 +534,7 @@
         <DSField
           label="Rate sheet"
           value={related.rate_sheet ? rateSheetLabel(related.rate_sheet) : missing}
+          href={rateSheetHref}
           hint={related.rate_sheet_proposed ? "Proposed rates" : undefined}
         />
         <DSField label="Client PO" value={request.client_po} />
@@ -507,9 +543,24 @@
     </DSCard>
     <DSCard title="Invoicing">
       <DSFieldList>
-        <DSField label="Invoicing profile" value={related.invoicing_information?.name} />
-        <DSField label="Bill to" value={related.bill_to_name || missing} />
-        <DSField label="Billing contact" value={withEmail(related.billing_contact) || missing} />
+        <DSField
+          label="Invoicing profile"
+          value={related.invoicing_information?.name}
+          href={profileHref}
+        />
+        <!-- The bill-to name is the request client's name or alias. -->
+        <DSField
+          label="Bill to"
+          value={related.bill_to_name || missing}
+          href={related.bill_to_name ? clientHref(request.client) : undefined}
+        />
+        <DSField
+          label="Billing contact"
+          value={withEmail(related.billing_contact) || missing}
+          href={withEmail(related.billing_contact)
+            ? contactHref(related.billing_contact)
+            : undefined}
+        />
         {#if related.invoicing_information?.invoicing_instructions}
           <DSField label="Invoicing instructions">
             <span class="whitespace-pre-wrap"

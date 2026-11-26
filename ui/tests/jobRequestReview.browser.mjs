@@ -227,6 +227,79 @@ await runBrowserHarness(
     await workflow
       .getByText("Rejected. Correct the request, then submit it again.", { exact: true })
       .waitFor();
+
+    // Each value with a page of its own links to it. As from the server, the
+    // request holds the ids and related holds each record with its own client.
+    const showLinkedRequest = (change = {}) =>
+      page.evaluate((change) => {
+        const data = window.requestData("Awaiting approval", {});
+        Object.assign(data.detail.request, {
+          client: "client1",
+          job_owner: "owner1",
+          contact: "contact1",
+          invoicing_information: "profile1",
+          rate_sheet: "sheet1",
+          proposal: "",
+        });
+        data.detail.related = {
+          client: { id: "client1", name: "Example Client" },
+          job_owner: { id: "owner1", name: "Owner Corp" },
+          contact: { id: "contact1", client: "client1", given_name: "Pat", surname: "Contact" },
+          invoicing_information: { id: "profile1", client: "client1", name: "Head office" },
+          billing_contact: {
+            id: "contact2",
+            client: "client1",
+            given_name: "Bea",
+            surname: "Biller",
+          },
+          bill_to_name: "Example Client",
+          rate_sheet: { id: "sheet1", code: "2026-11-00004", revision: 2, active: true },
+          rate_sheet_proposed: false,
+          rate_sheet_entries: [],
+        };
+        if (change.proposal) {
+          data.detail.request.proposal = change.proposal.id;
+          data.detail.related.proposal = change.proposal;
+        }
+        if (change.proposedRates) data.detail.related.rate_sheet_proposed = true;
+        window.setRequestData(data);
+      }, change);
+    // A field of the request's cards, by its label. The cards come before the
+    // proposed rates review, which can repeat a label.
+    const field = (label) => page.locator(`xpath=//dt[normalize-space()="${label}"]/..`).first();
+    const fieldHref = async (label) => {
+      const links = field(label).getByRole("link");
+      return (await links.count()) ? links.first().getAttribute("href") : null;
+    };
+
+    // Without a proposal the line still shows, and says None.
+    await showLinkedRequest();
+    await field("Proposal").getByText("None", { exact: true }).waitFor();
+    assert.equal(await fieldHref("Proposal"), null);
+    assert.equal(await fieldHref("Client"), "/clients/client1/details");
+    assert.equal(await fieldHref("Job owner"), "/clients/owner1/details");
+    assert.equal(await fieldHref("Bill to"), "/clients/client1/details");
+    assert.equal(await fieldHref("Project contact"), "/clients/client1/details#contacts");
+    assert.equal(await fieldHref("Billing contact"), "/clients/client1/details#contacts");
+    assert.equal(
+      await fieldHref("Invoicing profile"),
+      "/clients/client1/details?show_invoicing=profile1#invoicing",
+    );
+    assert.equal(await fieldHref("Rate sheet"), "/rate-sheets/sheet1/details");
+    // No person or division has a page that every viewer can open.
+    assert.equal(await fieldHref("Manager"), null);
+
+    // A proposal links to its job page.
+    await showLinkedRequest({
+      proposal: { id: "proposal1", number: "P26-001", description: "Bridge study" },
+    });
+    await field("Proposal").getByRole("link", { name: "P26-001 — Bridge study" }).waitFor();
+    assert.equal(await fieldHref("Proposal"), "/jobs/proposal1/details");
+
+    // Proposed rates have no page before the job exists, so they show as text.
+    await showLinkedRequest({ proposedRates: true });
+    await field("Rate sheet").getByText("Proposed rates").waitFor();
+    assert.equal(await fieldHref("Rate sheet"), null);
     assert.deepEqual(errors, []);
   },
   {
