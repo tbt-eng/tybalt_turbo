@@ -40,7 +40,7 @@ Do this only when no proposal exists.
 
 You can use **Print Project Authorization** or another document. The approver and procurement must accept it.
 
-Include the rate appendix for time and materials work. Save your edits before you print or upload.
+Include the rate appendix for time and materials work.
 
 Wrong PDF? Select **Replace PDF** or **Remove PDF**.
 
@@ -69,11 +69,13 @@ To reject a duplicate, enter a reason. Select **Reject**.
 
 ## Change a request
 
-- **You:** select **Recall for editing**. This works until procurement creates the job.
-- **Approver:** enter a reason and select **Reject**.
-- **Procurement:** after approval, enter a reason and select **Reject**.
+1. On your request, select **Edit request**.
+2. Change the details.
+3. Select **Save request**. The request opens again.
 
-These actions clear the approval. Edit a rejected request before you submit it again.
+Submitted? Select **Recall for editing** first. This works until procurement creates the job.
+
+An approver or procurement can reject it. Recall and rejection clear the approval. Change a rejected request before you submit it again.
 
 ## Delete a request
 

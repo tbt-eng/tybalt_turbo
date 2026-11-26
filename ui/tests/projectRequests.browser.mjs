@@ -332,14 +332,14 @@ await runBrowserHarness(
         .count(),
       0,
     );
-    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678"));
+    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678/edit"));
     await page.getByRole("button", { name: /Create one/ }).click();
     await page.waitForFunction(() => !!window.lastNavigation);
     const createProfileUrl = new URL(await page.evaluate(() => window.lastNavigation), origin);
     assert.equal(createProfileUrl.pathname, "/clients/client1/invoicing/add");
     const createWorkspace = new URL(createProfileUrl.searchParams.get("return_to"), origin);
     const requestReturn = new URL(createWorkspace.searchParams.get("workflow_return"), origin);
-    assert.equal(requestReturn.pathname, "/job-requests/request12345678");
+    assert.equal(requestReturn.pathname, "/job-requests/request12345678/edit");
     const requestDraft = await page.evaluate(
       (token) => JSON.parse(sessionStorage.getItem(`client-workspace-draft:${token}`)),
       requestReturn.searchParams.get("client_draft"),
@@ -347,7 +347,7 @@ await runBrowserHarness(
     assert.equal(requestDraft.payload.item.description, "Keep this draft while creating invoices.");
     assert.equal(requestDraft.payload.item.contact, "contact1");
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&job&no-contacts`);
-    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678"));
+    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678/edit"));
     await page.getByRole("button", { name: /Add a contact/ }).click();
     await page.waitForFunction(() => !!window.lastNavigation);
     assert.equal(
@@ -364,7 +364,7 @@ await runBrowserHarness(
     assert.equal(await addClient.count(), 0);
     assert.equal(await addOwner.count(), 0);
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&job&no-client`);
-    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678"));
+    await page.evaluate(() => history.replaceState({}, "", "/job-requests/request12345678/edit"));
     await addClient.waitFor();
     assert.equal(await addContact.count(), 0);
     // A new client goes into the Client field; then a contact can be added.
@@ -740,12 +740,46 @@ await runBrowserHarness(
       fax: "",
       invoicing_instructions: "",
     });
+    // The edit page: Cancel and a save both go back to the request's page. Only
+    // Cancel with unsaved changes asks first; a save never does.
+    const dialogs = [];
+    page.on("dialog", (dialog) => {
+      dialogs.push(dialog.message());
+      dialog.dismiss();
+    });
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?edit-page&profiles`);
+    await page.getByRole("heading", { name: "Edit Project Request", exact: true }).waitFor();
+    await page.evaluate(() => {
+      history.replaceState({}, "", "/job-requests/request12345678/edit");
+      window.navigationGuards = true;
+    });
+    const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+    await cancel.click();
+    await page.waitForFunction(() => !!window.lastNavigation || !!window.cancelledNavigation);
+    assert.equal(await page.evaluate(() => window.lastNavigation), "/job-requests/request12345678");
+    assert.deepEqual(dialogs, []);
+    await page.evaluate(() => (window.lastNavigation = undefined));
+    await page.getByLabel("Description", { exact: true }).fill("Inspect the bridge again.");
+    await cancel.click();
+    await page.waitForFunction(() => !!window.cancelledNavigation);
+    assert.deepEqual(dialogs, ["Discard unsaved request changes?"]);
+    assert.equal(await page.evaluate(() => window.lastNavigation), undefined);
+    const savesBefore = saves.length;
+    await page.getByRole("button", { name: "Save request", exact: true }).click();
+    await page.waitForFunction(() => !!window.lastNavigation);
+    assert.equal(saves.length, savesBefore + 1);
+    assert.equal(saves.at(-1).request.description, "Inspect the bridge again.");
+    assert.equal(saves.at(-1).version, 3);
+    assert.equal(await page.evaluate(() => window.lastNavigation), "/job-requests/request12345678");
+    assert.equal(dialogs.length, 1, "a save does not ask to discard changes");
     assert.deepEqual(errors, []);
   },
   {
     services: {
+      // With window.navigationGuards set, goto runs the beforeNavigate callbacks
+      // first and stops when one cancels, as SvelteKit does.
       "$app/navigation":
-        "export const goto = (url) => { window.lastNavigation = url; }; export const beforeNavigate = () => {}; export const invalidateAll = async () => {}; export const replaceState = (url, state) => history.replaceState(state, '', url);",
+        "const guards = []; export const goto = async (url) => { if (window.navigationGuards) { let cancelled = false; for (const guard of guards) guard({ cancel: () => { cancelled = true; } }); if (cancelled) { window.cancelledNavigation = url; return; } } window.lastNavigation = url; }; export const beforeNavigate = (guard) => { guards.push(guard); }; export const invalidateAll = async () => {}; export const replaceState = (url, state) => history.replaceState(state, '', url);",
     },
   },
 );

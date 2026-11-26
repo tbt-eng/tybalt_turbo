@@ -7,7 +7,6 @@
   import { goto, invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
   import { jobRequestsEnabled } from "$lib/stores/appConfig";
-  import RequestEditor from "$lib/components/jobs/RequestEditor.svelte";
   import ProposedRatesReview from "$lib/components/rateSheets/ProposedRatesReview.svelte";
   import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
@@ -79,8 +78,8 @@
   });
   let busy = $state(false),
     error = $state(""),
-    dirty = $state(false),
-    printing = $state(false),
+    // A refused workflow action shows beside the workflow buttons.
+    actionError = $state(""),
     confirmingDelete = $state(false),
     confirmingRemovePDF = $state(false),
     // Notes may be internal, so the printout leaves them out unless chosen.
@@ -91,18 +90,21 @@
     rateSheetName = $state(""),
     // The approver approves proposed rates beside the rates, not in the checklist.
     ratesApproved = $state(false);
-  let editor: RequestEditor | undefined = $state();
   let fileInput: HTMLInputElement | undefined = $state();
   const detail = $derived(data.detail),
     request = $derived(detail.request),
     permission = $derived(detail.permissions),
     related = $derived(detail.related);
+  // The request is changed on its edit page, so no action here can meet
+  // unsaved changes.
+  const canEdit = $derived(permission.can_edit && $jobRequestsEnabled);
+  const editHref = $derived(resolve("/job-requests/[id]/edit", { id: request.id }));
   const questions = $derived(detail.checklist.questions);
   const allChecked = $derived(
     questions.length > 0 && questions.every((question) => checklist[question.key]),
   );
   // The page is reused when a link opens another request. Ask again there,
-  // but keep the choice when this request reloads, as Save and print does.
+  // but keep the choice when this request reloads, as an upload does.
   const requestId = $derived(request.id);
   $effect(() => {
     requestId;
@@ -133,6 +135,7 @@
   async function action(name: string) {
     busy = true;
     error = "";
+    actionError = "";
     try {
       const result = await pb.send(
         `/api/job_requests/${request.id}${name === "delete" ? "" : `/${name}`}`,
@@ -166,7 +169,10 @@
         await goto(permission.can_edit ? "/job-requests" : "/job-requests?queue=abandoned");
       } else await refresh();
     } catch (e) {
-      error = workflowError(e);
+      // Delete is confirmed in a dialog, which shows its error. The other
+      // actions show theirs in the Workflow actions section.
+      if (name === "delete") error = workflowError(e);
+      else actionError = workflowError(e);
     } finally {
       busy = false;
     }
@@ -237,25 +243,17 @@
         : "Fixed fee"
       : "",
   );
-  async function print(saved = false) {
-    if (dirty && !saved) {
-      printing = true;
-      return;
-    }
-    if (saved && !(await editor?.save())) return;
-    printing = false;
-    await goto(`/job-requests/${request.id}/print${printNotes ? "?notes=1" : ""}`);
+  async function print() {
+    const printPage = { id: request.id };
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- query on a resolved path
+    if (printNotes) await goto(`${resolve("/job-requests/[id]/print", printPage)}?notes=1`);
+    else await goto(resolve("/job-requests/[id]/print", printPage));
   }
 </script>
 
 <!-- The same padding and header as the other detail pages, such as a job. -->
 <div class="mx-auto space-y-4 p-4">
-  <DSPageHeader
-    title="Project Request"
-    subtitle={permission.can_edit && $jobRequestsEnabled
-      ? undefined
-      : request.description || "Untitled request"}
-  >
+  <DSPageHeader title="Project Request" subtitle={request.description || "Untitled request"}>
     {#snippet badges()}
       <DSStatusLabel kind="request" status={request.status || request.state} />
     {/snippet}
@@ -274,18 +272,13 @@
           />
         </div>
       {/if}
-      <DSActionButton action={() => print()}>Print Project Authorization</DSActionButton>
+      <DSActionButton action={print}>Print Project Authorization</DSActionButton>
+      {#if canEdit}
+        <DSActionButton action={editHref} icon="mdi:pencil" title="Edit request" color="blue" />
+      {/if}
     {/snippet}
   </DSPageHeader>
   {#if error}<div role="alert"><DSCallout tone="danger">{error}</DSCallout></div>{/if}
-  {#if printing}<div role="alert">
-      <DSCallout tone="warning" title="Save your changes before printing.">
-        {#snippet actions()}
-          <DSActionButton action={() => print(true)}>Save and print</DSActionButton>
-          <DSActionButton action={() => (printing = false)}>Cancel printing</DSActionButton>
-        {/snippet}
-      </DSCallout>
-    </div>{/if}
   {#if !$jobRequestsEnabled}
     <DSCallout tone="warning">Request processing is disabled. Printing remains available.</DSCallout
     >
@@ -294,112 +287,107 @@
     <DSCallout tone="danger" title="Rejected">
       Rejection reason: {request.rejection_reason}. The creator must make a correction before
       submission.
+      {#snippet actions()}
+        {#if canEdit}<DSActionButton action={editHref}>Edit request</DSActionButton>{/if}
+      {/snippet}
     </DSCallout>
   {/if}
-  {#if permission.can_edit && $jobRequestsEnabled}
-    {#key request.version}<RequestEditor
-        bind:this={editor}
-        {request}
-        allocations={detail.allocations}
-        options={data.options}
-        {related}
-        bind:dirty
-        onsaved={refresh}
-      />{/key}
-  {:else}
-    <DSCardGrid>
-      <DSCard title="Project">
-        <DSFieldList>
-          <DSField label="Client" value={related.client ? clientLabel(related.client) : missing} />
-          <DSField label="Project contact" value={withEmail(related.contact) || missing} />
-          <DSField label="Manager" value={fullName(related.manager) || missing} />
-          <DSField label="Branch" value={related.branch?.name || missing} />
-          <DSField label="Location" value={request.location || missing} />
-          <DSField label="Intended project status" value={request.project_status} />
+  <DSCardGrid>
+    <DSCard title="Project">
+      <DSFieldList>
+        <DSField label="Client" value={related.client ? clientLabel(related.client) : missing} />
+        <DSField label="Project contact" value={withEmail(related.contact) || missing} />
+        <DSField label="Manager" value={fullName(related.manager) || missing} />
+        <DSField label="Alternate manager" value={fullName(related.alternate_manager)} />
+        <DSField label="Branch" value={related.branch?.name || missing} />
+        <DSField
+          label="Job owner"
+          value={related.job_owner ? clientLabel(related.job_owner) : ""}
+        />
+        <DSField label="Location" value={request.location || missing} />
+        <DSField label="Intended project status" value={request.project_status} />
+        <DSField
+          label="Award date"
+          value={request.project_award_date ? shortDate(request.project_award_date, true) : missing}
+        />
+        <DSField
+          label="Completion date"
+          value={request.project_completion_date
+            ? shortDate(request.project_completion_date, true)
+            : missing}
+        />
+        <DSField
+          label="First Nations agreement"
+          value={request.fn_agreement_answer || "Not answered"}
+        />
+        {#if related.parent}
           <DSField
-            label="Award date"
-            value={request.project_award_date
-              ? shortDate(request.project_award_date, true)
-              : missing}
+            label="Parent"
+            value={`${related.parent.number} — ${related.parent.description}`}
+            href={resolve("/jobs/[jid]/details", { jid: related.parent.id })}
           />
+        {/if}
+        {#if related.proposal}
           <DSField
-            label="Completion date"
-            value={request.project_completion_date
-              ? shortDate(request.project_completion_date, true)
-              : missing}
+            label="Proposal"
+            value={`${related.proposal.number} — ${related.proposal.description}`}
+            href={resolve("/jobs/[jid]/details", { jid: related.proposal.id })}
           />
+        {/if}
+        {#if request.notes}
+          <DSField label="Notes">
+            <span class="whitespace-pre-wrap">{request.notes}</span>
+          </DSField>
+        {/if}
+      </DSFieldList>
+    </DSCard>
+    <DSCard title="Value and rates">
+      <DSFieldList>
+        <DSField label="Project value" value={wholeCAD(request.project_value) || missing} />
+        <DSField label="Fee basis" value={feeBasis || missing} />
+        <DSField
+          label="Rate sheet"
+          value={related.rate_sheet ? rateSheetLabel(related.rate_sheet) : missing}
+          hint={related.rate_sheet_proposed ? "Proposed rates" : undefined}
+        />
+        <DSField label="Client PO" value={request.client_po} />
+        <DSField label="Client reference" value={request.client_reference_number} />
+      </DSFieldList>
+    </DSCard>
+    <DSCard title="Invoicing">
+      <DSFieldList>
+        <DSField label="Invoicing profile" value={related.invoicing_information?.name} />
+        <DSField label="Bill to" value={related.bill_to_name || missing} />
+        <DSField label="Billing contact" value={withEmail(related.billing_contact) || missing} />
+        {#if related.invoicing_information?.invoicing_instructions}
+          <DSField label="Invoicing instructions">
+            <span class="whitespace-pre-wrap"
+              >{related.invoicing_information.invoicing_instructions}</span
+            >
+          </DSField>
+        {/if}
+      </DSFieldList>
+    </DSCard>
+    <DSCard title="Division hours">
+      <DSFieldList>
+        {#each detail.allocations as allocation (allocation.id)}
           <DSField
-            label="First Nations agreement"
-            value={request.fn_agreement_answer || "Not answered"}
+            label={[allocation.expand?.division?.code, allocation.expand?.division?.name]
+              .filter(Boolean)
+              .join(" — ") || "Unknown division"}
+            value={`${allocation.hours} h`}
           />
-          {#if related.parent}
-            <DSField
-              label="Parent"
-              value={`${related.parent.number} — ${related.parent.description}`}
-              href={resolve("/jobs/[jid]/details", { jid: related.parent.id })}
-            />
-          {/if}
-          {#if related.proposal}
-            <DSField
-              label="Proposal"
-              value={`${related.proposal.number} — ${related.proposal.description}`}
-              href={resolve("/jobs/[jid]/details", { jid: related.proposal.id })}
-            />
-          {/if}
-          {#if request.notes}
-            <DSField label="Notes">
-              <span class="whitespace-pre-wrap">{request.notes}</span>
-            </DSField>
-          {/if}
-        </DSFieldList>
-      </DSCard>
-      <DSCard title="Value and rates">
-        <DSFieldList>
-          <DSField label="Project value" value={wholeCAD(request.project_value) || missing} />
-          <DSField label="Fee basis" value={feeBasis || missing} />
-          <DSField
-            label="Rate sheet"
-            value={related.rate_sheet ? rateSheetLabel(related.rate_sheet) : missing}
-            hint={related.rate_sheet_proposed ? "Proposed rates" : undefined}
-          />
-          <DSField label="Client PO" value={request.client_po} />
-          <DSField label="Client reference" value={request.client_reference_number} />
-        </DSFieldList>
-      </DSCard>
-      <DSCard title="Invoicing">
-        <DSFieldList>
-          <DSField label="Bill to" value={related.bill_to_name || missing} />
-          <DSField label="Billing contact" value={withEmail(related.billing_contact) || missing} />
-          {#if related.invoicing_information?.invoicing_instructions}
-            <DSField label="Invoicing instructions">
-              <span class="whitespace-pre-wrap"
-                >{related.invoicing_information.invoicing_instructions}</span
-              >
-            </DSField>
-          {/if}
-        </DSFieldList>
-      </DSCard>
-      <DSCard title="Division hours">
-        <DSFieldList>
-          {#each detail.allocations as allocation (allocation.id)}
-            <DSField
-              label={[allocation.expand?.division?.code, allocation.expand?.division?.name]
-                .filter(Boolean)
-                .join(" — ") || "Unknown division"}
-              value={`${allocation.hours} h`}
-            />
-          {:else}
-            <DSField label="Divisions" value={missing} />
-          {/each}
-        </DSFieldList>
-      </DSCard>
-    </DSCardGrid>
-    {#if related.rate_sheet_proposed}<ProposedRatesReview
-        {related}
-        canApprove={permission.can_approve}
-        bind:approved={ratesApproved}
-      />{/if}
-  {/if}
+        {:else}
+          <DSField label="Divisions" value={missing} />
+        {/each}
+      </DSFieldList>
+    </DSCard>
+  </DSCardGrid>
+  {#if related.rate_sheet_proposed}<ProposedRatesReview
+      {related}
+      canApprove={permission.can_approve}
+      bind:approved={ratesApproved}
+    />{/if}
   <DSSection title="Authorization evidence">
     {#snippet actions()}
       <DSHelp doc="project-requests#upload-and-submit" label="Help" />
@@ -413,18 +401,15 @@
       <p class="text-xs text-neutral-500" title={detail.attachment.document_hash}>
         SHA-256 (first 7): {detail.attachment.document_hash.slice(0, 7)}
       </p>{:else}<p>No authorization PDF uploaded.</p>{/if}
-    {#if permission.can_edit && $jobRequestsEnabled}
+    {#if canEdit}
       <!-- The button opens the file dialog of the hidden input. -->
       <div class="flex flex-wrap gap-2">
-        <DSActionButton
-          variant="secondary"
-          disabled={busy || dirty}
-          action={() => fileInput?.click()}
+        <DSActionButton variant="secondary" disabled={busy} action={() => fileInput?.click()}
           >{detail.attachment ? "Replace PDF" : "Upload PDF"}</DSActionButton
         >
         {#if detail.attachment}<DSActionButton
             variant="secondary"
-            disabled={busy || dirty}
+            disabled={busy}
             action={() => {
               error = "";
               confirmingRemovePDF = true;
@@ -436,13 +421,10 @@
           type="file"
           accept="application/pdf,.pdf"
           aria-label={detail.attachment ? "Replace PDF" : "Upload PDF"}
-          disabled={busy || dirty}
+          disabled={busy}
           onchange={upload}
         />
       </div>
-      {#if dirty}<DSCallout tone="warning"
-          >You have unsaved changes. Save the request before you change the PDF.</DSCallout
-        >{/if}
       <p class="text-sm text-neutral-600">
         Upload the signed copy, including the rate appendix for T&amp;M work, or other sufficient
         authorization evidence.
@@ -538,15 +520,15 @@
           <DSHelp doc="project-requests#change-a-request" label="Help" />
         {/if}
       {/snippet}
+      {#if actionError}<div role="alert">
+          <DSCallout tone="danger">{actionError}</DSCallout>
+        </div>{/if}
       {#if permission.can_approve}<div class="space-y-3">
           {@render checklistAnswers()}
           <div class="flex">
             <DSActionButton
               color="green"
-              disabled={busy ||
-                dirty ||
-                !allChecked ||
-                (related.rate_sheet_proposed && !ratesApproved)}
+              disabled={busy || !allChecked || (related.rate_sheet_proposed && !ratesApproved)}
               action={() => action("approve")}>Approve request</DSActionButton
             >
           </div>
@@ -575,7 +557,7 @@
       {#if permission.can_submit || permission.can_recall}
         <div class="flex flex-wrap gap-2">
           {#if permission.can_submit}
-            <DSActionButton color="blue" disabled={busy || dirty} action={() => action("submit")}
+            <DSActionButton color="blue" disabled={busy} action={() => action("submit")}
               >Submit</DSActionButton
             >
           {/if}

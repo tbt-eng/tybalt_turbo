@@ -22,6 +22,12 @@ await runBrowserHarness(
         });
       if (path.startsWith("/api/job_requests/request1/"))
         actions.push({ path, body: request.postDataJSON() });
+      if (path === "/api/job_requests/request1/submit")
+        return route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Select an approver before you submit." }),
+        });
       return route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({ items: [], job_id: "job1" }),
@@ -73,6 +79,81 @@ await runBrowserHarness(
     assert.equal(Object.keys(actions[1].body.checklist_answers).length, 7);
     assert.ok(Object.values(actions[1].body.checklist_answers).every((answer) => answer === true));
     assert.equal(await page.evaluate(() => window.lastNavigation), "/jobs/job1/details");
+
+    // The creator's draft shows read only, as for everyone else. The form is
+    // on the edit page, so every action here works on saved data.
+    await page.evaluate(() => {
+      window.lastNavigation = undefined;
+      const data = window.requestData("Draft", {
+        can_edit: true,
+        can_submit: true,
+        can_delete: true,
+      });
+      data.detail.request.description = "Inspect the bridge";
+      data.detail.related = {
+        manager: { name: "Morgan Manager" },
+        alternate_manager: { name: "Avery Alternate" },
+        job_owner: { name: "Owner Corp" },
+      };
+      window.setRequestData(data);
+    });
+    const editRequest = page.getByRole("button", { name: "Edit request", exact: true });
+    await editRequest.waitFor();
+    assert.equal(await page.locator("form").count(), 0, "no form on the request's page");
+    assert.equal(await page.getByRole("button", { name: "Save request" }).count(), 0);
+    assert.equal(await page.getByText("Inspect the bridge", { exact: true }).count(), 1);
+    const cards = await page.locator("#app").innerText();
+    assert.match(cards, /Alternate manager\s+Avery Alternate/);
+    assert.match(cards, /Job owner\s+Owner Corp/);
+    assert.doesNotMatch(cards, /Invoicing profile/, "an empty optional field is hidden");
+    const submit = page.getByRole("button", { name: "Submit", exact: true });
+    for (const button of [
+      submit,
+      page.getByRole("button", { name: "Replace PDF", exact: true }),
+      page.getByRole("button", { name: "Remove PDF", exact: true }),
+      page.getByRole("button", { name: "Print Project Authorization", exact: true }),
+    ])
+      assert.equal(await button.isDisabled(), false);
+    assert.equal(await page.getByText(/unsaved changes/i).count(), 0);
+    await editRequest.click();
+    assert.equal(await page.evaluate(() => window.lastNavigation), "/job-requests/request1/edit");
+
+    // A refused submit says why beside the workflow buttons, not at the top.
+    await submit.click();
+    const workflow = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Workflow actions", exact: true }) });
+    await workflow
+      .getByRole("alert")
+      .filter({ hasText: "Select an approver before you submit." })
+      .waitFor();
+    assert.equal(
+      await page.getByRole("alert").count(),
+      1,
+      "the refusal shows only in Workflow actions",
+    );
+    assert.equal(actions.at(-1).path, "/api/job_requests/request1/submit");
+
+    // A rejected request has no Submit until it changes. Its notice offers Edit.
+    await page.evaluate(() => {
+      window.lastNavigation = undefined;
+      const data = window.requestData("Rejected", { can_edit: true, can_delete: true });
+      data.detail.request.rejection_reason = "Wrong client";
+      window.setRequestData(data);
+    });
+    await page.getByText("Rejection reason: Wrong client", { exact: false }).waitFor();
+    assert.equal(await submit.count(), 0);
+    assert.equal(await editRequest.count(), 2, "the header and the notice offer Edit");
+    await editRequest.last().click();
+    assert.equal(await page.evaluate(() => window.lastNavigation), "/job-requests/request1/edit");
+
+    // A viewer who can't edit gets no Edit.
+    await page.evaluate(() =>
+      window.setRequestData(window.requestData("Draft", { can_delete: false })),
+    );
+    await page.getByText("Untitled request", { exact: true }).waitFor();
+    assert.equal(await editRequest.count(), 0);
+    assert.equal(await page.getByRole("button", { name: /Upload PDF|Replace PDF/ }).count(), 0);
     assert.deepEqual(errors, []);
   },
   {

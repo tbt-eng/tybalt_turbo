@@ -33,7 +33,7 @@ function storageMock(storage: Map<string, string>, blocked = () => false) {
 test("workflow returns accept only local project and request forms", () => {
   for (const path of [
     "/job-requests/new?parent=abc",
-    "/job-requests/request1",
+    "/job-requests/request1/edit",
     "/jobs/add",
     "/jobs/add/parent1",
     "/jobs/add/from/proposal1",
@@ -50,6 +50,9 @@ test("workflow returns accept only local project and request forms", () => {
     "/jobs",
     "/jobs/job1/delete",
     "/job-requests/request1/print",
+    // A request's own page is read only, so a draft has no form there.
+    "/job-requests/request1",
+    "/job-requests/request1/edit/more",
     "/jobs/%2fexample.com/edit",
     "/jobs/add\n",
     null,
@@ -60,7 +63,7 @@ test("workflow returns accept only local project and request forms", () => {
 
 test("workflow returns name the originating form", () => {
   assert.equal(workflowFormName("/job-requests/new?parent=abc"), "project request");
-  assert.equal(workflowFormName("/job-requests/request1"), "project request");
+  assert.equal(workflowFormName("/job-requests/request1/edit"), "project request");
   assert.equal(workflowFormName("/jobs/add/parent1"), "job form");
   assert.equal(workflowFormName("/jobs/job1/edit"), "job form");
 });
@@ -79,7 +82,7 @@ test("copied profiles change only the matching unfinished form and preserve its 
   try {
     for (const [source, kind, field] of [
       ["/job-requests/new?parent=parent1", "request:new", "item"],
-      ["/job-requests/request1", "request:request1", "item"],
+      ["/job-requests/request1/edit", "request:request1", "item"],
       ["/jobs/add", "job:new", "item"],
       ["/jobs/add/parent1", "job:new", "item"],
       ["/jobs/add/from/proposal1", "job:new", "item"],
@@ -113,7 +116,7 @@ test("copied profiles change only the matching unfinished form and preserve its 
       assert.equal(selectClientWorkflowProfile(destination, "", "client1", "copy"), null);
       assert.equal(selectClientWorkflowProfile(destination, "user1", "client1", ""), null);
       const otherPath = new URL(destination, "https://app.example");
-      otherPath.pathname = "/job-requests/other";
+      otherPath.pathname = "/job-requests/other/edit";
       assert.equal(
         selectClientWorkflowProfile(
           otherPath.pathname + otherPath.search,
@@ -289,6 +292,57 @@ test("drafts preserve values, require the same user and source, and clear after 
     assert.equal(profileReturn.searchParams.get("project_contact"), "contact1");
     location.href = "https://app.example" + profileReturn.searchParams.get("workflow_return");
     assert.deepEqual(readClientWorkflowDraft("request:new", "user1"), draft);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+    if (originalStorage) Object.defineProperty(globalThis, "sessionStorage", originalStorage);
+    else Reflect.deleteProperty(globalThis, "sessionStorage");
+  }
+});
+
+test("a saved request's draft leaves from its edit page and returns there", () => {
+  const storage = new Map<string, string>();
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+  const location = { href: "https://app.example/job-requests/request1/edit" };
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { location } });
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    value: storageMock(storage),
+  });
+  try {
+    const draft = {
+      item: { id: "request1", client: "client1", description: "Unsaved scope", version: 4 },
+      allocations: [{ division: "division1", hours: 12 }],
+      saved: "baseline",
+    };
+    const profileUrl = new URL(
+      keepClientWorkflowDraft("request:request1", "user1", draft, "client1", "", "invoicing"),
+      "https://app.example",
+    );
+    const workspace = new URL(profileUrl.searchParams.get("return_to")!, "https://app.example");
+    const workflowReturn = workspace.searchParams.get("workflow_return")!;
+    const back = new URL(workflowReturn, "https://app.example");
+    assert.equal(back.pathname, "/job-requests/request1/edit");
+    assert.equal(safeWorkflowReturn(workflowReturn), workflowReturn);
+    assert.equal(workflowFormName(workflowReturn), "project request");
+    // A profile created in the workspace goes into the request on its edit page.
+    location.href = "https://app.example/clients/client1/invoicing/add";
+    assert.equal(
+      selectClientWorkflowProfile(workflowReturn, "user1", "client1", "profile1"),
+      workflowReturn,
+    );
+    location.href = "https://app.example" + workflowReturn;
+    assert.deepEqual(readClientWorkflowDraft("request:request1", "user1"), {
+      ...draft,
+      item: { ...draft.item, invoicing_information: "profile1" },
+      selectedProfile: "profile1",
+    });
+    // The request's read-only page does not restore the draft.
+    location.href = `https://app.example/job-requests/request1${back.search}`;
+    assert.equal(readClientWorkflowDraft("request:request1", "user1"), null);
+    // Nor can a form there keep one.
+    assert.throws(() => keepClientWorkflowDraft("request:request1", "user1", draft, "client1", ""));
   } finally {
     if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
     else Reflect.deleteProperty(globalThis, "window");

@@ -105,3 +105,68 @@ for (const backgroundRefresh of [false, true]) {
     });
   }
 }
+
+// Run the real edit loader against a stub API that answers the request detail
+// with the given permissions.
+async function editPage(permissions) {
+  const calls = [];
+  const pb = {
+    send: async (path) => {
+      calls.push(path);
+      if (path === "/api/job_requests/options") return { enabled: true, users: [] };
+      return { request: { id: "request1" }, permissions };
+    },
+  };
+  const context = vm.createContext({ console });
+  const modules = new Map();
+  for (const [name, values] of [
+    ["$lib/pocketbase", { pb }],
+    [
+      "@sveltejs/kit",
+      {
+        redirect: (status, location) => {
+          throw Object.assign(new Error("redirect"), { status, location });
+        },
+      },
+    ],
+  ]) {
+    modules.set(
+      name,
+      new vm.SyntheticModule(
+        Object.keys(values),
+        function () {
+          for (const [key, value] of Object.entries(values)) this.setExport(key, value);
+        },
+        { context },
+      ),
+    );
+  }
+  const source = await readFile(
+    new URL("../src/routes/job-requests/[id]/edit/+page.ts", import.meta.url),
+    "utf8",
+  );
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  });
+  const page = new vm.SourceTextModule(outputText, { context, identifier: "edit" });
+  await page.link((name) => {
+    assert.ok(modules.has(name), `Unexpected dependency: ${name}`);
+    return modules.get(name);
+  });
+  await page.evaluate();
+  return { load: () => page.namespace.load({ params: { id: "request1" } }), calls };
+}
+
+test("the edit page sends a viewer who can't edit to the request's page", async () => {
+  const page = await editPage({ can_edit: false });
+  await assert.rejects(page.load(), { status: 307, location: "/job-requests/request1" });
+  assert.deepEqual(page.calls, ["/api/job_requests/request1"], "no options for a viewer");
+});
+
+test("the edit page loads the request and the options for its creator", async () => {
+  const page = await editPage({ can_edit: true });
+  const data = await page.load();
+  assert.equal(data.detail.request.id, "request1");
+  assert.equal(data.options.enabled, true);
+  assert.deepEqual(page.calls, ["/api/job_requests/request1", "/api/job_requests/options"]);
+});

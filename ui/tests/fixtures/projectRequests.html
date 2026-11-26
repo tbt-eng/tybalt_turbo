@@ -16,6 +16,7 @@
       import { pb } from "$lib/pocketbase";
       import Editor from "../../src/lib/components/jobs/RequestEditor.svelte";
       import RequestList from "../../src/routes/job-requests/+page.svelte";
+      import EditPage from "../../src/routes/job-requests/[id]/edit/+page.svelte";
       import "/src/app.css";
       const query = new URLSearchParams(location.search);
       const request = {
@@ -122,36 +123,63 @@
           target: document.getElementById("app"),
           props: { data: { queue: "mine", items: [], approvedItems: [] } },
         });
-      } else if (query.has("editor")) {
+      } else if (query.has("editor") || query.has("edit-page")) {
         globalStore.set({
           claims: query.has("viewer") ? [] : query.has("job") ? ["job"] : ["time"],
         });
         pb.authStore.save("test-token", { id: "requester", collectionName: "users" });
-        mount(Editor, {
-          target: document.getElementById("app"),
-          props: {
-            request,
-            options: {
-              clients: [client],
-              contacts: query.has("no-contacts") ? [] : [contact],
-              invoicing_profiles: query.has("profiles")
-                ? [
-                    {
-                      id: "profile1",
-                      client: "client1",
-                      contact: "contact1",
-                      name: "Standard invoices",
-                    },
-                  ]
-                : [],
-              rate_sheets: [rate_sheet],
-              divisions: [{ id: "div1", name: "Engineering", code: "ENG", active: true }],
-              users: [{ id: "reviewer", given_name: "Tier", surname: "Two" }],
-              proposals: [],
-              branches: [{ id: "branch1", name: "Thunder Bay", code: "TBY" }],
+        const options = {
+          clients: [client],
+          contacts: query.has("no-contacts") ? [] : [contact],
+          invoicing_profiles: query.has("profiles")
+            ? [
+                {
+                  id: "profile1",
+                  client: "client1",
+                  contact: "contact1",
+                  name: "Standard invoices",
+                },
+              ]
+            : [],
+          rate_sheets: [rate_sheet],
+          divisions: [{ id: "div1", name: "Engineering", code: "ENG", active: true }],
+          users: [{ id: "reviewer", given_name: "Tier", surname: "Two" }],
+          proposals: [],
+          branches: [{ id: "branch1", name: "Thunder Bay", code: "TBY" }],
+        };
+        // The edit page mounts the editor with the request detail, as its loader
+        // returns it. The server sends every field of the record, empty or not.
+        if (query.has("edit-page"))
+          mount(EditPage, {
+            target: document.getElementById("app"),
+            props: {
+              data: {
+                detail: {
+                  request: {
+                    manager: "",
+                    alternate_manager: "",
+                    branch: "",
+                    job_owner: "",
+                    parent: "",
+                    proposal: "",
+                    approver: "",
+                    invoicing_information: "",
+                    client_po: "",
+                    client_reference_number: "",
+                    project_award_date: "",
+                    project_completion_date: "",
+                    ...request,
+                  },
+                  related,
+                  allocations: [],
+                  permissions: { can_edit: true },
+                  review_token: "",
+                },
+                options,
+              },
             },
-          },
-        });
+          });
+        else mount(Editor, { target: document.getElementById("app"), props: { request, options } });
       } else
         mount(Print, {
           target: document.getElementById("app"),

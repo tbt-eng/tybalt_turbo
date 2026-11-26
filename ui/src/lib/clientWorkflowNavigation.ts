@@ -34,8 +34,10 @@ export function safeWorkflowReturn(value: string | null | undefined): string | n
   try {
     const url = new URL(value, "https://workspace.invalid");
     if (url.origin !== "https://workspace.invalid") return null;
+    // A request's form is on its edit page. Its own page is read only, so a
+    // draft has nothing to go back to there.
     if (
-      !/^\/job-requests\/(?:new|[a-zA-Z0-9_-]+)$/.test(url.pathname) &&
+      !/^\/job-requests\/(?:new|[a-zA-Z0-9_-]+\/edit)$/.test(url.pathname) &&
       !/^\/jobs\/(?:add(?:\/(?:from\/)?[a-zA-Z0-9_-]+)?|[a-zA-Z0-9_-]+\/edit)$/.test(url.pathname)
     )
       return null;

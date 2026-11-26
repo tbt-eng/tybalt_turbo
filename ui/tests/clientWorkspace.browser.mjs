@@ -28,6 +28,38 @@ await runBrowserHarness(
     const writes = [];
     const requestWrites = [];
     const profileWrites = [];
+    // A saved draft request with every field the server sends. Its edit page
+    // leaves for the client workspace and returns, near the end of the test.
+    const savedRequest = {
+      id: "savedrequest01",
+      version: 2,
+      status: "Draft",
+      description: "Saved scope",
+      notes: "",
+      client: client.id,
+      contact: client.contacts[1].id,
+      manager: "",
+      alternate_manager: "",
+      branch: "",
+      location: "",
+      job_owner: "",
+      parent: "",
+      proposal: "",
+      approver: "",
+      invoicing_information: "",
+      rate_sheet: "",
+      project_status: "Active",
+      // A value the form accepts: its input refuses 0, the server's empty value.
+      project_value: 50000,
+      project_award_date: "",
+      project_completion_date: "",
+      client_po: "",
+      client_reference_number: "",
+      fn_agreement_answer: "",
+      time_and_materials: false,
+      time_and_materials_set: false,
+    };
+    const savedRequestWrites = [];
     await page.addInitScript(
       ({ token, record }) =>
         localStorage.setItem("pocketbase_auth", JSON.stringify({ token, record })),
@@ -153,6 +185,26 @@ await runBrowserHarness(
                 : fixture.jobs,
         );
       }
+      // A saved draft request, edited on its edit page near the end.
+      if (path === `/api/job_requests/${savedRequest.id}`) {
+        if (request.method() === "PATCH") {
+          const body = request.postDataJSON();
+          savedRequestWrites.push(body);
+          Object.assign(savedRequest, body.request, { version: savedRequest.version + 1 });
+          return send({ request: savedRequest });
+        }
+        return send({
+          request: savedRequest,
+          allocations: [],
+          related: { client },
+          review_token: "token1",
+          checklist: { version: 1, questions: [] },
+          permissions: { can_edit: true, can_submit: true, can_delete: true },
+          enabled: true,
+        });
+      }
+      if (path === `/api/job_requests/${savedRequest.id}/duplicates`)
+        return send({ jobs: [], hidden_client_jobs: 0, requests: [] });
       if (path.includes("/records/")) return send({});
       // The request form searches divisions from the collection.
       if (path === "/api/collections/divisions/records") return list(fixture.options.divisions);
@@ -919,6 +971,54 @@ await runBrowserHarness(
     await invoicing().getByText("by Workspace User", { exact: false }).waitFor();
     assert.equal(await invoicing().getByTitle("Add invoicing profile", { exact: true }).count(), 0);
     assert.equal(await invoicing().locator('a[href*="/edit"]').count(), 0);
+
+    // A saved request's form is on its edit page. Its draft leaves for the
+    // client workspace and comes back there, with the new profile chosen. A
+    // save then goes to the request's own page. The mock server starts this
+    // client with no profiles again.
+    claims = ["time"];
+    client.invoicing_profiles = [];
+    await page.goto(`${origin}/job-requests/${savedRequest.id}/edit`);
+    await page.getByRole("heading", { name: "Edit Project Request", exact: true }).waitFor();
+    await scope().fill("Saved scope changed before adding invoicing");
+    await page.getByRole("button", { name: "Create one", exact: true }).click();
+    await page.getByRole("heading", { name: "Add invoicing profile", exact: true }).waitFor();
+    const editReturn = new URL(
+      new URL(new URL(page.url()).searchParams.get("return_to"), origin).searchParams.get(
+        "workflow_return",
+      ),
+      origin,
+    );
+    assert.equal(editReturn.pathname, `/job-requests/${savedRequest.id}/edit`);
+    assert.ok(editReturn.searchParams.get("client_draft"));
+    await page.getByRole("button", { name: "Same as project contact", exact: true }).click();
+    await page.getByLabel("Profile name", { exact: true }).fill(fixture.createdProfile.name);
+    await page
+      .getByLabel("Invoice instructions", { exact: true })
+      .fill(fixture.createdProfile.invoicing_instructions);
+    await page.getByRole("button", { name: "Save invoicing profile", exact: true }).click();
+    await scope().waitFor();
+    assert.equal(new URL(page.url()).pathname, `/job-requests/${savedRequest.id}/edit`);
+    assert.equal(await scope().inputValue(), "Saved scope changed before adding invoicing");
+    assert.equal(
+      await page.getByLabel(/^Invoicing profile/).inputValue(),
+      fixture.createdProfile.id,
+    );
+    assert.deepEqual(savedRequestWrites, [], "client maintenance must not save the request");
+    await page.getByRole("button", { name: "Save request", exact: true }).click();
+    await page.getByRole("heading", { name: "Project Request", exact: true }).waitFor();
+    assert.equal(new URL(page.url()).pathname, `/job-requests/${savedRequest.id}`);
+    assert.equal(savedRequestWrites.length, 1);
+    assert.equal(savedRequestWrites[0].version, 2);
+    assert.equal(
+      savedRequestWrites[0].request.description,
+      "Saved scope changed before adding invoicing",
+    );
+    assert.equal(savedRequestWrites[0].request.invoicing_information, fixture.createdProfile.id);
+    await page
+      .getByText("Saved scope changed before adding invoicing", { exact: true })
+      .first()
+      .waitFor();
 
     claims = ["job"];
     await page.goto(`${origin}/clients/${client.id}/contacts/foreigncontact/edit`);
