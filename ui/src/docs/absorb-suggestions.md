@@ -25,7 +25,7 @@ After **Absorb**, Turbo shows what it absorbed.
 - Select **Commit** to finish. Turbo goes to the next bucket.
 - Select **Undo** to put the records back. The bucket keeps your ticks.
 
-If you close the window, a **Pending absorb** notice shows. Select **Review** to open it again. You can't absorb again on that tab until you commit or undo.
+If you close the window, a **Pending absorb** notice shows who absorbed. Select **Review** to open it again. You can't absorb again on that tab until you commit or undo.
 
 ## Not duplicates
 

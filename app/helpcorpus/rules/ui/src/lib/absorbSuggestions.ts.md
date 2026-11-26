@@ -1,84 +1,52 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/absorbSuggestions.ts","sha256":"2dfc71e719c5eda11bd0f9d7359821fc0707bdabf5d0c46ff79276ee845574bd","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/absorbSuggestions.ts","sha256":"ae5ae7d762176bc2e550fd756a8038a6b9bfa7acfa218ef8e98bdb1e6d17e2ae","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/absorbSuggestions.ts
 
 ## Absorb suggestions cover only clients and vendors
 
-Lines 1-11
+Lines 8-69
 
-Asked as: duplicate clients and vendors; merge suggestions for vendors; which clients are duplicates; similar records to combine
+Asked as: duplicate clients tab; vendors tab missing; suggestions page tabs; reload loses tab
 
-Absorb suggestions exist for two collections: clients and vendors. Each suggestion is a bucket of probable duplicates, listed best first, for the users who absorb them.
+Absorb suggestions exist for two collections: clients and vendors. Each has its own tab on the suggestions page. The tab is kept in the URL, so a reload keeps it.
 
-## Three matching levels for absorb suggestions
+## Absorb suggestions have three matching levels
 
-Lines 9-17
+Lines 9-78
 
-Asked as: strict or loose matching; match level for duplicates; how fuzzy the duplicate search is; change duplicate match sensitivity
+Asked as: match strictness setting; how loose matching; change match level; fuzzy match threshold
 
-A user picks one of three levels for matching duplicates: Strict, Normal or Loose (strict, normal, loose). The server finds the suggestions again on each request, using the chosen level.
+A person can pick a matching level for suggestions: Strict, Normal or Loose (strict, normal, loose). Turbo's server finds the suggestions again on each request for the chosen level.
 
-## What an absorb suggestion member shows
+## What a suggestion bucket and its members show
 
-Lines 19-29
+Lines 19-38
 
-Asked as: match score on duplicate record; what shows for each suggested record; alias of possible duplicate; linked jobs and POs for duplicate
+Asked as: duplicate group members; match score meaning; why records grouped; open proposal on client
 
-Each record in a bucket shows its name, alias and a match score from 0 to 1 (the target scores 1). It also shows its references: for a client, the jobs where it is the client or the owner; for a vendor, its POs and expenses. A member also shows any open absorb proposal that names it, or an empty value if there is none.
+A bucket (a group of probable duplicates) lists its members from best match first. Each member has a score from 0 to 1 against the suggested target, and the target scores 1. Each member also shows an open absorb proposal that names it, if there is one. For a client, references count its jobs as client or owner. For a vendor, they count its POs and expenses.
 
-## Bucket confidence, moved references and rank
+## Pending absorb action shown with its absorber
 
-Lines 31-38
+Lines 40-59
 
-Asked as: confidence of duplicate group; how many references would move; order of duplicate groups; which record is the suggested keeper
+Asked as: who merged records; pending merge blank user; undo absorb who did it; waiting merge action
 
-Each bucket has a suggested target record, a confidence value, a count of references that would move (moved_references) and a rank. The rank orders the buckets, best first.
+The suggestions response includes the collection's absorb action that waits for a commit or an undo. It gives the target, the absorbed records and who absorbed them. The absorber is blank for an action made before Turbo recorded it.
 
-## Pending absorb action waits for commit or undo
+## Marking Not duplicates hides a bucket for everyone
 
-Lines 40-57
+Lines 56-90
 
-Asked as: absorb action not finished; undo my merge; who absorbed these records; commit pending merge
+Asked as: hide duplicate suggestion; dismissed duplicates count; stop suggesting these records; mark not same
 
-The suggestions response can show one pending absorb action for the collection. It waits for a commit or an undo. It lists the target and the absorbed records. Turbo does not record who made the action.
+Marking records "Not duplicates" applies to everyone, not only to the person who marked them. Their bucket stays hidden until a new record joins it. The response counts the hidden buckets (dismissed).
 
-## Dismissed buckets are hidden and counted
+## Absorbing from a suggestion uses the normal absorb route
 
-Lines 54-55
+Lines 92-102
 
-Asked as: hidden duplicate groups; where did my dismissed duplicates go; count of hidden matches; groups marked not duplicates missing
+Asked as: merge from suggestions; combine duplicates button; absorb suggested group; merge duplicate vendors
 
-Buckets that someone marked "Not duplicates" do not appear in the list. The response gives the number of hidden buckets (dismissed).
-
-## Suggestions page keeps the tab in the URL
-
-Lines 63-67
-
-Asked as: page resets to clients tab; keep vendors tab after refresh; suggestions tab lost on reload; tab stays after refresh
-
-The absorb suggestions page (/absorb/suggestions) puts the selected tab, clients or vendors, in the URL (tab=). A reload keeps the tab.
-
-## Not duplicates mark applies to everyone
-
-Lines 78-88
-
-Asked as: hid group for everyone; my not duplicates mark affects others; why did my colleague's duplicate group vanish; group stays hidden for all users
-
-Marking records "Not duplicates" hides their bucket for all users, not only the person who marked it. The bucket stays hidden until a new record joins it.
-
-## Absorbing from suggestions uses the normal absorb route
-
-Lines 90-100
-
-Asked as: merge duplicates from suggestions; which route absorbs suggested records; absorb button separate process; send selected records to merge
-
-Absorbing from a suggestion sends the selected records (ids_to_absorb) to the normal absorb route of the target client or vendor. It has no separate absorb process.
-
-## Check a suggested record in its details page
-
-Lines 102-108
-
-Asked as: open suggested record to check; view duplicate details before merging; new tab link for duplicate; inspect candidate record first
-
-A suggested record links to its details page, so a user can check it in a new tab before absorbing.
+Absorbing a bucket from the suggestions page sends the records to the target through the normal absorb route of that collection. It does not use a separate suggestion-only action.

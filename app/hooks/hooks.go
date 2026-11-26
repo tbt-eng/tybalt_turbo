@@ -708,14 +708,18 @@ func AddHooks(app core.App) {
 		// the proposals: it accepts the one that the action carries out and
 		// closes those that name an absorbed record.
 		settlesProposals := absorb.IsProposalCollection(collectionName)
-		if config.OnCommit == nil && !settlesProposals {
-			return e.Next()
-		}
 
 		// Run the commit steps and the delete in one transaction, so that a
-		// failed delete leaves nothing behind.
+		// failed delete leaves nothing behind. Every commit first copies the
+		// action into absorb_history, with who absorbed and who committed.
 		var settled []*core.Record
 		err := e.App.RunInTransaction(func(txApp core.App) error {
+			if err := absorb.RecordHistory(txApp, e.Record, e.Auth); err != nil {
+				return AnnotateHookError(txApp, e, &errs.HookError{
+					Status:  http.StatusInternalServerError,
+					Message: "failed to save the absorb history",
+				})
+			}
 			if config.OnCommit != nil {
 				if err := config.OnCommit(txApp, e.Record, e.Auth); err != nil {
 					return AnnotateHookError(txApp, e, err)

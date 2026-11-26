@@ -199,6 +199,13 @@ func AddRoutes(app core.App) {
 		absorbSuggestionsGroup.GET("/{collection}", createGetAbsorbSuggestionsHandler(app))
 		absorbSuggestionsGroup.POST("/{collection}/dismiss", createDismissAbsorbSuggestionHandler(app))
 
+		// Absorb history: committed absorbs, with who absorbed and who
+		// committed, kept for ABSORB_HISTORY_RETENTION_DAYS.
+		absorbHistoryGroup := se.Router.Group("/api/absorb_history")
+		absorbHistoryGroup.Bind(apis.RequireAuth("users"))
+		absorbHistoryGroup.GET("", createGetAbsorbHistoryHandler(app))
+		absorbHistoryGroup.GET("/{id}", createGetAbsorbHistoryItemHandler(app))
+
 		timeAmendmentsGroup := se.Router.Group("/api/time_amendments")
 		timeAmendmentsGroup.Bind(apis.RequireAuth("users"))
 		timeAmendmentsGroup.POST("/{id}/commit", createCommitRecordHandler(app, "time_amendments"))

@@ -22,8 +22,8 @@ func absorbProposalRetentionCutoff(now time.Time) time.Time {
 // absorb_proposal_records rows. It returns how many proposals it deleted. A
 // pending proposal has no decided_at and always stays, however old it is.
 //
-// A committed absorb keeps no record of its own, so a closed proposal is not
-// kept as history either. It deletes with SQL in one transaction, not record
+// The record of a committed absorb is its absorb_history row, so a closed
+// proposal is not kept as history. It deletes with SQL in one transaction, not record
 // by record: no hook watches these collections, and plain SQL does not run a
 // cascade delete, so the record rows are deleted first. decided_at is stored
 // as text in the PocketBase layout, so the cutoff is compared as text.

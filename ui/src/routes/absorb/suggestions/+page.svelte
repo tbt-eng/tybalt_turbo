@@ -12,6 +12,7 @@
   import DsEditingDisabledBanner from "$lib/components/DsEditingDisabledBanner.svelte";
   import AbsorbList from "$lib/components/AbsorbList.svelte";
   import { getApiErrorMessage } from "$lib/errors";
+  import { pb } from "$lib/pocketbase";
   import { shortDate } from "$lib/utilities";
   import { jobsEditingEnabled, expensesEditingEnabled } from "$lib/stores/appConfig";
   import {
@@ -54,7 +55,8 @@
     targetName: string;
     absorbed: string[];
     created: string;
-    byYou: boolean;
+    // Who absorbed: "you", a name, or "" when Turbo doesn't know.
+    by: string;
   };
 
   type TabState = {
@@ -139,7 +141,10 @@
               targetName: action.target_name || action.target_id,
               absorbed: action.absorbed,
               created: action.created,
-              byYou: false,
+              by:
+                action.absorbed_by && action.absorbed_by === pb.authStore.record?.id
+                  ? "you"
+                  : action.absorbed_by_name,
             }
           : null,
       };
@@ -218,7 +223,7 @@
         targetName: keep?.name ?? bucket.keepId,
         absorbed: bucket.members.filter((m) => picked.includes(m.id)).map((m) => m.name),
         created: "",
-        byYou: true,
+        by: "you",
       };
       openModal();
     } catch (error) {
@@ -336,7 +341,7 @@
     {#if current.pending && !modalOpen}
       <DSCallout
         tone="warning"
-        title={current.pending.byYou ? "Pending absorb by you" : "Pending absorb"}
+        title={current.pending.by ? `Pending absorb by ${current.pending.by}` : "Pending absorb"}
       >
         {current.pending.targetName} kept, {current.pending.absorbed.join(", ")} absorbed{current
           .pending.created

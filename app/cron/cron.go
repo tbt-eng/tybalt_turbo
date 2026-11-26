@@ -63,6 +63,12 @@ func AddCronJobs(app core.App) {
 		runAbsorbProposalRetention(app)
 	})
 
+	// delete the history rows of absorbs committed more than
+	// ABSORB_HISTORY_RETENTION_DAYS ago, after the proposal retention job.
+	app.Cron().MustAdd("absorb_history_retention", "20 7 * * *", func() {
+		runAbsorbHistoryRetention(app)
+	})
+
 	// Refresh foreign-exchange rates on weekday evenings after the Bank of Canada
 	// business-day feed is expected to be published.
 	app.Cron().MustAdd("currency_rate_sync", "0 22 * * 1-5", func() {

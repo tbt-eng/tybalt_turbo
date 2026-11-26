@@ -273,9 +273,9 @@ func createWithdrawAbsorbProposalHandler(app core.App) func(e *core.RequestEvent
 }
 
 // createDeleteAbsorbProposalHandler lets the requester delete their proposal
-// once it is no longer pending: withdrawn, declined, accepted or obsolete. A
-// committed absorb keeps no record of its own either, so a closed proposal is
-// the requester's to remove. A pending one must be withdrawn first. The delete
+// once it is no longer pending: withdrawn, declined, accepted or obsolete. The
+// record of a committed absorb is its absorb_history row, so a closed proposal
+// is the requester's to remove. A pending one must be withdrawn first. The delete
 // cascades to the proposal's absorb_proposal_records rows in the same
 // transaction.
 func createDeleteAbsorbProposalHandler(app core.App) func(e *core.RequestEvent) error {

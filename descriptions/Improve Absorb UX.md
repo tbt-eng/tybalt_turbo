@@ -37,7 +37,7 @@ Here are my suggestions for improving the UX of absorbing records. These focus o
 
 ### 5. **Broader System Integration**
 
-- **Absorb History Log**: Partly built: the Absorb Actions page (/absorb/actions) lists the pending absorb actions, each with Undo and Commit. It is not a history: a commit deletes the action, and an undo removes it. Add a dedicated view (e.g., /absorbs/list) showing past actions with timestamps, targets, and absorbed IDs, fetched via your absorb_actions collection. This could include quick undo buttons for recent actions.
+- **Absorb History Log**: Partly built: the Absorb Actions page (/absorb/actions) lists the pending absorb actions, each with Undo and Commit. Its History tab (/absorb/history) lists the absorbs committed in the last 90 days, with who absorbed and who committed (see Absorb history in Absorb.md); an undo leaves no row and there are no undo buttons for a committed absorb. Add a dedicated view (e.g., /absorbs/list) showing past actions with timestamps, targets, and absorbed IDs, fetched via your absorb_actions collection. This could include quick undo buttons for recent actions.
 - **Integration with Reports and Searches**: In reports (e.g., reports/payroll_time.sql), flag recently absorbed records with tooltips (e.g., "Merged from X on [date]"). In search lists (e.g., DSSearchList), gray out or tag recently absorbed records to indicate they're deleted but referenceable.
 - **Automated Suggestions**: Use your MiniSearch indexing to suggest potential duplicates (e.g., similar names/emails) as pre-filled absorb lists, triggered from a "Find Duplicates" button in list views.
 

@@ -1,228 +1,348 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/absorb_records.go","sha256":"daf2b031664fd5f5a0abd95e6ab4c48ea264d23e41065eba8621a9fb5ac5bf6a","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/absorb_records.go","sha256":"99dcd2b0c993d107e23058baa0d0b91ba23259f1a4016b08440e7321def6a811","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/absorb_records.go
+
+## Absorb request body must be valid
+
+Lines 44-49
+
+Asked as: absorb error invalid body; request body unreadable; can't read absorb request; absorb fails bad data
+
+Turbo refuses an absorb when the request body cannot be read. The message is "Invalid request body".
 
 ## Absorb needs at least one record to absorb
 
 Lines 51-53
 
-Asked as: absorb nothing; no records selected to merge; absorb with empty list; nothing to absorb in request
+Asked as: nothing selected to merge; no records picked to absorb; merge with no ids; merge button no records
 
-Turbo refuses an absorb when the request lists no records to absorb. It shows "No IDs provided to absorb".
+An absorb request with an empty list of records to absorb (ids_to_absorb) is refused with 'No IDs provided to absorb'.
 
 ## A record cannot be absorbed into itself
 
 Lines 55-60
 
-Asked as: merge a record into itself; absorb same record twice; target also in the list; choose the same client twice
+Asked as: merge record into itself; same record selected twice; target also in selected list
 
-Turbo refuses an absorb when the target record is also in the list of records to absorb. It shows "Cannot absorb a record into itself".
+If the target record is also in the list of records to absorb, Turbo refuses with 'Cannot absorb a record into itself'.
 
-## Only users with absorb access can absorb records
+## Absorbing needs the collection's absorb permission
 
 Lines 62-71
 
-Asked as: cannot absorb, no permission; can't merge records access; absorb button missing for me; not allowed to merge clients
+Asked as: can't merge records; no rights to merge; absorb button not allowed; missing permission to combine
 
-Turbo refuses an absorb when the user lacks the absorb claim, or the claims that the collection's absorb config requires instead. It shows "User does not have permission to absorb records".
+Only a person with the absorb claim, or the claims that the collection's config asks for instead, can absorb. Anyone else gets 'User does not have permission to absorb records'.
+
+## Absorb is refused when a claim check fails
+
+Lines 62-68
+
+Asked as: can't verify my permissions; claims check error absorb; permission lookup failed
+
+If Turbo cannot check the user's claims, the absorb is refused with "Failed to check user claims". This check is separate from the refusal "User does not have permission to absorb records".
 
 ## Absorbs that change jobs need job editing enabled
 
 Lines 73-82
 
-Asked as: absorb blocked job editing off; merge jobs not allowed; job editing turned off; can't merge jobs
+Asked as: merge jobs turned off; job editing disabled absorb; can't merge jobs; absorb changes jobs blocked
 
-When the collection's absorb changes jobs (ChangesJobs), Turbo refuses the absorb while job editing is disabled. It shows "Job editing is disabled; cannot absorb records that modify jobs".
+For collections whose absorb changes jobs, Turbo refuses with 'Job editing is disabled; cannot absorb records that modify jobs' when job editing is turned off.
 
-## Vendor absorbs and undos need expenses editing enabled
+## Vendor absorb and undo need expenses editing enabled
 
 Lines 84-87
 
-Asked as: vendor merge blocked; expenses editing disabled absorb; can't merge vendors; undo vendor merge not working
+Asked as: vendor merge expenses editing off; can't merge vendors expenses; undo vendor merge blocked; expenses editing disabled merge
 
-Turbo checks that expenses editing is enabled (requireExpensesEditing) before it absorbs or undoes an absorb for a collection. The check is meant for vendor absorbs. The function's own rules are in another file.
+Turbo checks the expenses-editing setting (requireExpensesEditing) before an absorb and before an undo. This applies to vendor absorbs, and the helper's error is returned when editing is off.
 
-## Absorb target record must exist
+## Absorb is refused when the collection is not supported
 
-Lines 95-99
+Lines 89-93
 
-Asked as: target record missing; merge into deleted record; can't find the kept record; target does not exist
+Asked as: merge not available for this; absorb unsupported collection; can't merge this type; absorb fails for collection
 
-When a person absorbs records, Turbo looks up the target record first. If it does not exist, Turbo refuses with 'Failed to find target record'.
+Turbo looks up the reference configuration of the collection before it absorbs. If the collection has none, the absorb fails with "Failed to absorb records".
 
-## Every record to absorb must exist
+## Target and absorbed records must exist
 
-Lines 101-106
+Lines 95-105
 
-Asked as: record to merge not found; one of the records is gone; missing record in merge; duplicate record already deleted
+Asked as: record not found merge; merge deleted client; target record missing; absorbed record gone
 
-Turbo checks that each record to absorb exists in the collection. If one is missing, Turbo refuses with 'Failed to find record to absorb'.
+Turbo refuses with 'Failed to find target record' if the target is missing. It refuses with 'Failed to find record to absorb' if any record in the list is missing.
 
-## Absorbed records must share the parent value of the target
+## Records must share the same parent value
 
 Lines 108-118
 
-Asked as: merge records different parent; different client on records; can't merge across parents; records belong to different owners
+Asked as: merge records different parent; absorb different client; different field values merge; records belong to different
 
-For a collection with a parent constraint, each record to absorb must have the same parent field value as the target. Otherwise Turbo refuses with 'Cannot absorb records with different <field> values'.
+If the collection has a parent constraint, every record to absorb must have the same value in that field as the target. Otherwise Turbo refuses with 'Cannot absorb records with different <field> values'.
 
-## Absorbing clients needs an alias on the kept client
+## Absorbed client's invoicing profiles billing an alias need a kept alias
 
 Lines 121-134
 
-Asked as: merging clients alias error; client alias needed for merge; invoice bills alias when merging; kept client has no alias
+Asked as: client alias needed merge; invoicing profile alias merge; merge client alias error; kept client no alias
 
-If the kept client has no alias, Turbo checks each client being absorbed. If any invoicing profile of an absorbed client bills its alias, Turbo refuses with 'Invoicing profiles of a client being absorbed bill its alias. Give the kept client an alias first.'
+When absorbing clients, if the kept client has no alias and an absorbed client has an invoicing profile that bills its alias, Turbo refuses. The message is 'Invoicing profiles of a client being absorbed bill its alias. Give the kept client an alias first.'
 
-## Absorb carrying out a proposal must use a pending proposal
+## Absorb that carries out a proposal is checked again
 
 Lines 136-144
 
-Asked as: approve merge proposal fails; proposal not found on merge; merge proposal already decided; proposal wrong type for merge
+Asked as: proposal merge already decided; absorb proposal not pending; proposal wrong record type; proposal absorb failed check
 
-When an absorb names an absorb proposal, Turbo refuses it if the proposal is not found ("absorb absorb proposal not found" is shown as "absorb proposal not found"). It refuses it with "the absorb proposal is for another kind of record" if the proposal is for another collection. It refuses it with "this absorb proposal has already been decided" unless the proposal is pending.
+When an absorb names an absorb proposal, Turbo checks the proposal first. It refuses with 'absorb proposal not found' if it does not exist. It refuses with 'the absorb proposal is for another kind of record' if the collection differs. It refuses with 'this absorb proposal has already been decided' unless the proposal is pending.
 
-## Collection rules can add records or refuse the absorb
+## Collection rules can refuse an absorb
 
 Lines 146-155
 
-Asked as: merge rule stopped it; nothing left to merge; config blocks the merge; merge refused by collection rule
+Asked as: merge blocked by rule; nothing to absorb message; collection rule stopped merge; preparation step stopped absorb
 
-If the collection's config has a prepare step, it checks the request first inside the transaction and may add ids to absorb. A rule of the config that refuses the absorb shows its own message. If nothing is left to absorb, Turbo refuses with "there is nothing to absorb".
+If a rule of the collection's config refuses the absorb, Turbo shows that rule's message. If the collection's preparation step leaves nothing to absorb, the message is 'there is nothing to absorb'.
 
-## Absorb success message and refresh broadcast
+## Absorb success message
 
 Lines 157-159
 
-Asked as: merge done message; records merged successfully; screen not refreshed after merge; merge success confirmation
+Asked as: merge succeeded message; how many records merged; absorb confirmation text; merge done message
 
-A successful absorb replies "Successfully absorbed N records into <target id>". Turbo then broadcasts a "<collection>/absorb_completed" event so open screens refresh. If the broadcast fails, the absorb still succeeds.
+A successful absorb replies 'Successfully absorbed N records into <target id>'. N is the number of records in the request.
 
-## Proposal absorb may only use records from the proposal
+## Absorb proposal must exist, match the collection and be pending
 
-Lines 167-193
+Lines 167-180
 
-Asked as: merge adds record not in proposal; record not on the proposal; can't add records to proposal merge; proposal merge wrong records
+Asked as: proposal not found absorb; proposal already decided; proposal wrong collection; proposal no longer open
 
-When an absorb carries out a proposal, the target and every absorbed record must come from the proposal: the proposed target or a proposed record. The reviewer may leave records out or keep another proposed record as target, but cannot add one. Otherwise Turbo refuses with "every record must come from the absorb proposal".
+When an absorb carries out a proposal, Turbo checks the proposal itself. It refuses with "absorb proposal not found" if the proposal does not exist. It refuses with "the absorb proposal is for another kind of record" if the proposal is for another collection. It refuses with "this absorb proposal has already been decided" if the proposal is not pending (absorb.ProposalPending).
+
+## Proposal absorb may drop records but not add any
+
+Lines 185-195
+
+Asked as: records not in proposal; added extra record to merge; every record must come from proposal; merge picked other record
+
+The target and every absorbed record must come from the proposal, either as its target or as one of its proposed records. The reviewer may leave records out or keep another proposed record as target. Any other record is refused with 'every record must come from the absorb proposal'. Turbo then runs the proposal validation again, since the records may have changed.
+
+## Proposal absorb refuses records outside the proposal
+
+Lines 185-193
+
+Asked as: record outside proposal; merge uses unlisted record; not part of proposal; proposal merge wrong records
+
+In an absorb that carries out a proposal, the target and every record to absorb must be the proposal's target or one of its proposed records. Otherwise Turbo refuses with "every record must come from the absorb proposal". The reviewer may leave records out or keep another of them as target.
 
 ## Proposal checks run again at absorb time
 
 Lines 194-195
 
-Asked as: proposal no longer valid; merge proposal check failed; records changed since proposal; proposal validation error on merge
+Asked as: proposal check again merge; records changed since proposal; revalidate proposal on absorb; proposal validation at merge
 
-When an absorb carries out a proposal, Turbo validates the proposal again with absorb.ValidateProposal, because the records may have changed since the proposal was made. A refusal from that check is shown with its own code and message.
+When an absorb carries out a proposal, Turbo runs the proposal validation again (absorb.ValidateProposal) on the chosen target and records, because the records may have changed since the proposal was made.
+
+## Absorb is all-or-nothing
+
+Lines 224-407
+
+Asked as: merge half done; partial absorb rollback; merge failed nothing changed; all or nothing merge
+
+Turbo runs the whole absorb in one transaction. If any step fails, the absorb fails with "Failed to absorb records" and nothing changes.
+
+## Absorb with no records left is refused
+
+Lines 226-240
+
+Asked as: rules removed all records; nothing left to merge; preparation cleared records; merge list empty after rules
+
+When a collection's own preparation rules (config.Prepare) leave no ids to absorb, Turbo refuses with "there is nothing to absorb". The rules run first, inside the transaction, and may add ids to the list.
 
 ## Only one pending absorb per collection
 
-Lines 258-265
+Lines 266-273
 
-Asked as: merge already in progress; another merge pending; can't start second merge; existing merge must be undone
+Asked as: already a merge pending; second merge blocked; undo existing merge first; merge already in progress
 
-Turbo refuses an absorb if the collection already has an absorb action. The existing absorb must be undone or deleted first, with the error "there is an existing absorb action for collection ... that must be undone or deleted first".
+If the collection already has an absorb action, a new absorb fails. The existing one must be undone or deleted first.
 
 ## Absorb moves references to the target and deletes the absorbed records
 
-Lines 267-395
+Lines 275-394
 
-Asked as: what merge changes; references moved after merge; records deleted by merge; merge rollback on failure
+Asked as: merged records deleted references moved; what happens to merged client; references repointed on merge; merge deletes absorbed record
 
-Absorb changes every reference to an absorbed record in the configured tables and columns so it points to the target record. It deletes the rows the absorbed records own, then deletes the absorbed records. Turbo saves the records, owned rows and old reference values in an absorb action so the absorb can be undone. All of this happens in one transaction, so a failure rolls back everything.
+Turbo changes every reference to an absorbed record so it points to the target. It then deletes the rows that the absorbed records own, then the absorbed records. It saves them all in an absorb action so the absorb can be undone. All of it happens in one transaction, so a failure rolls everything back.
 
-## Absorb marks changed records for legacy writeback
+## Moved references are marked for legacy writeback
 
-Lines 300-314
+Lines 309-322
 
-Asked as: merge not sent to legacy system; legacy system not updated; imported flag after merge; changed rows resent to legacy
+Asked as: legacy system sync merge; imported flag merge; writeback after merge; merge not sent to legacy
 
-When a table that absorb updates has an _imported column, Turbo sets _imported to false and refreshes the updated time on the changed rows. This makes the legacy system receive the change.
+For tables with an _imported column, an absorb sets _imported to false and updates the updated time on each moved reference, so the change is written back to the legacy system.
 
-## Absorb with no moved references still records its tables
+## Absorb must not leave records linked to another client
 
-Lines 337-347
+Lines 341-343
 
-Asked as: merge with no references; empty merge history; merge shows no tables; rate sheet merge nothing moved
+Asked as: job linked wrong client merge; merge leaves other client; invoicing profile client error; merge breaks client link
 
-If an absorb moves no reference, such as a rate sheet name that nothing uses, Turbo records each configured table and column with no rows. This keeps the absorb action's updated references from being blank.
+After the references move, Turbo checks every job, project request, contact and invoicing profile whose client relation changed. If it would leave a record linked to another client, the absorb fails. An invoicing profile that would bill a missing client alias also fails.
 
-## Undo absorb requires absorb access
+## Absorb that moves no references still records them
 
-Lines 425-436
+Lines 345-355
 
-Asked as: cannot undo merge no access; undo permission denied; who can undo a merge; undo absorb not allowed
+Asked as: merge moved nothing; rate sheet not used merge; empty merge action; merge no references changed
 
-Undoing an absorb needs the same access as absorbing, the absorb claim or the claims the collection's config asks for instead. Without it Turbo refuses with "User does not have permission to undo absorb".
+If no reference moves, such as a rate sheet name that nothing uses, Turbo records each table and column with no rows in the action.
 
-## Undo needs an absorb to undo
+## Absorbed records are saved with the rows they own
 
-Lines 438-448
+Lines 367-381
 
-Asked as: nothing to undo; no merge to reverse; undo button but no merge; no absorb found to undo
+Asked as: child rows merge saved; owned records undo merge; merge deletes child rows; saved rows before merge delete
 
-Turbo refuses an undo with "No absorb action found for collection" when the collection has no absorb action. A collection has at most one at a time.
+Before it deletes absorbed records, Turbo saves every field of each record and the rows it owns, such as child rows in other tables. It then deletes those owned rows with plain SQL, so undo can restore them.
 
-## Undo child collection absorbs first
+## Absorb completion notifies connected users
 
-Lines 450-466
+Lines 409-412
 
-Asked as: undo blocked by child merge; child collection merged first; parent merge can't be undone; undo order for merges
+Asked as: screen not refreshing after merge; live update absorb; notification merge completed; merge event not sent
 
-A parent collection's absorb cannot be undone while an absorb exists for a collection that depends on it. Turbo refuses with "Cannot undo X absorb while Y absorb exists; undo Y absorb first".
+After an absorb or an undo, Turbo sends a realtime event "<collection>/absorb_completed" to clients that subscribe to it, so their screens refresh. A failure to send does not fail the absorb.
 
-## Undo recreates records and restores references
+## Undo needs the same permission as absorb
 
-Lines 471-568
+Lines 433-444
 
-Asked as: restore merged records; bring back deleted clients; reverse merge fully; undo keeps later project references
+Asked as: can't undo merge; undo permission denied; no rights undo absorb; who can undo merge
 
-Undo recreates the absorbed records with their original data and ids, plus the rows they owned, without running current validation. It then sets each saved reference back to its old value, and deletes the absorb action so a new absorb is allowed. Everything happens in one transaction. Undo uses the latest saved data, so references moved by project creation are kept.
+Undoing an absorb needs the same claims as absorbing. Anyone else gets 'User does not have permission to undo absorb'.
 
-## Undo marks restored records for legacy writeback
+## Undo order and permission messages
 
-Lines 519-532
+Lines 437-456
 
-Asked as: undo not sent to legacy; restored records legacy sync; imported flag after undo; legacy not updated on undo
+Asked as: undo no permission message; undo nothing pending; no absorb to undo; undo error message
 
-When undo restores references in a table with an _imported column, Turbo sets _imported to false and refreshes the updated time. The legacy system then receives the record again.
+Undo is refused with "User does not have permission to undo absorb" without the required claims. It is refused with "No absorb action found for collection" when no absorb is pending.
 
-## Undo skips records deleted since the absorb
+## Undo needs a pending absorb action
 
-Lines 552-554
+Lines 446-456
 
-Asked as: deleted record after merge undo; undo error missing client; records removed since merge; client check after undo
+Asked as: undo without merge; nothing to undo; no absorb action found; undo when no merge
 
-When Turbo checks client references after an undo, it skips records that were deleted since the absorb.
+If the collection has no absorb action, undo is refused with 'No absorb action found for collection'.
+
+## Child absorbs must be undone first
+
+Lines 458-474
+
+Asked as: undo blocked by other merge; dependent merge undo first; child collection merge exists; undo parent merge error
+
+Turbo refuses to undo an absorb while a dependent collection still has its own absorb. The message is 'Cannot undo X absorb while Y absorb exists; undo Y absorb first'.
 
 ## Undo success message
 
-Lines 574-581
+Lines 478-589
 
-Asked as: undo done message; undo success confirmation; screen not refreshed after undo; undo completed notice
+Asked as: undo worked message; undo confirmation; absorb undone text; undo success text
 
-A successful undo replies "Successfully undid absorb operation". Turbo broadcasts a "<collection>/absorb_completed" event so open screens refresh.
+When an undo succeeds, Turbo answers "Successfully undid absorb operation". An undo that fails inside the transaction is rolled back entirely.
 
-## Merged client references must still agree
+## Undo restores records, owned rows and references
 
-Lines 792-825
+Lines 479-576
 
-Asked as: merged client links wrong; job linked to other client; merge leaves contact mismatched; invoicing profile alias missing after merge
+Asked as: bring back merged records; restore merged client; undo restores references; undo merge restore data
 
-After an absorb or an undo, Turbo checks every rewritten job, project request, client contact and invoicing profile whose client relation changed. If they would link to another client, the absorb fails with "merge would leave ... linked to another client". For invoicing profiles whose client changed, it also fails when the profile bills a client alias that does not exist.
+Undo recreates the absorbed records with their original ids and data, and the rows they owned. It skips schema validation, because old records may predate current rules. It sets every moved reference back to its old value and deletes the absorb action, so a new absorb can follow. It reads the action again inside the transaction, so references moved since the absorb are kept.
 
-## Absorb makes open reviews of project requests stale
+## Undo reads latest undo data
 
-Lines 826-831
+Lines 479-493
 
-Asked as: review stale after merge; request changed during review; project request version conflict; merge makes review out of date
+Asked as: undo after job created; job creation references undo; latest absorb data undo; undo keeps moved references
 
-When an absorb or undo rewrites a project request, Turbo adds 1 to its version and sets its last edited and updated times to now. This makes any open review of that request stale.
+Undo reads the latest saved absorb action inside its transaction. This keeps the references that job creation moved to a job.
 
-## Creating a job from a request keeps absorb undo data
+## Undo recreates records without validation
 
-Lines 837-889
+Lines 510-515
 
-Asked as: request to job merge undo; job created from request undo; merge data after job creation; rate sheet moved to job
+Asked as: restore record validation error; undo fails required field; old records undo validation; undo skips field checks
 
-When a project request is turned into a job, absorb undo data that pointed to the request moves to the job. This covers clients, client contacts and rate sheets. The job's client note and its opening rate sheet period move too. A relation that the creator changed after the merge is not restored. The request's own entry is then removed from the undo data.
+Undo recreates absorbed records and their owned rows without schema validation, because they may predate current rules such as newly required fields.
+
+## Undo marks restored references for legacy writeback
+
+Lines 527-548
+
+Asked as: restored references legacy sync; undo imported flag; undo writeback; undo sent to legacy
+
+When undo restores references in a table with an _imported column, Turbo sets _imported to false and updates the updated time, so the change is written back to the legacy system again.
+
+## Undo skips records deleted since the absorb
+
+Lines 560-562
+
+Asked as: undo deleted records error; undo client relation deleted; undo wrong client link; undo skips removed records
+
+When undo re-checks client relations, it skips records that were deleted since the absorb. It still fails if a restored relation would link to another client.
+
+## Undo deletes the absorb action
+
+Lines 564-589
+
+Asked as: can merge again after undo; clear merge after undo; remove merge record; reset merge after undo
+
+After a successful undo Turbo deletes the absorb action, so the collection can absorb again. It then shows "Successfully undid absorb operation".
+
+## Absorb history records who absorbed and the proposal
+
+Lines 613-633
+
+Asked as: who merged records; merge history user; audit merge who; which user absorbed
+
+Turbo saves the absorb action with the collection, target, absorbed records, moved references, the proposal (if any) and the user who absorbed (absorbed_by). The route always passes the user, so the history of an absorb names them.
+
+## Client absorb checks invoicing profile alias after the move
+
+Lines 801-834
+
+Asked as: invoicing profile alias after merge; alias missing after merge; merge alias check; profile alias error merge
+
+After an absorb moves references, Turbo checks that the changed invoicing profiles still bill an alias that exists, and fails the absorb otherwise.
+
+## Changed project requests become stale on absorb or undo
+
+Lines 835-840
+
+Asked as: project request review stale; version changed merge request; merge changes project request; request edited after merge
+
+When an absorb or undo changes a client relation of a project request, Turbo adds 1 to its version and updates its last-edited and updated times. Any open review of that request becomes stale.
+
+## Creating a job moves a request's undo references to the job
+
+Lines 846-898
+
+Asked as: job created from request undo; request merge moved to job; client note job creation; undo references job
+
+When a job is created from a project request, the request's pending undo references move to the job. The same applies to the client note and the opening rate sheet period. Turbo skips a relation that the creator changed after the absorb, and removes the request's entries from the action.
+
+## Moved job request relations are kept only if unchanged
+
+Lines 861-891
+
+Asked as: creator changed client after merge; rate sheet period job merge; undo skips changed job; job merge keeps changes
+
+When a job is created from a request, Turbo moves the request's pending undo references to the job. It skips a relation that the creator changed after the absorb, so undo does not restore it. For a client change, it also moves the client note made from the request's notes, and for a rate sheet change the job's opening rate sheet period.

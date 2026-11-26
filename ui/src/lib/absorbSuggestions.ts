@@ -37,14 +37,16 @@ export type AbsorbSuggestionBucket = {
   members: AbsorbSuggestionMember[];
 };
 
-// The collection's absorb action that waits for a commit or an undo. The
-// server doesn't record who made it.
+// The collection's absorb action that waits for a commit or an undo, with
+// who absorbed (blank for an action made before Turbo recorded it).
 export type AbsorbSuggestionPendingAction = {
   id: string;
   target_id: string;
   target_name: string;
   absorbed: string[];
   created: string;
+  absorbed_by: string;
+  absorbed_by_name: string;
 };
 
 export type AbsorbSuggestionsResponse = {

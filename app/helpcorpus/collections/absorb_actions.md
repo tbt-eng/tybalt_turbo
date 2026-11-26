@@ -42,6 +42,7 @@ No rule. Nobody can do this through the API, except a PocketBase superuser.
 | `created` | autodate | onCreate |
 | `updated` | autodate | onCreate; onUpdate |
 | `proposal` | text |  |
+| `absorbed_by` | relation | maxSelect 1; to `users` |
 
 ## Indexes: absorb_actions
 

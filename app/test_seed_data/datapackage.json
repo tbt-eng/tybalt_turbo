@@ -460,6 +460,80 @@
       ]
     },
     {
+      "name": "absorb_history",
+      "path": "data/absorb_history.csv",
+      "schema": {
+        "fields": [
+          {
+            "name": "absorbed_at",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "absorbed_by",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "absorbed_records",
+            "type": "string",
+            "x-sqlite-type": "JSON"
+          },
+          {
+            "name": "collection_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "committed_by",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "created",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "proposal",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "target_id",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "target_name",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "updated",
+            "type": "string",
+            "x-sqlite-type": "TEXT"
+          },
+          {
+            "name": "updated_references",
+            "type": "string",
+            "x-sqlite-type": "JSON"
+          }
+        ],
+        "primaryKey": [
+          "id"
+        ]
+      },
+      "x-groups": [
+        "test-full"
+      ]
+    },
+    {
       "name": "absorb_proposals",
       "path": "data/absorb_proposals.csv",
       "schema": {

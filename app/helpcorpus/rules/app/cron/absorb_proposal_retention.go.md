@@ -1,5 +1,5 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/cron/absorb_proposal_retention.go","sha256":"e7490868d09e3b6eed592ae89f4bebf62a6ae2c6326c947028e5a0fe3ec40146","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/cron/absorb_proposal_retention.go","sha256":"ef30b65349ad1c82be51f59704d8b1351d05e38fb1d949384211101788ceaf37","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/cron/absorb_proposal_retention.go
 
@@ -7,22 +7,38 @@
 
 Lines 13-17
 
-Asked as: old absorb proposals deleted; absorb proposal auto delete; retention period absorb; proposals removed after days
+Asked as: old absorb proposals deleted; how long proposals are kept; absorb proposal retention period; decided proposals removed automatically
 
-A daily job deletes each absorb proposal that is not pending and was decided more than ABSORB_PROPOSAL_RETENTION_DAYS days ago. The statuses are accepted, declined, withdrawn or obsolete. The cutoff is the current time in UTC minus that many days (the number itself is set in the constants file). A proposal decided before the cutoff is deleted, and one decided exactly at the cutoff stays.
+A daily job deletes each absorb proposal that is no longer pending (accepted, declined, withdrawn or obsolete) when its decision date (decided_at) is older than ABSORB_PROPOSAL_RETENTION_DAYS days before now. The number of days is set in the constants file, not here. The cutoff is computed in UTC.
 
-## Pending absorb proposals are never deleted by retention
+## Pending absorb proposals are never deleted
 
-Lines 30-32
+Lines 19-32
 
-Asked as: pending absorb proposal kept; old pending proposal not deleted; why is my proposal still there; undecided proposal never removed
+Asked as: pending proposal never deleted; old pending absorb proposal; undecided proposal kept forever; proposal without decision date
 
-The retention job never deletes an absorb proposal with status pending, however old it is. It also skips any proposal that has an empty decided_at (decided_at).
+The retention job keeps every pending absorb proposal, however old it is. It also keeps any proposal with an empty decision date (decided_at).
 
-## Deleting an absorb proposal also deletes its record rows
+## Closed proposals are not kept as history
 
-Lines 30-54
+Lines 25-32
 
-Asked as: absorb proposal records deleted; proposal delete transaction rollback; related rows removed with proposal; absorb record rows cleanup
+Asked as: closed proposal history; where is absorb history kept; proposal exactly at cutoff; declined proposal disappears
 
-When the retention job deletes an expired absorb proposal, it first deletes that proposal's rows in absorb_proposal_records, then the proposal. Both deletes run in one transaction. If either fails, the transaction rolls back and nothing is deleted. A closed proposal is not kept as history, because a committed absorb keeps no record of its own.
+A closed absorb proposal is not kept as history. The record of a committed absorb is its absorb_history row. A proposal decided exactly at the cutoff stays, because the comparison is strictly older than the cutoff.
+
+## Deleting a proposal also deletes its records
+
+Lines 30-49
+
+Asked as: proposal records deleted too; absorb proposal records removed; deleting proposal cascades; partial deletion proposal
+
+When the retention job deletes an expired absorb proposal, it first deletes that proposal's absorb_proposal_records rows. Both deletions run in one transaction, so a failure leaves nothing partly deleted.
+
+## Retention job runs daily and logs the result
+
+Lines 56-66
+
+Asked as: daily cleanup job proposals; retention job log; how many proposals deleted; proposal cleanup failed error
+
+The daily cron job (runAbsorbProposalRetention) deletes the expired proposals using the current time. It logs how many it deleted. If the deletion fails, it logs an error and deletes nothing.

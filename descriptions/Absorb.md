@@ -3,32 +3,32 @@
 The parts make up the UI portion of the absorb system.
 
 1. A full-view component (AbsorbEditor.svelte) that shows the target record (for
-example a clients record) at the top using a snippet described in the containing
-+page.svelte file and a heading just below that says "records to absorb". Under
-this heading is a list of zero or more records to be absorbed. Initially there
-are zero items in the list. There is a search box (using the DSAutoComplete.svelte
-component when the page passes a search index, otherwise the DSSelector.svelte
-component) to immediately beneath the heading to find records from the same
-collection as the target record (for example a clients record) and pressing
-enter will add the selected record to the list of records to be absorbed. There
-is a button at the bottom to absorb and another to cancel. Clicking the absorb
-button absorbs the records and opens the Absorb Actions page (/absorb/actions),
-where the pending absorb action is committed or undone. A contact merge opened
-from a client's page stays on the page and shows the pending action there. While
-a collection has a pending absorb action, the component shows that action in
-place of the editor.
+   example a clients record) at the top using a snippet described in the containing
+   +page.svelte file and a heading just below that says "records to absorb". Under
+   this heading is a list of zero or more records to be absorbed. Initially there
+   are zero items in the list. There is a search box (using the DSAutoComplete.svelte
+   component when the page passes a search index, otherwise the DSSelector.svelte
+   component) to immediately beneath the heading to find records from the same
+   collection as the target record (for example a clients record) and pressing
+   enter will add the selected record to the list of records to be absorbed. There
+   is a button at the bottom to absorb and another to cancel. Clicking the absorb
+   button absorbs the records and opens the Absorb Actions page (/absorb/actions),
+   where the pending absorb action is committed or undone. A contact merge opened
+   from a client's page stays on the page and shows the pending action there. While
+   a collection has a pending absorb action, the component shows that action in
+   place of the editor.
 
 2. A +page.svelte file for each collection that supports absorption (clients, vendors, client contacts and rate sheets), contained within the /absorb directory under the collection's id directory (i.e. \[cid\]/absorb/+page.svelte under the clients route). The client contacts and rate sheets routes also have a +page.ts file. The AbsorbEditor.svelte component is used in the +page.svelte file. Arguments are passed to the AbsorbEditor.svelte component, namely the collectionName, the targetRecordId (which is the id of the absorbing record pulled from the URL), the availableRecords and an optional autoCompleteIndex. A snippet is also provided to the AbsorbEditor.svelte component to render the record to be absorbed. The snippet is defined in the +page.svelte file on the route.
 
 3. A button to absorb the records which appears on the regular list view for
-clients and vendors, beside each contact on the client's page (for everyone:
-without the `absorb` claim, the editor proposes instead, see Absorb
-proposals), and beside each sheet that can absorb on the rate sheets Duplicates view. Options for
-the icon are:
+   clients and vendors, beside each contact on the client's page (for everyone:
+   without the `absorb` claim, the editor proposes instead, see Absorb
+   proposals), and beside each sheet that can absorb on the rate sheets Duplicates view. Options for
+   the icon are:
 
-    - fluent-emoji-high-contrast:sponge
-    - mdi:merge
-    - material-symbols:merge
+   - fluent-emoji-high-contrast:sponge
+   - mdi:merge
+   - material-symbols:merge
 
 The buttons use the mdi:merge icon.
 
@@ -62,7 +62,8 @@ with the normal absorb. Rate sheets take no proposal.
   `proposal_pending` and must be withdrawn first; an unknown id gets 404
   `proposal_not_found`. The Decided tab shows a trashcan on the requester's
   own proposals, with no confirmation, because the delete changes no record
-  and a committed absorb keeps no record of its own either. Errors are JSON
+  and the committed absorb is kept in the absorb history, not in the
+  proposal. Errors are JSON
   with `code` and `message`.
 - Retention. The daily cron job `absorb_proposal_retention`
   (`app/cron/absorb_proposal_retention.go`) deletes each proposal decided
@@ -137,8 +138,8 @@ the level). There is no menu entry.
   member's references, score against the target and the open proposal that
   names it (as an item or as the target), the number of dismissed buckets
   and the collection's pending absorb action (target, absorbed names,
-  created). `absorb_actions` doesn't record who absorbed, so the UI can't
-  say. `POST /api/absorb_suggestions/{collection}/dismiss` with `record_ids`
+  created, and `absorbed_by` with `absorbed_by_name`, so the notice names
+  the person). `POST /api/absorb_suggestions/{collection}/dismiss` with `record_ids`
   saves "Not duplicates". Errors are JSON with `code` and `message`
   (`invalid_collection`, `unauthorized`, `invalid_level`, `too_few_records`,
   `duplicate_records`, `record_not_found`).
@@ -154,6 +155,39 @@ the level). There is no menu entry.
   pending action, a notice reopens the modal and Absorb is off on that tab.
   A record in an open proposal can't be ticked; the plain absorb route
   doesn't refuse it, so this is a UI rule. `DSMergeGroup` draws each bucket.
+
+# Absorb history
+
+A commit deletes the absorb action, so the commit first copies it into
+`absorb_history`. The history is for troubleshooting a bad absorb: who did
+it, and what it changed.
+
+- Who absorbed. The absorb route passes the user to
+  `routes.AbsorbRecordsAs`, which saves them in `absorb_actions.absorbed_by`.
+  `AbsorbRecords` and `AbsorbRecordsForProposal` leave it blank; only tests
+  call them.
+- The row. `absorb.RecordHistory` (`app/absorb/history.go`) runs first in the
+  commit transaction of the `absorb_actions` delete hook, for every
+  collection. It copies `collection_name`, `target_id`, `absorbed_records`,
+  `updated_references` and `proposal`, and adds `target_name` (the kept
+  record's name at the commit), `absorbed_by`, `absorbed_at` (the action's
+  `created`) and `committed_by` (the user of the delete request). `created`
+  is the commit time. A failed commit leaves no row, and an undo never
+  writes one.
+- Routes (`app/routes/absorb_history.go`). `GET /api/absorb_history` lists
+  the rows, newest first, with the two people's names, the names of the
+  absorbed records and the number of references moved. `GET
+/api/absorb_history/{id}` adds the saved JSON. An `absorb` holder reads
+  every row; an `admin` without the claim reads the rate sheet rows only, as
+  with `absorb_actions`. Others get 403 `unauthorized`; a row that is missing
+  or out of scope gets 404 `history_not_found`. The collection has no API
+  rules.
+- Retention. The daily cron job `absorb_history_retention`
+  (`app/cron/absorb_history_retention.go`) deletes the rows committed more
+  than `ABSORB_HISTORY_RETENTION_DAYS` (90) ago.
+- UI. `/absorb/history` is the History tab of the Absorb Actions page. It is
+  read only: there is no restore. To repair a bad absorb, use the saved
+  copies and the moved references in **Details**.
 
 # Optional config hooks
 

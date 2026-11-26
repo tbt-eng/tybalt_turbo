@@ -63,6 +63,10 @@ type absorbSuggestionPendingAction struct {
 	TargetName string   `json:"target_name"`
 	Absorbed   []string `json:"absorbed"`
 	Created    string   `json:"created"`
+	// AbsorbedBy is the user who absorbed and AbsorbedByName their name.
+	// Both are blank for an action made before the field existed.
+	AbsorbedBy     string `json:"absorbed_by"`
+	AbsorbedByName string `json:"absorbed_by_name"`
 }
 
 type absorbSuggestionsResponse struct {
@@ -72,7 +76,7 @@ type absorbSuggestionsResponse struct {
 	// Dismissed is the number of buckets hidden by "Not duplicates".
 	Dismissed int `json:"dismissed"`
 	// PendingAction is the collection's absorb action that waits for a
-	// commit or an undo. absorb_actions does not record who absorbed.
+	// commit or an undo.
 	PendingAction *absorbSuggestionPendingAction `json:"pending_action"`
 }
 
@@ -261,6 +265,8 @@ func pendingSuggestionAction(app core.App, collection string) (*absorbSuggestion
 		Absorbed: []string{},
 		Created:  action.GetDateTime("created").String(),
 	}
+	out.AbsorbedBy = action.GetString("absorbed_by")
+	out.AbsorbedByName = userDisplayName(app, out.AbsorbedBy)
 	if target, err := app.FindRecordById(collection, out.TargetID); err == nil {
 		out.TargetName = absorb.RecordName(target)
 	} else if !errors.Is(err, sql.ErrNoRows) {

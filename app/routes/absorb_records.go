@@ -143,7 +143,7 @@ func CreateAbsorbRecordsHandler(app core.App, collectionName string) func(e *cor
 			}
 		}
 
-		err = AbsorbRecordsForProposal(app, collectionName, targetId, request.IdsToAbsorb, request.Proposal)
+		err = AbsorbRecordsAs(app, collectionName, targetId, request.IdsToAbsorb, request.Proposal, authRecord.Id)
 		if err != nil {
 			// A rule of the collection's config refused the absorb.
 			var refused *absorb.RefusedError
@@ -203,6 +203,14 @@ func AbsorbRecords(app core.App, collectionName string, targetID string, idsToAb
 // AbsorbRecordsForProposal absorbs idsToAbsorb into targetID and links the
 // pending absorb action to proposalID, which may be blank.
 func AbsorbRecordsForProposal(app core.App, collectionName string, targetID string, idsToAbsorb []string, proposalID string) error {
+	return AbsorbRecordsAs(app, collectionName, targetID, idsToAbsorb, proposalID, "")
+}
+
+// AbsorbRecordsAs absorbs idsToAbsorb into targetID, links the pending absorb
+// action to proposalID and records absorbedBy, the id of the user who
+// absorbed, on the action. Both may be blank. The absorb route always passes
+// the user, so the history of a committed absorb names them.
+func AbsorbRecordsAs(app core.App, collectionName string, targetID string, idsToAbsorb []string, proposalID string, absorbedBy string) error {
 	// Get reference configs based on collection name
 	config, err := absorb.GetConfig(collectionName)
 	if err != nil {
@@ -352,7 +360,7 @@ func AbsorbRecordsForProposal(app core.App, collectionName string, targetID stri
 			return fmt.Errorf("error serializing reference updates: %w", err)
 		}
 
-		if err := recordAbsorbAction(txApp, collectionName, targetID, absorbedRecords, updatedRefs, proposalID); err != nil {
+		if err := recordAbsorbAction(txApp, collectionName, targetID, absorbedRecords, updatedRefs, proposalID, absorbedBy); err != nil {
 			return fmt.Errorf("error recording absorb action: %w", err)
 		}
 
@@ -603,7 +611,7 @@ func getAbsorbAction(app core.App, collectionName string) (*AbsorbAction, error)
 }
 
 // recordAbsorbAction creates a new absorb action record
-func recordAbsorbAction(app core.App, collectionName string, targetId string, absorbedRecords []byte, updatedReferences []byte, proposalID string) error {
+func recordAbsorbAction(app core.App, collectionName string, targetId string, absorbedRecords []byte, updatedReferences []byte, proposalID string, absorbedBy string) error {
 	collection, err := app.FindCollectionByNameOrId("absorb_actions")
 	if err != nil {
 		return fmt.Errorf("error finding absorb_actions collection: %w", err)
@@ -615,6 +623,7 @@ func recordAbsorbAction(app core.App, collectionName string, targetId string, ab
 	record.Set("absorbed_records", string(absorbedRecords))
 	record.Set("updated_references", string(updatedReferences))
 	record.Set("proposal", proposalID)
+	record.Set("absorbed_by", absorbedBy)
 
 	if err := app.Save(record); err != nil {
 		return fmt.Errorf("error saving absorb action: %w", err)
