@@ -31,6 +31,9 @@ export function requestNextStep(next: {
   viewerIsCreator: boolean;
   viewerIsApprover: boolean;
   canCreate: boolean;
+  // The number of a linked proposal that is not Awarded yet. The job cannot
+  // be created until procurement awards it.
+  unawardedProposal?: string;
 }): string {
   const creator = next.creatorName.trim(),
     approver = next.approverName.trim();
@@ -47,6 +50,10 @@ export function requestNextStep(next: {
       if (next.viewerIsApprover) return "Waiting for your approval.";
       return approver ? `Waiting for approval by ${approver}.` : "Waiting for approval.";
     case "Awaiting creation":
+      if (next.unawardedProposal)
+        return next.canCreate
+          ? `Approved. Award proposal ${next.unawardedProposal}, then create the job.`
+          : `Approved. Waiting for procurement to award proposal ${next.unawardedProposal} and create the job.`;
       return next.canCreate
         ? "Approved. Waiting for you or another procurement user to create the job."
         : "Approved. Waiting for procurement to create the job.";

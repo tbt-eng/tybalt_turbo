@@ -176,6 +176,19 @@ test("the request page says who acts next, by name or as you", () => {
     next("Awaiting creation", { canCreate: true }),
     "Approved. Waiting for you or another procurement user to create the job.",
   );
+  assert.equal(
+    next("Awaiting creation", { unawardedProposal: "P25-123" }),
+    "Approved. Waiting for procurement to award proposal P25-123 and create the job.",
+  );
+  assert.equal(
+    next("Awaiting creation", { canCreate: true, unawardedProposal: "P25-123" }),
+    "Approved. Award proposal P25-123, then create the job.",
+  );
+  // The proposal matters only while the request awaits creation.
+  assert.equal(
+    next("Awaiting approval", { unawardedProposal: "P25-123" }),
+    "Waiting for approval by Avery Approver.",
+  );
   assert.equal(next("Rejected"), "Rejected. Waiting for Casey Creator to correct it.");
   assert.equal(next("Rejected", creator), "Rejected. Correct the request, then submit it again.");
   assert.equal(next("Unknown"), "");

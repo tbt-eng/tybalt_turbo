@@ -94,6 +94,16 @@ await runBrowserHarness(
     await page.evaluate(() => window.setClaims(["job"]));
     await award.waitFor();
     await notice.waitFor();
+    // The Workflow actions line names the award as the step before creation.
+    const awardFirst = page.getByText("Approved. Award proposal P25-001, then create the job.", {
+      exact: true,
+    });
+    const createNext = page.getByText(
+      "Approved. Waiting for you or another procurement user to create the job.",
+      { exact: true },
+    );
+    await awardFirst.waitFor();
+    assert.equal(await createNext.count(), 0);
 
     // A proposal that cannot be awarded yet says why and links to the proposal
     // in place of the button.
@@ -138,6 +148,8 @@ await runBrowserHarness(
     await notice.waitFor({ state: "detached" });
     assert.equal(await award.count(), 0);
     assert.ok(await awarded.isVisible());
+    await createNext.waitFor();
+    assert.equal(await awardFirst.count(), 0);
 
     // Create Job refused for the proposal offers to award it and continue.
     await show("Submitted");

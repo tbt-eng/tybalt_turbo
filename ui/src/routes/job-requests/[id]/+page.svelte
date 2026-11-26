@@ -104,6 +104,14 @@
     permission = $derived(detail.permissions),
     related = $derived(detail.related);
   const viewerId = pb.authStore.record?.id ?? "";
+  // A request can be submitted and approved while its proposal is In Progress
+  // or Submitted. The job is created only from an Awarded proposal, and only
+  // procurement can award it, here or on the proposal.
+  const proposal = $derived(related.proposal as WorkflowRecord | undefined);
+  const proposalOpen = $derived(
+    proposal?.status === JobsStatusOptions["In Progress"] ||
+      proposal?.status === JobsStatusOptions.Submitted,
+  );
   // Every viewer sees who acts next, so a page without buttons still explains
   // where the request stands.
   const nextStep = $derived(
@@ -114,6 +122,7 @@
       viewerIsCreator: viewerId !== "" && request.creator === viewerId,
       viewerIsApprover: viewerId !== "" && request.approver === viewerId,
       canCreate: permission.can_create,
+      unawardedProposal: proposalOpen ? String(proposal?.number ?? "") : "",
     }),
   );
   // The Help link for a viewer who can still change the request's path, such
@@ -159,14 +168,6 @@
   async function refresh() {
     await Promise.all([invalidateAll(), globalStore.refreshAttentionCounts()]);
   }
-  // A request can be submitted and approved while its proposal is In Progress
-  // or Submitted. The job is created only from an Awarded proposal, and only
-  // procurement can award it, here or on the proposal.
-  const proposal = $derived(related.proposal as WorkflowRecord | undefined);
-  const proposalOpen = $derived(
-    proposal?.status === JobsStatusOptions["In Progress"] ||
-      proposal?.status === JobsStatusOptions.Submitted,
-  );
   // Only procurement can act on the status, so only procurement gets the
   // notice. Everyone sees the status on the Proposal field.
   const jobHolder = $derived($globalStore.claims.includes("job"));
