@@ -24,6 +24,10 @@
   // past the radio, is the click target for its tick. Choosing another record
   // to keep clears its tick, and the old one becomes an unticked row. The
   // absorb suggestions page uses it for each bucket of duplicates.
+  //
+  // Keyboard: a row takes focus (the first row of a group is a tab stop).
+  // Up and Down move to the row above or below, and on into the next or the
+  // previous group on the page. Space ticks or unticks the row.
   let {
     id,
     title,
@@ -70,6 +74,31 @@
     picked = on ? [...picked.filter((p) => p !== rowId), rowId] : picked.filter((p) => p !== rowId);
   }
 
+  // Every row of every group on the page, in order, so the arrow keys go
+  // from one group into the next.
+  function moveFocus(from: HTMLElement, step: 1 | -1) {
+    const all = Array.from(document.querySelectorAll<HTMLElement>("[data-merge-row]"));
+    all[all.indexOf(from) + step]?.focus();
+  }
+
+  function onRowKeydown(event: KeyboardEvent, row: MergeRow, canPick: boolean) {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const rowElement = event.currentTarget as HTMLElement;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      // Also stops the arrows from changing the kept record when a radio
+      // has focus.
+      event.preventDefault();
+      moveFocus(rowElement, event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    // A control in the row (the radio, the checkbox, the link) handles its
+    // own Space.
+    if (event.key === " " && event.target === rowElement) {
+      event.preventDefault();
+      if (canPick) toggle(row.id, !picked.includes(row.id));
+    }
+  }
+
   function rowClass(row: MergeRow): string {
     if (row.id === keepId) return "bg-white font-semibold";
     if (picked.includes(row.id)) return "bg-amber-100";
@@ -100,11 +129,19 @@
       </tr>
     </thead>
     <tbody>
-      {#each rows as row (row.id)}
+      {#each rows as row, index (row.id)}
         {@const checkId = `${id}-pick-${row.id}`}
         {@const isKept = row.id === keepId}
         {@const canPick = !isKept && !row.locked && !disabled}
-        <tr class="border-t border-neutral-200 {rowClass(row)}">
+        <tr
+          data-merge-row
+          tabindex={index === 0 ? 0 : -1}
+          aria-label={`${row.label}${isKept ? ", kept" : picked.includes(row.id) ? ", ticked" : ""}`}
+          class="border-t border-neutral-200 -outline-offset-2 outline-blue-500 focus-within:outline-2 {rowClass(
+            row,
+          )}"
+          onkeydown={(event) => onRowKeydown(event, row, canPick)}
+        >
           <td class="px-2">
             <input
               type="radio"

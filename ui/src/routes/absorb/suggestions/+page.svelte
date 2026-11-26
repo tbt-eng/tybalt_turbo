@@ -197,11 +197,30 @@
     return `${match} · ${bucket.picked.length} to absorb into ${keep.name}, ${moved} ${movedLabel} move`;
   }
 
-  // Focus goes to the bucket after index, or the one before when it was last.
+  // Focus goes to the first row of the bucket, so the arrow keys and Space
+  // work at once.
   async function focusAfter(collection: AbsorbSuggestionCollection, nextKey: string | undefined) {
     await tick();
-    if (nextKey) document.getElementById(groupId(collection, nextKey))?.focus();
+    if (!nextKey) return;
+    const group = document.getElementById(groupId(collection, nextKey));
+    (group?.querySelector<HTMLElement>("[data-merge-row]") ?? group)?.focus();
   }
+
+  // When a tab's list shows (on load, or after a change of tab), its first
+  // row takes focus so the keyboard works at once. Focus is taken only from
+  // the page or a tab, never from a control the person is using.
+  $effect(() => {
+    const collection = tab;
+    if (tabs[collection].loading) return;
+    untrack(() => {
+      const active = document.activeElement;
+      const onTab =
+        active instanceof HTMLAnchorElement && active.href.includes("/absorb/suggestions");
+      const free = !active || active === document.body || onTab;
+      if (modalOpen || !free) return;
+      focusAfter(collection, tabs[collection].buckets[0]?.key);
+    });
+  });
 
   function neighbourKey(collection: AbsorbSuggestionCollection, key: string) {
     const list = tabs[collection].buckets;

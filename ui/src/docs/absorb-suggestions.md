@@ -18,6 +18,11 @@ The number on each tab is the buckets that are left.
 
 You can't tick a record that is in an absorb proposal. Records that you don't tick stay in the bucket.
 
+## Use the keyboard
+
+- Press **Up** or **Down** to move from row to row, and on into the next bucket.
+- Press **Space** to tick or untick the row.
+
 ## Commit or undo
 
 After **Absorb**, Turbo shows what it absorbed.

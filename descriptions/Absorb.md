@@ -154,7 +154,10 @@ the level). There is no menu entry.
   list keeps its order for the session. While the tab's collection has a
   pending action, a notice reopens the modal and Absorb is off on that tab.
   A record in an open proposal can't be ticked; the plain absorb route
-  doesn't refuse it, so this is a UI rule. `DSMergeGroup` draws each bucket.
+  doesn't refuse it, so this is a UI rule. `DSMergeGroup` draws each bucket. Its rows take focus:
+  Up and Down move from row to row and on into the next bucket, and Space
+  ticks the row. The first row of a tab takes focus when its list shows,
+  and the first row of the next bucket after a commit.
 
 # Absorb history
 

@@ -320,7 +320,9 @@ checkbox's label, so a click anywhere on it ticks. Choosing another record to
 keep clears its tick, and the old one becomes an unticked row. A `locked` row
 shows its reason as a warning label and can't be ticked. Each row may link to
 its record in a new tab. The box has `tabindex="-1"`, so a page can move focus
-to it.
+to it. Each row takes focus too (`data-merge-row`; the first row of a group is
+a tab stop): Up and Down move to the row above or below, across every group on
+the page, and Space ticks or unticks the row.
 
 ```ts
 {
