@@ -70,6 +70,33 @@ export function requestNextStep(next: {
 export function proposalAcceptsRequest(status?: string): boolean {
   return status === "In Progress" || status === "Submitted" || status === "Awarded";
 }
+export interface RequestAllocation {
+  division: string;
+  hours: number;
+}
+// A request started from a proposal or a parent job copies that job's
+// allocations (from /api/jobs/{id}/details). A save refuses an inactive
+// division, so those rows are left out. `divisions` is the request options'
+// list, the same one the division picker offers.
+export function copiedAllocations(
+  source: WorkflowRecord[] | undefined,
+  divisions: WorkflowRecord[] | undefined,
+): RequestAllocation[] {
+  const active = new Set(
+    (divisions || []).filter((record) => record.active).map((record) => record.id),
+  );
+  return (source || [])
+    .map((row) => ({
+      division: row.division?.id || "",
+      hours: Number(row.hours) || 0,
+    }))
+    .filter((row) => active.has(row.division));
+}
+// Rows with no division chosen yet don't count, so a proposal chosen later
+// may still fill the list.
+export function hasAllocations(rows: WorkflowRecord[]): boolean {
+  return rows.some((row) => !!row.division);
+}
 export function emptyChecklist(questions: RequestChecklistQuestion[]): Record<string, boolean> {
   return Object.fromEntries(questions.map((question) => [question.key, false]));
 }

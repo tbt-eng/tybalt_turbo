@@ -1072,6 +1072,17 @@ when present, but let the creator keep, replace, or clear it. A selected proposa
 must have the same client as the parent. Apply the same proposal-status rules.
 Creation must use the selected relations; it must not restore a cleared proposal.
 
+A new request copies the division allocations (division and hours) of its
+source job: the parent for a subjob request, otherwise the proposal. The parent
+wins over the parent's proposal. The requester removes the rows they do not
+want. When the requester selects a proposal in the form, new or draft, copy its
+allocations only while no row has a division chosen; blank rows are replaced,
+and rows with a division are never changed or added to. Clearing the proposal
+removes nothing. A failed or stale fetch copies nothing. Drop rows whose
+division is inactive, since submission rejects them; active means `active` on
+the request options' divisions, the same list the division picker offers. A
+draft restored after client maintenance keeps its own allocations.
+
 ## 3. Implementation Rules
 
 ### Request Approval

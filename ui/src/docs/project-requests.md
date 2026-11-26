@@ -16,20 +16,20 @@ This is the preferred start.
 
 1. [Find the proposal](/docs/proposals#find-a-proposal).
 2. Select the yellow briefcase button on its row.
-3. Check the copied details and the project value. Add what is missing.
-4. Enter the division hours and select an approver.
+3. Check the copied details, division hours and project value. Add what is missing.
+4. Select an approver.
 5. Select **Save request**.
 
 Only an In Progress, Submitted or Awarded proposal has the button.
 
 ## Create a request
 
-Do this only when no proposal exists.
+Only when no proposal exists.
 
 1. Select the plus button beside **Jobs**. For a subjob, select **Create Subjob Request** on the parent project.
 2. Select **Request a project without a proposal**.
-3. Enter the details and division hours.
-4. Select an invoicing profile and an approver. The list shows approvers whose limit covers the project value.
+3. Enter the details and division hours. Subjobs copy the parent's hours.
+4. Select an invoicing profile and approver. The list shows approvers whose limit covers the project value.
 5. Select **Save request**.
 
 ## Upload and submit

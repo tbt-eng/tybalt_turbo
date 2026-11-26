@@ -4,6 +4,7 @@ import { get } from "svelte/store";
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
 import type { WorkflowRecord } from "$lib/clientEditors";
+import { copiedAllocations } from "$lib/jobRequests";
 export const load: PageLoad = async ({ url }) => {
   const parentId = url.searchParams.get("parent") || "";
   const proposalId = url.searchParams.get("proposal") || "";
@@ -38,5 +39,7 @@ export const load: PageLoad = async ({ url }) => {
     fn_agreement_answer: "",
     time_and_materials_set: typeof source.time_and_materials === "boolean",
   };
-  return { options, request };
+  // The source's division hours, without inactive divisions.
+  const allocations = copiedAllocations(source.allocations, options.divisions);
+  return { options, request, allocations };
 };

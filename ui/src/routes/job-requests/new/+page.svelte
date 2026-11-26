@@ -15,6 +15,7 @@
   <p>Save a draft, upload a signed PDF that authorizes the project, then submit the request.</p>
   <RequestEditor
     request={data.request}
+    allocations={data.allocations}
     options={data.options}
     oncancel={() => goto(resolve("/jobs/list"))}
   />

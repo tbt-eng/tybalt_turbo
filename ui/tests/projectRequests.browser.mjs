@@ -50,6 +50,7 @@ await runBrowserHarness(
     // Find by rates and Propose new rates: two roles, one active sheet. Only
     // Principal 4321 finds the sheet.
     const findSearches = [];
+    let proposalDetails = 0;
     const roles = [
       { id: "admin", name: "Administration Staff" },
       { id: "principal", name: "Principal" },
@@ -157,8 +158,32 @@ await runBrowserHarness(
             { id: "client2", name: "Other Client", alias: "" },
           ]),
         });
+      if (path === "/api/collections/divisions/records")
+        return list([
+          { id: "div1", code: "ENG", name: "Engineering", active: true },
+          { id: "div2", code: "OLD", name: "Retired", active: false },
+        ]);
+      // The proposal's allocations, one of them in an inactive division.
+      if (path === "/api/jobs/prop1/details") {
+        proposalDetails += 1;
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "prop1",
+            allocations: [
+              { id: "pa1", division: { id: "div1", code: "ENG", name: "Engineering" }, hours: 40 },
+              { id: "pa2", division: { id: "div2", code: "OLD", name: "Retired" }, hours: 8 },
+            ],
+          }),
+        });
+      }
       if (path === "/api/jobs")
-        return route.fulfill({ contentType: "application/json", body: JSON.stringify([]) });
+        return route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify([
+            { id: "prop1", number: "P26-0001", description: "Bridge proposal", status: "Awarded" },
+          ]),
+        });
       if (path === "/api/project_authorization/approvers")
         return route.fulfill({
           contentType: "application/json",
@@ -488,6 +513,32 @@ await runBrowserHarness(
     assert.equal(saves.at(-1).request.time_and_materials, true);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: "/tmp/project-request-form-mobile.png", fullPage: true });
+    await page.setViewportSize({ width: 1000, height: 900 });
+    // A chosen proposal fills the divisions while none is chosen: a blank row
+    // is replaced and the inactive division is left out. With a division
+    // chosen, a new choice of proposal changes nothing.
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&profiles&proposal`);
+    await page.getByRole("button", { name: "Save request", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Add division", exact: true }).click();
+    await page.getByLabel("Proposal", { exact: true }).fill("P26");
+    await page.getByText("P26-0001 - Bridge proposal", { exact: true }).click();
+    await page.getByText("ENG - Engineering", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("Hours", { exact: true }).inputValue(), "40");
+    assert.equal(await page.getByText("OLD - Retired", { exact: true }).count(), 0);
+    const proposalRow = page
+      .locator("span")
+      .filter({ has: page.locator("label", { hasText: /^Proposal$/ }) });
+    await proposalRow.getByRole("button", { name: "Clear", exact: true }).click();
+    await page.getByText("ENG - Engineering", { exact: true }).waitFor();
+    await page.getByLabel("Proposal", { exact: true }).fill("P26");
+    await page.getByText("P26-0001 - Bridge proposal", { exact: true }).click();
+    assert.equal(proposalDetails, 1);
+    await page.getByRole("button", { name: "Save request", exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelector("button[type=submit]")?.textContent.trim() === "Save request",
+    );
+    assert.equal(saves.at(-1).request.proposal, "prop1");
+    assert.deepEqual(saves.at(-1).allocations, [{ division: "div1", hours: 40 }]);
     // Help shares a row, at its far right: the tabs, or the search bar with no tabs.
     await page.setViewportSize({ width: 1000, height: 900 });
     const sameRow = async (first, second) => {

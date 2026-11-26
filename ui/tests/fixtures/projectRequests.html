@@ -142,9 +142,14 @@
               ]
             : [],
           rate_sheets: [rate_sheet],
-          divisions: [{ id: "div1", name: "Engineering", code: "ENG", active: true }],
+          divisions: [
+            { id: "div1", name: "Engineering", code: "ENG", active: true },
+            { id: "div2", name: "Retired", code: "OLD", active: false },
+          ],
           users: [{ id: "reviewer", given_name: "Tier", surname: "Two" }],
-          proposals: [],
+          proposals: query.has("proposal")
+            ? [{ id: "prop1", client: "client1", status: "Awarded" }]
+            : [],
           branches: [{ id: "branch1", name: "Thunder Bay", code: "TBY" }],
         };
         // The edit page mounts the editor with the request detail, as its loader

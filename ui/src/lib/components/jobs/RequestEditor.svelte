@@ -4,7 +4,7 @@
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll, beforeNavigate, replaceState } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { fullName } from "$lib/jobRequests";
+  import { copiedAllocations, fullName, hasAllocations } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { untrack } from "svelte";
   import MiniSearch from "minisearch";
@@ -395,6 +395,23 @@
     item.invoicing_information = "";
     item.proposal = "";
   }
+  // A chosen proposal fills the divisions only while none is chosen. A
+  // later choice, or a division chosen before the reply, discards the
+  // reply. If the fetch fails, the requester adds the divisions by hand.
+  let proposalFetch = 0;
+  function setProposal(id: string) {
+    if (id === item.proposal) return;
+    item.proposal = id;
+    const ticket = ++proposalFetch;
+    if (!id || hasAllocations(allocations)) return;
+    pb.send<WorkflowRecord>(`/api/jobs/${id}/details`, { method: "GET", requestKey: null })
+      .then((source) => {
+        if (ticket !== proposalFetch || item.proposal !== id || hasAllocations(allocations)) return;
+        const rows = copiedAllocations(source.allocations, options.divisions);
+        if (rows.length) allocations = rows;
+      })
+      .catch(() => {});
+  }
   // stay keeps the form open after the save, for Save and keep editing.
   export async function save(stay = false): Promise<boolean> {
     if (saving) return false;
@@ -757,7 +774,7 @@
     >
     {#if $jobs.index !== null}
       <DsAutoComplete
-        bind:value={item.proposal}
+        bind:value={() => item.proposal, setProposal}
         index={$jobs.index}
         filter={(job) => proposalIds.has(job.id)}
         errors={noFieldErrors}

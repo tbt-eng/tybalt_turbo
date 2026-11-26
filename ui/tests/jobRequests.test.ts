@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   canViewJobCreateQueue,
+  copiedAllocations,
+  hasAllocations,
   printMissing,
   contactEmail,
   billingAddress,
@@ -208,4 +210,35 @@ test("a missing name is left out, never replaced by a role", () => {
   assert.equal(next("Recalled"), "Recalled. Not submitted again yet.");
   assert.equal(next("Awaiting approval"), "Waiting for approval.");
   assert.equal(next("Rejected"), "Rejected. Waiting for a correction.");
+});
+
+test("a request copies the source job's allocations with active divisions only", () => {
+  const divisions = [
+    { id: "eng", active: true },
+    { id: "env", active: true },
+    { id: "old", active: false },
+  ];
+  const source = [
+    { id: "a1", division: { id: "eng", code: "ENG", name: "Engineering" }, hours: 40 },
+    { id: "a2", division: { id: "old", code: "OLD", name: "Retired" }, hours: 10 },
+    { id: "a3", division: { id: "gone", code: "GNE", name: "Unlisted" }, hours: 5 },
+    { id: "a4", division: { id: "env", code: "ENV", name: "Environmental" }, hours: 0 },
+  ];
+  assert.deepEqual(copiedAllocations(source, divisions), [
+    { division: "eng", hours: 40 },
+    { division: "env", hours: 0 },
+  ]);
+  assert.deepEqual(copiedAllocations(undefined, divisions), []);
+  assert.deepEqual(copiedAllocations(source, undefined), []);
+});
+test("rows without a division leave the allocations empty", () => {
+  assert.equal(hasAllocations([]), false);
+  assert.equal(hasAllocations([{ division: "", hours: 0 }]), false);
+  assert.equal(
+    hasAllocations([
+      { division: "", hours: 0 },
+      { division: "eng", hours: 0 },
+    ]),
+    true,
+  );
 });
