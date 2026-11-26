@@ -322,7 +322,8 @@ shows its reason as a warning label and can't be ticked. Each row may link to
 its record in a new tab. The box has `tabindex="-1"`, so a page can move focus
 to it. Each row takes focus too (`data-merge-row`; the first row of a group is
 a tab stop): Up and Down move to the row above or below, across every group on
-the page, and Space ticks or unticks the row.
+the page, and Space ticks or unticks the row. Enter calls `onenter`, the
+page's main action for the group, once for each press.
 
 ```ts
 {

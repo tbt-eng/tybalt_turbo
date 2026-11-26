@@ -155,8 +155,10 @@ the level). There is no menu entry.
   pending action, a notice reopens the modal and Absorb is off on that tab.
   A record in an open proposal can't be ticked; the plain absorb route
   doesn't refuse it, so this is a UI rule. `DSMergeGroup` draws each bucket. Its rows take focus:
-  Up and Down move from row to row and on into the next bucket, and Space
-  ticks the row. The first row of a tab takes focus when its list shows,
+  Up and Down move from row to row and on into the next bucket, Space
+  ticks the row, and Enter absorbs the bucket (`onenter`) when the Absorb
+  button is on. The modal ignores Enter, so Enter never commits: Commit
+  has focus there and takes a click or Space. The first row of a tab takes focus when its list shows,
   and the first row of the next bucket after a commit.
 
 # Absorb history

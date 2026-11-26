@@ -27,7 +27,9 @@
   //
   // Keyboard: a row takes focus (the first row of a group is a tab stop).
   // Up and Down move to the row above or below, and on into the next or the
-  // previous group on the page. Space ticks or unticks the row.
+  // previous group on the page. Space ticks or unticks the row. Enter calls
+  // onenter, the page's main action for the group; a key that is held down
+  // does not repeat it.
   let {
     id,
     title,
@@ -42,6 +44,7 @@
     disabled = false,
     actions,
     notice,
+    onenter,
   }: {
     // The DOM id of the group, which takes focus (tabindex -1).
     id: string;
@@ -61,6 +64,9 @@
     actions?: Snippet;
     // A callout under the rows, such as an error.
     notice?: Snippet;
+    // Enter on a row: the main action of the group, such as Absorb. The
+    // caller decides whether the action may run.
+    onenter?: () => void;
   } = $props();
 
   const titleId = $derived(`${id}-title`);
@@ -89,6 +95,13 @@
       // has focus.
       event.preventDefault();
       moveFocus(rowElement, event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (event.key === "Enter" && onenter) {
+      // Enter on the link to the record still opens it.
+      if (event.target instanceof HTMLAnchorElement) return;
+      event.preventDefault();
+      if (!event.repeat) onenter();
       return;
     }
     // A control in the row (the radio, the checkbox, the link) handles its

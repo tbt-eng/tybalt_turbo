@@ -22,6 +22,7 @@ You can't tick a record that is in an absorb proposal. Records that you don't ti
 
 - Press **Up** or **Down** to move from row to row, and on into the next bucket.
 - Press **Space** to tick or untick the row.
+- Press **Enter** to absorb the ticked records. Turbo then shows what it absorbed.
 
 ## Commit or undo
 

@@ -228,7 +228,17 @@
     return list[index + 1]?.key ?? list[index - 1]?.key;
   }
 
+  function canAbsorb(collection: AbsorbSuggestionCollection, bucket: BucketState) {
+    return (
+      bucket.picked.length > 0 &&
+      tabs[collection].pending === null &&
+      editingEnabled &&
+      !bucket.busy
+    );
+  }
+
   async function absorb(collection: AbsorbSuggestionCollection, bucket: BucketState) {
+    if (!canAbsorb(collection, bucket)) return;
     bucket.busy = true;
     bucket.error = "";
     const picked = [...bucket.picked];
@@ -395,6 +405,7 @@
           bind:picked={bucket.picked}
           suggestedId={bucket.suggestedId}
           {countLabel}
+          onenter={() => absorb(tab, bucket)}
           disabled={bucket.busy || current.pending?.bucketKey === bucket.key}
         >
           {#snippet actions()}
@@ -407,10 +418,7 @@
             <DsActionButton
               action={() => absorb(tab, bucket)}
               variant="primary"
-              disabled={bucket.picked.length === 0 ||
-                current.pending !== null ||
-                !editingEnabled ||
-                bucket.busy}>Absorb</DsActionButton
+              disabled={!canAbsorb(tab, bucket)}>Absorb</DsActionButton
             >
           {/snippet}
           {#snippet notice()}
@@ -428,12 +436,24 @@
   {#snippet help()}
     <DSHelp doc="absorb-suggestions#commit-or-undo" label="Help" />
   {/snippet}
-  {#key modalRun}
-    <AbsorbList
-      collectionName={tab}
-      embedded
-      onresolved={resolved}
-      targetLabel={() => current.pending?.targetName}
-    />
-  {/key}
+  <!-- Enter absorbs a bucket, so it must never commit as well: the window
+       ignores Enter. Commit and Undo take a click, or Space on the button. -->
+  <div
+    role="presentation"
+    onkeydowncapture={(event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }}
+  >
+    {#key modalRun}
+      <AbsorbList
+        collectionName={tab}
+        embedded
+        onresolved={resolved}
+        targetLabel={() => current.pending?.targetName}
+      />
+    {/key}
+  </div>
 </DSModal>
