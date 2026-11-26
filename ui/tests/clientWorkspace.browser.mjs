@@ -154,6 +154,8 @@ await runBrowserHarness(
         );
       }
       if (path.includes("/records/")) return send({});
+      // The request form searches divisions from the collection.
+      if (path === "/api/collections/divisions/records") return list(fixture.options.divisions);
       if (path.endsWith("/records")) return list([]);
       if (path === "/api/realtime") return send({});
       return send([]);
@@ -590,16 +592,26 @@ await runBrowserHarness(
     assert.equal(await page.getByTitle("Add contact", { exact: true }).count(), 0);
     claims = ["job", "time"];
     await page.goto(`${origin}/job-requests/new`);
-    const scope = () => page.getByLabel("Project / scope of work", { exact: true });
+    const scope = () => page.getByLabel("Description", { exact: true });
     const value = () => page.getByLabel("Project value (CAD, before tax)", { exact: true });
+    // The client is searched, not listed: nothing shows until a person types.
+    const chooseClient = async () => {
+      await page.getByLabel("Client", { exact: true }).fill("Workspace");
+      await page.getByText(client.name, { exact: true }).click();
+    };
+    const timeAndMaterials = () =>
+      page
+        .getByRole("radiogroup", { name: "Fee basis", exact: true })
+        .getByRole("radio", { name: "Time and materials", exact: true });
     await scope().fill("Unsaved scope kept while maintaining client data");
-    await page.getByLabel(/^Client\s*Select client/).selectOption(client.id);
-    await page.getByLabel(/^Project contact/).selectOption(client.contacts[0].id);
+    await chooseClient();
+    await page.getByLabel(/^Client Contact/).selectOption(client.contacts[0].id);
     await page.getByLabel(/^Invoicing profile/).selectOption(client.invoicing_profiles[0].id);
     await value().fill("56789");
-    await page.getByLabel(/^Fee basis/).selectOption("tm");
+    await timeAndMaterials().click();
     await page.getByRole("button", { name: "Add division", exact: true }).click();
-    await page.getByLabel(/^Division/).selectOption("division1");
+    await page.getByLabel("Division", { exact: true }).fill("Eng");
+    await page.getByText("ENG - Engineering", { exact: true }).click();
     await page.getByLabel("Hours", { exact: true }).fill("12");
     // Request hours become job allocations, which store whole hours.
     assert.equal(await page.getByLabel("Hours", { exact: true }).getAttribute("step"), "1");
@@ -612,7 +624,7 @@ await runBrowserHarness(
     await scope().waitFor();
     assert.equal(await scope().inputValue(), "Unsaved scope kept while maintaining client data");
     assert.equal(await value().inputValue(), "56789");
-    assert.equal(await page.getByLabel(/^Fee basis/).inputValue(), "tm");
+    assert.equal(await timeAndMaterials().isChecked(), true);
     assert.equal(await page.getByLabel("Hours", { exact: true }).inputValue(), "12");
     await page
       .getByRole("link", { name: "Manage client contacts and invoicing", exact: true })
@@ -632,7 +644,7 @@ await runBrowserHarness(
     assert.equal(await page.getByLabel("Hours", { exact: true }).inputValue(), "12");
     assert.match(
       await page
-        .getByLabel(/^Project contact/)
+        .getByLabel(/^Client Contact/)
         .locator("option:checked")
         .innerText(),
       /workflow@example.test/,
@@ -709,7 +721,7 @@ await runBrowserHarness(
     assert.equal(await invoicing().getByTitle("Add invoicing profile", { exact: true }).count(), 0);
     assert.equal(await contacts().getByTitle("Add contact", { exact: true }).count(), 0);
     await page.goto(`${origin}/job-requests/new`);
-    await page.getByLabel(/^Client\s*Select client/).selectOption(client.id);
+    await chooseClient();
     await page
       .getByText(/A job maintainer must add a client contact before you can create a profile/)
       .waitFor();
@@ -736,7 +748,7 @@ await runBrowserHarness(
     claims = ["job", "time"];
     await page.goto(`${origin}/job-requests/new`);
     await scope().fill("Draft kept while adding the first client contact");
-    await page.getByLabel(/^Client\s*Select client/).selectOption(client.id);
+    await chooseClient();
     await value().fill("24680");
     assert.equal(await page.getByRole("button", { name: "Create one", exact: true }).count(), 0);
     assert.equal(await page.getByRole("combobox", { name: /^Invoicing profile/ }).count(), 0);
@@ -827,8 +839,8 @@ await runBrowserHarness(
     claims = ["time"];
     await page.goto(`${origin}/job-requests/new`);
     await scope().fill("Time-only draft kept while adding invoicing");
-    await page.getByLabel(/^Client\s*Select client/).selectOption(client.id);
-    await page.getByLabel(/^Project contact/).selectOption(client.contacts[1].id);
+    await chooseClient();
+    await page.getByLabel(/^Client Contact/).selectOption(client.contacts[1].id);
     await value().fill("12345");
     const beforeCreate = profileWrites.length;
     const beforeContactWrites = writes.length;
