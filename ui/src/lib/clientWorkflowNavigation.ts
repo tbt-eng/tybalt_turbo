@@ -164,6 +164,65 @@ export function selectClientWorkflowProfile(
   return destination;
 }
 
+// What of each part of a form's state is compared and kept as its baseline.
+// A part can hold more than is saved, such as empty rows.
+export type WorkflowDraftComparable = (part: string, value: unknown) => unknown;
+const wholeValue: WorkflowDraftComparable = (_, value) => value;
+
+// The form's state as text, to compare with its baseline.
+export function workflowDraftSnapshot(
+  state: Record<string, unknown>,
+  comparable: WorkflowDraftComparable = wholeValue,
+): string {
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.entries(state).map(([part, value]) => [part, comparable(part, value)]),
+    ),
+  );
+}
+
+// Merge a kept draft with the form as loaded again on return. While the user
+// was in the client workspace, the server copy may have changed: an absorb
+// rewrites a request's contact or client and bumps its version. A value the
+// user changed since the baseline (the form at its last save) keeps the
+// draft's value, also when the server changed it too. Any other value takes
+// the loaded one. The parts named in fieldwise are records merged field by
+// field, whose version always comes from the server. The other parts, such
+// as a list of allocations, are merged whole.
+export function mergeClientWorkflowDraft<T extends Record<string, unknown>>(
+  draft: T,
+  baseline: string,
+  loaded: T,
+  fieldwise: string[] = [],
+  comparable: WorkflowDraftComparable = wholeValue,
+): T {
+  let base: Record<string, unknown> = {};
+  try {
+    base = JSON.parse(baseline) ?? {};
+  } catch {
+    // With no baseline, every value of the draft counts as changed.
+  }
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const merged: Record<string, unknown> = { ...loaded };
+  for (const part of Object.keys(loaded)) {
+    if (!(part in draft)) continue;
+    const mine = draft[part];
+    if (!fieldwise.includes(part)) {
+      if (!same(comparable(part, mine), base[part])) merged[part] = mine;
+      continue;
+    }
+    const record = { ...(loaded[part] as Record<string, unknown>) };
+    const mineRecord = (mine ?? {}) as Record<string, unknown>;
+    const baseRecord = (base[part] ?? {}) as Record<string, unknown>;
+    for (const field of Object.keys(mineRecord)) {
+      if (field === "version") continue;
+      if (!same(mineRecord[field], baseRecord[field])) record[field] = mineRecord[field];
+    }
+    merged[part] = record;
+  }
+  return merged as T;
+}
+
 export function clearClientWorkflowDraft(): void {
   if (typeof window === "undefined") return;
   const token = new URL(window.location.href).searchParams.get("client_draft");

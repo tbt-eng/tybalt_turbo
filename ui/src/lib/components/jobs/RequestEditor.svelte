@@ -51,7 +51,9 @@
     type ClientWorkflowTarget,
     clearClientWorkflowDraft,
     keepClientWorkflowDraft,
+    mergeClientWorkflowDraft,
     readClientWorkflowDraft,
+    workflowDraftSnapshot,
   } from "$lib/clientWorkflowNavigation";
   let {
     request,
@@ -76,16 +78,61 @@
   jobs.init();
   divisions.init();
   rateSheets.init();
-  const restored = untrack(() =>
-    readClientWorkflowDraft<{
-      item: WorkflowRecord;
-      allocations: WorkflowRecord[];
-      fee: string;
-      rateMode?: string;
-      proposal?: ProposedRates;
-      saved: string;
-    }>(`request:${request.id || "new"}`, pb.authStore.record?.id || ""),
+  type FormState = {
+    item: WorkflowRecord;
+    allocations: WorkflowRecord[];
+    fee: string;
+    rateMode: string;
+    proposal: ProposedRates;
+  };
+  // The rates editor adds an empty row for each role with no rate. Those rows
+  // are left out, so they do not make the request unsaved until a rate is
+  // typed in one.
+  const comparable = (part: string, value: unknown) => {
+    if (part !== "proposal") return value;
+    const rates = value as ProposedRates;
+    return {
+      ...rates,
+      rows: rates.rows.filter((row) => row.rate !== null || row.overtime_rate !== null),
+    };
+  };
+  // The request as saved on the server.
+  const loaded: FormState = untrack(() => ({
+    item: { project_award_date: "", project_completion_date: "", ...request },
+    allocations: initialAllocations.map((row) => ({ division: row.division, hours: row.hours })),
+    fee: request.time_and_materials_set ? (request.time_and_materials ? "tm" : "fixed") : "",
+    rateMode: related.rate_sheet_proposed ? "propose" : "choose",
+    proposal: related.rate_sheet_proposed
+      ? {
+          code: related.rate_sheet?.code ?? "",
+          name: related.rate_sheet?.name ?? "",
+          reason: related.rate_sheet?.reason ?? "",
+          based_on: related.rate_sheet?.based_on ?? "",
+          rows: (related.rate_sheet_entries ?? [])
+            .map((entry: WorkflowRecord) => ({
+              role: entry.role_id,
+              roleName: entry.role_name,
+              rate: entry.rate,
+              overtime_rate: entry.overtime_rate,
+              source_rate: entry.source_rate,
+              source_overtime_rate: entry.source_overtime_rate,
+            }))
+            .sort((a: ProposedRate, b: ProposedRate) => a.roleName.localeCompare(b.roleName)),
+        }
+      : emptyProposedRates(),
+  }));
+  // A draft kept while the user was in the client workspace keeps what the
+  // user changed. The rest, and the version, come from the request as loaded
+  // now, since an absorb there may have changed it.
+  const draft = untrack(() =>
+    readClientWorkflowDraft<FormState & { saved: string }>(
+      `request:${request.id || "new"}`,
+      pb.authStore.record?.id || "",
+    ),
   );
+  const start = draft
+    ? mergeClientWorkflowDraft<FormState>(draft, draft.saved, loaded, ["item"], comparable)
+    : loaded;
   // The request either chooses an active rate sheet or proposes new rates.
   // Find by rates is a tool between the two, not a state of the request: it
   // ends with Use on a sheet (choose) or with a switch to Propose new rates,
@@ -97,9 +144,7 @@
     { id: "find", label: "Find by rates" },
     { id: "propose", label: "Propose new rates" },
   ];
-  let rateMode = $state(
-    untrack(() => restored?.rateMode ?? (related.rate_sheet_proposed ? "propose" : "choose")),
-  );
+  let rateMode = $state(start.rateMode);
   let findFrom = $state(untrack(() => rateMode));
   // The state of the request: choose or propose, also while Find by rates is
   // open.
@@ -114,30 +159,7 @@
   // The rates carried at the last switch to Propose new rates, so that a
   // switch replaces only the rates changed in Find by rates since.
   let lastCarried: FoundRate[] = [];
-  let proposal = $state<ProposedRates>(
-    untrack(
-      () =>
-        restored?.proposal ??
-        (related.rate_sheet_proposed
-          ? {
-              code: related.rate_sheet?.code ?? "",
-              name: related.rate_sheet?.name ?? "",
-              reason: related.rate_sheet?.reason ?? "",
-              based_on: related.rate_sheet?.based_on ?? "",
-              rows: (related.rate_sheet_entries ?? [])
-                .map((entry: WorkflowRecord) => ({
-                  role: entry.role_id,
-                  roleName: entry.role_name,
-                  rate: entry.rate,
-                  overtime_rate: entry.overtime_rate,
-                  source_rate: entry.source_rate,
-                  source_overtime_rate: entry.source_overtime_rate,
-                }))
-                .sort((a: ProposedRate, b: ProposedRate) => a.roleName.localeCompare(b.roleName)),
-            }
-          : emptyProposedRates()),
-    ),
-  );
+  let proposal = $state<ProposedRates>(start.proposal);
   // Active sheets with the same rates, from the last save that Turbo refused,
   // with the rates that the save sent. The notice shows only while the rates
   // are those: after a change, the editor's live comparison takes over.
@@ -149,43 +171,17 @@
   );
   // Field errors of the proposed rates from the last save that Turbo refused.
   let proposalErrors = $state<Record<string, { message: string }>>({});
-  let item = $state<WorkflowRecord>(
-    untrack(() => ({
-      project_award_date: "",
-      project_completion_date: "",
-      ...(restored?.item || request),
-    })),
-  );
-  let allocations = $state<WorkflowRecord[]>(
-    untrack(() =>
-      (restored?.allocations || initialAllocations).map((row) => ({
-        division: row.division,
-        hours: row.hours,
-      })),
-    ),
-  );
-  let fee = $state(
-    untrack(
-      () =>
-        restored?.fee ??
-        (request.time_and_materials_set ? (request.time_and_materials ? "tm" : "fixed") : ""),
-    ),
-  );
-  // The rates editor adds an empty row for each role with no rate. Those rows
-  // are left out, so they do not make the request unsaved until a rate is
-  // typed in one.
+  let item = $state<WorkflowRecord>(start.item);
+  let allocations = $state<WorkflowRecord[]>(start.allocations);
+  let fee = $state(start.fee);
   const snapshot = () =>
-    JSON.stringify({
-      item,
-      allocations,
-      fee,
-      rateMode: requestRateMode(),
-      proposal: {
-        ...proposal,
-        rows: proposal.rows.filter((row) => row.rate !== null || row.overtime_rate !== null),
-      },
-    });
-  let saved = $state(untrack(() => restored?.saved || snapshot()));
+    workflowDraftSnapshot(
+      { item, allocations, fee, rateMode: requestRateMode(), proposal },
+      comparable,
+    );
+  // The baseline is the request as saved, also after a draft is merged, so the
+  // form is unsaved exactly when it differs from the server copy.
+  let saved = $state(workflowDraftSnapshot(loaded, comparable));
   let openingClient = false;
   let saving = $state(false),
     error = $state("");

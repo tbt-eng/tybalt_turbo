@@ -1,140 +1,140 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/clientWorkflowNavigation.ts","sha256":"00ead9fffdce51cad1288515d6af12809fda4d2ec2d8884995a1529533bbcbf7","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/clientWorkflowNavigation.ts","sha256":"1256d6d38af1111eb9ac5eb8619150a2edd7868efc96ad30d78ae6447f849373","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/clientWorkflowNavigation.ts
 
-## Draft restores only with the return token in this tab
-
-Lines 2-2
-
-Asked as: draft not restored; form opens empty; lost my draft after returning; client_draft missing
-
-Turbo restores a draft only when the page address has the client_draft token and the draft kind matches the form. Without the token, or with a different kind, the form opens without a draft.
-
-## Client workspace drafts expire after four hours
+## Client workspace draft lasts four hours
 
 Lines 12-29
 
-Asked as: draft expired; old draft gone; saved draft too old; four hour limit
+Asked as: draft too old; expired draft; draft expired after hours; saved form gone; draft not restored
 
-A saved project form draft can be restored only within 4 hours of when it was saved (lifetime). A draft exactly 4 hours old is still usable. A draft whose saved time is in the future is not usable.
+Turbo keeps a project form draft for 4 hours (lifetime) after it is stored. An older draft cannot be restored. A draft with a creation time in the future is also refused.
 
-## Selected PDF survives in-tab navigation but not reload
+## Selected PDF is lost on browser reload
 
-Lines 13-19
+Lines 13-15
 
-Asked as: PDF gone after refresh; reselect PDF after reload; attachment lost on reload; uploaded PDF disappeared
+Asked as: PDF gone after reload; lost attached PDF; selected file cleared; reattach PDF after refresh; PDF missing after refresh
 
-Turbo keeps an in-memory copy of the draft, which keeps a selected PDF while the user navigates in the same tab. Session storage keeps only text, so after a browser reload the user must select the PDF again.
+The in-memory copy of a draft keeps a selected PDF while the user moves around in the same tab. Session storage keeps only text. After a browser reload the user must select the PDF again.
 
-## A draft restores only for the same user and form
+## Draft restores only for same user and same form
 
 Lines 25-29
 
-Asked as: someone else's draft; colleague sees my draft; draft shows wrong form; draft from another user
+Asked as: draft not showing; someone else's draft; form loads empty; draft missing on form; wrong user draft
 
-Turbo restores a draft only for the user who saved it and on the same form path. A different user or a different form path gets no draft.
+Turbo restores a kept draft only for the user who stored it and only on the same form path. It also needs the matching draft kind. Otherwise the form loads without the draft.
 
-## Only job and project request pages are valid return targets
+## Only safe in-app form addresses count as workflow returns
 
 Lines 31-46
 
-Asked as: return link rejected; invalid return address; cannot return to form; return url refused
+Asked as: invalid return link; return address rejected; which pages can return; bad redirect back; return url not allowed
 
-Turbo accepts a return address only if it is a path on this site that starts with a single slash. It must be /job-requests/new, a /job-requests/ page, /jobs/add (optionally with /from/ and an id) or /jobs/<id>/edit. Addresses with a backslash or line break, with a double slash, or on any other page are rejected. Query and hash parts are kept.
+Turbo accepts a return address only if it starts with a single "/" and has no backslash or line break. It must stay on the same site. It must be a project request page (/job-requests/new or /job-requests/<id>) or a job page (/jobs/add, /jobs/add/<id>, /jobs/add/from/<id> or /jobs/<id>/edit). Any other address is rejected.
 
-## Return target is named project request or job form
+## Return form is named project request or job form
 
 Lines 49-52
 
-Asked as: what is project request; job-requests return type; which form type is return; return target name
+Asked as: project request or job form; what is a project request; return form type name; which form am I returning to; job form versus request
 
-A return address that starts with /job-requests/ is named a project request. Any other return address is named a job form.
+A return address starting with /job-requests/ is called a "project request". Any other return address is called a "job form".
 
-## Leaving a form for client workspace needs a valid return form
+## Form that is not a valid return cannot open client workspace
 
 Lines 65-68
 
-Asked as: cannot open client workspace; client workspace error; workspace won't open; this form cannot return
+Asked as: cannot return from client workspace; client workspace button greyed out; can't open client workspace; client workspace won't open; workspace link refused
 
-If the current form page is not a valid return address, Turbo refuses to open the client workspace. It shows the error "This form cannot return from the client workspace."
+When the current form page is not an accepted return address, Turbo refuses to leave for the client workspace. It shows the error "This form cannot return from the client workspace."
 
-## Opening the client workspace saves the form as a draft
+## Leaving for client workspace saves the draft under a new token
 
-Lines 69-98
+Lines 69-103
 
-Asked as: save form before client page; keep form when opening client; client workspace saves my form; form saved when switching
+Asked as: draft saved before workspace; client_draft in address; where does draft token come from; workflow_return link; keeps my form when leaving
 
-Before the user goes to the client workspace, Turbo saves the form contents under a new random token, with the user, the form path and the time. It adds the token (client_draft) to the form address, which the user returns to later.
+Before the user goes to the client workspace, Turbo stores the form draft with a new random token. It adds the token as client_draft to the form address, and the return link carries that address (workflow_return).
 
 ## A new draft replaces earlier drafts of the same form
 
 Lines 79-95
 
-Asked as: old workspace history restores; undo brings back old draft; previous draft came back; duplicate drafts
+Asked as: old draft replaced; earlier draft deleted; previous draft overwritten; workspace history old version; superseded draft comes back
 
-Saving a draft deletes earlier drafts of the same kind, user and form path, so old workspace history entries cannot bring back a superseded draft. Turbo also deletes unreadable drafts and drafts older than 4 hours.
+Saving a draft deletes earlier drafts of the same kind, user and form path, so old workspace history cannot bring back a superseded draft. Turbo also deletes unreadable drafts and drafts older than 4 hours.
 
-## Client workspace link carries return address and project contact
+## Client workspace link passes the project contact
 
 Lines 99-104
 
-Asked as: client link missing contact; project contact not passed; client details link return; workflow return link
+Asked as: client link missing contact; project contact not passed; contact not carried to client page; client page link details; open client details from form
 
-The link to the client details page includes the form address to return to (workflow_return). It also includes the project contact (project_contact) when one is set.
+The link goes to the client's details page. It carries the project contact (project_contact) only when the form has one.
 
-## Contact and invoicing editors return to the workspace
+## Contact and invoicing targets open the add page with return
 
-Lines 105-108
+Lines 104-108
 
-Asked as: add contact returns wrong place; new contact page back button; invoicing add page return; contact editor not returning
+Asked as: add contact from client workspace; add invoicing from workspace; return to client after adding contact; new invoicing address page; contact page doesn't return
 
-When the target is a contact or invoicing profile, Turbo opens the add page for contacts or invoicing under the client. That page returns to the client workspace link (return_to) and passes along the project contact if one is set.
+When the target is a contact or invoicing, Turbo opens the add page for contacts or invoicing under that client. That page returns to the client workspace link (return_to) and keeps the project contact if there is one.
 
-## Draft restore requires a matching token and kind
+## Draft restores only with the client_draft token in the URL
 
 Lines 111-119
 
-Asked as: draft not loading; no draft restored; draft ignored after return; why is draft blank
+Asked as: draft not restored after return; no draft on coming back; missing client_draft in url; workspace return empty form; draft not appearing on return
 
-When the address has no client_draft token, no draft is read. The draft is also ignored if it is expired, or belongs to another user, path or kind.
+Turbo restores a draft only when the page address has a client_draft token that matches a stored draft. Without the token, it restores nothing.
 
-## Draft form kind is derived from the return path
+## Draft form is chosen from the page path
 
-Lines 122-127
+Lines 121-127
 
-Asked as: draft key for job form; job:new draft; which draft kind; draft type for request
+Asked as: which form does draft belong to; draft for new job; draft on request page; how draft is matched to job; path decides draft form
 
-A project request form uses the draft kind request:<id>. The new job form uses job:new, and an existing job form uses job:<id>.
+A draft belongs to a request when the path is /job-requests/<id>. For /jobs/add it is a new job. For any other job path it is that job.
 
-## New or reused invoicing profile is selected only in the originating form
+## Profile selection leaves the rest of the draft and the saved record unchanged
 
 Lines 129-165
 
-Asked as: invoicing profile not selected; new billing profile missing; profile not chosen after creating; billing details not applied
+Asked as: selecting profile saves job; profile choice changes record; choosing invoicing profile saves; profile selection side effects; profile pick and draft storage fails
 
-After a profile is created, copied or reused, Turbo sets it as the invoicing information in the saved draft. This works only if the return address holds a usable draft token for the same user and kind. It also requires that the draft's client matches the profile's client. Otherwise nothing is selected. Saving the profile does not save the job or request.
+Selecting a profile changes only the draft's invoicing information and its selected profile. It does not save the job, request or value change. If browser storage fails, the draft stays as it was.
 
-## Profile selection needs all identifiers
+## Profile selection applies only to the originating form's draft
 
-Lines 137-139
+Lines 131-148
 
-Asked as: profile not selected missing info; no profile chosen; client or profile missing; profile selection fails
+Asked as: profile not selected after returning; invoicing profile not applied; new profile missing on form; wrong client profile selected; profile not set in draft
 
-Turbo selects no profile if the return address, user, client or profile is missing.
+After the user creates, copies or reuses an invoicing profile, Turbo sets it in the kept draft only if the return address is valid and carries a usable client_draft token. The draft must belong to the same user and the same form. Its client must equal the client of the profile. Otherwise Turbo selects nothing.
 
-## Storage error leaves draft unchanged when selecting profile
+## Returning merges the draft with the freshly loaded form
 
-Lines 157-162
+Lines 184-212
 
-Asked as: cannot save profile selection; browser storage blocked profile; profile selection storage error; session storage profile fail
+Asked as: my edits overwritten on return; changes lost after workspace; server overwrote my changes; form reload loses edits; merge draft after client page
 
-If saving the profile selection to session storage fails, Turbo selects no profile and leaves the draft as it was.
+When the form reloads after the client workspace, a value the user changed since the last save keeps the draft's value, even if the server changed it too. Every other value takes the freshly loaded one. If there is no baseline, every draft value counts as changed.
 
-## Successful save clears the draft
+## Record parts merge field by field and keep the server version
 
-Lines 167-177
+Lines 214-222
 
-Asked as: draft still there after save; saved form draft remains; draft not cleared; blocked storage save issue
+Asked as: parts merge conflict; allocations overwritten; version conflict on save; field edits lost in parts; which field value wins
 
-After a form is saved, Turbo deletes the draft named by the client_draft token in the address. A blocked browser store does not stop the save.
+For parts merged field by field, each field the user changed keeps the draft's value and the others take the loaded value. The version always comes from the server. Other parts, such as allocations, are merged whole.
+
+## Saving the form clears its draft
+
+Lines 226-235
+
+Asked as: draft still there after save; form draft not cleared; old draft after saving; remove draft on save; saved but draft remains
+
+Clearing removes the draft named by the client_draft token from memory and session storage. A blocked browser store does not stop a successful save.

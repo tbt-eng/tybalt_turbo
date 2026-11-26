@@ -3,9 +3,11 @@ import test from "node:test";
 import {
   safeWorkflowReturn,
   keepClientWorkflowDraft,
+  mergeClientWorkflowDraft,
   readClientWorkflowDraft,
   clearClientWorkflowDraft,
   selectClientWorkflowProfile,
+  workflowDraftSnapshot,
   workflowFormName,
 } from "../src/lib/clientWorkflowNavigation.ts";
 
@@ -293,4 +295,153 @@ test("drafts preserve values, require the same user and source, and clear after 
     if (originalStorage) Object.defineProperty(globalThis, "sessionStorage", originalStorage);
     else Reflect.deleteProperty(globalThis, "sessionStorage");
   }
+});
+
+// A request form as kept on leaving for the client workspace, and as loaded
+// again on return. Empty proposed-rate rows are not compared, as in the editor.
+type RequestForm = {
+  item: Record<string, unknown>;
+  allocations: { division: string; hours: number }[];
+  fee: string;
+  rateMode: string;
+  proposal: { code: string; rows: { role: string; rate: number | null }[] };
+};
+const ratedRows = (part: string, value: unknown) =>
+  part === "proposal"
+    ? {
+        ...(value as RequestForm["proposal"]),
+        rows: (value as RequestForm["proposal"]).rows.filter((row) => row.rate !== null),
+      }
+    : value;
+const savedForm = (): RequestForm => ({
+  item: {
+    id: "request1",
+    version: 3,
+    description: "Bridge survey",
+    client: "client1",
+    contact: "contact1",
+    notes: "",
+  },
+  allocations: [{ division: "division1", hours: 10 }],
+  fee: "fixed",
+  rateMode: "propose",
+  proposal: { code: "R1", rows: [{ role: "role1", rate: 100 }] },
+});
+const mergeForm = (draft: RequestForm, baseline: RequestForm, loaded: RequestForm) =>
+  mergeClientWorkflowDraft(
+    draft,
+    workflowDraftSnapshot(baseline, ratedRows),
+    loaded,
+    ["item"],
+    ratedRows,
+  );
+
+test("a kept request draft takes what an absorb changed and keeps the user's changes", () => {
+  const baseline = savedForm();
+  const draft = savedForm();
+  draft.item.description = "Bridge survey, phase 2";
+  const loaded = savedForm();
+  // An absorb rewrote the contact and bumped the version meanwhile.
+  loaded.item.contact = "contact2";
+  loaded.item.version = 4;
+  loaded.item.notes = "Saved elsewhere";
+  const merged = mergeForm(draft, baseline, loaded);
+  assert.equal(merged.item.version, 4);
+  assert.equal(merged.item.contact, "contact2");
+  assert.equal(merged.item.notes, "Saved elsewhere");
+  assert.equal(merged.item.description, "Bridge survey, phase 2");
+});
+
+test("a field both the user and the server changed keeps the user's value", () => {
+  const draft = savedForm();
+  draft.item.contact = "contact3";
+  draft.item.version = 3;
+  const loaded = savedForm();
+  loaded.item.contact = "contact2";
+  loaded.item.version = 4;
+  const merged = mergeForm(draft, savedForm(), loaded);
+  assert.equal(merged.item.contact, "contact3");
+  assert.equal(merged.item.version, 4);
+});
+
+test("a profile chosen in the client workspace survives the merge", () => {
+  const draft = savedForm();
+  // selectClientWorkflowProfile writes the choice into the kept item.
+  draft.item.invoicing_information = "profile1";
+  const merged = mergeForm(draft, savedForm(), savedForm());
+  assert.equal(merged.item.invoicing_information, "profile1");
+});
+
+test("allocations, proposed rates, fee and rate mode merge as whole units", () => {
+  const draft = savedForm();
+  draft.allocations = [
+    { division: "division1", hours: 10 },
+    { division: "division2", hours: 5 },
+  ];
+  // An empty row the rates editor added is not a change.
+  draft.proposal.rows.push({ role: "role2", rate: null });
+  const loaded = savedForm();
+  loaded.allocations = [{ division: "division1", hours: 20 }];
+  loaded.proposal = { code: "R2", rows: [{ role: "role1", rate: 120 }] };
+  loaded.fee = "tm";
+  const merged = mergeForm(draft, savedForm(), loaded);
+  assert.deepEqual(merged.allocations, draft.allocations);
+  assert.deepEqual(merged.proposal, loaded.proposal);
+  assert.equal(merged.fee, "tm");
+  assert.equal(merged.rateMode, "propose");
+
+  const changedRates = savedForm();
+  changedRates.proposal.rows[0].rate = 110;
+  changedRates.fee = "tm";
+  changedRates.rateMode = "choose";
+  const kept = mergeForm(changedRates, savedForm(), loaded);
+  assert.deepEqual(kept.proposal, changedRates.proposal);
+  assert.deepEqual(kept.allocations, loaded.allocations);
+  assert.equal(kept.fee, "tm");
+  assert.equal(kept.rateMode, "choose");
+});
+
+test("a merged request is unsaved only when it differs from the server copy", () => {
+  const loaded = savedForm();
+  loaded.item.contact = "contact2";
+  loaded.item.version = 4;
+  const baselineAfter = workflowDraftSnapshot(loaded, ratedRows);
+  const untouched = mergeForm(savedForm(), savedForm(), loaded);
+  assert.equal(workflowDraftSnapshot(untouched, ratedRows), baselineAfter);
+
+  const draft = savedForm();
+  draft.item.notes = "Call first";
+  const changed = mergeForm(draft, savedForm(), loaded);
+  assert.notEqual(workflowDraftSnapshot(changed, ratedRows), baselineAfter);
+  changed.item.notes = "";
+  assert.equal(workflowDraftSnapshot(changed, ratedRows), baselineAfter);
+});
+
+test("a new request's draft restores as kept", () => {
+  const blank: RequestForm = {
+    item: { description: "", client: "", contact: "" },
+    allocations: [],
+    fee: "",
+    rateMode: "choose",
+    proposal: { code: "", rows: [] },
+  };
+  const draft: RequestForm = {
+    item: { description: "New survey", client: "client1", contact: "contact1" },
+    allocations: [{ division: "division1", hours: 8 }],
+    fee: "tm",
+    rateMode: "choose",
+    proposal: { code: "", rows: [] },
+  };
+  assert.deepEqual(mergeForm(draft, blank, structuredClone(blank)), draft);
+});
+
+test("a draft with an unreadable baseline keeps all of its values but the version", () => {
+  const draft = savedForm();
+  draft.item.contact = "contact1";
+  const loaded = savedForm();
+  loaded.item.contact = "contact2";
+  loaded.item.version = 4;
+  const merged = mergeClientWorkflowDraft(draft, "not json", loaded, ["item"], ratedRows);
+  assert.equal(merged.item.contact, "contact1");
+  assert.equal(merged.item.version, 4);
 });
