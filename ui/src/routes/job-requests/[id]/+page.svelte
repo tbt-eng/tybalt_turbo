@@ -82,6 +82,7 @@
     dirty = $state(false),
     printing = $state(false),
     confirmingDelete = $state(false),
+    confirmingRemovePDF = $state(false),
     // Notes may be internal, so the printout leaves them out unless chosen.
     printNotes = $state(false);
   let checklist = $state<Record<string, boolean>>({}),
@@ -91,6 +92,7 @@
     // The approver approves proposed rates beside the rates, not in the checklist.
     ratesApproved = $state(false);
   let editor: RequestEditor | undefined = $state();
+  let fileInput: HTMLInputElement | undefined = $state();
   const detail = $derived(data.detail),
     request = $derived(detail.request),
     permission = $derived(detail.permissions),
@@ -186,6 +188,23 @@
     } finally {
       busy = false;
       input.value = "";
+    }
+  }
+  // The server deletes the attachment and its file outright.
+  async function removePDF() {
+    busy = true;
+    error = "";
+    try {
+      await pb.send(`/api/job_requests/${request.id}/document`, {
+        method: "DELETE",
+        body: { version: request.version },
+      });
+      confirmingRemovePDF = false;
+      await refresh();
+    } catch (e) {
+      error = workflowError(e);
+    } finally {
+      busy = false;
     }
   }
   async function openPDF() {
@@ -394,19 +413,51 @@
       <p class="text-xs text-neutral-500" title={detail.attachment.document_hash}>
         SHA-256 (first 7): {detail.attachment.document_hash.slice(0, 7)}
       </p>{:else}<p>No authorization PDF uploaded.</p>{/if}
-    {#if permission.can_edit && $jobRequestsEnabled}<label class="block text-sm font-semibold"
-        >{detail.attachment ? "Replace PDF" : "Upload PDF"}<input
-          class="mt-2 block"
+    {#if permission.can_edit && $jobRequestsEnabled}
+      <!-- The button opens the file dialog of the hidden input. -->
+      <div class="flex flex-wrap gap-2">
+        <DSActionButton
+          variant="secondary"
+          disabled={busy || dirty}
+          action={() => fileInput?.click()}
+          >{detail.attachment ? "Replace PDF" : "Upload PDF"}</DSActionButton
+        >
+        {#if detail.attachment}<DSActionButton
+            variant="secondary"
+            disabled={busy || dirty}
+            action={() => {
+              error = "";
+              confirmingRemovePDF = true;
+            }}>Remove PDF</DSActionButton
+          >{/if}
+        <input
+          bind:this={fileInput}
+          class="hidden"
           type="file"
           accept="application/pdf,.pdf"
+          aria-label={detail.attachment ? "Replace PDF" : "Upload PDF"}
           disabled={busy || dirty}
           onchange={upload}
-        /></label
-      >
+        />
+      </div>
+      {#if dirty}<DSCallout tone="warning"
+          >You have unsaved changes. Save the request before you change the PDF.</DSCallout
+        >{/if}
       <p class="text-sm text-neutral-600">
-        Save edits first. Upload the signed copy, including the rate appendix for T&amp;M work, or
-        other sufficient authorization evidence.
-      </p>{/if}
+        Upload the signed copy, including the rate appendix for T&amp;M work, or other sufficient
+        authorization evidence.
+      </p>
+      <DSPopover
+        bind:show={confirmingRemovePDF}
+        title="Remove PDF"
+        danger
+        submitLabel="Remove"
+        submitting={busy}
+        {error}
+        onSubmit={removePDF}
+      >
+        <p>Turbo deletes this PDF. You can't undo this. Upload a PDF before you submit.</p>
+      </DSPopover>{/if}
   </DSSection>
   {#if permission.can_create}
     <DSSection title="Duplicate-work review">
