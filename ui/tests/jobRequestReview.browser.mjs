@@ -134,7 +134,7 @@ await runBrowserHarness(
     );
     assert.equal(actions.at(-1).path, "/api/job_requests/request1/submit");
 
-    // A rejected request has no Submit until it changes. Its notice offers Edit.
+    // A rejected request has no Submit until it changes. The header offers Edit.
     await page.evaluate(() => {
       window.lastNavigation = undefined;
       const data = window.requestData("Rejected", { can_edit: true, can_delete: true });
