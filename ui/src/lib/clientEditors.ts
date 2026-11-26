@@ -55,7 +55,16 @@ export function savedReturnTo(returnTo: string, kind: "contact" | "invoicing", i
   url.searchParams.delete("edit");
   url.searchParams.delete("saved_contact");
   url.searchParams.delete("saved_invoicing");
+  url.searchParams.delete("replaced_invoicing");
   url.searchParams.set(`saved_${kind}`, id);
   url.hash = kind === "contact" ? "contacts" : "invoicing";
+  return url.pathname + url.search + url.hash;
+}
+// Where to go after a profile was replaced: the client page, which shows
+// "Profile replaced." on the profile that took over, given by id.
+export function replacedReturnTo(returnTo: string, id: string): string {
+  const url = new URL(savedReturnTo(returnTo, "invoicing", id), "https://workspace.invalid");
+  url.searchParams.delete("saved_invoicing");
+  url.searchParams.set("replaced_invoicing", id);
   return url.pathname + url.search + url.hash;
 }

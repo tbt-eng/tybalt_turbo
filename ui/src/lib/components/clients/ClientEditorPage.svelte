@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import type { loadClientEditor } from "$lib/clientEditorLoad";
-  import { savedReturnTo } from "$lib/clientEditors";
+  import { replacedReturnTo, savedReturnTo } from "$lib/clientEditors";
   import { selectClientWorkflowProfile } from "$lib/clientWorkflowNavigation";
   import { pb } from "$lib/pocketbase";
   import type { WorkflowRecord } from "$lib/clientEditors";
@@ -68,8 +68,7 @@
           onSaved={savedProfile}
           onCancel={() => goto(data.returnTo)}
           onDeleted={() => leaveTo(data.returnTo)}
-          onReplaced={(replacement) =>
-            leaveTo(savedReturnTo(data.returnTo, "invoicing", replacement.id))}
+          onReplaced={(replacement) => leaveTo(replacedReturnTo(data.returnTo, replacement.id))}
         />
       {/if}
     {/key}

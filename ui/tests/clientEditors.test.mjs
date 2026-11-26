@@ -173,6 +173,22 @@ test("saved record links retain list filters and replace stale save banners", as
   assert.equal(url.hash, "#contacts");
 });
 
+test("a replaced profile link names the replacement and drops a stale save banner", async () => {
+  const { modules } = await editorModules();
+  const result = modules
+    .get("editors")
+    .namespace.replacedReturnTo(
+      "/clients/client1/details?invoicing_q=north&saved_invoicing=old&edit=client",
+      "profile2",
+    );
+  const url = new URL(result, "https://app.invalid");
+  assert.equal(url.searchParams.get("invoicing_q"), "north");
+  assert.equal(url.searchParams.get("replaced_invoicing"), "profile2");
+  assert.equal(url.searchParams.has("saved_invoicing"), false);
+  assert.equal(url.searchParams.has("edit"), false);
+  assert.equal(url.hash, "#invoicing");
+});
+
 test("contact merge opens for absorb holders and, to propose, for everyone else", async () => {
   const allowed = await editorModules({ claims: ["absorb"] });
   const result = await allowed.modules

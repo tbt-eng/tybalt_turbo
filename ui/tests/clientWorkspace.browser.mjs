@@ -426,6 +426,14 @@ await runBrowserHarness(
     await page.mouse.move(0, 0);
     await invoicing().getByRole("status").waitFor({ state: "hidden", timeout: 10000 });
     assert.equal(await invoicing().locator('[data-highlighted="true"]').count(), 0);
+    // After a replace, the profile that took over is named as the replacement.
+    await page.goto(
+      `${origin}/clients/${client.id}/details?invoicing_q=reference+099&replaced_invoicing=invoice00000099`,
+    );
+    await invoicing().getByRole("status").waitFor();
+    assert.equal(await invoicing().getByRole("status").innerText(), "Profile replaced.");
+    assert.equal(await invoicing().locator('[data-highlighted="true"]').count(), 1);
+    assert.equal(new URL(page.url()).searchParams.has("replaced_invoicing"), false);
 
     await page
       .locator(`a[href^="/clients/${client.id}/jobs"]`)

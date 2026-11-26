@@ -63,8 +63,14 @@
     clientId: string;
     kind: "contact" | "profile";
     id: string;
-    highlighted: boolean;
+    // What the notice says about a profile; a contact is always saved.
+    event: "saved" | "replaced" | "highlighted";
   } | null>(null);
+  const profileNotices = {
+    saved: "Profile saved.",
+    replaced: "Profile replaced.",
+    highlighted: "Profile highlighted.",
+  };
   const savedContact = $derived(
     notice && notice.clientId === data.client.id && notice.kind === "contact"
       ? contacts.find((contact) => contact.id === notice?.id)
@@ -124,20 +130,22 @@
     const clientId = data.client.id;
     const contactId = url.searchParams.get("saved_contact");
     const profileId = url.searchParams.get("saved_invoicing");
+    const replacedId = url.searchParams.get("replaced_invoicing");
     const highlightId = url.searchParams.get("show_invoicing");
-    if (!contactId && !profileId && !highlightId) return;
+    if (!contactId && !profileId && !replacedId && !highlightId) return;
     // SvelteKit restores the hash URL in its queued focus-reset task.
     // Run after that task so it cannot restore the consumed save marker.
     const timer = setTimeout(() => {
       notice = {
         clientId,
         kind: contactId ? "contact" : "profile",
-        id: contactId || profileId || highlightId!,
-        highlighted: !contactId && !profileId && !!highlightId,
+        id: contactId || profileId || replacedId || highlightId!,
+        event: contactId || profileId ? "saved" : replacedId ? "replaced" : "highlighted",
       };
       const cleaned = new URL(url);
       cleaned.searchParams.delete("saved_contact");
       cleaned.searchParams.delete("saved_invoicing");
+      cleaned.searchParams.delete("replaced_invoicing");
       cleaned.searchParams.delete("show_invoicing");
       replaceWorkspaceUrl(`${cleaned.pathname}${cleaned.search}${cleaned.hash}`);
     }, 0);
@@ -464,7 +472,7 @@
           {#if savedProfile}
             {#key notice}
               <ClientSaveNotice
-                message={notice?.highlighted ? "Profile highlighted." : "Profile saved."}
+                message={profileNotices[notice?.event ?? "saved"]}
                 linkLabel="Show profile"
                 href={savedProfileHref}
                 onShow={() => savedProfileHref && showSaved(savedProfileHref)}
