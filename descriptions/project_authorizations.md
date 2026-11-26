@@ -1030,13 +1030,17 @@ The refusal carries the jobs hook's code: field `proposal`, code
 `proposal_not_awarded`, and `data.proposal_id`. The server never awards the
 proposal itself.
 
-The request page shows a linked proposal's number and status to everyone who
-can see the request. While the proposal is `In Progress` or `Submitted`, a
-`job` holder gets **Award proposal**, which sets the proposal to `Awarded`
-through the jobs API as that user, so the proposal's own rules apply. If
-**Create Job** returns `proposal_not_awarded`, the page offers to award the
-proposal and then retries creation. A failed award shows the server's reason
-and a link to edit the proposal.
+The request page shows a linked proposal's status on its Proposal field to
+everyone who can see the request. Only a `job` holder can act on the status, so
+only a `job` holder gets a notice while the proposal is `In Progress` or
+`Submitted`. The notice has **Award proposal**, which sets the proposal to
+`Awarded` through the jobs API as that user, so the proposal's own rules apply.
+A proposal with no proposal value that is not Time and Materials cannot be
+awarded: the notice says so and offers **Edit the proposal** in place of the
+button. A successful award shows "Proposal P… is now Awarded." If **Create Job**
+returns `proposal_not_awarded`, the page offers to award the proposal and then
+retries creation. A failed award shows the reason once, in plain words, and a
+link to edit the proposal.
 
 With the flag on, **Create Project from Proposal** becomes **Create Project Request
 from Proposal**. Copy available values and the proposal relation. The creator

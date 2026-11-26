@@ -142,10 +142,29 @@
     proposal?.status === JobsStatusOptions["In Progress"] ||
       proposal?.status === JobsStatusOptions.Submitted,
   );
-  const canAward = $derived(
-    $globalStore.claims.includes("job") && $jobsEditingEnabled && $jobRequestsEnabled,
+  // Only procurement can act on the status, so only procurement gets the
+  // notice. Everyone sees the status on the Proposal field.
+  const jobHolder = $derived($globalStore.claims.includes("job"));
+  const canAward = $derived(jobHolder && $jobsEditingEnabled && $jobRequestsEnabled);
+  // The award needs a value or Time and Materials. Say so before the attempt.
+  const needsValue =
+    "The proposal needs a Proposal Value or Time and Materials before it can be awarded.";
+  const proposalNeedsValue = $derived(
+    !!proposal && !(Number(proposal.proposal_value) > 0) && !proposal.time_and_materials,
   );
+  // Why an award failed, in plain words: the known reason, else what the
+  // server says about each field, else its message.
+  function awardFailure(e: unknown): string {
+    const failure = e as { data?: WorkflowRecord; response?: WorkflowRecord };
+    const body = failure?.response ?? failure?.data;
+    const fields = Object.values((body?.data ?? {}) as Record<string, WorkflowRecord>);
+    if (fields.some((field) => field?.code === "value_required_for_status")) return needsValue;
+    const reasons = fields.map((field) => field?.message).filter(Boolean);
+    return reasons.length ? reasons.join(" ") : workflowError(e);
+  }
   let awardError = $state(""),
+    // Shown after a successful award.
+    awardedNotice = $state(""),
     // The proposal of a failed award, for the link to edit it.
     awardFailedId = $state(""),
     // Set when creation answers proposal_not_awarded: the proposal to award.
@@ -156,11 +175,13 @@
   async function awardProposal(id: string): Promise<boolean> {
     awardError = "";
     awardFailedId = "";
+    awardedNotice = "";
     try {
       await pb.collection("jobs").update(id, { status: JobsStatusOptions.Awarded });
+      awardedNotice = `Proposal ${proposal?.number} is now Awarded.`;
       return true;
     } catch (e) {
-      awardError = workflowError(e);
+      awardError = awardFailure(e);
       awardFailedId = id;
       return false;
     }
@@ -355,17 +376,30 @@
     >
   {/if}
   {#snippet awardAction()}
-    <DSActionButton disabled={busy} action={award}>Award proposal</DSActionButton>
+    {#if proposal && proposalNeedsValue}
+      <DSActionButton action={resolve("/jobs/[jid]/edit", { jid: proposal.id })}
+        >Edit the proposal</DSActionButton
+      >
+    {:else}
+      <DSActionButton disabled={busy} action={award}>Award proposal</DSActionButton>
+    {/if}
   {/snippet}
-  {#if proposal && proposalOpen}
+  {#if proposal && proposalOpen && jobHolder}
     <DSCallout
-      tone="info"
+      tone={proposalNeedsValue ? "warning" : "info"}
       title={`Proposal ${proposal.number} is ${proposal.status}`}
       actions={canAward ? awardAction : undefined}
     >
-      Procurement must award the proposal before the job can be created.
+      {#if proposalNeedsValue}
+        {needsValue}
+      {:else}
+        Award it before you create the job.
+      {/if}
     </DSCallout>
   {/if}
+  {#if awardedNotice}<div role="status">
+      <DSCallout tone="success">{awardedNotice}</DSCallout>
+    </div>{/if}
   {#if awardError}<div role="alert">
       <DSCallout tone="danger" title="Cannot award the proposal">
         <p>{awardError}</p>

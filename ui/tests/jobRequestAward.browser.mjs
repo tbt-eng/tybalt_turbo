@@ -1,10 +1,17 @@
-// The request page shows an unawarded proposal to everyone, and lets a job
-// holder award it: from the notice, or when Create Job is refused for it.
+// The request page tells a job holder that the proposal is not awarded and
+// lets them award it: from the notice, or when Create Job is refused for it.
 import assert from "node:assert/strict";
 import { runBrowserHarness } from "./browserHarness.mjs";
 
-const proposal = (status) => ({
-  proposal: { id: "prop1", number: "P25-001", description: "Bridge study", status },
+const proposal = (status, proposal_value = 50000) => ({
+  proposal: {
+    id: "prop1",
+    number: "P25-001",
+    description: "Bridge study",
+    status,
+    proposal_value,
+    time_and_materials: false,
+  },
 });
 
 await runBrowserHarness(
@@ -63,24 +70,42 @@ await runBrowserHarness(
       }
       return json({ items: [] });
     });
-    const show = (status) =>
+    const show = (status, value) =>
       page.evaluate(
         (related) =>
           window.setRequestData(
             window.requestData("Awaiting creation", { can_create: true }, related),
           ),
-        proposal(status),
+        proposal(status, value),
       );
     await page.goto(`${origin}/tests/fixtures/jobRequestReview.html`);
     await page.waitForFunction(() => !!window.setRequestData);
     await show("Submitted");
 
-    // Everyone sees the status. Only a job holder gets the button.
+    // Everyone sees the status on the Proposal field. Only a job holder, who
+    // can act on it, gets the notice and the button.
     const notice = page.getByText("Proposal P25-001 is Submitted", { exact: true });
     const award = page.getByRole("button", { name: "Award proposal", exact: true });
-    await notice.waitFor();
+    const needsValue =
+      "The proposal needs a Proposal Value or Time and Materials before it can be awarded.";
+    await page.getByText("Submitted", { exact: true }).waitFor();
+    assert.equal(await notice.count(), 0);
     assert.equal(await award.count(), 0);
     await page.evaluate(() => window.setClaims(["job"]));
+    await award.waitFor();
+    await notice.waitFor();
+
+    // A proposal that cannot be awarded yet says why and links to the proposal
+    // in place of the button.
+    await show("Submitted", 0);
+    const edit = page.getByRole("button", { name: "Edit the proposal", exact: true });
+    await edit.waitFor();
+    assert.equal(await award.count(), 0);
+    assert.ok(await page.getByText(needsValue).isVisible());
+    await edit.click();
+    await page.waitForFunction(() => window.lastNavigation === "/jobs/prop1/edit");
+    await page.evaluate(() => (window.lastNavigation = undefined));
+    await show("Submitted");
     await award.waitFor();
 
     // A refused award shows the reason and a link to the proposal.
@@ -88,7 +113,9 @@ await runBrowserHarness(
     await award.click();
     const failed = page.getByText("Cannot award the proposal", { exact: true });
     await failed.waitFor();
-    assert.ok(await page.getByText(/needs a value/).isVisible());
+    // The reason is said once, in plain words, not in the server's wording.
+    assert.ok(await page.getByText(needsValue, { exact: true }).isVisible());
+    assert.equal(await page.getByText(/needs a value/).count(), 0);
     assert.equal(
       await page.getByRole("link", { name: "Edit the proposal" }).getAttribute("href"),
       "/jobs/prop1/edit",
@@ -99,14 +126,18 @@ await runBrowserHarness(
       body: { status: "Awarded" },
     });
 
-    // A successful award clears the failure. The reload shows it as Awarded.
+    // A successful award clears the failure and says so. The reload shows the
+    // proposal as Awarded and the message stays.
     awardFails = false;
     await award.click();
     await failed.waitFor({ state: "detached" });
+    const awarded = page.getByText("Proposal P25-001 is now Awarded.", { exact: true });
+    await awarded.waitFor();
     assert.equal(calls.length, 2);
     await show("Awarded");
     await notice.waitFor({ state: "detached" });
     assert.equal(await award.count(), 0);
+    assert.ok(await awarded.isVisible());
 
     // Create Job refused for the proposal offers to award it and continue.
     await show("Submitted");
