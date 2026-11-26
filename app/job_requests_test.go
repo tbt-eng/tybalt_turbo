@@ -504,9 +504,13 @@ func TestJobRequestSelectedApproverAndCreatorPermissions(t *testing.T) {
 		t.Fatalf("creation queue must include other creators: %#v", queue)
 	}
 	clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=creation", workflowApprover, nil, http.StatusForbidden)
-	// The approver keeps the request in view until the job is created.
-	if queue := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approval", workflowApprover, nil, http.StatusOK); queue["totalItems"] != float64(0) {
-		t.Fatalf("approved request must leave the approval queue: %#v", queue)
+	// The approver keeps the request in view until the job is created. The
+	// approval queue still holds fixture paovrlimit00001, which is over the
+	// approver's limit, so check for this request only.
+	for _, item := range clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approval", workflowApprover, nil, http.StatusOK)["items"].([]any) {
+		if item.(map[string]any)["id"] == id {
+			t.Fatal("approved request must leave the approval queue")
+		}
 	}
 	if queue := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests?queue=approved", workflowApprover, nil, http.StatusOK); queue["totalItems"] != float64(1) {
 		t.Fatalf("approved queue must list the approver's request awaiting creation: %#v", queue)
@@ -542,6 +546,34 @@ func TestJobRequestApprovalRechecksCurrentAuthority(t *testing.T) {
 				t.Fatal("failed approval changed request state")
 			}
 		})
+	}
+}
+
+// The page can't see the approver's limit, so the detail tells the selected
+// approver why they have no Approve button. Fixture paovrlimit00001 waits for
+// Tier Two's approval at $2,000,000, above their $1,000,000 limit. Nobody else
+// learns anything about that limit.
+func TestJobRequestDetailExplainsApprovalLimit(t *testing.T) {
+	app := newWorkflowTestApp(t, true)
+	const id = "paovrlimit00001"
+	detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, workflowApprover, nil, http.StatusOK)
+	if detail["approval_blocked_reason"] != "Your approval limit does not cover this project value." {
+		t.Fatalf("approver reason = %#v", detail["approval_blocked_reason"])
+	}
+	if detail["permissions"].(map[string]any)["can_approve"] != false {
+		t.Fatalf("approver over the limit can approve: %#v", detail["permissions"])
+	}
+	for _, viewer := range []string{"time@test.com", workflowAuthor} {
+		detail := clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/"+id, viewer, nil, http.StatusOK)
+		if detail["approval_blocked_reason"] != "" {
+			t.Fatalf("%s sees the approver's reason: %#v", viewer, detail["approval_blocked_reason"])
+		}
+	}
+	// A limit that covers the value gives no reason and the Approve button.
+	clientSetupJSON(t, app, http.MethodPost, "/api/job_requests/parequest000001/submit", "time@test.com", requestActionData(t, app, "parequest000001"), http.StatusOK)
+	detail = clientSetupJSON(t, app, http.MethodGet, "/api/job_requests/parequest000001", workflowApprover, nil, http.StatusOK)
+	if detail["approval_blocked_reason"] != "" || detail["permissions"].(map[string]any)["can_approve"] != true {
+		t.Fatalf("approver within the limit: reason %#v, permissions %#v", detail["approval_blocked_reason"], detail["permissions"])
 	}
 }
 

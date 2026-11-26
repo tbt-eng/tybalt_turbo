@@ -8,6 +8,7 @@ import {
   wholeCAD,
   emptyChecklist,
   proposalAcceptsRequest,
+  requestNextStep,
   type RequestDetail,
 } from "../src/lib/jobRequests.ts";
 const complete = (): RequestDetail => ({
@@ -149,4 +150,49 @@ test("only an In Progress, Submitted or Awarded proposal accepts a request", () 
     assert.equal(proposalAcceptsRequest(status), true, status);
   for (const status of ["Not Awarded", "No Bid", "Cancelled", "Active", "", undefined])
     assert.equal(proposalAcceptsRequest(status), false, String(status));
+});
+
+test("the request page says who acts next, by name or as you", () => {
+  const next = (status: string, viewer: Partial<Parameters<typeof requestNextStep>[0]> = {}) =>
+    requestNextStep({
+      status,
+      creatorName: "Casey Creator",
+      approverName: "Avery Approver",
+      viewerIsCreator: false,
+      viewerIsApprover: false,
+      canCreate: false,
+      ...viewer,
+    });
+  const creator = { viewerIsCreator: true };
+  assert.equal(next("Draft"), "Casey Creator has not submitted this request.");
+  assert.equal(next("Draft", creator), "You have not submitted this request.");
+  assert.equal(next("Recalled"), "Recalled. Casey Creator has not submitted it again.");
+  assert.equal(next("Recalled", creator), "Recalled. You have not submitted it again.");
+  assert.equal(next("Awaiting approval"), "Waiting for approval by Avery Approver.");
+  assert.equal(next("Awaiting approval", creator), "Waiting for approval by Avery Approver.");
+  assert.equal(next("Awaiting approval", { viewerIsApprover: true }), "Waiting for your approval.");
+  assert.equal(next("Awaiting creation"), "Approved. Waiting for procurement to create the job.");
+  assert.equal(
+    next("Awaiting creation", { canCreate: true }),
+    "Approved. Waiting for you or another procurement user to create the job.",
+  );
+  assert.equal(next("Rejected"), "Rejected. Waiting for Casey Creator to correct it.");
+  assert.equal(next("Rejected", creator), "Rejected. Correct the request, then submit it again.");
+  assert.equal(next("Unknown"), "");
+});
+
+test("a missing name is left out, never replaced by a role", () => {
+  const next = (status: string) =>
+    requestNextStep({
+      status,
+      creatorName: " ",
+      approverName: "",
+      viewerIsCreator: false,
+      viewerIsApprover: false,
+      canCreate: false,
+    });
+  assert.equal(next("Draft"), "Not submitted yet.");
+  assert.equal(next("Recalled"), "Recalled. Not submitted again yet.");
+  assert.equal(next("Awaiting approval"), "Waiting for approval.");
+  assert.equal(next("Rejected"), "Rejected. Waiting for a correction.");
 });

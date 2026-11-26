@@ -90,13 +90,14 @@ Turbo removes the request and its PDF. You can't undo this.
 
 ## Request statuses
 
-| Status            | What happens next                                   |
-| ----------------- | --------------------------------------------------- |
-| Draft             | You edit and submit it, or delete it.               |
-| Awaiting approval | The approver approves or rejects.                   |
-| Awaiting creation | Procurement creates the job or rejects the request. |
-| Rejected          | You edit it and submit it again, or delete it.      |
-| Recalled          | You edit it and submit it again, or delete it.      |
+| Status               | What happens next                                   |
+| -------------------- | --------------------------------------------------- |
+| Draft                | You edit and submit it, or delete it.               |
+| Awaiting approval    | The approver approves or rejects.                   |
+| Awaiting creation    | Procurement creates the job or rejects the request. |
+| Rejected or Recalled | You edit it and submit it again, or delete it.      |
+
+The request page shows who acts next.
 
 ## Change a project's value
 

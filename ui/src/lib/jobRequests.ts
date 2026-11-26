@@ -16,6 +16,47 @@ export interface RequestDetail {
   checklist: { version: number; questions: RequestChecklistQuestion[] };
   permissions: Record<string, boolean>;
   enabled?: boolean;
+  // Why the selected approver has no Approve button, such as a limit below the
+  // project value. Only that approver gets it; it is empty for everyone else.
+  approval_blocked_reason?: string;
+}
+// Who acts next on a request, as one sentence for the request page. The
+// viewer's role comes from their id. Only procurement's turn depends on a
+// permission, because procurement is a claim, not a person on the request.
+// A missing name leaves the name out, never a role in its place.
+export function requestNextStep(next: {
+  status: string;
+  creatorName: string;
+  approverName: string;
+  viewerIsCreator: boolean;
+  viewerIsApprover: boolean;
+  canCreate: boolean;
+}): string {
+  const creator = next.creatorName.trim(),
+    approver = next.approverName.trim();
+  switch (next.status) {
+    case "Draft":
+      if (next.viewerIsCreator) return "You have not submitted this request.";
+      return creator ? `${creator} has not submitted this request.` : "Not submitted yet.";
+    case "Recalled":
+      if (next.viewerIsCreator) return "Recalled. You have not submitted it again.";
+      return creator
+        ? `Recalled. ${creator} has not submitted it again.`
+        : "Recalled. Not submitted again yet.";
+    case "Awaiting approval":
+      if (next.viewerIsApprover) return "Waiting for your approval.";
+      return approver ? `Waiting for approval by ${approver}.` : "Waiting for approval.";
+    case "Awaiting creation":
+      return next.canCreate
+        ? "Approved. Waiting for you or another procurement user to create the job."
+        : "Approved. Waiting for procurement to create the job.";
+    case "Rejected":
+      if (next.viewerIsCreator) return "Rejected. Correct the request, then submit it again.";
+      return creator
+        ? `Rejected. Waiting for ${creator} to correct it.`
+        : "Rejected. Waiting for a correction.";
+  }
+  return "";
 }
 // A request can link a proposal only in these statuses; the server refuses
 // the others at save.

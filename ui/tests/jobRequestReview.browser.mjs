@@ -154,6 +154,79 @@ await runBrowserHarness(
     await page.getByText("Untitled request", { exact: true }).waitFor();
     assert.equal(await editRequest.count(), 0);
     assert.equal(await page.getByRole("button", { name: /Upload PDF|Replace PDF/ }).count(), 0);
+
+    // Every viewer reads who acts next, by the person's name. The fixture
+    // signs in as user1, so these people are someone else until a case says so.
+    const people = {
+      creator: { id: "creator1", given_name: "Casey", surname: "Creator" },
+      approver: { id: "approver1", given_name: "Avery", surname: "Approver" },
+    };
+    const showRequest = (status, permissions, change = {}) =>
+      page.evaluate(
+        ({ status, permissions, people, change }) => {
+          const data = window.requestData(status, permissions);
+          data.detail.request.creator = change.creator ?? people.creator.id;
+          data.detail.request.approver = change.approver ?? people.approver.id;
+          data.detail.related = people;
+          if (change.reason) data.detail.approval_blocked_reason = change.reason;
+          window.setRequestData(data);
+        },
+        { status, permissions, people, change },
+      );
+    const workflowButtons = workflow.getByRole("button", {
+      name: /Approve request|Create Job|Submit|Recall for editing|Reject/,
+    });
+    const helpTarget = async () => {
+      await workflow.getByRole("button", { name: /^Help/ }).click();
+      const href = await page
+        .getByRole("dialog")
+        .getByRole("link", { name: "Open the full page", exact: true })
+        .getAttribute("href");
+      await page.keyboard.press("Escape");
+      return href;
+    };
+
+    // Someone who opens another person's request from the All tab has no
+    // action. The section still says who acts next and helps with the statuses.
+    await showRequest("Awaiting approval", {});
+    await workflow.getByText("Waiting for approval by Avery Approver.", { exact: true }).waitFor();
+    assert.equal(await workflowButtons.count(), 0, "a viewer with no permission has no buttons");
+    assert.equal(await helpTarget(), "/docs/project-requests#request-statuses");
+
+    // The selected approver reads that it waits for them.
+    await showRequest("Awaiting approval", { can_approve: true }, { approver: "user1" });
+    await workflow.getByText("Waiting for your approval.", { exact: true }).waitFor();
+    assert.equal(await approve.count(), 1);
+    assert.equal(await helpTarget(), "/docs/project-requests#approve-a-request");
+
+    // An approver whose limit is too low gets the server's reason, not a button.
+    const reason = "Your approval limit does not cover this project value.";
+    await showRequest("Awaiting approval", {}, { approver: "user1", reason });
+    await workflow.getByText(reason, { exact: true }).waitFor();
+    assert.equal(await approve.count(), 0);
+    assert.equal(await workflow.getByText("Waiting for your approval.").count(), 1);
+
+    // Other viewers never get a reason, and the page shows none without one.
+    await showRequest("Awaiting approval", {});
+    await workflow.getByText("Waiting for approval by Avery Approver.", { exact: true }).waitFor();
+    assert.equal(await workflow.getByText(reason).count(), 0);
+
+    // A creator who can only recall still gets help to change the request.
+    await showRequest("Awaiting creation", { can_recall: true }, { creator: "user1" });
+    await workflow
+      .getByText("Approved. Waiting for procurement to create the job.", { exact: true })
+      .waitFor();
+    assert.equal(await helpTarget(), "/docs/project-requests#change-a-request");
+
+    // Someone else's draft and rejected request name the creator.
+    await showRequest("Draft", {});
+    await workflow
+      .getByText("Casey Creator has not submitted this request.", { exact: true })
+      .waitFor();
+    await showRequest("Rejected", { can_edit: true, can_delete: true }, { creator: "user1" });
+    await workflow
+      .getByText("Rejected. Correct the request, then submit it again.", { exact: true })
+      .waitFor();
     assert.deepEqual(errors, []);
   },
   {

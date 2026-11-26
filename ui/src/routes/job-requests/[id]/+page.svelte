@@ -10,7 +10,13 @@
   import { JobsStatusOptions } from "$lib/pocketbase-types";
   import DSLocationPicker from "$lib/components/DSLocationPicker.svelte";
   import ProposedRatesReview from "$lib/components/rateSheets/ProposedRatesReview.svelte";
-  import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
+  import {
+    emptyChecklist,
+    contactEmail,
+    fullName,
+    requestNextStep,
+    wholeCAD,
+  } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { clientLabel } from "$lib/clientWorkspace";
   import { rateSheetLabel } from "$lib/rateSheetLabel";
@@ -97,6 +103,25 @@
     request = $derived(detail.request),
     permission = $derived(detail.permissions),
     related = $derived(detail.related);
+  const viewerId = pb.authStore.record?.id ?? "";
+  // Every viewer sees who acts next, so a page without buttons still explains
+  // where the request stands.
+  const nextStep = $derived(
+    requestNextStep({
+      status: request.status || request.state,
+      creatorName: fullName(related.creator),
+      approverName: fullName(related.approver),
+      viewerIsCreator: viewerId !== "" && request.creator === viewerId,
+      viewerIsApprover: viewerId !== "" && request.approver === viewerId,
+      canCreate: permission.can_create,
+    }),
+  );
+  // The Help link for a viewer who can still change the request's path, such
+  // as a creator who can recall it or edit a rejected one. A viewer with no
+  // action reads the statuses instead.
+  const canActOnRequest = $derived(
+    permission.can_edit || permission.can_recall || permission.can_reject,
+  );
   // The request is changed on its edit page, so no action here can meet
   // unsaved changes.
   const canEdit = $derived(permission.can_edit && $jobRequestsEnabled);
@@ -654,10 +679,16 @@
           <DSHelp doc="project-requests#create-the-job" label="Help" />
         {:else if permission.can_submit}
           <DSHelp doc="project-requests#upload-and-submit" label="Help" />
-        {:else}
+        {:else if canActOnRequest}
           <DSHelp doc="project-requests#change-a-request" label="Help" />
+        {:else}
+          <DSHelp doc="project-requests#request-statuses" label="Help" />
         {/if}
       {/snippet}
+      {#if nextStep}<p>{nextStep}</p>{/if}
+      {#if detail.approval_blocked_reason}
+        <DSCallout tone="warning">{detail.approval_blocked_reason}</DSCallout>
+      {/if}
       {#if actionError}<div role="alert">
           <DSCallout tone="danger">{actionError}</DSCallout>
         </div>{/if}

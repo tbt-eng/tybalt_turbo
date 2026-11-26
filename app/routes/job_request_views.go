@@ -256,7 +256,21 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 		if a != nil {
 			attachment["document_url"] = "/api/job_attachments/" + a.Id + "/document"
 		}
-		result = map[string]any{"request": r, "allocations": allocs, "attachment": attachment, "related": related, "review_token": token, "checklist": map[string]any{"version": checklistVersion, "questions": checklistQuestions}, "enabled": enabled, "permissions": map[string]bool{"can_edit": enabled && editable, "can_submit": enabled && editable && r.GetString("status") != "Rejected", "can_recall": enabled && submitted && r.GetString("creator") == e.Auth.Id, "can_reject": enabled && canReject, "can_approve": enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr == nil, "can_create": enabled && hasJob && r.GetString("status") == "Awaiting creation", "can_delete": (enabled && editable) || (hasAdmin && abandonedRequest(r))}}
+		// The selected approver whose authority does not cover the request gets
+		// no Approve button, so tell them why. Only they receive it, because it
+		// says something about their own authority.
+		approvalBlockedReason := ""
+		if enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr != nil {
+			hasAuthority, err := utilities.HasClaim(tx, e.Auth, "project_authorization")
+			if err != nil {
+				return err
+			}
+			approvalBlockedReason = "Your approval limit does not cover this project value."
+			if !hasAuthority {
+				approvalBlockedReason = "You do not have project approval authority."
+			}
+		}
+		result = map[string]any{"request": r, "allocations": allocs, "attachment": attachment, "related": related, "review_token": token, "checklist": map[string]any{"version": checklistVersion, "questions": checklistQuestions}, "enabled": enabled, "approval_blocked_reason": approvalBlockedReason, "permissions": map[string]bool{"can_edit": enabled && editable, "can_submit": enabled && editable && r.GetString("status") != "Rejected", "can_recall": enabled && submitted && r.GetString("creator") == e.Auth.Id, "can_reject": enabled && canReject, "can_approve": enabled && r.GetString("status") == "Awaiting approval" && r.GetString("approver") == e.Auth.Id && authorityErr == nil, "can_create": enabled && hasJob && r.GetString("status") == "Awaiting creation", "can_delete": (enabled && editable) || (hasAdmin && abandonedRequest(r))}}
 		return nil
 	})
 	if err != nil {
