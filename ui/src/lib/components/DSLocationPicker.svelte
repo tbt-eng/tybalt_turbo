@@ -46,12 +46,15 @@
     fieldName,
     disabled = false,
     readonly = false,
+    square = false,
   }: {
     value: string;
     errors: Record<string, { message: string }>;
     fieldName: string;
     disabled?: boolean;
     readonly?: boolean;
+    // A map as tall as it is wide, for a narrow place such as a card.
+    square?: boolean;
   } = $props();
 
   let loading = $state(false);
@@ -330,7 +333,11 @@
     <span class="text-red-600">{errors[fieldName].message}</span>
   {/if}
 
-  <div class="h-64 w-full overflow-hidden rounded-sm border border-neutral-300">
+  <div
+    class="w-full overflow-hidden rounded-sm border border-neutral-300 {square
+      ? 'aspect-square'
+      : 'h-64'}"
+  >
     <div bind:this={mapElement} class="h-full w-full"></div>
   </div>
 </div>

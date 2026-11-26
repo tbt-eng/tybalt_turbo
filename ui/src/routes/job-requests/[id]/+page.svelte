@@ -7,6 +7,7 @@
   import { goto, invalidateAll } from "$app/navigation";
   import { globalStore } from "$lib/stores/global";
   import { jobRequestsEnabled } from "$lib/stores/appConfig";
+  import DSLocationPicker from "$lib/components/DSLocationPicker.svelte";
   import ProposedRatesReview from "$lib/components/rateSheets/ProposedRatesReview.svelte";
   import { emptyChecklist, contactEmail, fullName, wholeCAD } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
@@ -304,7 +305,8 @@
           label="Job owner"
           value={related.job_owner ? clientLabel(related.job_owner) : ""}
         />
-        <DSField label="Location" value={request.location || missing} />
+        <!-- A location that is set shows on the map in its own card. -->
+        {#if !request.location}<DSField label="Location" value={missing} />{/if}
         <DSField label="Intended project status" value={request.project_status} />
         <DSField
           label="Award date"
@@ -382,6 +384,18 @@
         {/each}
       </DSFieldList>
     </DSCard>
+    {#if request.location}
+      <DSCard title="Location">
+        <DSLocationPicker
+          value={request.location}
+          errors={{}}
+          fieldName="location"
+          disabled
+          readonly
+          square
+        />
+      </DSCard>
+    {/if}
   </DSCardGrid>
   {#if related.rate_sheet_proposed}<ProposedRatesReview
       {related}
