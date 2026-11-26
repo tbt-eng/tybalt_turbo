@@ -1,6 +1,6 @@
 # Project requests
 
-Every new project and subjob starts as a request. An approver checks it, then procurement creates the job. A request can [find a sheet by rates](/docs/proposed-rates#find-a-sheet-by-rates) or [propose new rates](/docs/proposed-rates).
+Every new project and subjob starts as a request. An approver checks it, then procurement creates the job. A request can [find a sheet by rates](/docs/proposed-rates#find-a-sheet-by-rates) or [propose new rates](/docs/proposed-rates). To change a job's value later, see [Project value](/docs/project-value).
 
 ```flow
 You | Create the request | Start from a proposal if one exists. Enter the details, division hours and approver.
@@ -98,15 +98,6 @@ Turbo removes the request and its PDF. You can't undo this.
 | Rejected or Recalled | You edit it and submit it again, or delete it.      |
 
 The request page shows who acts next.
-
-## Change a project's value
-
-1. Open the job and select **Propose new value**. Only procurement can do this.
-2. Enter the new value and select an approver.
-3. Upload the new PDF.
-4. Select **Save proposed value**.
-
-The approver then opens **Value Approvals** and approves or rejects. The value changes only after approval.
 
 ## Your approvals
 

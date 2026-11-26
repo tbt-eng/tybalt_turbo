@@ -121,23 +121,25 @@ export class JobValue {
     }
   }
 
-  // Open a change's PDF in a new tab, or save it as a file.
-  async pdf(item: WorkflowRecord, download = false) {
+  // Open a change's PDF in a new tab. The tab opens before the fetch, while
+  // the click still counts, since popup blockers (Safari in particular) stop
+  // a window.open after an await. It closes again if the PDF cannot load, so
+  // the error shows on this page.
+  async pdf(item: WorkflowRecord) {
     this.error = "";
+    const tab = window.open("", "_blank");
     try {
       const response = await fetch(`${pb.baseURL}/api/job_attachments/${item.id}/document`, {
         headers: { Authorization: pb.authStore.token },
       });
       if (!response.ok) throw new Error("Cannot load this PDF.");
+      // Not revoked: a revoked URL breaks a reload of the tab. The browser
+      // frees it when this page closes or reloads.
       const url = URL.createObjectURL(await response.blob());
-      if (download) {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${item.job_number || "project"} value ${valueDate(item.approved || item.uploaded)}.pdf`;
-        link.click();
-      } else window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      if (tab) tab.location.href = url;
+      else window.open(url, "_blank");
     } catch (e) {
+      tab?.close();
       this.error = workflowError(e);
     }
   }

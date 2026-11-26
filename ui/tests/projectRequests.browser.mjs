@@ -9,6 +9,9 @@ await runBrowserHarness(
     const valueSaves = [];
     // A refusal the value change save returns instead of saving.
     let valueSaveError = null;
+    // The approvals whose PDF was fetched, and whether the fetch fails.
+    const pdfRequests = [];
+    let pdfFails = false;
     let attachmentItems = [
       {
         id: "initial",
@@ -205,6 +208,17 @@ await runBrowserHarness(
           contentType: "application/json",
           body: JSON.stringify({ id: "profile1" }),
         });
+      }
+      const pdfPath = path.match(/^\/api\/job_attachments\/([^/]+)\/document$/);
+      if (pdfPath) {
+        pdfRequests.push(pdfPath[1]);
+        return pdfFails
+          ? route.fulfill({
+              status: 404,
+              contentType: "application/json",
+              body: JSON.stringify({ message: "Not found." }),
+            })
+          : route.fulfill({ contentType: "application/pdf", body: "%PDF-1.4\n%%EOF" });
       }
       if (route.request().url().includes("/api/job_attachments")) {
         if (route.request().method() === "POST") {
@@ -493,11 +507,38 @@ await runBrowserHarness(
     const historyButton = page.getByRole("button", { name: "Value history", exact: true });
     const deleteLatest = page.getByRole("button", { name: "Delete latest approval", exact: true });
     const currentPdf = page.getByRole("button", {
-      name: "Download the authorization PDF for this value",
+      name: "Open the authorization PDF for this value",
       exact: true,
     });
+    // A PDF opens in a new tab, which then loads the fetched file. Chrome shows
+    // it there; the headless shell, which has no PDF viewer, saves it instead.
+    // The file stays loadable, so a reload of the tab works.
+    const opensPdf = async (button) => {
+      const [tab, request] = await Promise.all([
+        page.waitForEvent("popup"),
+        page.context().waitForEvent("request", (request) => request.url().startsWith("blob:")),
+        button.click(),
+      ]);
+      assert.equal(request.frame().page(), tab);
+      assert.equal(
+        await page.evaluate((url) => fetch(url).then((response) => response.text()), request.url()),
+        "%PDF-1.4\n%%EOF",
+      );
+      await tab.close();
+    };
     await review.waitFor();
     assert.equal(await currentPdf.count(), 1);
+    // A PDF that cannot load closes its tab, and the error shows on the job page.
+    pdfFails = true;
+    const [failedTab] = await Promise.all([page.waitForEvent("popup"), currentPdf.click()]);
+    await failedTab.waitForEvent("close");
+    const pdfError = page.getByRole("alert").filter({ hasText: "Cannot load this PDF." });
+    // The pending change's status line shows the same error.
+    await pdfError.first().waitFor();
+    pdfFails = false;
+    await opensPdf(currentPdf);
+    assert.equal(await pdfError.count(), 0);
+    assert.deepEqual(pdfRequests, ["initial", "initial"]);
     assert.match(await page.locator("#app").innerText(), /Project Value:\s*\$120,000/);
     assert.match(
       await page.locator("#app").innerText(),
@@ -528,6 +569,11 @@ await runBrowserHarness(
       (await historyRows.allInnerTexts()).map((text) => text.replace(/\s+/g, " ").trim()),
       ["$150,000 Tier Two · 2026-10-14", "$120,000 Tier Two · 2026-09-01"],
     );
+    // Each history row opens its own approval's PDF.
+    pdfRequests.length = 0;
+    await opensPdf(historyRows.nth(1).getByRole("button", { name: "$120,000", exact: true }));
+    await opensPdf(historyRows.nth(0).getByRole("button", { name: "$150,000", exact: true }));
+    assert.deepEqual(pdfRequests, ["initial", "pending"]);
     assert.equal(await deleteLatest.count(), 1);
     await deleteLatest.click();
     await page.getByRole("heading", { name: "Delete latest approval?", exact: true }).waitFor();

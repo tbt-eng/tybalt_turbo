@@ -168,6 +168,7 @@ const childDocPages: Record<string, { parent: string; label: string }> = {
   "close-a-purchase-order": { parent: "purchase-orders", label: "Close or cancel" },
   "commit-expenses": { parent: "expenses", label: "Review and commit" },
   "proposed-rates": { parent: "project-requests", label: "Proposed rates" },
+  "project-value": { parent: "project-requests", label: "Project value" },
   "admin-profiles": { parent: "profile", label: "Admin profiles" },
   "rate-sheet-periods": { parent: "rate-sheets", label: "Periods" },
   "rate-sheet-absorb": { parent: "rate-sheets", label: "Duplicates" },

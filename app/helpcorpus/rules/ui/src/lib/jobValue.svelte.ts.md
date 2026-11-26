@@ -1,84 +1,100 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/jobValue.svelte.ts","sha256":"6671d6a011c0a6fe091b5be56e766e8dcea03d39f459593ecd9e7603ef52f2e0","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/jobValue.svelte.ts","sha256":"2de873bddb8a7d6a67fca064e5bb63557bc311949731c940673a6fa3c548b8b5","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/jobValue.svelte.ts
 
-## Project value shown in whole Canadian dollars
+## Approver queue versus job history
+
+Lines 1-3
+
+Asked as: approval queue wrong job; old job history showing; queue page loads history; late response changes job
+
+On an approver's queue page, Turbo loads the approval queue. On a job page, it loads the value changes of that one job. Each job page keeps its own history, so a late response for an earlier job cannot change the job now shown.
+
+## Values show in whole Canadian dollars
 
 Lines 9-14
 
-Asked as: project value in dollars; value shows $0; value cents rounding; CAD value display
+Asked as: value shows cents; project value dollars format; value showing $0; non-number value amount
 
-Turbo shows a project value in Canadian dollars (CAD) with no cents, rounded to the whole dollar. A value that is not a number shows as $0.
+Project values display in Canadian dollars with no cents. A value that is not a number shows as $0.
 
 ## Approved-by-me list covers 30 days, newest first
 
 Lines 19-36
 
-Asked as: my approvals last 30 days; approved by me list; approvals history newest first; list of jobs I approved
+Asked as: my approvals last 30 days; approved by me list; approvals older than a month missing; my approved items newest
 
-An approver's list of their own approvals (queue approved_by_me) covers the last 30 days and is sorted newest first. Each entry is either a request that became a job (new_job) or a later value change (value_change). The date is the job creation date for a new job and the approval date for a value change.
+The approver's own approvals list (approved_by_me) shows approvals from the last 30 days. The server limits the list to 30 days and sorts it newest first. Each entry is either a request that became a new job (new_job) or a later value change (value_change).
 
-## Approved values are ordered by approval sequence
+## Date shown for an approved-by-me entry
+
+Lines 19-30
+
+Asked as: date on approved entry; which date approved item; when approval date shown; new job date approved list
+
+For a new job, the date is when the job was created. For a later value change, the date is when the change was approved.
+
+## Approved project values ordered by approval sequence
 
 Lines 54-59
 
-Asked as: approved values order; value history sequence; which approved value is listed first; approved changes list order
+Asked as: approved values order; approval sequence list; which project value approved first; approved values newest first
 
-A job's approved project values are listed newest first, by approval sequence (approval_sequence). Only changes with status Approved are in this list.
+A job's approved project values appear newest first, ordered by approval sequence (approval_sequence). Only values with status Approved are in this list.
 
-## Current value comes from the server's mark
+## Current project value is marked by the server
 
 Lines 60-62
 
-Asked as: wrong current project value; job shows old value; which value is current; latest value missing from history
+Asked as: current project value missing; which approval is current; history missing current approval; current value not marked
 
-The current project value is the approved change that the server marks as current. Turbo does not take the newest one, because a viewer who may see only some approvals can have the latest one left out of the history.
+The approval that set the current project value is the one the server marks as current. The history can omit it when the viewer may see only some approvals, so Turbo does not work it out from the list.
 
-## A job has one pending or rejected value change
+## A job has at most one pending or rejected change
 
 Lines 63-64
 
-Asked as: pending value change on job; rejected value change still showing; only one value change per job; stuck value change on job
+Asked as: second pending change blocked; change already in progress; rejected change still pending; only one change per job
 
-The job's in-progress value change is the first change whose status is not Approved, so a pending or rejected one. A job has at most one.
+A project value change that is not Approved (pending or rejected) is treated as the one change in progress. A job has at most one.
 
-## Approval queue and job history load different lists
+## Page refreshes after a value change action
 
-Lines 66-79
+Lines 81-122
 
-Asked as: approval queue empty for job; job page missing approvals; why waiting approvals list differs; value changes not on job page
+Asked as: page not refreshing after approve; counts stale after decision; error after approve reject delete; history not reloading
 
-The approver's queue loads the changes that wait for approval (queue=approval). A job page loads the value changes of that one job.
+After a successful approve, reject or delete, Turbo reloads the history, the attention counts and the other data on the page that shows the value. If the action fails, Turbo shows the error and does not reload.
 
-## Approve, reject and delete send the displayed version
+## Approve, reject and delete send the displayed revision
 
 Lines 93-113
 
-Asked as: approve wrong version; reject sends old version; version changed after approving; delete sent stale document
+Asked as: stale version approve error; document hash mismatch; approve outdated revision; rejection reason not sent
 
-When a person approves, rejects or deletes a value change, Turbo sends the version and the PDF hash (document_hash) that the page shows. A decision can change the version even when the PDF hash stays the same. A rejection also sends the reason and the job data that the person saw (review_token).
+Approving, rejecting or deleting a value change sends the version and PDF hash (document_hash) that the screen shows. A decision can change the version even when the PDF hash stays the same. A rejection also sends the job data shown (review_token) and the rejection reason.
 
-## Value change actions refresh the page
+## Change PDF opens in a new tab
 
-Lines 93-122
+Lines 124-145
 
-Asked as: page not updating after approve; approve button no refresh; reject failed no change shown; history not reloading after delete
+Asked as: PDF won't open; change PDF blank tab; cannot load PDF error; pdf tab closes
 
-After a successful approve, reject or delete, Turbo reloads the history, the attention counts and the page data. If the action fails, Turbo shows the error and does not refresh.
+Turbo opens the PDF of a value change in a new tab. If the PDF cannot load, the tab closes and the error shows on the page. The error text is "Cannot load this PDF." when the server response is not OK.
 
-## Value change PDF download file name
+## Value change requires job details; blockers listed
 
-Lines 124-143
+Lines 148-168
 
-Asked as: value PDF file name; download value pdf named; PDF will not open; cannot load this PDF
+Asked as: why can't I add value change; missing job details form; completion date required value change; job missing invoicing profile
 
-A downloaded value change PDF is named with the job number (or "project" if none), the word value, and the approval date. If the change is not approved yet, the name uses the upload date. Without download, the PDF opens in a new tab. If the PDF cannot load, Turbo shows "Cannot load this PDF."
+Before a value change form is filled in, Turbo lists the project details the job lacks: an invoicing profile, division hours, a location and a branch. It also lists a project completion date, but only when the job is Active. The server checks the job in full when the change is saved.
 
-## Missing job details that block a value change
+## Missing authorizing document is not a blocker
 
-Lines 146-167
+Lines 148-152
 
-Asked as: why cannot fill value change form; missing job details before value change; job completion date required value; value change form blocked
+Asked as: no authorizing document warning; missing document blocks change; PA project no document; authorizing document missing gap
 
-Before a value change form is filled in, Turbo lists the job details that are missing: an invoicing profile, division hours, a location and a branch. It also lists a project completion date, but only when the job status is Active. A missing authorizing document is not listed, because the server treats the project as PA and approval records it. The server checks the job in full when the change is saved.
+Turbo does not list a missing authorizing document as a gap. The server treats the project as PA, and approval records it.

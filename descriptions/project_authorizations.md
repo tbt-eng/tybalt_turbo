@@ -883,8 +883,9 @@ see the changes assigned to them or approved by them. Because a viewer may see
 only some of a job's approvals, the history marks the approval that set the
 current value; the newest approval a viewer sees is not always that one.
 
-On the job page, show the effective value with a download of the PDF behind it
-and a history of approvals: approver, date, and amount, newest first. Approval
+On the job page, show the effective value with a button that opens the PDF
+behind it in a new tab, and a history of approvals: approver, date, and amount,
+newest first. Each amount in the history opens that approval's PDF. Approval
 limits and checklist versions are retained but not shown there. Holders of `job`
 propose a new value from the same line. The proposal form takes only the value,
 approver, and PDF; project details are changed in the job editor, and such an

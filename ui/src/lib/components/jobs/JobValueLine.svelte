@@ -28,10 +28,10 @@
 
 {#if value.current}
   <DsActionButton
-    icon="mdi:file-download-outline"
-    title="Download the authorization PDF for this value"
+    icon="mdi:file-pdf-box"
+    title="Open the authorization PDF for this value"
     color="blue"
-    action={() => value.pdf(value.current!, true)}
+    action={() => value.pdf(value.current!)}
   />
 {/if}
 {#if value.approved.length}
@@ -58,7 +58,13 @@
         <ol class="divide-y divide-neutral-200">
           {#each value.approved as item (item.id)}
             <li class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-              <span class="font-semibold">{valueCAD(item.project_value)}</span>
+              <!-- Each approval opens its own PDF. -->
+              <DsActionButton
+                variant="plain"
+                icon="mdi:file-pdf-box"
+                title="Open authorization PDF"
+                action={() => value.pdf(item)}>{valueCAD(item.project_value)}</DsActionButton
+              >
               <span class="text-neutral-600"
                 >{item.approver_name || item.approver} · {valueDate(item.approved)}</span
               >
@@ -80,7 +86,7 @@
   <DsActionButton color="yellow" action={() => value.openProposal(null)}
     >Propose new value</DsActionButton
   >
-  <DSHelp doc="project-requests#change-a-projects-value" iconOnly />
+  <DSHelp doc="project-value#change-a-projects-value" iconOnly />
 {/if}
 {#if value.error && !confirmingDelete}<span role="alert" class="text-sm text-red-800"
     >{value.error}</span

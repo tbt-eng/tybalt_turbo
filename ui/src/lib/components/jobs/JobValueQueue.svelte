@@ -37,7 +37,7 @@
       : "No value changes are waiting for your approval."}
   >
     {#snippet searchBarExtra()}
-      <DSHelp doc="project-requests#change-a-projects-value" label="Help" />
+      <DSHelp doc="project-value#change-a-projects-value" label="Help" />
     {/snippet}
     {#snippet anchor(item)}
       <a class="link" href={resolve(`/jobs/${item.job}/details`)}>{item.job_number || item.job}</a>
