@@ -1005,11 +1005,24 @@ await runBrowserHarness(
       fixture.createdProfile.id,
     );
     assert.deepEqual(savedRequestWrites, [], "client maintenance must not save the request");
+    // Save and keep editing saves and stays on the form, which reloads with
+    // the new version. The title row names the request by its description.
+    await page.getByRole("button", { name: "Save and keep editing", exact: true }).click();
+    await page
+      .getByText("Saved scope changed before adding invoicing", { exact: true })
+      .first()
+      .waitFor();
+    assert.equal(new URL(page.url()).pathname, `/job-requests/${savedRequest.id}/edit`);
+    assert.equal(savedRequestWrites.length, 1);
+    assert.equal(savedRequestWrites[0].version, 2);
+    assert.equal(await scope().inputValue(), "Saved scope changed before adding invoicing");
+    await page.getByLabel("Client PO", { exact: true }).fill("PO-1");
     await page.getByRole("button", { name: "Save request", exact: true }).click();
     await page.getByRole("heading", { name: "Project Request", exact: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, `/job-requests/${savedRequest.id}`);
-    assert.equal(savedRequestWrites.length, 1);
-    assert.equal(savedRequestWrites[0].version, 2);
+    assert.equal(savedRequestWrites.length, 2);
+    assert.equal(savedRequestWrites[1].version, 3);
+    assert.equal(savedRequestWrites[1].request.client_po, "PO-1");
     assert.equal(
       savedRequestWrites[0].request.description,
       "Saved scope changed before adding invoicing",

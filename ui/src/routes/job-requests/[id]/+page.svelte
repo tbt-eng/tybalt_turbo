@@ -274,7 +274,7 @@
       {/if}
       <DSActionButton action={print}>Print Project Authorization</DSActionButton>
       {#if canEdit}
-        <DSActionButton action={editHref} icon="mdi:pencil" title="Edit request" color="blue" />
+        <DSActionButton action={editHref}>Edit request</DSActionButton>
       {/if}
     {/snippet}
   </DSPageHeader>

@@ -3,6 +3,7 @@
   import DSRequiredMark from "$lib/components/DSRequiredMark.svelte";
   import { pb } from "$lib/pocketbase";
   import { goto, invalidateAll, beforeNavigate, replaceState } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { fullName } from "$lib/jobRequests";
   import { workflowError, type WorkflowRecord } from "$lib/clientEditors";
   import { untrack } from "svelte";
@@ -62,6 +63,7 @@
     related = {},
     dirty = $bindable(false),
     onsaved,
+    onkeepediting,
     oncancel,
   }: {
     request: WorkflowRecord;
@@ -71,6 +73,9 @@
     related?: WorkflowRecord;
     dirty?: boolean;
     onsaved?: () => Promise<void>;
+    // Reloads a saved request for Save and keep editing, which stays on the
+    // form. A new request has the button without it: it opens its edit page.
+    onkeepediting?: () => Promise<void>;
     // Shows Cancel beside Save, as the other editors do.
     oncancel?: () => void;
   } = $props();
@@ -183,6 +188,7 @@
   // form is unsaved exactly when it differs from the server copy.
   let saved = $state(workflowDraftSnapshot(loaded, comparable));
   let openingClient = false;
+  let form: HTMLFormElement | undefined = $state();
   let saving = $state(false),
     error = $state("");
   let approvers = $state<WorkflowRecord[]>([]),
@@ -389,7 +395,8 @@
     item.invoicing_information = "";
     item.proposal = "";
   }
-  export async function save(): Promise<boolean> {
+  // stay keeps the form open after the save, for Save and keep editing.
+  export async function save(stay = false): Promise<boolean> {
     if (saving) return false;
     error = "";
     refusal = null;
@@ -457,7 +464,12 @@
       saved = snapshot();
       dirty = false;
       clearClientWorkflowDraft();
-      if (!item.id) await goto(`/job-requests/${result.request?.id ?? result.id}`);
+      if (!item.id) {
+        const id = result.request?.id ?? result.id;
+        await goto(
+          stay ? resolve("/job-requests/[id]/edit", { id }) : resolve("/job-requests/[id]", { id }),
+        );
+      } else if (stay && onkeepediting) await onkeepediting();
       else if (onsaved) await onsaved();
       else await invalidateAll();
       return true;
@@ -481,6 +493,7 @@
 
 <!-- The same spacing and mobile text size as the other editors. -->
 <form
+  bind:this={form}
   class="flex w-full flex-col gap-2 max-lg:[&_button]:text-base max-lg:[&_input]:text-base max-lg:[&_label]:text-base max-lg:[&_select]:text-base max-lg:[&_textarea]:text-base"
   onsubmit={(event) => {
     event.preventDefault();
@@ -873,6 +886,15 @@
     <DSActionButton type="submit" disabled={saving}
       >{saving ? "Saving…" : "Save request"}</DSActionButton
     >
+    {#if onkeepediting || !item.id}
+      <!-- The same field checks as Save request, which the form runs on submit. -->
+      <DSActionButton
+        disabled={saving}
+        action={() => {
+          if (form?.reportValidity()) save(true);
+        }}>Save and keep editing</DSActionButton
+      >
+    {/if}
     {#if oncancel}<DSActionButton action={oncancel}>Cancel</DSActionButton>{/if}
   </span>
 </form>

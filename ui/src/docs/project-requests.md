@@ -70,12 +70,12 @@ To reject a duplicate, enter a reason. Select **Reject**.
 ## Change a request
 
 1. On your request, select **Edit request**.
-2. Change the details.
-3. Select **Save request**. The request opens again.
+2. Make changes.
+3. Select **Save request**, or **Save and keep editing** to stay on the form.
 
-Submitted? Select **Recall for editing** first. This works until procurement creates the job.
+Submitted? Select **Recall for editing** first, until procurement creates the job.
 
-An approver or procurement can reject it. Recall and rejection clear the approval. Change a rejected request before you submit it again.
+An approver or procurement can reject it. Recall and rejection clear the approval. Change a rejected request before you resubmit.
 
 ## Delete a request
 
