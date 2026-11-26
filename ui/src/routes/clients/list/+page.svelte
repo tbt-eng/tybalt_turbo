@@ -60,10 +60,12 @@
   >
     {#snippet searchBarExtra()}
       {#if canAbsorbDirectly($globalStore.claims)}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- absorbSuggestionsHref resolves the path -->
-        <a class="link whitespace-nowrap" href={absorbSuggestionsHref("clients")}
-          >Absorb suggestions</a
-        >
+        <DsActionButton
+          action={absorbSuggestionsHref("clients")}
+          icon="mdi:merge"
+          title="Absorb suggestions: find duplicate clients"
+          color="yellow"
+        />
       {/if}
     {/snippet}
     {#snippet headline({ id, name, alias })}

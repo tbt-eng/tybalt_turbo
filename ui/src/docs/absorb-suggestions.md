@@ -4,7 +4,7 @@ Turbo finds clients and vendors that are probably duplicates and shows them in b
 
 ## Find duplicates
 
-1. On **Clients** or **Vendors**, select **Absorb suggestions** beside the search bar.
+1. On **Clients** or **Vendors**, select the absorb icon beside the search bar.
 2. Select the **Clients** or **Vendors** tab.
 3. Select **Strict**, **Normal** or **Loose** to show closer or looser matches.
 
