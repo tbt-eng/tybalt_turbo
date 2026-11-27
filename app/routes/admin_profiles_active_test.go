@@ -331,3 +331,64 @@ func stringSliceContains(values []string, target string) bool {
 	}
 	return false
 }
+
+// Deactivating a person makes the tokens they already hold invalid. The test
+// deactivates the fixture profile ap_corp_noclaim through the route, which is
+// the operation under test, and the change is discarded with the test app.
+func TestSetAdminProfileActive_DeactivationRevokesTokens(t *testing.T) {
+	app := testseed.NewSeededTestApp(t)
+	t.Cleanup(app.Cleanup)
+	hooks.AddHooks(app)
+	AddRoutes(app)
+
+	const targetEmail = "corp.noclaim@example.com"
+	// This route needs a claim the person lacks, so a valid token gets 403 and
+	// an invalid token gets 401.
+	const probe = "/api/admin_profiles/active_toggle_targets"
+	heldToken := authTokenForEmail(t, app, targetEmail)
+	tokenKey := func() string {
+		user, err := app.FindAuthRecordByEmail("users", targetEmail)
+		if err != nil {
+			t.Fatalf("failed to load %s: %v", targetEmail, err)
+		}
+		return user.TokenKey()
+	}
+	keyBefore := tokenKey()
+
+	if rec := performClaimsJSONRequest(t, app, http.MethodGet, probe, heldToken, nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("probe before deactivation = %d, want %d; body=%s", rec.Code, http.StatusForbidden, rec.Body.String())
+	}
+
+	// A save that leaves the profile active keeps the token.
+	profile := loadAdminProfile(t, app, activeToggleRecordID)
+	profile.Set("job_title", "Still Active")
+	if err := app.Save(profile); err != nil {
+		t.Fatalf("failed to save active profile: %v", err)
+	}
+	if tokenKey() != keyBefore {
+		t.Fatal("a save of an active profile changed the token key")
+	}
+
+	actor := authTokenForEmail(t, app, "it.identity@example.com")
+	setActive := func(active bool) {
+		rec := performClaimsJSONRequest(t, app, http.MethodPost, "/api/admin_profiles/"+activeToggleRecordID+"/active", actor, map[string]any{"active": active})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("set active=%v status = %d; body=%s", active, rec.Code, rec.Body.String())
+		}
+	}
+
+	setActive(false)
+	keyAfter := tokenKey()
+	if keyAfter == keyBefore {
+		t.Fatal("deactivation did not change the token key")
+	}
+	if rec := performClaimsJSONRequest(t, app, http.MethodGet, probe, heldToken, nil); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("probe with the held token after deactivation = %d, want %d; body=%s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+
+	// Activating again changes nothing: the person signs in for a new token.
+	setActive(true)
+	if tokenKey() != keyAfter {
+		t.Fatal("activation changed the token key")
+	}
+}

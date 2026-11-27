@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 	"tybalt/errs"
@@ -73,4 +75,32 @@ func ProcessAdminProfile(app core.App, e *core.RecordRequestEvent) error {
 	}
 
 	return utilities.EnsureUserCanUseBranch(app, record.GetString("default_branch"), uid, "default_branch")
+}
+
+// RevokeTokensOnDeactivation signs a person out when their admin profile goes
+// from active to inactive. It gives the user a new token key, which makes every
+// token they hold invalid at once. Sign-in and token refresh already refuse an
+// inactive account (see OnRecordAuthRequest in hooks.go), so without this the
+// person could still use a token they already held until it expired.
+//
+// It is a model hook, so it covers every save of an admin profile: the active
+// route, the admin profile editor and saves made in code.
+func RevokeTokensOnDeactivation(e *core.RecordEvent) error {
+	if !e.Record.Original().GetBool("active") || e.Record.GetBool("active") {
+		return e.Next()
+	}
+	// The key changes before the profile saves. If the profile save then fails
+	// outside a transaction, the person is only signed out.
+	user, err := e.App.FindRecordById("users", e.Record.GetString("uid"))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return e.Next()
+		}
+		return err
+	}
+	user.RefreshTokenKey()
+	if err := e.App.SaveNoValidate(user); err != nil {
+		return err
+	}
+	return e.Next()
 }

@@ -463,6 +463,7 @@ func AddHooks(app core.App) {
 		}
 		return e.Next()
 	})
+	app.OnRecordUpdate("admin_profiles").BindFunc(RevokeTokensOnDeactivation)
 	// hooks for clients model
 	app.OnRecordCreateRequest("clients").BindFunc(func(e *core.RecordRequestEvent) error {
 		if err := ProcessClient(app, e); err != nil {
