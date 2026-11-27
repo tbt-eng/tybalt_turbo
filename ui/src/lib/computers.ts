@@ -254,46 +254,28 @@ export interface ComputerRawLoginRow {
   report?: unknown;
 }
 
-// One page of a server-paged list, in the shape of a PocketBase list.
-export interface ComputerPage<T> {
-  items: T[];
-  page: number;
-  perPage: number;
-  totalItems: number;
-  totalPages: number;
+// The URL search for a server-searched list: "" for everything, "?q=pc" for
+// a search.
+export function computerListSearch(q: string): string {
+  const trimmed = q.trim();
+  return trimmed ? `?${new URLSearchParams({ q: trimmed })}` : "";
 }
 
-// The search and the page of a server-paged list, as the URL holds them.
-export interface ComputerListState {
-  q: string;
-  page: number;
-  perPage: number;
+// What the list search of a sign-in matches: the fields that the server
+// searches (computer_logins.sql), so the list keeps every row it was sent.
+export function loginSearchText(login: ComputerLoginRow): string {
+  return [
+    login.computer_name,
+    login.serial,
+    `${login.given_name} ${login.surname}`.trim(),
+    login.user_name,
+  ].join(" ");
 }
 
-// The page sizes that DSList offers. Another size in the URL gets the default.
-const listPageSizes = [10, 20, 50];
-const defaultPerPage = 20;
-
-export function computerListState(params: URLSearchParams): ComputerListState {
-  const page = Number(params.get("page"));
-  const perPage = Number(params.get("perPage"));
-  return {
-    q: params.get("q")?.trim() ?? "",
-    page: Number.isSafeInteger(page) && page > 0 ? page : 1,
-    perPage: listPageSizes.includes(perPage) ? perPage : defaultPerPage,
-  };
-}
-
-// The URL search for a list state, without the defaults: "" for the first
-// page of everything, "?q=pc&page=2" for the second page of a search.
-export function computerListSearch(state: ComputerListState): string {
-  const params = new URLSearchParams();
-  const q = state.q.trim();
-  if (q) params.set("q", q);
-  if (state.page > 1) params.set("page", String(state.page));
-  if (state.perPage !== defaultPerPage) params.set("perPage", String(state.perPage));
-  const search = params.toString();
-  return search ? `?${search}` : "";
+// What the list search of a rejected report matches, as on the server
+// (computer_raw_logins.sql).
+export function rawLoginSearchText(row: ComputerRawLoginRow): string {
+  return [row.computer_name, row.error].join(" ");
 }
 
 // The name that a sign-in reported.

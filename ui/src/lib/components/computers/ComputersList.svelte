@@ -20,7 +20,7 @@
   import { shortDate } from "$lib/utilities";
 
   // The Computers list and the Retired list. Both load every computer of the
-  // list and page it here.
+  // list and show it all.
   let { items, retired }: { items: ComputerRow[]; retired: boolean } = $props();
 
   let busy = $state("");
@@ -52,7 +52,6 @@
   <DSList
     {items}
     search={true}
-    pagination={true}
     searchText={computerSearchText}
     inListHeader={retired ? "Retired Computers" : "Computers"}
     emptyMessage={retired ? "No computers are retired." : "No computers."}

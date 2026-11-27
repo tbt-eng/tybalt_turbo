@@ -7,36 +7,30 @@
     localDay,
     localTime,
     loginReportedName,
+    loginSearchText,
     loginTurboUserName,
-    type ComputerListState,
     type ComputerLoginRow,
   } from "$lib/computers";
   import { shortDate } from "$lib/utilities";
 
-  // Logins, newest first: the Logins page, which pages on the server, and
-  // the newest sign-ins on the page of one computer, which names no computer.
+  // Logins, newest first: the Logins page, which searches on the server, and
+  // every sign-in on the page of one computer, which names no computer and
+  // has no search.
   let {
     items,
     showComputer = true,
-    totalItems,
-    page = 1,
-    perPage = 20,
     searchTerm = $bindable(""),
-    onStateChange,
+    onSearch,
     searchBarExtra,
   }: {
     items: ComputerLoginRow[];
     showComputer?: boolean;
-    // Set for the server-paged list, with search and page controls.
-    totalItems?: number;
-    page?: number;
-    perPage?: number;
     searchTerm?: string;
-    onStateChange?: (state: ComputerListState) => void;
+    // Set for the Logins page: it shows the search, and each change of the
+    // search goes here so the page can load the matches.
+    onSearch?: (q: string) => void;
     searchBarExtra?: Snippet;
   } = $props();
-
-  const paged = $derived(totalItems !== undefined);
 
   function day(datetime: string): string {
     const local = localDay(datetime);
@@ -46,14 +40,10 @@
 
 <DSList
   {items}
-  search={paged}
-  pagination={paged}
-  {totalItems}
-  {page}
-  {perPage}
+  search={onSearch !== undefined}
+  searchText={loginSearchText}
   bind:searchTerm
-  onStateChange={(state) =>
-    onStateChange?.({ q: state.searchTerm, page: state.page, perPage: state.perPage })}
+  onStateChange={(state) => onSearch?.(state.searchTerm)}
   searchPlaceholder="search logins..."
   emptyMessage={searchTerm ? "No logins match the search." : "No logins."}
   {searchBarExtra}

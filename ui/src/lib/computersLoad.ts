@@ -2,13 +2,7 @@ import { error } from "@sveltejs/kit";
 import { get } from "svelte/store";
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
-import {
-  canViewComputers,
-  computerListSearch,
-  computerListState,
-  type ComputerListState,
-  type ComputerPage,
-} from "$lib/computers";
+import { canViewComputers, computerListSearch } from "$lib/computers";
 import { pb } from "$lib/pocketbase";
 import { globalStore } from "$lib/stores/global";
 
@@ -21,39 +15,38 @@ export async function requireComputersAccess() {
   }
 }
 
-// Loads the page of a server-paged list (the sign-ins or the rejected
-// reports) that the URL names. The server moves a page past the end back to
-// the last page.
-export async function loadComputerPage<T>(path: string, url: URL) {
+// Loads every row of a server-searched list (the sign-ins or the rejected
+// reports) that match the search in the URL. Rows are deleted after 30 days,
+// so the server sends them all.
+export async function loadComputerList<T>(path: string, url: URL) {
   await requireComputersAccess();
-  const state = computerListState(url.searchParams);
-  const result = (await pb.send(path, {
-    method: "GET",
-    query: { q: state.q, page: state.page, perPage: state.perPage },
-  })) as ComputerPage<T>;
-  return { result, state };
+  const q = url.searchParams.get("q")?.trim() ?? "";
+  const items = (await pb.send(path, { method: "GET", query: q ? { q } : {} })) as T[];
+  return { items, q };
 }
 
-// Moves a server-paged list to a new search or page by changing the URL, so
-// the page's load runs again. A change of search waits until typing pauses.
+// Moves a server-searched list to a new search by changing the URL, so the
+// page's load runs again once typing pauses. A change of spaces alone loads
+// nothing.
 export function computerListNavigator(
   route: "/computers/logins" | "/computers/raw_logins",
-  initial: ComputerListState,
+  initialQ: string,
 ) {
-  let lastQ = initial.q;
+  let lastQ = initialQ;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  return (state: ComputerListState) => {
+  return (q: string) => {
+    if (q.trim() === lastQ) return;
+    lastQ = q.trim();
     clearTimeout(timer);
-    const go = () =>
-      // eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; the rule allows no search after it
-      goto(resolve(route) + computerListSearch(state), {
-        replaceState: true,
-        keepFocus: true,
-        noScroll: true,
-      });
-    const searchChanged = state.q.trim() !== lastQ;
-    lastQ = state.q.trim();
-    if (searchChanged) timer = setTimeout(go, 300);
-    else go();
+    timer = setTimeout(
+      () =>
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; the rule allows no search after it
+        goto(resolve(route) + computerListSearch(q), {
+          replaceState: true,
+          keepFocus: true,
+          noScroll: true,
+        }),
+      300,
+    );
   };
 }

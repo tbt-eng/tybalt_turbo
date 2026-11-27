@@ -107,8 +107,6 @@ Colour classes move into a static map. This replaces the raw buttons inside `DSP
 
 **`DSTabBar`**: swap `text-gray-700` for `text-neutral-700`.
 
-**`DSList`**: `pagination` pages the list in the browser. For a list too long to load at once, such as the sign-ins of the computers, pass `totalItems` too. Then `items` is one page that the server has already searched, the count and the page controls use `totalItems`, and each search or page change goes to `onStateChange`, so the page can load the next page (`ui/src/routes/computers/logins`).
-
 **`DsEditingDisabledBanner`**: becomes `<DSCallout tone="warning">` internally.
 
 ### New components

@@ -37,55 +37,49 @@ const (
 	firstFixtureRawLogin = "cmprawlogin0001"
 )
 
-type loginsPage struct {
-	Items []struct {
-		ID           string `json:"id"`
-		Computer     string `json:"computer"`
-		ComputerName string `json:"computer_name"`
-		GivenName    string `json:"given_name"`
-		Surname      string `json:"surname"`
-		User         string `json:"user"`
-		UserName     string `json:"user_name"`
-		Created      string `json:"created"`
-		Error        string `json:"error"`
-		// Present only to check that the list leaves it out.
-		Report json.RawMessage `json:"report"`
-	} `json:"items"`
-	Page       int `json:"page"`
-	PerPage    int `json:"perPage"`
-	TotalItems int `json:"totalItems"`
-	TotalPages int `json:"totalPages"`
+// loginRow is one row of either list: the raw logins fill Error, the logins
+// the rest.
+type loginRow struct {
+	ID           string `json:"id"`
+	Computer     string `json:"computer"`
+	ComputerName string `json:"computer_name"`
+	GivenName    string `json:"given_name"`
+	Surname      string `json:"surname"`
+	User         string `json:"user"`
+	UserName     string `json:"user_name"`
+	Created      string `json:"created"`
+	Error        string `json:"error"`
+	// Present only to check that the list leaves it out.
+	Report json.RawMessage `json:"report"`
 }
 
-func readLoginsPage(t testing.TB, res *http.Response) loginsPage {
+// readLoginRows reads a list, which is an array of every matching row.
+func readLoginRows(t testing.TB, res *http.Response) []loginRow {
 	t.Helper()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var page loginsPage
-	if err := json.Unmarshal(body, &page); err != nil {
+	var rows []loginRow
+	if err := json.Unmarshal(body, &rows); err != nil {
 		t.Fatalf("%v: %s", err, body)
 	}
-	return page
+	return rows
 }
 
-func (p loginsPage) ids() []string {
-	ids := make([]string, 0, len(p.Items))
-	for _, item := range p.Items {
-		ids = append(ids, item.ID)
+func loginIDs(rows []loginRow) []string {
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
 	}
 	return ids
 }
 
-// checkPage fails unless the page numbers are as given.
-func checkPage(t testing.TB, got loginsPage, page, perPage, totalItems, totalPages, items int) {
+// checkCount fails unless the list has want rows.
+func checkCount(t testing.TB, rows []loginRow, want int) {
 	t.Helper()
-	if got.Page != page || got.PerPage != perPage || got.TotalItems != totalItems ||
-		got.TotalPages != totalPages || len(got.Items) != items {
-		t.Errorf("page %d perPage %d totalItems %d totalPages %d items %d, want %d %d %d %d %d",
-			got.Page, got.PerPage, got.TotalItems, got.TotalPages, len(got.Items),
-			page, perPage, totalItems, totalPages, items)
+	if len(rows) != want {
+		t.Errorf("rows = %d, want %d", len(rows), want)
 	}
 }
 
@@ -101,8 +95,8 @@ func TestComputerLoginRoutesAuthorization(t *testing.T) {
 		status  int
 		content []string
 	}{
-		{"sign-ins", http.MethodGet, "/api/computers/logins", http.StatusOK, []string{`"totalItems":26`}},
-		{"rejected reports", http.MethodGet, "/api/computers/raw_logins", http.StatusOK, []string{`"totalItems":4`}},
+		{"sign-ins", http.MethodGet, "/api/computers/logins", http.StatusOK, []string{`"id":"` + newestLogin + `"`}},
+		{"rejected reports", http.MethodGet, "/api/computers/raw_logins", http.StatusOK, []string{`"id":"` + namelessRawLogin + `"`}},
 		{"one rejected report", http.MethodGet, "/api/computers/raw_logins/" + markupRawLogin, http.StatusOK, []string{`"id":"` + markupRawLogin + `"`}},
 		{"delete a rejected report", http.MethodDelete, "/api/computers/raw_logins/" + markupRawLogin, http.StatusNoContent, nil},
 	}
@@ -162,92 +156,55 @@ func TestComputerLoginRoutesAuthorization(t *testing.T) {
 	}
 }
 
-// The sign-ins come a page at a time, newest first, with the computer name
-// and the name of the matched user.
-func TestComputerLoginsPaging(t *testing.T) {
+// The list holds every sign-in, newest first, with the computer name and the
+// name of the matched user.
+func TestComputerLoginsList(t *testing.T) {
 	tokens := computerTestTokens(t)
+
+	checkAll := func(t testing.TB, app *tests.TestApp, res *http.Response) {
+		rows := readLoginRows(t, res)
+		checkCount(t, rows, fixtureLogins)
+		if len(rows) == 0 {
+			return
+		}
+		first := rows[0]
+		if first.ID != newestLogin || first.ComputerName != "FAKE-PC-0005" ||
+			first.Computer != reassignComputer || first.User != timeUserID ||
+			first.UserName != "Tester Time" {
+			t.Errorf("first row = %+v", first)
+		}
+		for i := 1; i < len(rows); i++ {
+			if rows[i-1].Created < rows[i].Created {
+				t.Errorf("row %d is newer than row %d", i, i-1)
+			}
+		}
+		if last := rows[len(rows)-1].ID; last != oldestLogin {
+			t.Errorf("last id = %s, want %s", last, oldestLogin)
+		}
+	}
 
 	scenarios := []tests.ApiScenario{
 		{
 			// /logins must not reach the route of one computer, which would
 			// answer 404 for a computer with the id "logins".
-			Name:            "the first page holds the newest sign-ins",
+			Name:            "every sign-in, newest first",
 			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?perPage=10",
+			URL:             "/api/computers/logins",
 			Headers:         map[string]string{"Authorization": tokens.computers},
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"totalItems":26`},
+			ExpectedContent: []string{`"id":"` + newestLogin + `"`},
 			TestAppFactory:  testutils.SetupTestApp,
-			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				page := readLoginsPage(t, res)
-				checkPage(t, page, 1, 10, fixtureLogins, 3, 10)
-				if len(page.Items) == 0 {
-					return
-				}
-				first := page.Items[0]
-				if first.ID != newestLogin || first.ComputerName != "FAKE-PC-0005" ||
-					first.Computer != reassignComputer || first.User != timeUserID ||
-					first.UserName != "Tester Time" {
-					t.Errorf("first item = %+v", first)
-				}
-				for i := 1; i < len(page.Items); i++ {
-					if page.Items[i-1].Created < page.Items[i].Created {
-						t.Errorf("item %d is newer than item %d", i, i-1)
-					}
-				}
-			},
+			AfterTestFunc:   checkAll,
 		},
 		{
-			Name:            "the last page holds the rest",
+			Name:            "page and perPage are ignored",
 			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?perPage=10&page=3",
+			URL:             "/api/computers/logins?perPage=1&page=2",
 			Headers:         map[string]string{"Authorization": tokens.admin},
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"totalItems":26`},
+			ExpectedContent: []string{`"id":"` + newestLogin + `"`},
 			TestAppFactory:  testutils.SetupTestApp,
-			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				page := readLoginsPage(t, res)
-				checkPage(t, page, 3, 10, fixtureLogins, 3, 6)
-				if ids := page.ids(); len(ids) > 0 && ids[len(ids)-1] != oldestLogin {
-					t.Errorf("last id = %s, want %s", ids[len(ids)-1], oldestLogin)
-				}
-			},
-		},
-		{
-			Name:            "a page past the end gives the last page",
-			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?perPage=10&page=99",
-			Headers:         map[string]string{"Authorization": tokens.computers},
-			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"page":3`},
-			TestAppFactory:  testutils.SetupTestApp,
-			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				checkPage(t, readLoginsPage(t, res), 3, 10, fixtureLogins, 3, 6)
-			},
-		},
-		{
-			Name:            "bad paging values get the defaults and perPage is at most 100",
-			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?perPage=1000&page=-2",
-			Headers:         map[string]string{"Authorization": tokens.computers},
-			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"perPage":100`},
-			TestAppFactory:  testutils.SetupTestApp,
-			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				checkPage(t, readLoginsPage(t, res), 1, 100, fixtureLogins, 1, fixtureLogins)
-			},
-		},
-		{
-			Name:            "the default page size is 20",
-			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?perPage=abc",
-			Headers:         map[string]string{"Authorization": tokens.computers},
-			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"perPage":20`},
-			TestAppFactory:  testutils.SetupTestApp,
-			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				checkPage(t, readLoginsPage(t, res), 1, 20, fixtureLogins, 2, 20)
-			},
+			AfterTestFunc:   checkAll,
 		},
 	}
 	for _, scenario := range scenarios {
@@ -255,24 +212,24 @@ func TestComputerLoginsPaging(t *testing.T) {
 	}
 }
 
-// The details page shows the newest 20 sign-ins of one computer.
+// The details page shows every sign-in of one computer.
 func TestComputerLoginsOfOneComputer(t *testing.T) {
 	tokens := computerTestTokens(t)
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:            "the newest 20 sign-ins of one computer",
+			Name:            "every sign-in of one computer",
 			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?computer=" + unassignedComputer + "&perPage=20",
+			URL:             "/api/computers/logins?computer=" + unassignedComputer,
 			Headers:         map[string]string{"Authorization": tokens.computers},
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"totalItems":22`},
+			ExpectedContent: []string{`"id":"` + newestUnassigned + `"`},
 			TestAppFactory:  testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				page := readLoginsPage(t, res)
-				checkPage(t, page, 1, 20, unassignedLogins, 2, 20)
+				rows := readLoginRows(t, res)
+				checkCount(t, rows, unassignedLogins)
 				unmatched := 0
-				for _, item := range page.Items {
+				for _, item := range rows {
 					if item.Computer != unassignedComputer {
 						t.Errorf("%s is on %s", item.ID, item.Computer)
 					}
@@ -288,7 +245,7 @@ func TestComputerLoginsOfOneComputer(t *testing.T) {
 				if unmatched != 2 {
 					t.Errorf("unmatched = %d, want 2", unmatched)
 				}
-				if ids := page.ids(); len(ids) > 0 && ids[0] != newestUnassigned {
+				if ids := loginIDs(rows); len(ids) > 0 && ids[0] != newestUnassigned {
 					t.Errorf("first id = %s, want %s", ids[0], newestUnassigned)
 				}
 			},
@@ -299,8 +256,11 @@ func TestComputerLoginsOfOneComputer(t *testing.T) {
 			URL:             "/api/computers/logins?computer=nosuchcomputer1",
 			Headers:         map[string]string{"Authorization": tokens.computers},
 			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"items":[]`, `"totalItems":0`, `"page":1`},
+			ExpectedContent: []string{`[]`},
 			TestAppFactory:  testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				checkCount(t, readLoginRows(t, res), 0)
+			},
 		},
 	}
 	for _, scenario := range scenarios {
@@ -315,17 +275,16 @@ func TestComputerLoginsSearch(t *testing.T) {
 
 	search := func(q string, want int) tests.ApiScenario {
 		return tests.ApiScenario{
-			Name:            "search " + q,
-			Method:          http.MethodGet,
-			URL:             "/api/computers/logins?perPage=100&q=" + q,
-			Headers:         map[string]string{"Authorization": tokens.computers},
-			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"totalItems":`},
+			Name:           "search " + q,
+			Method:         http.MethodGet,
+			URL:            "/api/computers/logins?q=" + q,
+			Headers:        map[string]string{"Authorization": tokens.computers},
+			ExpectedStatus: http.StatusOK,
+			// The list is an array; AfterTestFunc counts its rows.
+			ExpectedContent: []string{`[`},
 			TestAppFactory:  testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				if got := readLoginsPage(t, res).TotalItems; got != want {
-					t.Errorf("totalItems = %d, want %d", got, want)
-				}
+				checkCount(t, readLoginRows(t, res), want)
 			},
 		}
 	}
@@ -348,8 +307,7 @@ func TestComputerLoginsSearch(t *testing.T) {
 	}
 }
 
-// The rejected reports come a page at a time, newest first, without the
-// report. One rejected report carries the report as it was received.
+// The list holds every rejected report, newest first, without the report. One rejected report carries the report as it was received.
 func TestComputerRawLogins(t *testing.T) {
 	tokens := computerTestTokens(t)
 
@@ -367,9 +325,9 @@ func TestComputerRawLogins(t *testing.T) {
 			},
 			TestAppFactory: testutils.SetupTestApp,
 			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
-				page := readLoginsPage(t, res)
-				checkPage(t, page, 1, 20, fixtureRawLogins, 1, fixtureRawLogins)
-				got := strings.Join(page.ids(), ",")
+				rows := readLoginRows(t, res)
+				checkCount(t, rows, fixtureRawLogins)
+				got := strings.Join(loginIDs(rows), ",")
 				want := strings.Join([]string{namelessRawLogin, markupRawLogin, "cmprawlogin0002", firstFixtureRawLogin}, ",")
 				if got != want {
 					t.Errorf("ids = %s, want %s", got, want)
@@ -377,23 +335,17 @@ func TestComputerRawLogins(t *testing.T) {
 			},
 		},
 		{
-			Name:            "a page of one",
-			Method:          http.MethodGet,
-			URL:             "/api/computers/raw_logins?perPage=1&page=2",
-			Headers:         map[string]string{"Authorization": tokens.computers},
-			ExpectedStatus:  http.StatusOK,
-			ExpectedContent: []string{`"id":"` + markupRawLogin + `"`, `"totalPages":4`},
-			TestAppFactory:  testutils.SetupTestApp,
-		},
-		{
 			Name:               "search the computer name and the error",
 			Method:             http.MethodGet,
 			URL:                "/api/computers/raw_logins?q=usersurname",
 			Headers:            map[string]string{"Authorization": tokens.computers},
 			ExpectedStatus:     http.StatusOK,
-			ExpectedContent:    []string{`"totalItems":1`, `"computer_name":"FAKE-PC-0098"`},
+			ExpectedContent:    []string{`"computer_name":"FAKE-PC-0098"`},
 			NotExpectedContent: []string{"FAKE-PC-0099"},
 			TestAppFactory:     testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				checkCount(t, readLoginRows(t, res), 1)
+			},
 		},
 		{
 			Name:            "one rejected report holds the report",

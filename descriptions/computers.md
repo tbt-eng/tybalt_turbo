@@ -128,18 +128,18 @@ One row per rejected report: `report` (the body as received), `computer_name` (f
 | `POST /api/computers/{id}/assign` | Sets `assigned_to` to `last_user` and `assigned_time` to now. Refuses a retired computer and one with no `last_user` (400). An optional body `{"user": "<id>"}` makes it refuse with 409 unless that is still the last user, so a report that arrives while the page is open can't assign the computer to someone the person didn't see. |
 | `POST /api/computers/{id}/retire` | Sets `retired` to now. Refuses a retired computer (400). |
 | `POST /api/computers/{id}/unretire` | Clears `retired`. Refuses a computer that is not retired (400). |
-| `GET /api/computers/logins` | One page of sign-ins, newest first. `?computer=<id>` limits it to one computer. |
-| `GET /api/computers/raw_logins` | One page of raw logins, newest first, without `report`. |
+| `GET /api/computers/logins` | Every sign-in, newest first. `?computer=<id>` limits it to one computer. |
+| `GET /api/computers/raw_logins` | Every raw login, newest first, without `report`. |
 | `GET /api/computers/raw_logins/{id}` | One raw login with `report` as received. |
 | `DELETE /api/computers/raw_logins/{id}` | Deletes one raw login (204, or 404 for an unknown id). Nothing refers to a raw login, so it needs no transaction. |
 
-The two GET routes exist because a holder of the `computers` claim can't read other people's users or profiles, so an expand can't name the last user or the assignee. `computers.sql` joins the profiles. The rows have every computer field plus `last_user_name` and `assigned_to_name`. The lists are small (a few hundred computers), so the page loads a whole list and pages it in the browser.
+The two GET routes exist because a holder of the `computers` claim can't read other people's users or profiles, so an expand can't name the last user or the assignee. `computers.sql` joins the profiles. The rows have every computer field plus `last_user_name` and `assigned_to_name`. The lists are small (a few hundred computers), so the page loads a whole list and shows it all.
 
 ### Logins and raw logins
 
-`app/routes/computer_logins.go`, with `computer_logins.sql` and `computer_raw_logins.sql` and a `_count.sql` beside each, which must keep the same FROM and WHERE.
+`app/routes/computer_logins.go`, with `computer_logins.sql` and `computer_raw_logins.sql`.
 
-These lists page on the server. A login is written at each sign-in, so they can hold thousands of rows; legacy showed only the newest 101 logins. The two list routes take `page` (from 1), `perPage` (20 by default, at most 100) and `q`, and answer in the shape of a PocketBase list: `items`, `page`, `perPage`, `totalItems` and `totalPages`. A page past the end gives the last page. `q` is matched with `LIKE` anywhere in the text, with `%`, `_` and `\` taken literally: for logins, the computer name, the serial, the reported name and the matched user's name; for raw logins, the computer name and the error.
+These lists don't page. Logins and raw logins are deleted after 30 days (see Retention), so each list route answers with a JSON array of every matching row. They take `q`, which is matched with `LIKE` anywhere in the text, with `%`, `_` and `\` taken literally: for logins, the computer name, the serial, the reported name and the matched user's name; for raw logins, the computer name and the error.
 
 The login rows have the login fields plus `computer_name`, `serial` and `user_name`, the matched user's name, joined from the profiles for the same reason as above.
 
@@ -147,7 +147,7 @@ The raw logins list leaves out `report`, which can be 64 KB; the page loads it f
 
 ### UI
 
-The pages are `/computers/list`, `/computers/retired`, `/computers/logins` (**Logins**), `/computers/raw_logins` (**Raw Logins**) and `/computers/{id}/details`. `ComputersTabs` links the four lists. The two server-paged lists keep the search and the page in the URL (`q`, `page`, `perPage`), and `DSList` with `totalItems` shows one page at a time. The details page shows the newest 20 sign-ins of the computer from `GET /api/computers/logins?computer=<id>&perPage=20`. The user docs are `ui/src/docs/computers.md`.
+The pages are `/computers/list`, `/computers/retired`, `/computers/logins` (**Logins**), `/computers/raw_logins` (**Raw Logins**) and `/computers/{id}/details`. `ComputersTabs` links the four lists. No list pages. Logins and Raw Logins search on the server and keep the search in the URL (`q`); `DSList` filters the rows it has with the same fields while the next search loads. The details page shows every sign-in of the computer from `GET /api/computers/logins?computer=<id>`. The user docs are `ui/src/docs/computers.md`.
 
 ## Retention
 

@@ -15,6 +15,7 @@
     localDay,
     localTime,
     rawLoginReportText,
+    rawLoginSearchText,
     type ComputerRawLoginRow,
   } from "$lib/computers";
   import { computerListNavigator } from "$lib/computersLoad";
@@ -26,10 +27,10 @@
   let { data }: { data: PageData } = $props();
 
   // The search box keeps what the person types; the URL follows it.
-  let searchTerm = $state(untrack(() => data.state.q));
+  let searchTerm = $state(untrack(() => data.q));
   const navigate = computerListNavigator(
     "/computers/raw_logins",
-    untrack(() => data.state),
+    untrack(() => data.q),
   );
 
   // The report that the modal shows. It is untrusted JSON from the network,
@@ -101,15 +102,11 @@
 <div>
   <ComputersTabs active="raw_logins" />
   <DSList
-    items={data.result.items}
+    items={data.items}
     search={true}
-    pagination={true}
-    totalItems={data.result.totalItems}
-    page={data.result.page}
-    perPage={data.result.perPage}
+    searchText={rawLoginSearchText}
     bind:searchTerm
-    onStateChange={(state) =>
-      navigate({ q: state.searchTerm, page: state.page, perPage: state.perPage })}
+    onStateChange={(state) => navigate(state.searchTerm)}
     searchPlaceholder="search raw logins..."
     emptyMessage={searchTerm ? "No raw logins match the search." : "No raw logins."}
   >

@@ -1,7 +1,7 @@
 package routes
 
 // The Logins and Raw Logins pages: the logins and the raw logins that
-// POST /api/radiator writes, a page at a time, and the delete of one raw
+// POST /api/radiator writes, every row at once, and the delete of one raw
 // login. bindComputerRoutes binds them behind the same guard as the other
 // computer routes: the computers claim or admin. See descriptions/computers.md.
 
@@ -10,8 +10,6 @@ import (
 	_ "embed" // for go:embed
 	"errors"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"tybalt/errs"
@@ -24,19 +22,8 @@ import (
 //go:embed computer_logins.sql
 var computerLoginsQuery string
 
-//go:embed computer_logins_count.sql
-var computerLoginsCountQuery string
-
 //go:embed computer_raw_logins.sql
 var computerRawLoginsQuery string
-
-//go:embed computer_raw_logins_count.sql
-var computerRawLoginsCountQuery string
-
-const (
-	computerListDefaultPerPage = 20
-	computerListMaxPerPage     = 100
-)
 
 // computerLoginRow is one sign-in as the pages show it. user_name is the
 // matched user, which a holder of the computers claim can't read through the
@@ -63,30 +50,6 @@ type computerRawLoginRow struct {
 	Report       types.JSONRaw `db:"-" json:"report,omitempty"`
 }
 
-// computerPage is one page of a list, in the shape of a PocketBase list
-// response.
-type computerPage[T any] struct {
-	Items      []T `json:"items"`
-	Page       int `json:"page"`
-	PerPage    int `json:"perPage"`
-	TotalItems int `json:"totalItems"`
-	TotalPages int `json:"totalPages"`
-}
-
-// computerListPaging reads page and perPage. A missing or bad value gets the
-// default; perPage is at most computerListMaxPerPage.
-func computerListPaging(query url.Values) (page, perPage int) {
-	page = 1
-	if value, err := strconv.Atoi(query.Get("page")); err == nil && value > 0 {
-		page = value
-	}
-	perPage = computerListDefaultPerPage
-	if value, err := strconv.Atoi(query.Get("perPage")); err == nil && value > 0 {
-		perPage = min(value, computerListMaxPerPage)
-	}
-	return page, perPage
-}
-
 // computerSearchPattern turns the search text into a LIKE pattern that
 // matches it anywhere, with % _ and \ taken literally. Blank text gives "".
 func computerSearchPattern(text string) string {
@@ -98,53 +61,37 @@ func computerSearchPattern(text string) string {
 	return "%" + escaped + "%"
 }
 
-// loadComputerPage counts the rows, moves a page past the end back to the last
-// page, and loads that page.
-func loadComputerPage[T any](app core.App, listQuery, countQuery string, params dbx.Params, page, perPage int) (computerPage[T], error) {
-	result := computerPage[T]{Items: []T{}, Page: page, PerPage: perPage}
-	if err := app.DB().NewQuery(countQuery).Bind(params).Row(&result.TotalItems); err != nil {
-		return result, err
-	}
-	result.TotalPages = (result.TotalItems + perPage - 1) / perPage
-	if result.TotalPages > 0 && result.Page > result.TotalPages {
-		result.Page = result.TotalPages
-	}
-	params["limit"] = perPage
-	params["offset"] = (result.Page - 1) * perPage
-	err := app.DB().NewQuery(listQuery).Bind(params).All(&result.Items)
-	return result, err
-}
-
-// createGetComputerLoginsHandler lists sign-ins, newest first. ?computer=
-// limits them to one computer and ?q= searches them.
+// createGetComputerLoginsHandler lists every sign-in, newest first, as an
+// array. ?computer= limits them to one computer and ?q= searches them.
+// Sign-ins are deleted after 30 days, so the list stays short enough to send
+// whole.
 func createGetComputerLoginsHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		query := e.Request.URL.Query()
-		page, perPage := computerListPaging(query)
-		result, err := loadComputerPage[computerLoginRow](app, computerLoginsQuery, computerLoginsCountQuery, dbx.Params{
+		rows := []computerLoginRow{}
+		err := app.DB().NewQuery(computerLoginsQuery).Bind(dbx.Params{
 			"computer": strings.TrimSpace(query.Get("computer")),
 			"search":   computerSearchPattern(query.Get("q")),
-		}, page, perPage)
+		}).All(&rows)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load logins", err)
 		}
-		return e.JSON(http.StatusOK, result)
+		return e.JSON(http.StatusOK, rows)
 	}
 }
 
-// createGetComputerRawLoginsHandler lists rejected reports, newest first,
-// without the reports. ?q= searches them.
+// createGetComputerRawLoginsHandler lists every rejected report, newest
+// first, as an array, without the reports. ?q= searches them.
 func createGetComputerRawLoginsHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		query := e.Request.URL.Query()
-		page, perPage := computerListPaging(query)
-		result, err := loadComputerPage[computerRawLoginRow](app, computerRawLoginsQuery, computerRawLoginsCountQuery, dbx.Params{
-			"search": computerSearchPattern(query.Get("q")),
-		}, page, perPage)
+		rows := []computerRawLoginRow{}
+		err := app.DB().NewQuery(computerRawLoginsQuery).Bind(dbx.Params{
+			"search": computerSearchPattern(e.Request.URL.Query().Get("q")),
+		}).All(&rows)
 		if err != nil {
 			return e.Error(http.StatusInternalServerError, "failed to load raw logins", err)
 		}
-		return e.JSON(http.StatusOK, result)
+		return e.JSON(http.StatusOK, rows)
 	}
 }
 

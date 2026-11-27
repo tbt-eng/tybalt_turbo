@@ -10,7 +10,6 @@
     searchText,
     searchPlaceholder = "search...",
     pagination = false,
-    totalItems,
     page = $bindable(1),
     perPage = $bindable(20),
     onStateChange,
@@ -39,11 +38,6 @@
     searchText?: (item: T) => string;
     searchPlaceholder?: string;
     pagination?: boolean;
-    // Server paging: items is one page that the server has already searched,
-    // and totalItems counts every match. The list shows items as they are and
-    // reports search and page changes through onStateChange, so the owner can
-    // load the next page. Needs pagination.
-    totalItems?: number;
     page?: number;
     perPage?: number;
     onStateChange?: (state: { searchTerm: string; page: number; perPage: number }) => void;
@@ -103,10 +97,7 @@
     return fields.join(",").toLowerCase();
   }
 
-  const serverPaged = $derived(totalItems !== undefined);
-
   const processedItems = $derived.by(() => {
-    if (serverPaged) return items.slice();
     if (processorFn !== undefined && typeof processorFn === "function") {
       return processorFn(items.slice());
     }
@@ -125,16 +116,16 @@
   const canPaginate = $derived(pagination && groupField === undefined && processorFn === undefined);
   const pageSizes = [10, 20, 50];
   const safePerPage = $derived(pageSizes.includes(perPage) ? perPage : 20);
-  // Every match: on the server when it pages, else here.
-  const matchCount = $derived(serverPaged ? (totalItems ?? 0) : processedItems.length);
   // A list that fits on the smallest page needs no page controls.
-  const showPageControls = $derived(canPaginate && matchCount > pageSizes[0]);
-  const totalPages = $derived(canPaginate ? Math.max(1, Math.ceil(matchCount / safePerPage)) : 1);
+  const showPageControls = $derived(canPaginate && processedItems.length > pageSizes[0]);
+  const totalPages = $derived(
+    canPaginate ? Math.max(1, Math.ceil(processedItems.length / safePerPage)) : 1,
+  );
   const activePage = $derived(
     Math.min(Math.max(1, Number.isSafeInteger(page) ? page : 1), totalPages),
   );
   const visibleItems = $derived(
-    canPaginate && !serverPaged
+    canPaginate
       ? processedItems.slice((activePage - 1) * safePerPage, activePage * safePerPage)
       : processedItems,
   );
@@ -238,7 +229,7 @@
         class="flex-1 rounded-sm border border-neutral-300 px-1 py-1 text-base max-[639px]:basis-full max-[639px]:px-2 max-[639px]:py-2 max-[639px]:text-lg"
       />
       {#if groupField === undefined}
-        <span>{matchCount} items</span>
+        <span>{processedItems.length} items</span>
       {:else}
         <span>
           <!-- when grouping, get the sum of the length of the lists for every key in processed items -->

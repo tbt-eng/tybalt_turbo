@@ -5,16 +5,17 @@ import {
   canViewComputers,
   computerAssignment,
   computerListSearch,
-  computerListState,
   formatBytes,
   lastUserLabel,
   localDay,
   localTime,
   loginReportedName,
+  loginSearchText,
   loginTurboUserName,
   modelLabel,
   networkAdapters,
   rawLoginReportText,
+  rawLoginSearchText,
   systemTypeLabel,
 } from "../src/lib/computers.ts";
 
@@ -154,32 +155,34 @@ test("a PocketBase datetime becomes the day on the user's device", () => {
   }
 });
 
-test("a list state comes from the URL, with defaults for bad values", () => {
-  assert.deepEqual(computerListState(new URLSearchParams("")), { q: "", page: 1, perPage: 20 });
-  assert.deepEqual(computerListState(new URLSearchParams("q=%20pc%20&page=3&perPage=50")), {
-    q: "pc",
-    page: 3,
-    perPage: 50,
-  });
-  // DSList offers 10, 20 and 50 rows; another size gets 20.
-  assert.deepEqual(computerListState(new URLSearchParams("page=-1&perPage=100")), {
-    q: "",
-    page: 1,
-    perPage: 20,
-  });
-  assert.deepEqual(computerListState(new URLSearchParams("page=1.5&perPage=abc")), {
-    q: "",
-    page: 1,
-    perPage: 20,
-  });
+test("a search becomes a URL search, and no search none", () => {
+  assert.equal(computerListSearch(""), "");
+  assert.equal(computerListSearch("  "), "");
+  assert.equal(computerListSearch(" pc "), "?q=pc");
+  assert.equal(computerListSearch("a&b"), "?q=a%26b");
+  assert.equal(new URLSearchParams(computerListSearch("tester time")).get("q"), "tester time");
 });
 
-test("a list state becomes a URL search without the defaults", () => {
-  assert.equal(computerListSearch({ q: "", page: 1, perPage: 20 }), "");
-  assert.equal(computerListSearch({ q: " pc ", page: 2, perPage: 20 }), "?q=pc&page=2");
-  assert.equal(computerListSearch({ q: "a&b", page: 1, perPage: 50 }), "?q=a%26b&perPage=50");
-  const state = { q: "tester time", page: 4, perPage: 10 };
-  assert.deepEqual(computerListState(new URLSearchParams(computerListSearch(state))), state);
+test("the list search matches the fields that the server searches", () => {
+  const login = {
+    id: "l1",
+    created: "",
+    computer: "c1",
+    computer_name: "FAKE-PC-0003",
+    serial: "FAKESERIAL0003",
+    given_name: "Guest",
+    surname: "Account",
+    user: "",
+    user_name: "",
+  };
+  const text = loginSearchText(login).toLowerCase();
+  for (const q of ["fake-pc-0003", "fakeserial0003", "guest account"]) {
+    assert.ok(text.includes(q), q);
+  }
+  assert.ok(loginSearchText({ ...login, user_name: "Tester Time" }).includes("Tester Time"));
+  const raw = { id: "r1", created: "", computer_name: "FAKE-PC-0098", error: "upn: is required" };
+  assert.ok(rawLoginSearchText(raw).includes("FAKE-PC-0098"));
+  assert.ok(rawLoginSearchText(raw).includes("upn: is required"));
 });
 
 test("a sign-in shows its reported name and a Turbo user only when the names differ", () => {

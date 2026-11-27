@@ -21,7 +21,7 @@ Assign gives a computer to its last user.
 
 ## Computer details
 
-The page of a computer shows its hardware, Windows version, network adapters and assignment. **Logins** lists the newest 20 sign-ins, with the Turbo user that each one matched.
+The page of a computer shows its hardware, Windows version, network adapters and assignment. **Logins** lists its sign-ins of the last 30 days, with the Turbo user that each one matched.
 
 Select **Assign to** and the name to assign the computer to its last user.
 

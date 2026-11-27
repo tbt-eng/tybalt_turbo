@@ -1,4 +1,4 @@
--- One page of logins for the Logins page and the computer details page,
+-- Every login for the Logins page and the computer details page,
 -- newest first, with the computer name and the name of the matched user. A
 -- holder of the computers claim can read logins but not the profiles of other
 -- people, so the names come from here and not from an expand.
@@ -6,7 +6,6 @@
 -- LIKE pattern, or blank for every row; it matches the computer name, the
 -- serial, the reported name and the name of the matched user as the row shows it
 -- (the profile name, else the user name, else the email).
--- computer_logins_count.sql must keep the same FROM and WHERE.
 SELECT
   l.id,
   l.created,
@@ -40,5 +39,4 @@ WHERE
       ''
     ) LIKE {:search} ESCAPE '\'
   )
-ORDER BY l.created DESC, l.id DESC
-LIMIT {:limit} OFFSET {:offset};
+ORDER BY l.created DESC, l.id DESC;

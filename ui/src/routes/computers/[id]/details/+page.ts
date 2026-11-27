@@ -1,11 +1,8 @@
 import { error } from "@sveltejs/kit";
-import type { ComputerLoginRow, ComputerPage, ComputerRow } from "$lib/computers";
+import type { ComputerLoginRow, ComputerRow } from "$lib/computers";
 import { requireComputersAccess } from "$lib/computersLoad";
 import { pb } from "$lib/pocketbase";
 import type { PageLoad } from "./$types";
-
-// The newest sign-ins that the page shows.
-const LOGINS_SHOWN = 20;
 
 export const load: PageLoad = async ({ params }) => {
   await requireComputersAccess();
@@ -18,9 +15,10 @@ export const load: PageLoad = async ({ params }) => {
   }
   // The server names the matched user, which a holder of the computers claim
   // can't read through the API.
+  // Every sign-in of the computer: they are deleted after 30 days.
   const logins = (await pb.send("/api/computers/logins", {
     method: "GET",
-    query: { computer: params.id, perPage: LOGINS_SHOWN },
-  })) as ComputerPage<ComputerLoginRow>;
-  return { computer, logins: logins.items };
+    query: { computer: params.id },
+  })) as ComputerLoginRow[];
+  return { computer, logins };
 };

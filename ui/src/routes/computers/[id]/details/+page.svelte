@@ -166,7 +166,7 @@
 
   <DSSection title="Logins">
     {#snippet titleNote()}
-      the newest 20
+      the last 30 days
     {/snippet}
     <ComputerLoginsList items={data.logins} showComputer={false} />
   </DSSection>
