@@ -300,6 +300,35 @@ await runBrowserHarness(
     // Request notes may be internal, so they print only when staff choose them.
     for (const notes of ["Additional details", "Lot 12, Concession 3"])
       assert.equal(text.includes(notes), false);
+    // Payment methods print on every PA, between Invoicing and the agreement.
+    const paymentMethods =
+      "Payment methods\n" +
+      "Cheque — Make it payable to TBT Engineering Limited and include the invoice number on the memo line.\n" +
+      "Interac e-Transfer — Send to accounting@tbte.ca.\n" +
+      "Direct deposit — Contact accounting@tbte.ca for banking information.\n" +
+      "We do not accept credit cards or cash.";
+    const paymentSection = () =>
+      page.locator("section").filter({
+        has: page.getByRole("heading", { name: "Payment methods", exact: true }),
+      });
+    const sectionOrder = () =>
+      page.locator("article h2").evaluateAll((headings) => headings.map((h) => h.textContent));
+    const assertPaymentMethods = async () => {
+      assert.equal((await paymentSection().innerText()).replace(/\n+/g, "\n"), paymentMethods);
+      const order = await sectionOrder();
+      assert.equal(order.indexOf("Payment methods"), order.indexOf("Invoicing") + 1);
+      if (order.includes("Agreement and signatures"))
+        assert.equal(
+          order.indexOf("Agreement and signatures"),
+          order.indexOf("Payment methods") + 1,
+        );
+      // The heading and its text move to a new page together.
+      assert.equal(
+        await paymentSection().evaluate((s) => getComputedStyle(s).breakInside),
+        "avoid",
+      );
+    };
+    await assertPaymentMethods();
     await page.screenshot({ path: "/tmp/project-request-complete.png", fullPage: true });
     await page.emulateMedia({ media: "print" });
     await page.pdf({ path: "/tmp/project-request-complete.pdf", preferCSSPageSize: true });
@@ -309,8 +338,18 @@ await runBrowserHarness(
       await page.locator("section").filter({ hasText: "Project / scope of work" }).innerText(),
       /Additional details\n+Legal description: Lot 12, Concession 3,\nGeographic Township of Example/,
     );
+    await assertPaymentMethods();
+    // No invoicing profile: no instructions, and payment methods still print.
+    await page.goto(`${origin}/tests/fixtures/projectRequests.html?no-profile`);
+    await page.getByText("For the client: Example Client", { exact: true }).waitFor();
+    assert.equal(
+      (await page.locator("article").innerText()).includes("Send invoices to Accounts."),
+      false,
+    );
+    await assertPaymentMethods();
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?tm`);
     await page.getByText("Client billing rate sheet — CAD", { exact: true }).waitFor();
+    await assertPaymentMethods();
     assert.match(await page.locator(".rates").innerText(), /Engineer/);
     assert.match(await page.locator(".rates").innerText(), /\$180.00/);
     assert.match(
@@ -325,10 +364,12 @@ await runBrowserHarness(
       await page.locator(".value").innerText(),
       "Project value (CAD, before tax): Not provided",
     );
+    await assertPaymentMethods();
     await page.screenshot({ path: "/tmp/project-request-draft.png", fullPage: true });
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?long&tm`);
     await page.getByText("END OF SCOPE", { exact: false }).waitFor();
     assert.equal(await page.locator(".signature-line").count(), 8);
+    await assertPaymentMethods();
     await page.pdf({ path: "/tmp/project-request-long.pdf", preferCSSPageSize: true });
     await page.emulateMedia({ media: "screen" });
     await page.goto(`${origin}/tests/fixtures/projectRequests.html?editor&no-contacts`);

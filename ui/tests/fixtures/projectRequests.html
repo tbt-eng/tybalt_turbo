@@ -79,6 +79,11 @@
         request.client = "";
         request.contact = "";
       }
+      // A client with no invoicing profile: no billing contact or instructions.
+      if (query.has("no-profile")) {
+        related.billing_contact = undefined;
+        related.invoicing_information = undefined;
+      }
       if (query.has("draft")) {
         request.project_value = 0;
         related.contact.email = "";

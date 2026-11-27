@@ -26,6 +26,19 @@
         : "") +
       "Applicable taxes are additional.",
   );
+  // Accepted payment methods, printed on every PA. Accounting owns this
+  // wording: edit it here.
+  const paymentMethods = {
+    methods: [
+      [
+        "Cheque",
+        "Make it payable to TBT Engineering Limited and include the invoice number on the memo line.",
+      ],
+      ["Interac e-Transfer", "Send to accounting@tbte.ca."],
+      ["Direct deposit", "Contact accounting@tbte.ca for banking information."],
+    ],
+    notAccepted: "We do not accept credit cards or cash.",
+  };
   onMount(printWhenReady);
 </script>
 
@@ -159,6 +172,15 @@
                   </p>{/if}
               </div>
             </div>
+          </section>
+          <section class="keep">
+            <h2>Payment methods</h2>
+            <ul>
+              {#each paymentMethods.methods as [method, detail] (method)}<li>
+                  <strong>{method}</strong> — {detail}
+                </li>{/each}
+            </ul>
+            <p>{paymentMethods.notAccepted}</p>
           </section>
           {#if !missing.length}<section class="keep">
               <h2>Agreement and signatures</h2>
