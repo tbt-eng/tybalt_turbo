@@ -1,260 +1,228 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/hooks.go","sha256":"04fc27739e91941cfcc6eda76d5fe450ffe3bacfc55788092a00e5c55f5bc099","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/hooks.go","sha256":"b44641f9c443eb5aa9f431ee080495a097296857ab31671d66b566acd17154eb","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/hooks.go
 
-## Hook errors are returned with their own status and message
+## Notifications and hook errors on PO and other saves
 
 Lines 19-25
 
-Asked as: hook error message shown; wrong error status returned; custom error message to user; check failed error text
+Asked as: hook refused save; error message on save; save rejected with status; hook error shown to user
 
-When a Turbo check fails with a hook error, Turbo returns that error's message and status to the user. Other errors are returned unchanged.
+When a hook refuses a save with a structured error, Turbo returns that error's status and message to the person who made the request. Other errors pass through unchanged.
 
-## Purchase order notification is sent after a successful save
+## Purchase order save sends its notification after it persists
 
 Lines 27-72
 
-Asked as: purchase order notification sent; PO notification timing; notification after saving PO; notification when PO fails
+Asked as: PO notification sent; purchase order notification when saved; notification sent for unsaved PO; PO save failed but notified
 
-When saving a purchase order creates a notification, Turbo sends it right after the save. If the save fails, Turbo deletes the pending notification so it is never delivered. A failure to send does not undo the save.
+Turbo runs ProcessPurchaseOrder before it creates or updates a purchase order. When the save succeeds, Turbo sends the notification that the check created. When the save fails, Turbo deletes that notification, so cron never sends it for a PO that was not saved. An error in sending is logged and does not undo the save.
 
-## Notification delivery errors do not undo a saved purchase order
+## Expenses editing switch blocks deletes and vendor changes
 
-Lines 27-42
-
-Asked as: PO saved but no notification; notification failed to send; email not delivered PO; saved PO still there
-
-If Turbo cannot send a purchase order notification after the save, it logs the error. The saved purchase order stays saved.
-
-## Expense editing switch blocks deletes and vendor changes
-
-Lines 83-92
+Lines 81-92
 
 Asked as: cannot delete expense; expenses editing disabled; can't edit vendors; vendor changes blocked
 
-When expenses editing is disabled, Turbo refuses to delete an expense or a purchase order. It also refuses to create, update or delete a vendor. It returns the expenses-editing-disabled error (ErrExpensesEditingDisabled).
+When expenses editing is disabled, Turbo refuses to delete an expense or a purchase order. It also refuses to create, update or delete a vendor. The error is ErrExpensesEditingDisabled.
 
-## Microsoft login syncs identity and onboards in one transaction
+## Only Microsoft sign-ins get the custom onboarding
 
-Lines 126-281
+Lines 126-129
 
-Asked as: Microsoft login setup; new user onboarding Microsoft; name email sync login; no profile after Microsoft sign in
+Asked as: Microsoft sign-in custom onboarding; login with Google or other provider; non-Microsoft sign-in behaviour; OAuth provider not Microsoft
 
-After a Microsoft login, Turbo syncs the user's name and email (the sync runs on later logins too). It makes sure an admin profile exists. It does not create a profile (profiles record), because the manager must be chosen in the app. A first-time user also gets an initial time claim. The whole flow runs in one transaction, so a failure leaves no half-onboarded user. Only Microsoft logins get this handling.
+Turbo applies its custom sign-in handling to the users collection only when the OAuth2 provider is Microsoft, and the name comparison ignores case. Sign-ins through any other provider skip this handling and use PocketBase's default flow.
+
+## Microsoft sign-in changes are all-or-nothing
+
+Lines 135-135
+
+Asked as: Microsoft login half onboarded; partial sign-in setup rollback; Microsoft sign-in failed midway; sign-in transaction rollback
+
+Turbo runs the whole Microsoft sign-in flow in one transaction. It covers relinking, user creation, the identity sync, the initial time claim and the admin profile. If any step fails, Turbo undoes all of them and does not leave a half-onboarded user.
 
 ## Microsoft login relinks an existing user
 
 Lines 150-177
 
-Asked as: Microsoft account relink; existing user Microsoft login; link Microsoft to old account; duplicate user Microsoft login
+Asked as: existing user Microsoft login; link Microsoft account to old user; failed to relink Microsoft account; failed to look up existing Microsoft user
 
-When PocketBase finds no user by provider id, Turbo looks for an existing user to relink. If it finds one, it relinks the Microsoft account to that user and treats the login as a returning user, not a new one. Failures give "failed to look up existing Microsoft user" or "failed to relink Microsoft account".
+When PocketBase finds no user by provider ID, Turbo looks for an existing user to relink (findMicrosoftRelinkCandidate). If it finds one, it relinks the Microsoft account to that user and treats the login as a returning user, not a new one. A failed lookup returns "failed to look up existing Microsoft user". A failed relink returns "failed to relink Microsoft account".
 
-## Microsoft first login builds the new user's details
+## Microsoft first login derives email, name and username
 
 Lines 179-224
 
-Asked as: blank email Microsoft login; username from email; first login details filled; userPrincipalName used as email
+Asked as: new Microsoft user email blank; username usersNNNNNN; name missing after Microsoft login; userPrincipalName fallback email
 
-On a first Microsoft login, Turbo fills a blank email from the Microsoft mail, or from userPrincipalName when mail is empty. It fills a blank name from the Microsoft full name. It builds a unique username from the email when no username is given. Details already supplied are kept.
+For a new Microsoft user, Turbo fills in an empty email from the Microsoft email, falling back to userPrincipalName. It fills in an empty name from the Microsoft full name. It builds a unique username when none is set, instead of PocketBase's generated usersNNNNNN. Turbo does not overwrite values that are already present.
+
+## Microsoft login syncs identity and onboards the user
+
+Lines 226-280
+
+Asked as: sync Microsoft name and email; why no profile created on login; initial time claim new user; username not changed after login
+
+After each Microsoft login, Turbo syncs the user's name and email from Microsoft (syncMicrosoftUserIdentity). It never renames the username after creation. Turbo creates an admin profile if one is missing, but creates no profile record, because the manager must be chosen in the app. A new user also gets an initial time claim. Only Microsoft logins get this treatment, and one failed step rolls back the whole login.
 
 ## Inactive accounts cannot sign in
 
 Lines 304-316
 
-Asked as: account inactive login; can't sign in deactivated; login blocked inactive user; disabled user cannot log in
+Asked as: cannot log in inactive; account deactivated login fails; this account is inactive; login blocked active flag
 
-When someone signs in, Turbo checks their admin profile. If the profile is not active (active is false), Turbo refuses the login with "this account is inactive", even when the credentials are valid. This check runs on every login.
+When a user signs in with valid credentials, Turbo checks the active flag on their admin profile. If the profile is not active, Turbo refuses the login with "this account is inactive" and issues no token.
 
-## Non-Microsoft login without admin profile is refused
+## Missing admin profile blocks password login
 
 Lines 317-323
 
-Asked as: account setup incomplete; login refused no profile; no admin profile sign in; can't log in after password
+Asked as: account setup incomplete; no admin profile password login; can't sign in password no profile; login refused missing profile
 
-If a user signs in by a method other than OAuth2 and has no admin profile, Turbo refuses with "account setup incomplete". It does not create the profile.
+If a user who signs in has no admin profile and did not use OAuth2, Turbo refuses the login with "account setup incomplete". Turbo does not create the admin profile in this case.
 
 ## OAuth2 login repairs a missing admin profile
 
 Lines 321-329
 
-Asked as: OAuth2 login no profile; onboarding failed login; profile created on login; missing admin profile fix
+Asked as: failed to complete user onboarding; OAuth login missing profile; create admin profile at login; fix profile on sign in
 
-If a user signs in by OAuth2 and has no admin profile, Turbo creates one and lets the login continue. If the creation fails, Turbo refuses with "failed to complete user onboarding".
+If a user who signs in with OAuth2 has no admin profile, Turbo creates one (ensureUserAdminProfile) and then completes the login. If the creation fails, Turbo refuses with "failed to complete user onboarding".
 
-## Time entry edits are gated by the time editing setting
+## Time entry and time amendment changes are checked first
 
-Lines 333-379
+Lines 333-368
 
-Asked as: cannot delete time entry; time editing disabled; can't remove timesheet entry; time amendment delete blocked
+Asked as: time entry save blocked; time amendment rejected; timesheet entry validation fails; can't save time entry
 
-Turbo refuses to delete a time entry or a time amendment when time editing is disabled, and returns the time-editing-disabled error (ErrTimeEditingDisabled). Creating and updating run through ProcessTimeEntry and ProcessTimeAmendment, whose rules are in other files.
+Turbo runs ProcessTimeEntry before it creates or updates a time entry. It runs ProcessTimeAmendment before it creates or updates a time amendment. A failure from either stops the save and returns the error.
 
-## Purchase order saves are processed before saving
+## Deleting time entries and amendments needs time editing enabled
 
-Lines 380-404
+Lines 345-379
 
-Asked as: PO save checks; purchase order rejected; PO not saved error; notification removed after failed save
+Asked as: cannot delete time entry; time editing disabled; can't remove timesheet line; delete amendment blocked
 
-Turbo runs its purchase order checks (ProcessPurchaseOrder) on every create and update of a purchase order. If a check fails, Turbo returns the error and does not save the purchase order. If the save fails after the checks, Turbo deletes the notification it created, so no notice goes out for a PO that was not saved.
+Turbo refuses to delete a time entry or a time amendment when time editing is disabled (ErrTimeEditingDisabled).
 
-## Project, rate sheet and client setup hooks are added
+## Purchase order create and update run PO processing
 
-Lines 405-411
+Lines 381-404
 
-Asked as: setup hooks startup; rate sheet hooks; project workflow hooks; client setup hooks added
+Asked as: PO save blocked by check; purchase order not saving; PO create fails; PO update refused
 
-Turbo adds the client setup, project workflow, job rate sheet, rate sheet draft, rate sheet code and rate sheet entry hooks when it starts. Their rules are in other files.
+Every create or update of a purchase order goes through ProcessPurchaseOrder first. If it fails, the save does not happen.
 
-## Job saves run the job checks
+## Job, profile, currency, client, note and PO approver checks
 
-Lines 412-423
+Lines 412-501
 
-Asked as: job save rejected; job checks failing; can't save job; job validation error
+Asked as: job save check failed; client note not saving; currency or profile save error; PO approver properties rejected
 
-Turbo runs its job checks (ProcessJob) on every create and update of a job. If a check fails, Turbo returns the error and does not save the job.
+Turbo runs a check function before it saves each of these records. ProcessJob covers jobs, ProcessProfile covers profiles, and ProcessCurrency covers currencies. ProcessClient covers clients. ProcessClientNote runs on create only for client notes. ProcessPOApproverProps covers PO approver properties.
 
-## Profile saves run the profile checks
+## Admin profile creation needs permission checks
 
-Lines 424-436
+Lines 451-465
 
-Asked as: profile save error; profile checks failing; can't save profile; profile validation fails
+Asked as: create admin profile permission denied; who can add admin profile; admin profile update rejected; profile creation not allowed
 
-Turbo runs its profile checks (ProcessProfile) on every create and update of a profile. If a check fails, Turbo returns the error and does not save the profile.
+Turbo checks the request permissions (EnforceAdminProfileRequestPermissions) and then ProcessAdminProfile when it creates an admin profile. An update runs only ProcessAdminProfile.
 
-## Currency saves run the currency checks
+## Admin profile changes revoke sessions
 
-Lines 437-449
+Lines 466-468
 
-Asked as: currency save error; currency checks failing; can't save currency; currency validation fails
+Asked as: user logged out after profile change; sessions revoked on deactivate; admin profile deleted logout; tokens revoked inactive profile
 
-Turbo runs its currency checks (ProcessCurrency) on every create and update of a currency. If a check fails, Turbo returns the error and does not save the currency.
-
-## New admin profiles need a permission check first
-
-Lines 450-466
-
-Asked as: new admin profile permission; can't create admin profile; admin tokens revoked; deactivated admin signed out
-
-Creating an admin profile first runs the request permission check (EnforceAdminProfileRequestPermissions). Updating does not run it. Turbo revokes the user's tokens when an admin profile is deactivated (RevokeTokensOnDeactivation).
-
-## Admin profile updates run checks; deactivation revokes tokens
-
-Lines 460-466
-
-Asked as: admin profile update checks; deactivate admin logout; sign-in tokens revoked; admin profile save error
-
-Turbo runs its admin profile checks (ProcessAdminProfile) on every update of an admin profile. When an admin profile is saved, Turbo also runs RevokeTokensOnDeactivation. The name of that hook indicates it revokes sign-in tokens when a profile is deactivated.
-
-## Client and client note saves run their checks
-
-Lines 467-486
-
-Asked as: client save rejected; client note not saved; client checks failing; note validation error
-
-Turbo runs its client checks (ProcessClient) on every create and update of a client. It runs its note checks (ProcessClientNote) on every new client note. A failed check stops the save. Turbo has no update hook for client notes in this file.
-
-## Purchase order approver limits run checks on save
-
-Lines 487-499
-
-Asked as: approver limit error; PO approver save fails; approver properties rejected; approver check failed
-
-Turbo runs its checks (ProcessPOApproverProps) on every create and update of a purchase order approver's properties. A failed check stops the save.
+Turbo revokes the user's tokens when an admin profile is created inactive, when it is deactivated, and when it is deleted.
 
 ## Expense saves run in one transaction with upload cleanup
 
-Lines 501-532
+Lines 503-534
 
-Asked as: expense save failed; expense documents left behind; uploads not cleaned up; expense transaction rollback
+Asked as: expense upload left behind; expense save failed receipts; expense documents deleted on error; expense transaction failure
 
-Creating or updating an expense runs in one transaction. If it fails, Turbo cleans up the uploaded expense documents (CleanupExpenseDocumentUploads). The expense rules are in ProcessExpense.
+Turbo checks and saves an expense (ProcessExpense) in a single transaction. If it fails, Turbo cleans up the uploaded expense documents.
 
-## Deleting a purchase order is blocked when expense editing is off
+## Rate sheet creation validates effective date
 
-Lines 533-545
+Lines 549-564
 
-Asked as: cannot delete PO; PO delete blocked; expenses editing off delete; vendor edit blocked
+Asked as: rate sheet effective date error; can't create rate sheet; rate sheet date invalid; rate sheet save rejected
 
-Turbo refuses to delete a purchase order while the expenses editing setting is off. It returns the expenses-editing-disabled error (ErrExpensesEditingDisabled). The same switch also blocks creating, updating and deleting vendors.
+When a rate sheet is created, Turbo first validates its effective date and then runs ProcessRateSheet. An update runs only ProcessRateSheet. The sheet's code and name check run in the model hooks.
 
-## New rate sheets must pass the effective date check
+## Rate sheet code and name checks run after the hook
 
-Lines 547-562
+Lines 556-557
 
-Asked as: rate sheet effective date error; new rate sheet rejected; effective date invalid; rate sheet date check
+Asked as: rate sheet code error; rate sheet name duplicate; rate sheet request error; rate sheet validation message
 
-Creating a rate sheet first checks its effective date (ValidateRateSheetEffectiveDate). Updating a rate sheet does not run that check.
+On a rate sheet save, the sheet's code and name checks run in the model hooks after the request hook, and their errors come back as rate sheet request errors.
 
-## Changing job categories marks the job as not imported
+## Category and client changes mark jobs as not imported
 
-Lines 565-578
+Lines 567-603
 
-Asked as: job marked not imported; category change job reimport; job category removed import flag; job status reset
+Asked as: job marked not imported; jobs need re-import after category change; client change re-import jobs; contact change jobs unimported
 
-Creating or deleting a category marks its job as not imported (MarkJobNotImported), after the change succeeds.
+Creating or deleting a category marks its job as not imported. A client or client contact update marks the jobs that use it as not imported, but only when something other than _imported changed. For a client, Turbo marks jobs where it is the client or the job owner. For a contact, Turbo marks jobs that name it as the contact.
 
-## Client or contact edits mark related jobs not imported
+## Notification updates set a status-updated value
 
-Lines 579-601
+Lines 605-619
 
-Asked as: client edit reimport jobs; contact change jobs not imported; jobs need re-import after client change; _imported flag jobs
+Asked as: notification status updated; notification timestamp not set; why can't edit notifications; notifications collection API access
 
-When a client changes in a meaningful way (other than the _imported field), Turbo marks jobs that use it as client or job owner as not imported. When a client contact changes the same way, Turbo marks jobs that use it as contact. A change to _imported alone does nothing.
-
-## Notifications update their status on save
-
-Lines 603-617
-
-Asked as: notification status update; notification not saving; status updated on notification; notification save failed
-
-Turbo runs WriteStatusUpdated every time a notification is created or updated, before the save. If it fails, Turbo does not save the notification.
+Whenever a notification record is created or updated, Turbo updates its status-updated value through notifications.WriteStatusUpdated before it saves. Only Turbo's own code writes notifications, because the collection is not exposed to the API.
 
 ## Time sheet reviewer must be an active user
 
-Lines 630-651
+Lines 621-653
 
-Asked as: reviewer not active; time sheet share reviewer error; reviewer inactive user; can't share timesheet
+Asked as: reviewer not active; can't share timesheet with user; inactive reviewer selected; share timesheet fails reviewer
 
-When an approver shares a time sheet, the chosen reviewer must be an active user. Otherwise Turbo refuses with "reviewer must be an active user" (the reviewer field says "the selected reviewer is not an active user"). If the check itself fails, Turbo says "failed to check reviewer active status".
+When an approver shares a time sheet, the reviewer must be an active user. Otherwise Turbo refuses with "reviewer must be an active user" (the reviewer field says "the selected reviewer is not an active user"). These hooks do not change who can share.
 
-## Absorb commit blocked while a parent absorb exists
+## Absorb commit is blocked by a parent absorb
 
-Lines 655-684
+Lines 657-686
 
-Asked as: absorb commit blocked; parent absorb exists; can't commit absorb; commit absorb error
+Asked as: can't commit absorb; absorb blocked by parent; commit parent absorb first; absorb commit refused
 
-Committing an absorb action is refused while an absorb action exists for a parent collection. The message is "cannot commit X absorb while Y absorb exists; commit or undo the Y absorb first".
+Turbo refuses to commit an absorb while an absorb action exists for a parent collection. The message is "cannot commit X absorb while Y absorb exists; commit or undo the Y absorb first".
 
 ## Vendor absorb commit needs expenses editing enabled
 
-Lines 658-663
+Lines 660-665
 
-Asked as: vendor absorb commit blocked; vendor absorb expenses off; can't commit vendor absorb; vendor merge refused
+Asked as: vendor absorb commit blocked; can't commit vendor absorb; vendor merge disabled expenses; vendor commit expenses editing
 
-Committing a vendor absorb is refused when expenses editing is disabled.
+Turbo refuses to commit a vendor absorb when expenses editing is disabled.
 
 ## Absorb commit needs the collection's claims
 
-Lines 686-706
+Lines 690-708
 
-Asked as: absorb permission denied; no permission commit absorb; collection absorb claims; can't commit absorb permission
+Asked as: no permission to commit absorb; absorb commit not allowed; who can commit absorb; missing claims absorb
 
-For collections with their own claim sets, committing an absorb requires the claims set for that collection. Without them Turbo refuses with "you do not have permission to commit a X absorb", where X is the collection name.
+For a collection that has its own claim sets, the person who commits must hold the required claims. Otherwise Turbo refuses with "you do not have permission to commit a X absorb".
 
 ## Absorb commit saves history and settles proposals
 
-Lines 708-750
+Lines 710-752
 
-Asked as: absorb history saved; absorb proposals settled; absorb commit outcome notice; absorb rollback failed delete
+Asked as: absorb history record; absorb proposal accepted; absorb commit outcome notification; absorb failed partway
 
-A commit runs in one transaction. It first copies the action into absorb history with who absorbed and who committed. Then it runs the collection's commit steps. For collections whose absorb can be proposed, it settles the proposals: it accepts the one that the action carries out and closes those that name an absorbed record. It then queues an outcome notification for each settled proposal. A failed delete leaves nothing behind.
+A commit runs in one transaction. Turbo first copies the action into absorb history, with who absorbed and who committed. It then runs the collection's commit step. For collections whose absorb can be proposed, it accepts the proposal that the action carries out and closes the proposals that name an absorbed record. A failed step leaves nothing behind. After the commit, Turbo queues an outcome notification for each settled proposal.
 
-## Sharing a time sheet notifies the reviewer
+## New time sheet reviewer gets notified
 
-Lines 758-789
+Lines 755-791
 
-Asked as: reviewer notified timesheet; share timesheet notification; reviewer not notified; timesheet share email
+Asked as: reviewer notification not received; shared timesheet notify reviewer; who shared my timesheet email; reviewer added alert
 
-When a reviewer is added to a time sheet, Turbo queues a notification for them, naming the time sheet's approver as the sharer. If the notification fails or the time sheet is not found, the share still succeeds.
+When a reviewer is added to a time sheet, Turbo queues a shared notification for that reviewer, naming the time sheet's approver as the sharer. If the notification fails, the share still succeeds.

@@ -84,23 +84,66 @@ func ProcessAdminProfile(app core.App, e *core.RecordRequestEvent) error {
 // person could still use a token they already held until it expired.
 //
 // It is a model hook, so it covers every save of an admin profile: the active
-// route, the admin profile editor and saves made in code.
+// route, the admin profile editor and saves made in code. A profile whose uid
+// changes no longer makes its old user active, so that user is signed out too.
+// The API and the save routes refuse a uid change, but a superuser can make one.
+//
+// The key changes after the profile is written, so a sign-in or token refresh
+// that runs between the two writes already sees the inactive profile and is
+// refused. Inside a transaction both writes commit or roll back together. The
+// collection API saves without a transaction; if the key change fails there,
+// the save returns the error but the profile stays inactive.
 func RevokeTokensOnDeactivation(e *core.RecordEvent) error {
-	if !e.Record.Original().GetBool("active") || e.Record.GetBool("active") {
+	original := e.Record.Original()
+	uid := original.GetString("uid")
+	if !original.GetBool("active") || (e.Record.GetBool("active") && e.Record.GetString("uid") == uid) {
 		return e.Next()
 	}
-	// The key changes before the profile saves. If the profile save then fails
-	// outside a transaction, the person is only signed out.
-	user, err := e.App.FindRecordById("users", e.Record.GetString("uid"))
+	if err := e.Next(); err != nil {
+		return err
+	}
+	return revokeUserTokens(e.App, uid)
+}
+
+// RevokeTokensOnInactiveProfileCreate signs a person out when an admin profile
+// is created for them as inactive. A user with no admin profile already counts
+// as inactive and cannot sign in with a password, so this matters only for a
+// token they got another way, such as a superuser's impersonation. A profile
+// created as active changes nothing.
+func RevokeTokensOnInactiveProfileCreate(e *core.RecordEvent) error {
+	if e.Record.GetBool("active") {
+		return e.Next()
+	}
+	if err := e.Next(); err != nil {
+		return err
+	}
+	return revokeUserTokens(e.App, e.Record.GetString("uid"))
+}
+
+// RevokeTokensOnProfileDelete signs a person out when their admin profile is
+// deleted, because a user with no admin profile counts as inactive. Only a
+// superuser can delete a profile. A user who has a profile cannot be deleted,
+// because the profile's required uid relation does not cascade.
+func RevokeTokensOnProfileDelete(e *core.RecordEvent) error {
+	if err := e.Next(); err != nil {
+		return err
+	}
+	return revokeUserTokens(e.App, e.Record.GetString("uid"))
+}
+
+// revokeUserTokens gives the user a new token key. A missing user holds no
+// token, so it is not an error.
+func revokeUserTokens(app core.App, uid string) error {
+	if uid == "" {
+		return nil
+	}
+	user, err := app.FindRecordById("users", uid)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return e.Next()
+			return nil
 		}
 		return err
 	}
 	user.RefreshTokenKey()
-	if err := e.App.SaveNoValidate(user); err != nil {
-		return err
-	}
-	return e.Next()
+	return app.SaveNoValidate(user)
 }
