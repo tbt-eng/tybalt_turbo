@@ -132,12 +132,16 @@ func createAdoptSubjobsHandler(app core.App) func(e *core.RequestEvent) error {
 }
 
 func adoptSubjobs(tx core.App, auth *core.Record, jobID string, req jobAdoptSubjobsRequest) ([]string, error) {
+	active, err := utilities.IsUserActive(tx, auth.Id)
+	if err != nil {
+		return nil, err
+	}
 	isAdmin, err := utilities.HasClaim(tx, auth, "admin")
 	if err != nil {
 		return nil, err
 	}
-	if !isAdmin {
-		return nil, jobChangeClientError(http.StatusForbidden, "", "", "Only admins can adopt subjobs.")
+	if !active || !isAdmin {
+		return nil, jobChangeClientError(http.StatusForbidden, "", "", "Only active admins can adopt subjobs.")
 	}
 	editing, err := utilities.IsJobsEditingEnabled(tx)
 	if err != nil {

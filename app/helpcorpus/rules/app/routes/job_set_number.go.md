@@ -1,116 +1,148 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_set_number.go","sha256":"b94f89220b73535bcc8335ef2db5fd44561704d8cd2612bcc2a15a02fbf297e7","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_set_number.go","sha256":"33fc38f3b6cd53bd7e5ed8c6903fd31058b988a14e1efb3a9c772bdf6a7e5853","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_set_number.go
 
-## Child and top-level numbers cannot swap forms
+## What counts as a child-form job number
 
 Lines 30-33
 
-Asked as: subjob wrong number format; child job number form; top-level job child number; subjob number pattern error
+Asked as: child form job number; what does 25-123-01 mean; job number format; legacy P prefix number
 
-A job with a parent (a subjob) must get a child-form number: "child jobs must keep a child-form number". A job without a parent cannot get one: "top-level jobs cannot use a child-form number". Child form is an optional P, 2 digits, a dash, 3 or 4 digits, a dash, then 1 or 2 digits (such as 25-123-01).
+Turbo treats a job number as child-form when it matches an optional leading P, 2 digits, a dash, 3 or 4 digits, a dash, then 1 or 2 digits, such as 25-123-01. The optional P is kept for old legacy rows, even though new proposal subjobs are not allowed. Turbo uses this pattern (jobChildNumberRegex) when a job is renumbered.
 
-## Rejected job number is reported on the number field
+## Child jobs keep a child-form number
+
+Lines 33-35
+
+Asked as: subjob wrong number format; child job number pattern; subjob must keep number; child job renumber rejected
+
+A child-form number looks like 25-123-01, with an optional leading P: two digits, 3 or 4 digits, then 1 or 2 digits. A job with a parent (a subjob) must keep a child-form number: "child jobs must keep a child-form number".
+
+## Job number errors are reported on the number field
+
+Lines 35-46
+
+Asked as: validation failed on number; number field error; job number error code; why won't job number save
+
+When Turbo refuses a job number change for a reason about the number, it answers "validation failed". The answer names the "number" field and gives an error code and a message for it.
+
+## Number field rule failures keep the validator's message
 
 Lines 48-59
 
-Asked as: job number validation failed; number field error; invalid job number; job number rejected format
+Asked as: validator message job number; number field validation_error; job number rule message; number rejected by field rules
 
-When Turbo rejects a new job number because the number field's own validation fails, it answers "validation failed" with the error attached to the number field. The error carries the validation message and a code. The code is "validation_error" unless the validation error supplies its own code.
+When the new job number fails the number field's own rules, Turbo shows the validator's message unchanged. It uses the validator's code, or "validation_error" when the validator gives no code.
 
-## Duplicate number is recognised from the database error text
-
-Lines 61-67
-
-Asked as: duplicate job number database error; job number already taken; database says not unique; number clashes with existing job
-
-Turbo treats a failed job number update as a duplicate number when the database error text contains "unique constraint failed" or "not unique", ignoring case. Any other database error is not reported as a duplicate.
-
-## Changing a job number requires being signed in
+## Changing a job number requires sign-in
 
 Lines 71-74
 
-Asked as: change job number not logged in; renumber job signed out; job number unauthorized; session expired renumber
+Asked as: not signed in job number; change number logged out; job number unauthorized; need to log in to renumber
 
-Turbo refuses the job number change from a user who is not signed in. The message is "unauthorized".
+Turbo refuses the job number change when the person is not signed in. The message is "unauthorized".
 
-## Job number changes are blocked when job editing is off
+## Job number changes blocked when job editing is off
 
 Lines 76-82
 
-Asked as: cannot edit job number; job editing turned off; jobs editing disabled; renumber job locked
+Asked as: job editing disabled; can't edit job number; jobs editing turned off; editing locked for jobs
 
-When job editing is disabled (utilities.IsJobsEditingEnabled is false), Turbo refuses to change a job number. It returns the error utilities.ErrJobsEditingDisabled. The message text is defined in another file.
+Turbo checks whether job editing is enabled before it changes a job number. When editing is disabled, it refuses with the error ErrJobsEditingDisabled (utilities).
 
-## Number is trimmed and unchanged number is a no-op
+## Surrounding spaces are trimmed from the new number
 
-Lines 94-147
+Lines 94-94
 
-Asked as: same job number no change; extra spaces job number; job number whitespace; renumber to same number
+Asked as: extra spaces in job number; space around job number; job number whitespace; trailing space job number
 
-Turbo trims spaces from the new number and from the current number before comparing. If they are equal, Turbo changes nothing and returns the job's current number as a success.
+Turbo trims leading and trailing spaces from the requested number. It also trims the job's current number before it compares them.
 
-## Only admins can change a job number
+## Only active admins can change a job number
 
-Lines 99-113
+Lines 99-121
 
-Asked as: who can renumber job; not allowed to change job number; job number admin only; need admin to renumber
+Asked as: not an admin job number; who can change job number; non admin renumber job; admin rights to renumber
 
-Only a user with the admin claim can change a job number. Anyone else gets "you are not authorized to change job numbers".
+Only an active account that holds the admin claim can change a job's number. Anyone else gets "you are not authorized to change job numbers".
 
 ## Job must exist to change its number
 
-Lines 115-122
+Lines 123-130
 
-Asked as: job id missing; cannot find job to renumber; no such job number change; job does not exist
+Asked as: job not found number; missing job id; can't find job to renumber; job does not exist
 
-If no job has the given id, Turbo answers "job not found".
+Turbo answers "job not found" when no job has the given id.
 
-## New job number must pass the number field's own validation
+## Renumbering fails if the jobs number field setup is broken
 
-Lines 149-151
+Lines 132-148
 
-Asked as: job number format rules; new number not accepted; job number field check; invalid number characters
+Asked as: jobs collection failed to load; number field not text; jobs number setup broken; renumber configuration error
 
-Before any other check, Turbo validates the new number against the jobs number field rules (text field validation). A failure is returned as a validation error on "number" with status 400 and the validator's message. The rules themselves are defined elsewhere.
+When an admin changes a job number, Turbo loads the jobs collection and its number field. If the collection cannot be loaded, it refuses with 'failed to load jobs collection'. If the number field is not a text field, it refuses with 'jobs.number field is not configured as text'.
 
-## Proposal and project numbers cannot swap forms
+## Setting the same number changes nothing
 
-Lines 153-160
+Lines 150-155
 
-Asked as: proposal number changed to project; P number on project; proposal must start with P; project cannot have P prefix
+Asked as: same job number no change; number unchanged; job number already set; saving identical number
 
-A job number starting with P is a proposal form. A proposal must keep a P number: "proposals must keep a proposal-form number". A project must not take a P number: "projects must not use a proposal-form number".
+When the requested number equals the job's current number, Turbo makes no change and returns the current number as a success. It runs none of the other checks.
 
-## Child-form check uses the number's shape, not the parent
+## New number must pass the number field rules
 
-Lines 162-169
+Lines 157-159
 
-Asked as: subjob shows as top level; child number parent mismatch; job with parent wrong number shape; parent and number do not match
+Asked as: job number pattern rejected; number field rules failed; job number format invalid; number does not match rules
 
-Turbo decides if the new number is child-form by the pattern above. It decides if the job is a child by whether the job has a parent. The two must agree.
+Turbo validates the new number against the jobs number field's own rules (such as its pattern). When it fails, the error appears on the number field with the validation message.
 
-## Renumbering skips the normal job save rules
+## A proposal keeps a proposal-form number
 
-Lines 171-186
+Lines 161-165
 
-Asked as: renumber skips save rules; admin change bypasses lock; cancelled proposal renumber; job number sent to writeback
+Asked as: proposal number missing P; proposal must start with P; proposal number rejected; proposal renumber without P
 
-An admin renumber writes the number straight to the database and skips the normal job save hooks and validation (such as cancelled-proposal edit locks). It sets the job as locally modified (_imported = false) and updates the updated time, so writeback sees the change.
+A number that starts with P is proposal-form. A proposal cannot get a number that lacks the P: "proposals must keep a proposal-form number".
 
-## Duplicate job number is refused
+## A project cannot take a proposal-form number
 
-Lines 187-189
+Lines 161-168
 
-Asked as: number already used by another job; job number taken; same number as other job; job number must be unique
+Asked as: project with P number; project number starts with P; can't give project proposal number; project number not allowed
 
-If another job already has the number, Turbo refuses with "job number must be unique" (code validation_not_unique).
+A project cannot get a number that starts with P. Turbo answers "projects must not use a proposal-form number".
+
+## Top-level jobs cannot take a child-form number
+
+Lines 170-177
+
+Asked as: top level job child number; parentless job subjob number; standalone job child number; job without parent number format
+
+A job without a parent cannot get a number in child form. Turbo answers "top-level jobs cannot use a child-form number".
+
+## Renumbering skips the normal job save checks
+
+Lines 179-194
+
+Asked as: renumber skips save checks; job number bypasses hooks; forced number change cancelled proposal; renumber imported flag
+
+Turbo writes the new number directly to the job. It does not run the usual job save hooks or validations, such as the cancelled-proposal edit lock or checks on legacy blank fields. It sets the job's _imported flag to false and updates its updated time, so writeback sees the change.
+
+## Job numbers must be unique
+
+Lines 195-197
+
+Asked as: duplicate job number; number already taken; same number as another job; job number in use
+
+When another job already has the requested number, Turbo refuses with "job number must be unique".
 
 ## Successful renumber returns job id and number
 
-Lines 197-219
+Lines 205-227
 
-Asked as: renumber success response; what does renumber return; job number changed confirmation; new job number saved
+Asked as: renumber success response; what does job number change return; new job number confirmation; job id after renumber
 
-On success Turbo returns the job id and the number now stored.
+After a successful change, Turbo returns the job id and its new number.

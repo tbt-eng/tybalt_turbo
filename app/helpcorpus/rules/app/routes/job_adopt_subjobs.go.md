@@ -1,100 +1,76 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_adopt_subjobs.go","sha256":"a8a6d475446daa4cd587b6e753a8d39a9fbe6a1bfaa3dfbc07313b7050bf074e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_adopt_subjobs.go","sha256":"33174865d1ef4827e9f44cdb2f1709d28200738a5206a1c63d4290c281db78c3","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_adopt_subjobs.go
 
-## Which projects can have unlinked subjobs listed
+## Only top-level project numbers can have subjobs adopted
 
 Lines 19-54
 
-Asked as: subjobs not showing for project; which projects can adopt subjobs; project number format; top-level project list empty
+Asked as: adopt subjobs on a sub project; why no subjobs listed; project number format for subjobs; only top level projects subjobs
 
-Turbo lists unlinked subjobs only for a top-level project whose number looks like 24-410 or 25-0123 (two digits, a dash, then 3 or 4 digits). A project that has a parent (parent) or any other number format gets an empty list.
+Turbo looks for unlinked subjobs only when the project number has the form 2 digits, a hyphen, then 3 or 4 digits (such as 24-410 or 25-0123). The project must also have no parent. For any other project the list of unlinked subjobs is empty.
 
 ## Which jobs count as unlinked subjobs
 
-Lines 55-74
+Lines 55-76
 
-Asked as: unlinked jobs under project; job numbered like project suffix; orphan subjob numbers; sub job not linked to project
+Asked as: unlinked subjobs list; jobs not linked to project; orphan jobs under project number; which jobs can be attached
 
-An unlinked subjob is a job with no parent whose number is the project's number plus a dash and a single level suffix, such as 24-410-1 for 24-410. Nested numbers such as 24-410-1-2 are left out. A number like 24-4100-1 does not match project 24-410. The list is sorted by number.
+An unlinked subjob is a job with no parent whose number is the project's number plus a hyphen and a first-level suffix, such as 24-410-1 for 24-410. Turbo excludes numbers like 24-4100-1 for 24-410. It also excludes nested numbers like 24-410-1-2 (checked with jobChildNumberRegex, defined in another file). Turbo lists them in number order.
 
-## Blocker: project has no client
+## Blockers that stop an unlinked subjob being adopted
 
-Lines 77-79
+Lines 77-90
 
-Asked as: project has no client; subjob cannot be adopted no client; set client on project; adopt blocked missing client
+Asked as: subjob cannot be adopted; why subjob is blocked; subjob has no client; client mismatch subjob adopt
 
-When the project has no client, every unlinked subjob is listed with the blocker "This project has no client. Set its client first." and cannot be adopted.
+Turbo lists a subjob with a blocker when it cannot be adopted. If the project has no client, the blocker is "This project has no client. Set its client first." If the subjob's client differs from the project's, the blocker is "Its client is X. Change its client to Y first." (X is "no client" when empty). If the subjob has subjobs of its own, the blocker is "It has subjobs of its own." Turbo checks these in that order and shows only the first that applies.
 
-## Blocker: subjob client differs from project client
+## Only active admins can adopt subjobs
 
-Lines 80-85
+Lines 104-145
 
-Asked as: subjob different client; client mismatch subjob; wrong client on subjob; change subjob client
+Asked as: cannot adopt subjobs; not allowed to adopt; adopt button not working; admin rights needed adopt
 
-A subjob whose client differs from the project's client is listed with the blocker "Its client is X. Change its client to Y first." X shows "no client" when the subjob has none. The subjob is not adopted.
+Adopting subjobs requires a signed-in user who is active and holds the admin claim. Anyone else gets "Only active admins can adopt subjobs." A request with no sign-in is refused as unauthorized.
 
-## Blocker: subjob has its own subjobs
+## Adopting subjobs is refused when job editing is off
 
-Lines 86-88
+Lines 146-152
 
-Asked as: subjob has children; job already has subjobs; cannot adopt job with subjobs; nested subjobs blocking adoption
+Asked as: adopt subjobs disabled; job editing turned off; cannot edit jobs now; adoption blocked read only
 
-A job that already has subjobs of its own is listed with the blocker "It has subjobs of its own." and cannot be adopted. The client check comes first, so a client mismatch shows its blocker instead.
+If job editing is disabled, Turbo refuses to adopt subjobs and returns utilities.ErrJobsEditingDisabled (defined in another file). This check runs after the admin check.
 
-## Adoption links subjobs without running job checks
+## Adopt subjobs needs an existing top-level project
 
-Lines 96-187
+Lines 154-160
 
-Asked as: link subjobs to project; attach subjobs to parent; subjobs skip job hooks; legacy sync flag subjob
+Asked as: project not found adopt; adopt into wrong project; subjobs adopt parent project error; project cannot take subjobs
 
-Adoption sets each adoptable subjob's parent to the project and sets _imported to false so it is written back to the legacy system. It updates the records directly, so job hooks and record validation do not run. Blocked subjobs are left unlinked. All changes happen in one transaction.
+If the project does not exist, Turbo says "Project not found." If its number is not of the form 24-410 or 25-0123, or it has a parent, Turbo says "Only a top-level project can adopt subjobs."
 
-## Only admins can adopt subjobs
+## Nothing to adopt is an error
 
-Lines 104-141
+Lines 162-176
 
-Asked as: who can adopt subjobs; adopt button greyed out; permission to adopt subjobs; not admin cannot adopt
+Asked as: nothing to adopt; no subjobs to attach; adopt returns error empty; all subjobs blocked
 
-Adopting subjobs requires an admin (the admin claim). Anyone else gets "Only admins can adopt subjobs." Users who are not signed in are refused as unauthorized.
+If none of the project's unlinked subjobs is free of blockers, Turbo refuses with "No unlinked subjobs of this project can be adopted."
 
-## Adopting requires job editing to be enabled
+## Admin must confirm the exact list of adoptable subjobs
 
-Lines 142-148
+Lines 177-179
 
-Asked as: job editing turned off; cannot edit jobs disabled; adopt fails editing disabled; jobs editing switched off
+Asked as: subjob list changed; confirm adoption again; adoption mismatch error; subjobs changed before confirming
 
-Turbo refuses to adopt subjobs when job editing is switched off. It returns the error ErrJobsEditingDisabled (defined elsewhere). This check runs after the admin check.
+The confirmed subjobs in the request must be exactly the set of adoptable subjobs (order and repeats do not matter). If the set differs, Turbo refuses with "The subjobs confirmed do not match the subjobs this project can adopt, which may have changed. Review the current list and confirm again." Blocked subjobs are never adopted, and adoption is all-or-nothing for the adoptable ones.
 
-## Project must exist and be top-level
+## What adoption changes on the subjobs and project
 
-Lines 150-156
+Lines 181-198
 
-Asked as: project not found adopt; child project cannot adopt; adopt from sub project; project is not top level
+Asked as: what adopting changes; subjob parent after adoption; adopted subjobs note project; subjobs marked for write back
 
-If the project is not found, Turbo says "Project not found." If its number does not look like 24-410 or 25-0123, or it has a parent, Turbo says "Only a top-level project can adopt subjobs."
-
-## Nothing adoptable is refused
-
-Lines 158-172
-
-Asked as: nothing to adopt; no subjobs can be adopted; adopt returns nothing; all subjobs blocked
-
-Only subjobs with no blocker are adopted. If none qualify, Turbo says "No unlinked subjobs of this project can be adopted."
-
-## Confirmed list must match adoptable subjobs
-
-Lines 173-175
-
-Asked as: subjob list changed; confirm adoption mismatch; list outdated try again; confirmed subjobs differ
-
-The subjobs the admin confirms must be exactly the set that can be adopted now. Order and repeats are ignored. If the set differs, Turbo says "The subjobs confirmed do not match the subjobs this project can adopt, which may have changed. Review the current list and confirm again." Nothing is changed.
-
-## Adoption writes a note on the project
-
-Lines 189-193
-
-Asked as: adoption note on project; record of adopted subjobs; which subjobs were adopted; adopted numbers note
-
-After adoption, Turbo adds a note to the project: "Adopted unlinked subjobs: " followed by the adopted numbers separated by commas. The request returns the list of adopted numbers.
+Adoption sets each subjob's parent to the project and sets _imported to false, so the subjobs are marked as locally changed for write-back to the legacy system. It also updates their updated time. It writes directly, so the job hooks and record validation do not run. Turbo adds a note to the project, "Adopted unlinked subjobs: " followed by the subjob numbers. It returns the list of adopted numbers.
