@@ -1,60 +1,44 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/computer_logins.sql","sha256":"0c58de34b7cdedecd7c2f8c27ecbde3fbc71e3cedc4dcfef93a053d754b61663","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/computer_logins.sql","sha256":"58e46fc8fd6cfbcfcfdb6f968e0e02aa30e96a57e0d899dcc2f03a5cbefa62c1","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/computer_logins.sql
 
-## Missing login values show as empty text
+## Matched user name falls back to user name, then email
 
-Lines 14-18
+Lines 18-27
 
-Asked as: blank computer name on login; login shows empty serial; missing given name in login; null values on logins page
+Asked as: user name blank on login; login shows email instead of name; can't see other people's names; computers claim names hidden
 
-Turbo shows an empty string, not a blank value, for a missing computer name, serial, reported given name, reported surname or user on a login row.
+The user name on a login row is the matched user's profile name (given name and surname). If that is blank, Turbo uses the user's name, then the user's email, then an empty string. A person who holds the computers claim can see these names without being able to read other people's profiles.
 
-## Login row shows matched user name with fallbacks
+## Logins list shows newest logins first
 
-Lines 19-28
+Lines 24-42
 
-Asked as: user name shows wrong on login; login shows email instead of name; name missing on computer login; who logged in name display
+Asked as: order of logins list; latest login at top; oldest logins first; which login shows first
 
-The user name (user_name) on a login row is the profile name (given name and surname). If the profile name is blank, Turbo uses the user name, then the email, then an empty string. This lets a holder of the computers claim see names without reading other people's profiles.
+The computer logins query lists every login, newest first (created, then id, both descending). The Logins page and the computer details page use it.
 
-## Logins without a computer record are not listed
+## Logins with no matched user still appear
 
-Lines 26-26
+Lines 24-27
 
-Asked as: login missing from list; deleted computer login disappeared; login not showing up; old login gone from logins
+Asked as: login missing from list; login with no user; unknown user login not shown; logins disappearing from page
 
-The logins list uses an inner join on computers. A login whose computer record no longer exists does not appear.
+A login whose user is blank or not found still appears in the list, with an empty user name. The row is dropped only if its computer record is missing, because the computer join is not optional.
 
-## Logins list can be limited to one computer
+## Computer filter limits logins to one computer
 
-Lines 30-30
+Lines 29-29
 
-Asked as: filter logins by computer; only one computer's logins; show logins for a single machine; logins for one device
+Asked as: filter logins by computer; only one computer's logins; logins for a single machine; show all computers logins
 
-When the computer filter is not blank, the logins list shows only the logins of that computer. When it is blank, it shows the logins of every computer.
+When a computer is given, the logins list shows only that computer's logins. When the computer is blank, it shows logins for every computer.
 
-## Logins search fields
+## Search matches four fields of a login row
 
-Lines 31-42
+Lines 30-41
 
-Asked as: search logins by serial; find login by user name; logins search not working; search computer name in logins
+Asked as: search logins by serial; find login by computer name; search box not finding login; search by person's name on login
 
-The search on the logins list matches the computer name, the serial, the reported name (given name and surname from the login) and the matched user's name as the row shows it. The search is a LIKE pattern with backslash as the escape character. A blank search returns every row.
-
-## Logins search matches the whole value unless the pattern has wildcards
-
-Lines 32-41
-
-Asked as: search needs wildcard; partial match logins search; search only finds exact text; why does search miss part of name
-
-The search uses LIKE with the pattern as given. Turbo does not add wildcards itself, so a pattern without wildcard characters must match the whole field.
-
-## Logins list is newest first
-
-Lines 43-44
-
-Asked as: logins sorted oldest first; latest login at top; logins order wrong; paging through login history
-
-The Logins page and the computer details page list logins with the newest first (created, then id, descending). Each page is cut by the limit and offset that the request passes.
+A search pattern (LIKE, with backslash as the escape) matches the computer name, the serial, the reported name and the matched user's name as the row shows it. The reported name is the login's given name and surname. A blank search matches every row.

@@ -1,132 +1,140 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/computers.ts","sha256":"656c0bb5f9558c26d35a88f328cec63e1a09ed61a32944731862b8d85b585676","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/computers.ts","sha256":"6dd8c55f45bc2771710644a1ea72f5e599ca78527e18d5ebaede89581ef87307","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/computers.ts
 
-## The server checks each computer action again
+## Server checks each computer action again
 
 Lines 1-3
 
-Asked as: page allows but server rejects; action fails after clicking; server ignores button; browser check vs server check
+Asked as: button shows but action denied; hidden button still works; server rechecks computer action; button visible no permission
 
-The computers pages apply the action rules in the browser. The server checks each action again (app/routes/computers.go), so a page that allows an action does not guarantee that the server accepts it.
+The Computers pages decide in the browser which actions to offer. The server checks each action again (app/routes/computers.go), so a hidden or shown button does not grant or deny access by itself.
 
-## Last user is the Turbo user the last sign-in matched
+## Last user is empty when no Turbo user matches
 
-Lines 27-28
+Lines 27-29
 
-Asked as: who last signed in; last user empty; sign-in matched no user; computer last signed in by
+Asked as: last user blank; no user for sign-in; computer last user empty; sign in matched nobody
 
-A computer's last user (last_user) is the Turbo user that the most recent sign-in matched. It is empty when the sign-in matched no Turbo user.
+A computer's last user (last_user) is the Turbo user that the last sign-in matched. It is an empty value when the sign-in matched no Turbo user.
 
-## Who can see the computers pages and actions
+## Who can see the Computers pages and use their actions
 
 Lines 39-42
 
-Asked as: cannot see computers page; no access to computers; missing computers claim; who can assign computers
+Asked as: can't see computers page; no access to computers; computers menu missing; who may use computers
 
-Staff with the computers claim or the admin claim can open the computers pages, the list routes and the actions. Other staff cannot (canViewComputers). The server checks each action again.
+A person with the computers claim or the admin claim can see the Computers pages, the list routes and the actions (canViewComputers). Other people cannot. The server checks each action again.
 
-## A computer's assignment state
+## Assignment state of a computer
 
 Lines 44-63
 
-Asked as: computer assigned to someone else; unassigned computer status; assignment state meaning; assigned but not last user
+Asked as: computer assignment status; unassigned or assigned meaning; computer assigned to whom; assignment label computer
 
-A computer is unassigned when nobody is assigned to it. It is in the last-user state when it is assigned to its last user. It is in the other state when it is assigned to someone who is not the last user (computerAssignment).
+A computer with no assignee is 'unassigned'. A computer assigned to its last user is 'last_user'. A computer assigned to anyone else is 'other' (computerAssignment).
 
-## When Assign to the last user is allowed
+## When Assign to the last user is available
 
 Lines 48-67
 
-Asked as: assign button greyed out; cannot assign to last user; assign to last user disabled; retired computer assign
+Asked as: assign to last user missing; can't assign computer; assign button greyed out; give computer to last user
 
-Assign sets the assignee to the last user. It is allowed only if the computer is not already assigned to the last user, a sign-in matched a last user, and the computer is not retired (canAssign). A computer with no assignee, or an assignee who is another person, can be assigned.
+Assign sets the assignee to the last user. It is available only when the computer is not already assigned to the last user, a sign-in matched a Turbo user as the last user, and the computer is not retired. An unassigned computer and a computer assigned to someone else can both be assigned.
 
-## Last user name fallback
+## How the last user is named
 
 Lines 70-80
 
-Asked as: shows Unknown as last user; last user name missing; last user shows wrong name; name not showing for last user
+Asked as: last user shows unknown; last user name wrong; who is last user name; reported name for computer
 
-Turbo shows the last user as the matched Turbo user's name. If no user matched, it shows the given name and surname that the sign-in reported. If both are empty, it shows "Unknown".
+Turbo shows the name of the matched Turbo user. If no user matched, it shows the given name and surname that the computer reported. If both are empty, it shows 'Unknown' (lastUserLabel).
 
-## Maker and model display
+## How maker and model are shown together
 
 Lines 82-90
 
-Asked as: maker repeated in model; HP HP EliteBook; duplicate brand in model name; model name shows twice
+Asked as: maker and model repeated; HP model name shown twice; model text duplicates maker; computer model display
 
-Turbo shows the maker and the model together. If the model starts with the maker's first word, compared without case (such as "HP EliteBook" from "HP Inc."), it shows the model alone.
+Turbo shows the maker and model together. When the model starts with the first word of the maker, case ignored, it shows the model alone, such as 'HP EliteBook' for maker 'HP Inc.' (modelLabel).
 
-## Size formatting
+## How sizes are formatted
 
 Lines 92-105
 
-Asked as: memory shows wrong size; disk size in GB wrong; bytes shown as number; size displays blank
+Asked as: disk size in GB wrong; bytes shown as gigabytes; memory size display; why size shows blank
 
-Turbo shows sizes in powers of 1024 with the units B, KB, MB, GB, TB and PB, rounded to one decimal place (17179869184 is "16 GB"). A size that is zero, negative or not a finite number shows as empty.
+Turbo formats sizes in powers of 1024 with units B, KB, MB, GB, TB and PB, as Windows does. 17179869184 bytes shows as '16 GB'. Turbo rounds values above bytes to one decimal. A size that is zero, negative or not a number shows as empty (formatBytes).
 
-## Boot drive display
+## Boot drive label with free space
 
 Lines 107-125
 
-Asked as: C drive shows no free space; boot disk display missing; free percent wrong; drive letter and size missing
+Asked as: C drive free space; boot disk shows no size; drive label missing free space; system drive percent free
 
-Turbo shows the boot drive as its letter, its file system in parentheses, its size, and its free space with the percent free rounded down. With no capacity, only the letter and file system show. The free text is left out when free space is empty.
+The boot drive shows its letter, its file system in parentheses, its size, and its free space with the percent free rounded down. If the size is empty or zero, Turbo shows only the letter and file system (bootDriveLabel).
 
 ## System type names
 
 Lines 127-141
 
-Asked as: system type shows blank; computer type number; what does type 3 mean; desktop or laptop code
+Asked as: system type blank; desktop or laptop type number; PC type shows nothing; what does system type mean
 
-Turbo names the system type from the codes 1 to 8: Desktop, Mobile, Workstation, Enterprise Server, SOHO Server, Appliance PC, Performance Server and Maximum. Any other code shows as empty.
+Turbo names the system type from the Win32 PCSystemType number: 1 Desktop, 2 Mobile, 3 Workstation, 4 Enterprise Server, 5 SOHO Server, 6 Appliance PC, 7 Performance Server, 8 Maximum. Any other number shows as empty.
 
-## Network configuration display
+## Network config display by adapter
 
 Lines 153-194
 
-Asked as: network adapters missing; MAC address order; ip address list wrong; adapter settings not showing
+Asked as: network adapters list order; MAC address adapters shown; IP config not showing; network settings missing fields
 
-Turbo lists one adapter for each MAC address, sorted by MAC. Known properties come first with readable labels (DHCP, DHCP server, IP addresses, Subnets, Gateways, DNS host name, DNS servers). Other properties keep their names and follow in name order. Booleans show as Yes or No, lists are joined by commas, and empty values are left out. A config that is not an object gives no adapters.
+Turbo lists the network config with one adapter for each MAC address, sorted by MAC. Known properties come first with readable labels: DHCP, DHCP server, IP addresses, Subnets, Gateways, DNS host name, DNS servers. Other properties follow in name order and keep their own names. Fields with empty values are left out. A value that is not an object shows as a field named 'value'. A config that is not an object shows no adapters.
 
-## Dates and times use the viewer's device time
+## Network values are shown as plain text
+
+Lines 164-170
+
+Asked as: network true false display; yes no network values; list values comma separated; network field shows json
+
+Turbo shows true as 'Yes' and false as 'No'. It joins list values with commas and drops empty items. It shows null as empty and nested objects as JSON text (networkValue).
+
+## Dates and times use the user's device
 
 Lines 196-211
 
-Asked as: wrong time on computer; timezone off by hours; last seen time wrong; date shows wrong day
+Asked as: wrong time shown; timezone of computer time; time differs from my clock; last seen time wrong
 
-Turbo shows the day and the time of day of a computer date in the time zone of the viewer's device. An empty or invalid date shows as empty.
+Turbo shows the day and time of a stored datetime in the time zone of the user's device, such as '8:00 AM'. An empty or invalid datetime shows as empty (localDay, localTime).
 
-## What the computers list search matches
+## What the computer list search matches
 
 Lines 213-228
 
-Asked as: search by email not working; cannot find computer by serial; search misses computers; search by user name
+Asked as: computer search not finding; search by serial or email; which fields search covers; search computers by owner
 
-The list search matches the computer name, serial, maker, model, the reported given name, surname, email and UPN, the last user's name, the assignee's name and the OS version.
+The computer list search matches the computer name, serial, maker, model, reported given name and surname, email, UPN, last user name, assignee name and OS version.
 
-## Raw login report display
+## Rejected report is shown as text
 
-Lines 246-319
+Lines 246-301
 
-Asked as: login report shows odd text; raw login json; login details display; sign-in report blank
+Asked as: rejected sign-in report text; raw login json view; why report looks like code; failed login details display
 
-The raw login report shows as text. A string shows as it is, and other values show as indented JSON. A missing report shows as empty.
+Turbo shows the report of a rejected sign-in as indented JSON text, or as is if it is a string. It treats the report as untrusted. Only the single-report request fills it in, not the list (rawLoginReportText).
 
-## List page sizes and defaults
+## Sign-in and rejected report list searches
 
-Lines 266-297
+Lines 257-279
 
-Asked as: page size options; list shows wrong count per page; page number invalid in URL; search text spaces trimmed
+Asked as: search rejected logins; sign-in search finds nothing; blank search returns all; search login results
 
-The computers list offers page sizes 10, 20 and 50. Any other perPage in the URL gets 20. A page that is not a positive whole number gets page 1. Turbo trims the search text. The URL leaves out default values.
+The sign-in list search matches the computer name, serial, reported name and matched Turbo user name. The rejected report (raw login) search matches the computer name and the error. A blank search after trimming returns everything. Otherwise the server searches with the trimmed text (computerListSearch).
 
-## Sign-in reported name and matched user name
+## Names shown for a sign-in
 
-Lines 299-312
+Lines 281-294
 
-Asked as: sign-in name differs from user; Unknown name on sign-in; reported name not matching; which name is shown for sign-in
+Asked as: sign-in name wrong; why name says unknown; matched user name differs; name shown at sign-in
 
-A sign-in shows the reported given name and surname, or "Unknown" if both are empty. Turbo shows the matched Turbo user's name only when a user matched and the name differs from the reported name, ignoring case and spaces at the ends.
+A sign-in shows the name it reported, or 'Unknown' if it reported none. Turbo shows the matched Turbo user's name only when a user matched and the name differs from the reported name, case ignored (loginReportedName, loginTurboUserName).

@@ -1,28 +1,28 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/computersLoad.ts","sha256":"57fd271c1bf6432e52ec5152c88e49b3870d929c2aeb54c057b4adf5ffde8dd7","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/computersLoad.ts","sha256":"76edfb4b67a5cc18b047e33cc179bae0f1297f747801980804d0eb0157b522e9","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/computersLoad.ts
 
 ## Computers pages need the computers or admin claim
 
-Lines 15-22
+Lines 9-16
 
-Asked as: computers page blocked; no access to computers; computers claim required; can't see computers page; admin claim needed
+Asked as: computers page blocked; can't open computers page; computers claim required; access denied computers; no permission computers
 
-Turbo stops a Computers page for a person who has neither the computers claim nor the admin claim. The page shows the message "The computers or admin claim is required to see computers." The server also refuses the data (the check is canViewComputers).
+Turbo stops a person from opening a Computers page unless they hold the computers or admin claim (checked with canViewComputers). Otherwise it refuses with the message "The computers or admin claim is required to see computers." The server also refuses the data.
 
-## Computer sign-in and rejected report lists load one page at a time
+## Computer sign-in and raw login lists load all matching rows
 
-Lines 24-35
+Lines 18-26
 
-Asked as: sign-ins list paging; rejected logins next page; page past the end; computer sign-ins pagination; raw logins page size
+Asked as: sign-in list empty; raw logins not loading; all logins showing; old sign-ins missing; search returns everything
 
-The sign-ins list and the rejected reports (raw logins) list load from the server one page at a time. The page, the page size (perPage) and the search text (q) come from the URL. The access check runs before the list loads. The server moves a page past the end back to the last page.
+The sign-ins and rejected reports (raw logins) lists load every row that matches the search text in the URL (q). Turbo trims the search text, and an empty search loads all rows. The server sends all rows because it deletes rows after 30 days. A person without the computers or admin claim cannot load these lists.
 
-## Typing in a computer list search waits 300 ms
+## Computer list search runs after typing pauses for 300 ms
 
-Lines 37-58
+Lines 28-51
 
-Asked as: search box lag; computer list search slow; sign-ins search delay; raw logins search reloads; typing search wait
+Asked as: search lags while typing; search fires too early; typing delay in search; spaces trigger search; search not updating after typing
 
-When the search text of the sign-ins list or the raw logins list changes, Turbo waits 300 milliseconds after the last keystroke before it reloads the list. A change of page or page size reloads at once. Turbo trims spaces from the search text to see whether it changed, so a change of only leading or trailing spaces counts as no change and reloads at once.
+On the sign-ins and raw logins lists, Turbo runs a new search 300 milliseconds after typing stops. A change of only leading or trailing spaces loads nothing, because Turbo compares the trimmed text with the last search. The search changes the URL without adding a history entry and keeps focus and scroll position.
