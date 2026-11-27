@@ -47,6 +47,7 @@ type Job struct {
 	Location               string  `db:"location" json:"location"`
 	ClientID               string  `db:"client_id" json:"client_id"`
 	Client                 string  `db:"client" json:"client"`
+	ClientAlias            string  `db:"client_alias" json:"client_alias"` // blank when none; the job searches match it
 	Branch                 string  `db:"branch" json:"branch"`
 	Manager                string  `db:"manager" json:"manager"`
 	OutstandingBalance     float64 `db:"outstanding_balance" json:"outstanding_balance"`

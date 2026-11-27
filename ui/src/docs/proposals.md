@@ -25,7 +25,7 @@ Note: Client, contact or job owner not in the list? Add one with the green plus 
 
 1. Open **Jobs**.
 2. Select **Proposals**.
-3. Search for the number, client or description.
+3. Search for the number, client, client alias or description.
 
 The plus button beside **Jobs** also has **Find the proposal**. Each row shows the proposal's status.
 

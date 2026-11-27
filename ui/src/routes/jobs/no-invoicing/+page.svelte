@@ -18,7 +18,7 @@
     ),
   );
   const searchText = (job: JobApiResponse) =>
-    [job.number, job.description, job.client, job.manager, job.branch].join(" ");
+    [job.number, job.description, job.client, job.client_alias, job.manager, job.branch].join(" ");
 </script>
 
 <DSList

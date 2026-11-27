@@ -1,52 +1,44 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/jobs_latest.sql","sha256":"f654707c055252c579ec287e2c066ed2820c4aebf550efa7c6a2a1dfe4d4024c","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/jobs_latest.sql","sha256":"e989a7f5fd181f9af3df600d5494a6fca48803fca894c2ab1a7fdd4d2d13061e","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/jobs_latest.sql
 
-## Latest jobs list takes the newest jobs from each group
-
-Lines 4-43
-
-Asked as: latest jobs limit; how many latest jobs; newest jobs list size; jobs list only shows some
-
-The latest jobs list takes at most :limit proposals and at most :limit projects, newest created first. The limit applies to each group separately, so the list can hold up to twice the limit.
-
-## Missing outstanding balance shows as 0 and missing date as blank
+## Missing outstanding balance shows as 0 or blank date
 
 Lines 13-14
 
-Asked as: outstanding balance shows 0; blank outstanding date; no balance on job; missing balance in jobs
+Asked as: outstanding balance shows 0; blank outstanding date; job balance zero; no outstanding date
 
-In the latest jobs list, a job with no outstanding balance shows 0. A job with no outstanding balance date shows an empty text.
+A job with no outstanding balance shows 0. A job with no outstanding balance date shows an empty date.
 
-## Proposals are jobs whose number starts with P
+## Latest jobs list splits proposals and projects
 
-Lines 17-18
+Lines 18-57
 
-Asked as: what counts as proposal; job number starts with P; proposal versus project; why is job a proposal
+Asked as: proposals and projects split; job number starts with P; proposal vs project list; why is job in proposals
 
-The latest jobs list treats a job as a proposal when its number starts with 'P' (LIKE 'P%'). Every other job counts as a project.
+The latest jobs list has two groups: 'Proposals' and 'Projects'. A job is a proposal when its number starts with P (number LIKE 'P%'). Every other job is a project.
 
-## Jobs with no matching client still appear in latest jobs list
+## Latest jobs list caps each group at the limit
 
-Lines 51-62
+Lines 18-43
 
-Asked as: job missing from latest list; no client but job shows; client not found on job; job hidden without client
+Asked as: latest jobs limit; too many jobs listed; limit per group; list longer than limit
 
-The latest jobs list joins the client, branch and manager as optional. A job stays in the list even if the lookup finds no match. The client name comes from the clients table and is empty when no client matches.
+Turbo takes up to the requested limit (:limit) of the newest jobs from each group separately. The limit is not shared between the groups. The list can therefore hold up to twice the limit.
 
-## Missing branch or manager shows blank in latest jobs list
+## Missing client alias, branch or manager shows blank
 
-Lines 52-53
+Lines 52-63
 
-Asked as: branch blank in jobs list; manager missing on job; no manager name shown; empty manager in latest jobs
+Asked as: job missing client alias; blank branch on job; manager name empty; job hidden missing client
 
-The latest jobs list shows an empty branch when a job has no branch. It shows an empty manager when the job has no manager. The manager appears as given name, a space, then surname.
+A job with no client alias, branch or manager shows an empty value for that field. The branch shows as its code and the manager as given name and surname. The job still appears in the list.
 
-## Latest jobs list shows proposals first, then projects
+## Latest jobs list order: proposals first, newest first
 
-Lines 56-63
+Lines 57-64
 
-Asked as: order of latest jobs; proposals listed before projects; which group comes first; jobs list sort order
+Asked as: latest jobs order; newest jobs first; proposals listed first; sort latest jobs
 
-The latest jobs list returns two groups: proposals (group_name 'Proposals'), then projects (group_name 'Projects'). Each group is sorted by created date, newest first.
+The list shows proposals before projects. Within each group the jobs are ordered by creation date, newest first (created DESC).

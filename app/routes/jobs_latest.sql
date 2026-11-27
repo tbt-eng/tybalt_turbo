@@ -49,6 +49,7 @@ SELECT
   u.location,
   u.client_id,
   c.name AS client,
+  COALESCE(c.alias, '') AS client_alias,
   COALESCE(b.code, '') AS branch,
   COALESCE(m.given_name || ' ' || m.surname, '') AS manager,
   u.outstanding_balance,

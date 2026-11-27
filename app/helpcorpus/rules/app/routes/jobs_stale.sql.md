@@ -1,68 +1,60 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/jobs_stale.sql","sha256":"c656d71c1a71f0944242ddaa263ed0066960b40bc313374c31bcff437e06dd8d","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/jobs_stale.sql","sha256":"1ff7cbd32007c1bb37fd932debe81846ad3bf9191fe7ccdf489e169f1c26fa8d","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/jobs_stale.sql
 
-## Stale and unused job report only covers Active jobs
+## Age of 0 or less lists unused jobs
 
-Lines 13-13
+Lines 3-4
 
-Asked as: jobs missing from stale report; closed jobs not showing; inactive job not in report; only active jobs listed
+Asked as: jobs with no time entries; unused jobs list; jobs never used; empty last reference; jobs with no activity
 
-The stale/unused jobs query only looks at jobs whose status is 'Active'. Jobs with any other status never appear in the results.
+When the age (:age) is 0 or less, the report lists jobs with no time entries, time amendments, expenses or purchase orders at all. Such jobs show an empty last reference and an empty last reference type.
+
+## Stale and unused job report only lists Active jobs
+
+Lines 9-15
+
+Asked as: inactive jobs missing from report; closed jobs not showing; stale report missing jobs; only active jobs shown; job status filter
+
+The stale/unused jobs report only considers jobs whose status is 'Active'. Jobs in any other status never appear in it.
 
 ## Job number prefix filter matches the start of the number
 
-Lines 14-14
+Lines 13-15
 
-Asked as: search job number by prefix; job number starts with; filter jobs by number start; jobs matching number prefix
+Asked as: job number prefix search; jobs starting with prefix; job number filter not working; search job number start; prefix matches middle of number
 
-The report returns only jobs whose number starts with the prefix given (j.number LIKE prefix || '%'). The match is on the start of the number, not on text elsewhere in it.
+The report only includes jobs whose number starts with the prefix given (j.number LIKE prefix || '%'). The prefix is not matched anywhere else in the number.
 
 ## What counts as a reference to a job
 
-Lines 16-35
+Lines 16-48
 
-Asked as: what counts as job usage; what links to a job; job referenced by timesheet; job used by expense
+Asked as: what is last reference; same date reference type; which entry counts as last use; job last activity date; time entry vs expense priority
 
-Turbo counts a job as referenced when a time entry, a time amendment, an expense or a purchase order points to it. It uses the date of each such record as the reference date.
+Turbo looks at the date of every time entry, time amendment, expense and purchase order that points to the job. The most recent date is the job's last reference. When two references have the same date, the type ranks in this order: time entry, time amendment, expense, purchase order. The first in that order is reported as the last reference type.
 
-## Last reference is the most recent date; ties go to the first type in the order
+## Report fills in blank values for missing data
 
-Lines 36-48
+Lines 56-65
 
-Asked as: last used date of job; which date counts as last use; same date which record wins; last reference type tie
+Asked as: blank client alias in report; missing branch code empty; zero outstanding balance missing; job missing client not shown; empty fields in stale report
 
-A job's last reference is the record with the latest date. If several records share that date, Turbo picks by type order: time entry, then time amendment, then expense, then purchase order. The report shows that record's date and type (last_reference, last_reference_type).
+The report shows an empty string for a missing client alias, branch code, outstanding balance date, last reference and last reference type. It shows 0 for a missing outstanding balance. A job still appears if its client or branch cannot be found.
 
-## Blank values shown when a job lacks data
+## Positive age lists stale jobs, with the boundary day included
 
-Lines 56-60
+Lines 66-67
 
-Asked as: blank branch on job report; job report shows zero balance; no outstanding balance date; empty last reference column
+Asked as: how many days stale; older than days threshold; jobs not used for days; boundary day included stale; stale age cutoff
 
-The report shows an empty branch if the job has no branch. It shows an outstanding balance of 0 if none is set. It shows an empty outstanding balance date, last reference and last reference type if none exist.
-
-## Age of 0 or less lists unused jobs
-
-Lines 65-65
-
-Asked as: unused jobs report; jobs never used; jobs with no activity; age zero job list
-
-When the age (:age) is 0 or less, the report lists only jobs with no reference at all: no time entries, time amendments, expenses or purchase orders.
-
-## Age above 0 lists stale jobs; the cutoff day is included
-
-Lines 66-66
-
-Asked as: stale jobs older than days; jobs not used for days; cutoff day included stale; jobs inactive since date
-
-When the age (:age) is above 0, the report lists only jobs that have at least one reference and whose last reference is on or before today minus that many days. A last reference exactly that many days old counts as stale (<=). Jobs with no references at all are left out.
+When the age (:age) is above 0, the report lists jobs that have at least one reference and whose last reference date is on or before today minus that many days (<=). A job whose last reference is exactly that many days old is included. Jobs with no references at all are not listed as stale.
 
 ## Report sort order and row limit
 
-Lines 67-68
+Lines 68-69
 
-Asked as: stale report sort order; jobs list order oldest first; row limit on job report; how many jobs returned
+Asked as: stale report sort order; stale jobs oldest first; report row limit; how many rows returned; unused jobs sorted by number
 
-For stale jobs (age above 0), the report sorts by last reference date, oldest first, then by job number. For unused jobs it sorts by job number alone. It returns at most the limit (:limit) number of rows.
+For stale jobs, the report sorts by last reference date, oldest first, then by job number. For unused jobs, it sorts by job number only. It returns at most the number of rows given by the limit parameter.

@@ -1,84 +1,84 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/jobs_api.go","sha256":"e227d6a16183acc6b365ba1dfdac4489b4ece3c55fbf8ede866952cfe42d6ce6","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/jobs_api.go","sha256":"0925790ad6a9290ec58d753d68afe2a245a1423c77a7128333308970fbbe47ac","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/jobs_api.go
 
-## Jobs list flags jobs that have no invoicing profile
+## Job rows show client, alias and invoicing profile flag
 
-Lines 54-56
+Lines 41-58
 
-Asked as: job without invoicing profile; missing invoicing profile flag; job has no invoice profile; jobs list invoicing warning
+Asked as: job missing invoicing profile; no invoicing profile flag; job client alias blank; job list outstanding balance
 
-Each job in the jobs list carries a flag (no_invoicing_profile) that is true when the job has no invoicing profile. Only the jobs list query (jobs.sql) reads this flag. The SQL file decides how Turbo sets it, and this file does not show that.
+Each job row has the client name and ID, the client alias (blank when none), branch, manager, outstanding balance and its date. It also has a flag (no_invoicing_profile) that is true when the job has no invoicing profile.
 
-## Latest jobs list is capped at 50
+## Latest jobs list size per group
 
-Lines 59-122
+Lines 60-123
 
-Asked as: latest jobs limit; why only 50 jobs; latest proposals and projects; group name on jobs
+Asked as: how many proposals listed; latest jobs limit; group name on jobs; latest jobs 50 rows
 
-The latest jobs list returns up to 50 proposals and up to 50 projects (latestJobsLimit = 50). Each row carries a group name (group_name) that says which group it belongs to.
+The latest jobs list returns up to 50 proposals and up to 50 projects (latestJobsLimit). Each row carries a group name (group_name) that labels its group.
 
-## Single job lookup returns 'job not found' when missing
+## Single job lookup returns not found
 
-Lines 77-99
+Lines 78-100
 
-Asked as: job not found error; cannot find job by id; job id returns nothing; single job lookup failing
+Asked as: job not found error; job id lookup fails; no job matches id; get job by id
 
-When a job id is given, Turbo returns that one job. If no job matches the id, Turbo refuses with the message "job not found". Without an id, Turbo returns the whole list of jobs.
+When a job ID is given and no job matches, Turbo answers "job not found". Without an ID, Turbo returns the whole jobs list. This job lookup and list shows no claim check in this file.
 
 ## Latest jobs list needs the job claim
 
-Lines 106-113
+Lines 107-114
 
-Asked as: cannot view latest jobs; not authorized latest jobs; latest jobs permission; job claim missing
+Asked as: cannot see latest jobs; not authorized latest jobs; latest jobs access denied; who can view latest jobs
 
-Only staff with the job claim can view the latest jobs. Anyone else gets the message "you are not authorized to view latest jobs".
+Only procurement (the job claim) can view the latest jobs list. Anyone else gets the message "you are not authorized to view latest jobs".
 
-## Unused jobs list defaults to this year's proposal prefix
+## Unused jobs search defaults to this year's proposals
 
-Lines 129-138
+Lines 130-139
 
-Asked as: default job prefix; unused jobs wrong year prefix; P25 prefix; jobs prefix empty
+Asked as: unused jobs this year; unused proposals default prefix; search unused jobs P25; job number prefix missing
 
-The unused jobs list takes the job number prefix from the query parameter prefix. If it is empty, Turbo uses the prefix in the path. If that is also empty, Turbo uses P plus the last two digits of the current UTC year, such as P25. Turbo trims spaces from the prefix.
+The unused jobs search takes a job number prefix from the query, or else from the path. When neither is given, it uses P plus the last two digits of the current UTC year, such as P25. Blank or whitespace-only prefixes count as missing.
 
-## Unused jobs list limit defaults to 50
+## Unused jobs search returns 50 rows by default
 
-Lines 140-145
+Lines 141-146
 
-Asked as: unused jobs only 50 results; change unused jobs limit; limit parameter ignored; unused jobs count cap
+Asked as: unused jobs row limit; how many unused jobs shown; limit unused jobs search; unused jobs result cap
 
-The unused jobs list returns 50 jobs unless the limit query parameter is a whole number above 0. A limit that is zero, negative or not a number is ignored and 50 applies.
+The unused jobs search returns at most 50 jobs unless a limit is given. A limit that is not a whole number above 0 is ignored, and 50 applies.
 
-## Unused jobs are jobs with no references
+## Unused jobs are stale jobs with age zero
 
-Lines 147-157
+Lines 148-157
 
-Asked as: jobs with no references; which jobs are unused; last reference of job; jobs never referenced
+Asked as: jobs with no references; find unused jobs zero age; last reference of unused job; jobs never referenced
 
-Turbo finds unused jobs by running the stale jobs query with an age of 0, so it returns jobs that have no references. Each row includes the last reference and its type (last_reference, last_reference_type). Turbo does not check a claim for this list in this file.
+The unused jobs search runs the stale jobs query with an age of 0, to find jobs with no references. Each row shows the last reference and its type. This file shows no claim check for this search.
 
-## Stale jobs list defaults to this year's proposal prefix
+## Stale jobs search defaults to this year's proposals
 
-Lines 163-171
+Lines 164-172
 
-Asked as: stale jobs wrong prefix; old jobs list year; stale jobs default prefix; prefix for stale jobs
+Asked as: stale jobs this year; stale proposals default prefix; search stale jobs P25; stale jobs prefix missing
 
-The stale jobs list takes the job number prefix from the query parameter prefix, then from the path. If both are empty, it uses P plus the last two digits of the current UTC year, such as P25. Turbo trims spaces from the prefix.
+The stale jobs search takes a job number prefix from the query, or else from the path. When neither is given, it uses P plus the last two digits of the current UTC year.
 
-## Stale jobs age defaults to 180 days
+## Stale jobs default age is 180 days
 
-Lines 173-179
+Lines 174-180
 
-Asked as: stale jobs older than 180 days; change stale age; how old job is stale; stale days setting
+Asked as: stale jobs age default; how many days stale; stale jobs 180 days; change stale age limit
 
-The stale jobs list uses an age of 180 days unless the age query parameter is a whole number above 0. A zero, negative or non-numeric age is ignored and 180 applies.
+The stale jobs search uses an age of 180 days unless a different age is given. An age that is not a whole number above 0 is ignored, and 180 applies.
 
-## Stale jobs list limit defaults to 50
+## Stale jobs search returns 50 rows by default
 
-Lines 181-197
+Lines 182-198
 
-Asked as: stale jobs limit 50; stale jobs result cap; how many stale jobs shown; stale list size
+Asked as: stale jobs row limit; how many stale jobs shown; stale jobs result cap; last reference stale job
 
-The stale jobs list returns 50 jobs unless the limit query parameter is a whole number above 0. An invalid limit is ignored and 50 applies. Turbo does not check a claim for this list in this file.
+The stale jobs search returns at most 50 jobs unless a limit is given. A limit that is not a whole number above 0 is ignored, and 50 applies. Each row shows the last reference and its type. This file shows no claim check for this search.

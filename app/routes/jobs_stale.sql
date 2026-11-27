@@ -53,6 +53,7 @@ SELECT
   j.location AS location,
   j.client AS client_id,
   c.name AS client,
+  COALESCE(c.alias, '') AS client_alias,
   COALESCE(b.code, '') AS branch,
   COALESCE(j.outstanding_balance, 0) AS outstanding_balance,
   COALESCE(j.outstanding_balance_date, '') AS outstanding_balance_date,

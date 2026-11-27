@@ -11,6 +11,7 @@ SELECT
   j.location AS location,
   j.client AS client_id,
   c.name AS client,
+  COALESCE(c.alias, '') AS client_alias,
   COALESCE(b.code, '') AS branch,
   COALESCE(m.given_name || ' ' || m.surname, '') AS manager,
   COALESCE(j.outstanding_balance, 0) AS outstanding_balance,

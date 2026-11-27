@@ -55,6 +55,57 @@ func TestJobsReadEndpoints_ExposeStatusAndImportedFields(t *testing.T) {
 	}
 }
 
+// The jobs endpoints return the client's alias beside its name so the job
+// searches can match it. A client without an alias returns a blank one.
+func TestJobsReadEndpoints_ReturnClientAlias(t *testing.T) {
+	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:           "single job returns the client alias",
+			Method:         http.MethodGet,
+			URL:            "/api/jobs/jaliasjob000001",
+			Headers:        map[string]string{"Authorization": recordToken},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"client":"Harbourview Glassworks"`,
+				`"client_alias":"HVG Studio"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			Name:           "client without an alias returns a blank alias",
+			Method:         http.MethodGet,
+			URL:            "/api/jobs/fcprojimpnoprop1",
+			Headers:        map[string]string{"Authorization": recordToken},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"client_alias":""`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+		{
+			Name:           "jobs list returns the client alias",
+			Method:         http.MethodGet,
+			URL:            "/api/jobs",
+			Headers:        map[string]string{"Authorization": recordToken},
+			ExpectedStatus: http.StatusOK,
+			ExpectedContent: []string{
+				`"id":"jaliasjob000001"`,
+				`"client_alias":"HVG Studio"`,
+			},
+			TestAppFactory: testutils.SetupTestApp,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+
 func TestJobAllocations_PutTransactionalUpdate(t *testing.T) {
 	// Use a user with the 'job' claim: author@soup.com (uid f2j5a8vk006baub)
 	recordToken, err := testutils.GenerateRecordToken("users", "author@soup.com")

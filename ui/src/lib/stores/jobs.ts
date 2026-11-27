@@ -8,6 +8,7 @@ export interface JobApiResponse {
   location: string;
   client_id: string;
   client: string; // client name
+  client_alias: string; // client alias, "" when none; searched, not shown
   branch: string; // branch code
   manager: string; // manager name
   outstanding_balance: number;
@@ -32,7 +33,8 @@ export const jobs = createCollectionStore<any>(
   "jobs",
   {},
   {
-    fields: ["number", "description", "location", "client"],
+    // client_alias is searched but not stored: nothing shows it.
+    fields: ["number", "description", "location", "client", "client_alias"],
     storeFields: [
       "id",
       "number",
