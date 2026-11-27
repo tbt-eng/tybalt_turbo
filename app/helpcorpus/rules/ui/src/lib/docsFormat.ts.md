@@ -1,140 +1,164 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"ui/src/lib/docsFormat.ts","sha256":"8ccc04b2fcf4f9284f5ee533f70f0e461129a6917cecb74196c3d10523cf165e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"ui/src/lib/docsFormat.ts","sha256":"758372f31a1dbe11d0b22f6f8cd7a051801a41f34f918d4d96d228467a7408b3","model":"claude-sonnet-5-5"} -->
 
 # Rules in ui/src/lib/docsFormat.ts
 
-## Links in help pages carry the link style
+## Doc links open the page's link style and render as links
 
 Lines 33-39
 
-Asked as: links look like plain text; help link not styled; link colour wrong in help; help links look odd
+Asked as: link looks wrong in help; help links not blue; link text formatting in docs; clickable text not styled
 
-Every Markdown link in a help page is drawn as an anchor with the CSS class "link". It keeps the address (href) that the author wrote.
+Turbo renders each Markdown link in a help page as an anchor with the class "link" and the given address. The link text is parsed as inline Markdown.
 
-## Commit links point to GitHub
+## Commit links point to the GitHub commit page
 
 Lines 45-49
 
-Asked as: commit link goes wrong place; link to a commit; github commit link broken; where commit link points
+Asked as: commit link goes nowhere; link to github commit; what's new commit url; github commit button broken
 
-A commit link goes to https://github.com/tbt-eng/tybalt_turbo/commit/<commit>.
+A What's new commit links to https://github.com/tbt-eng/tybalt_turbo/commit followed by the commit hash (commitUrl).
 
-## Section ids come from titles
+## Section links use a slug of the title
 
 Lines 51-57
 
-Asked as: section anchor name wrong; heading id has apostrophe; section url slug; link to a heading
+Asked as: section anchor link broken; jump link to section; heading link id; section link not working
 
-A section id is its title in lower case, with apostrophes removed and other runs of non-letters and non-digits turned into one hyphen. Hyphens at the start and end are removed. Section word counts use the section's raw text.
+The id of a section is its title in lower case, with apostrophes removed and other runs of non-letters and non-digits replaced by one hyphen. Hyphens at the start and the end are trimmed.
 
-## Word count rule
+## Word count of a doc section
 
 Lines 59-61
 
-Asked as: word count is wrong; why numbers not counted; how docs count words; word count skips numbers
+Asked as: how many words counted; word count looks wrong; word count skips numbers; why word count is low
 
-Docs count a word as a run that starts with a letter and continues with letters, digits, underscores, apostrophes or hyphens. Numbers alone do not count.
+Turbo counts words as runs that start with a letter and may contain letters, digits, underscores, apostrophes or hyphens. Numbers alone do not count as words.
 
 ## Flow lines need three parts
 
 Lines 63-80
 
-Asked as: flow line rejected; help line error missing part; actor step detail error; note line in flow
+Asked as: flow line error message; actor step detail error; flow line invalid format; flow step error text
 
-A flow line in a doc must be "Actor | Step | Detail" with all three parts filled in, or it is rejected with: A flow line needs "Actor | Step | Detail": <line>. A line that starts with "Note:" is a note instead. Blank lines are skipped.
+Each line of a flow block must be 'Actor | Step | Detail' with all three parts filled, or a line that starts with 'Note:'. A line with another number of parts or an empty part fails with the error 'A flow line needs "Actor | Step | Detail"'.
 
-## A flow code block becomes a step list
+## Flow note lines become notes, not steps
+
+Lines 67-72
+
+Asked as: note in flow diagram; note: line not showing; flow note formatting; flow note shows as step
+
+In a flow block, a line that starts with "Note:" becomes a note, and Turbo shows the text after "Note:" as inline Markdown. Blank lines are skipped.
+
+## Flow step line with a missing part is rejected
+
+Lines 73-77
+
+Asked as: docs won't load; help page fails to load; missing flow field error; flow step missing part
+
+Every flow step line must have exactly three non-empty parts separated by "|": Actor, Step and Detail. Otherwise the docs fail to load with the error 'A flow line needs "Actor | Step | Detail": ' followed by the line. Only the Detail part is parsed as inline Markdown.
+
+## Only code blocks marked flow become flow diagrams
 
 Lines 82-100
 
-Asked as: flow block shows as code; steps show as code; code block not turning into steps; flow code not rendering
+Asked as: code block not a diagram; flow block not rendering; fenced code flow language; code block shows as text
 
-A fenced code block whose language is "flow" becomes a flow block with steps and notes. It does not show as code. Other content around it shows as normal HTML. Blank spacing between blocks is dropped.
-
-## Content before the first section heading is the page intro
-
-Lines 102-120
-
-Asked as: text above first heading; intro text in help page; content before first section; help page intro missing
-
-A help page takes its title from the first level-1 heading. Each level-2 heading starts a new section. Content that comes before the first level-2 heading goes into the page intro. Content after it goes into the latest section.
+A fenced code block whose language is "flow" becomes a flow block with steps and notes. All other content is rendered as HTML. Blank space tokens are dropped.
 
 ## A doc page needs a title
 
-Lines 107-121
+Lines 106-121
 
-Asked as: doc missing title error; no title line error; help page won't build; doc page error on save
+Asked as: help page missing title; doc failed to load title; no title error in doc; page won't load no heading
 
-A doc source with no "# Title" line (first level 1 heading) is rejected with the error: Doc <slug> needs a "# Title" line. Only the first level 1 heading is the title.
+A doc page must have a first-level '# Title' line. A doc without one fails to load with the error 'Doc <slug> needs a "# Title" line'. Only the first level-1 heading is the title.
+
+## Only the first level-1 heading is the page title
+
+Lines 106-108
+
+Asked as: second h1 heading; multiple titles in doc; extra heading shows as text; wrong page title shown
+
+The first "#" heading is the page title. Later level-1 headings stay in the content as normal text.
 
 ## What's new heading carries its last commit
 
 Lines 109-116
 
-Asked as: commit in what's new heading; version hash in heading; what's new commit hash; heading shows commit text
+Asked as: what's new commit removed from title; to hash in heading; week commit in heading; heading shows commit id
 
-A level 2 heading that ends with "(to <8 to 40 hex characters>)" sets the section's last commit and drops that text from the title. Other level 2 headings have no commit.
+A What's new heading that ends with '(to' and a hex commit of 8 to 40 characters sets the last commit that the week covers. The commit is removed from the shown title. A heading without it has no commit.
 
-## Section and page word counts
+## Level-2 headings start sections; earlier content is the intro
+
+Lines 109-119
+
+Asked as: intro text before heading; where does a section start; content above first heading; text under which section
+
+Each "##" heading starts a new section. Content before the first "##" heading is the page intro, and content after a heading belongs to that section.
+
+## What's new commit needs 8 to 40 hex characters
+
+Lines 110-116
+
+Asked as: invalid commit hash heading; hash not recognised in what's new; commit missing from section; short hash in heading
+
+A section heading ending in "(to <hash>)" sets the section's commit only when the hash is 8 to 40 lowercase hex characters. With any other ending, the heading keeps its full text and has no commit.
+
+## Section IDs come from the heading without the commit
+
+Lines 112-127
+
+Asked as: section id has hash; anchor name in what's new; slug includes commit; section link has commit
+
+A section's ID is the slug of its title. For a What's new heading, the title leaves out the "(to hash)" part.
+
+## Section words and page words are counted differently
 
 Lines 126-133
 
-Asked as: section word total; page word total; word count ignores heading; why word count differs
+Asked as: section word count wrong; page word count differs; section count includes heading; word count per section
 
-A section's word count covers the text of its own content, and does not cover its heading. The page's word count covers the whole source, including the title and headings.
+A section's word count covers only that section's content, not its heading. The page's word count covers the whole source.
 
-## Principle for the order of help pages
+## Help page order in the side navigation
 
-Lines 137-144
+Lines 137-200
 
-Asked as: why help pages in this order; reason for page ordering; order of help menu logic; how help pages are sorted
+Asked as: side navigation order; help pages in wrong order; help menu order; why pages are sorted this way
 
-Help lists pages in this order. First comes Start here. Then the task pages, in the order of Turbo's main menu: Time, Purchase Orders, Expenses, Business. In Business, a proposal comes before the project request that it can lead to. Then the page about your profile. Last come the reference pages: the glossary, then What's new.
+Help lists pages in this order: start-here, time, purchase-orders, expenses, proposals, project-requests, rate-sheets, clients, absorb-proposals, computers, profile, glossary, whats-new (docPageOrder). A page that is not in the list goes just before What's new. Unlisted pages sort by title.
 
-## Order of pages in Help
+## Child pages show under their parent page
 
-Lines 145-159
+Lines 161-206
 
-Asked as: help page sequence; pages listed in wrong order; help menu order list; proposal page comes before project
+Asked as: sub page under time; child page indent; review and track page location; child page not under parent
 
-Help lists pages in the order of docPageOrder: start-here, time, purchase-orders, expenses, proposals, project-requests, rate-sheets, clients, absorb-proposals, computers, profile, glossary, whats-new. A proposal page comes before the project request page.
+Help lists some pages under a parent page with a shorter label, for example 'review-time' under Time as 'Review and track' and 'child-purchase-orders' under Purchase Orders as 'Child POs'. A child page follows its parent and is indented in the side navigation. Children of one parent show in the order of the childDocPages list.
 
-## Child pages show under their parent in Help
+## Pages missing from the order list go before What's new
 
-Lines 163-179
+Lines 184-193
 
-Asked as: subpage under time; review and track missing; child PO indent; nested help page under parent
+Asked as: new help page missing from menu; page appears before what's new; page not in navigation; help page placed oddly
 
-Some pages (childDocPages) appear indented under a parent page with a shorter label. Examples: review-time appears under time as "Review and track", and child-purchase-orders appears under purchase-orders as "Child POs". Children show in the order of the childDocPages list, right after their parent.
+A top-level page that is in neither docPageOrder nor the child list sits just before What's new, sorted by title.
 
-## Unlisted help pages go before What's new
+## Help popover links open in a new tab
 
-Lines 183-199
+Lines 208-221
 
-Asked as: help page missing from list; new page not showing in help; page appears before what's new; unlisted help page placement
+Asked as: popover link opens new tab; help link closes my form; help link loses unsaved work; popover link opens in tab
 
-A page that is not in the page order list and is not a child page goes just before What's new. Unlisted pages are sorted by title.
+Links in a help popover open in a new tab (target _blank). This keeps unsaved work on the form that the popover sits over. It applies to the text blocks, and to the details and notes of flow steps.
 
-## Side navigation label and indent for child pages
+## Help reference needs a page and a section
 
-Lines 202-205
+Lines 223-232
 
-Asked as: side menu label wrong; sidebar shows full title; child page indent sidebar; help sidebar short name
+Asked as: help link does nothing; anchor link finds nothing; deep link not found; help reference shows no result
 
-The Help side navigation shows a child page with its short label and an indent. Any other page shows its full title with no indent.
-
-## Links in help popovers open in a new tab
-
-Lines 207-220
-
-Asked as: help link opens same tab; popover link loses form; help popover link new window; link in help popup opens
-
-Links in a help popover over a form open in a new tab (target=_blank, rel=noopener). This keeps unsaved work on the form safe. It applies to links in text, flow step details and flow notes.
-
-## Help reference needs both page and section
-
-Lines 223-231
-
-Asked as: help link does nothing; section link not opening; help reference not found; help hash link empty
-
-A help reference such as "project-requests#approve-a-request" opens only when both the page and the section exist. If either is missing, Turbo finds nothing.
+A help reference such as 'project-requests#approve-a-request' gives a result only when both the page and the section exist. If either one is missing, Turbo finds nothing.
