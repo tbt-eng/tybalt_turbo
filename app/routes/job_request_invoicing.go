@@ -17,8 +17,8 @@ type requestInvoicingWrite struct {
 }
 
 // canSetRequestInvoicing reports whether auth may set the invoicing profile of
-// a request that waits for job creation: an active holder of the job claim,
-// while project requests and job editing are both on.
+// a request that waits for job creation: a holder of the job claim, while
+// project requests and job editing are both on.
 func canSetRequestInvoicing(app core.App, r, auth *core.Record) (bool, error) {
 	if auth == nil || r.GetString("status") != "Awaiting creation" {
 		return false, nil
@@ -29,10 +29,6 @@ func canSetRequestInvoicing(app core.App, r, auth *core.Record) (bool, error) {
 	}
 	editing, err := utilities.IsJobsEditingEnabled(app)
 	if err != nil || !editing {
-		return false, err
-	}
-	active, err := utilities.IsUserActive(app, auth.Id)
-	if err != nil || !active {
 		return false, err
 	}
 	return utilities.HasClaim(app, auth, "job")

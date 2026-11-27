@@ -7,8 +7,6 @@ import (
 	"errors"
 	"net/http"
 
-	"tybalt/utilities"
-
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -143,15 +141,6 @@ func createGetClientsHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		id := e.Request.PathValue("id")
 		if id != "" {
-			// Details include invoicing profiles, whose collection read rule requires
-			// an active account. Keep the same rule for this combined response.
-			active, err := utilities.IsUserActive(app, e.Auth.Id)
-			if err != nil {
-				return e.Error(http.StatusInternalServerError, "failed to check account status", err)
-			}
-			if !active {
-				return e.Error(http.StatusForbidden, "an active account is required to view client details", nil)
-			}
 			details, err := queryClientDetails(app, id)
 			if errors.Is(err, sql.ErrNoRows) {
 				return e.Error(http.StatusNotFound, "client not found", nil)

@@ -1,36 +1,36 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_details_api.go","sha256":"4f2971f880cf02042dea9db63a9e55ac42a325fa67b56d7912f95cc7bec58780","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_details_api.go","sha256":"2e7fe611d114925e5bb8a4d3d5b035760e73a35c10204715dbf86cbaaadd890f","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_details_api.go
 
-## Job details need an active account
+## Job details return an error when the job is not found
 
-Lines 180-188
+Lines 186-188
 
-Asked as: inactive account can't view job; job details blocked account; account not active job access; locked out of job details
+Asked as: job not found; job details wrong id; no such job; job id doesn't exist
 
-Turbo refuses to show job details to a user whose account is not active, even if the user still holds a login token. The message is "an active account is required to view job details". The check matches the read rule for invoicing profiles, because the response includes them.
+When a job details request names a job ID that matches no row, Turbo refuses it with the message "job not found".
 
-## Job details for an unknown job
+## Job details list allocations, projects, children and categories
 
-Lines 195-197
+Lines 191-200
 
-Asked as: job id not found; job doesn't exist; wrong job number; no such job
+Asked as: job details allocations empty; missing allocations on job; job children not showing; job categories blank list
 
-When no job matches the requested id, Turbo answers "job not found".
+Job details include the job's allocations (division and hours), its projects, its children and its categories. Turbo takes them from the job details query. If that data cannot be read, the list comes back empty and Turbo gives no error.
 
-## Job details content returned
+## Missing job details fields come back as empty values
 
-Lines 200-268
+Lines 202-259
 
-Asked as: empty fields in job details; missing values job info; blank job details fields; what fields job details show
+Asked as: blank field job details; job manager shows empty; rate sheet revision 0; missing contact on job
 
-The job details response combines the job's client, contact, manager, alternate manager, job owner, branch, rate sheet (with its revision), invoicing profile, request and creation details, proposal and project values, outstanding balance, allocations by division, related projects, child jobs and categories. Any value that is missing comes back as an empty string, 0 or false. A list that cannot be read comes back empty.
+Job details show an empty string, 0 or false for a field that has no value, such as a missing manager, contact, branch, rate sheet, dates, proposal value or project value. Turbo does not leave these fields out. A missing rate sheet revision shows as 0.
 
-## Only admins see unlinked subjobs
+## Only admins see unlinked subjobs in job details
 
-Lines 270-282
+Lines 261-273
 
-Asked as: extra subjobs list admins; jobs not linked to project; orphan subjobs visible; who sees unlinked subjobs
+Asked as: unlinked subjobs not visible; can't see subjobs list; why no unlinked subjobs; subjobs missing for non admin
 
-Admins get an extra list of unlinked subjobs (unlinked_subjobs) in the job details. These are jobs numbered as this project's subjobs but not linked to it, and admins can adopt them. Other users do not receive this list.
+Turbo adds the list of unlinked subjobs (unlinked_subjobs) to job details only when the person holds the admin claim. These are jobs numbered as this project's subjobs that are not linked to it. Other people do not receive the list. Turbo also loads the job record and runs findUnlinkedSubjobs for admins, and shows an error if either step fails.

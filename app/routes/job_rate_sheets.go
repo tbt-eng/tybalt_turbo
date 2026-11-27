@@ -83,13 +83,9 @@ func writeRateSheetError(e *core.RequestEvent, err error) error {
 }
 
 // rateSheetPermissions reports whether the user may revise a project's
-// history, and whether they may set a first rate sheet. Both need an active
-// user with the job claim; revising also needs rate_sheet_revise.
+// history, and whether they may set a first rate sheet. Both need the job
+// claim; revising also needs rate_sheet_revise.
 func rateSheetPermissions(app core.App, auth *core.Record) (job bool, revise bool, err error) {
-	active, err := utilities.IsUserActive(app, auth.Id)
-	if err != nil || !active {
-		return false, false, err
-	}
 	job, err = utilities.HasClaim(app, auth, "job")
 	if err != nil || !job {
 		return false, false, err
@@ -217,7 +213,7 @@ func changeJobRateSheets(app core.App, e *core.RequestEvent, change func(tx core
 			return err
 		}
 		if !canJob {
-			return rateSheetRouteError(http.StatusForbidden, "", "", "An active user with the job claim is required.")
+			return rateSheetRouteError(http.StatusForbidden, "", "", "A user with the job claim is required.")
 		}
 		if err := checkPendingRateSheetAbsorb(tx, job); err != nil {
 			return err

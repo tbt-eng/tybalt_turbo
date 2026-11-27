@@ -87,13 +87,9 @@ func ProcessJobWorkflow(app core.App, job, actor *core.Record, operation Project
 func workflowError(message string) error {
 	return &errs.HookError{Status: http.StatusBadRequest, Message: message}
 }
-func activeClaim(app core.App, actor *core.Record, claims ...string) error {
+func requireClaim(app core.App, actor *core.Record, claims ...string) error {
 	if actor == nil {
 		return &errs.HookError{Status: http.StatusForbidden, Message: "authentication is required"}
-	}
-	active, err := utilities.IsUserActive(app, actor.Id)
-	if err != nil {
-		return err
 	}
 	has := false
 	for _, claim := range claims {
@@ -103,8 +99,8 @@ func activeClaim(app core.App, actor *core.Record, claims ...string) error {
 		}
 		has = has || allowed
 	}
-	if !active || !has {
-		return &errs.HookError{Status: http.StatusForbidden, Message: "an active user with the " + strings.Join(claims, " or ") + " claim is required"}
+	if !has {
+		return &errs.HookError{Status: http.StatusForbidden, Message: "a user with the " + strings.Join(claims, " or ") + " claim is required"}
 	}
 	return nil
 }
@@ -114,7 +110,7 @@ func validateProjectJobWrite(app core.App, job, actor *core.Record) error {
 	}
 	operation := projectWorkflowOperation(job)
 	if operation != ProjectWorkflowMutationApproveValue && operation != ProjectWorkflowMutationRestoreValue {
-		if err := activeClaim(app, actor, "job"); err != nil {
+		if err := requireClaim(app, actor, "job"); err != nil {
 			return err
 		}
 	}

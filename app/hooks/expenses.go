@@ -480,23 +480,6 @@ func validateBookkeeperApprover(app core.App, creatorUID string) error {
 		}
 	}
 
-	active, activeErr := utilities.IsUserActive(app, creatorUID)
-	if activeErr != nil {
-		return &errs.HookError{
-			Status:  http.StatusInternalServerError,
-			Message: "failed to check creator active status",
-		}
-	}
-	if !active {
-		return &errs.HookError{
-			Status:  http.StatusBadRequest,
-			Message: "bookkeeper approver must be an active user",
-			Data: map[string]errs.CodeError{
-				"approver": {Code: "approver_not_active", Message: "the bookkeeper approver is not an active user"},
-			},
-		}
-	}
-
 	hasClaim, claimErr := utilities.HasClaimByUserID(app, creatorUID, "book_keeper")
 	if claimErr != nil {
 		return &errs.HookError{

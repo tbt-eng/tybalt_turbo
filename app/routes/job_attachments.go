@@ -151,9 +151,6 @@ func requestDocumentHandler(app core.App, remove bool) func(*core.RequestEvent) 
 	}
 }
 func attachmentCanView(app core.App, a, auth *core.Record) (bool, error) {
-	if err := workflowActive(app, auth); err != nil {
-		return false, err
-	}
 	if id := a.GetString("request"); id != "" {
 		r, err := app.FindRecordById("job_requests", id)
 		if err != nil {
@@ -209,9 +206,6 @@ func attachmentDocumentHandler(app core.App) func(*core.RequestEvent) error {
 }
 func attachmentListHandler(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		if err := workflowActive(app, e.Auth); err != nil {
-			return err
-		}
 		query := e.Request.URL.Query()
 		if query.Get("queue") == "approved_by_me" {
 			return attachmentApprovedByMe(app, e)

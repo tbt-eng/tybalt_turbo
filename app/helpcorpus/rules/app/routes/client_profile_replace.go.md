@@ -1,148 +1,116 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/client_profile_replace.go","sha256":"4fb92adc76a8565b394f2277e41c2e46c5d0b2cee3c969d937a8dcba60c86bcb","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/client_profile_replace.go","sha256":"a1f7e18089a13b7c07df62e1110c862ecb837cbdbf812d396f5f02b07d0bc0ae","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/client_profile_replace.go
 
-## Replace result reports how many jobs and requests moved
+## Replace action returns counts of moved jobs and requests
 
 Lines 18-23
 
-Asked as: replace result count; how many jobs moved; how many requests moved; replace summary numbers
+Asked as: how many jobs moved; replace result counts; how many requests were moved; replace summary numbers
 
-After a successful replace, Turbo reports the number of jobs and the number of project requests (job requests) that moved to the replacement invoicing profile.
+When the replace succeeds, Turbo reports how many jobs and how many job requests it moved to the replacement profile (jobs and requests).
 
-## Replacing an invoicing profile is all or nothing
+## Replace invoicing profile runs as one all-or-nothing transaction
 
-Lines 33-51
+Lines 33-64
 
-Asked as: partial replace failure; replace rolled back; replace half done; invoicing profile changed partly
+Asked as: replace failed partway; partial replace changes; error during profile replace; rollback invoicing profile
 
-Turbo moves the jobs and project requests and deletes the old invoicing profile in one transaction. If any step fails, nothing changes.
+Turbo moves the jobs and requests and deletes the profile in one transaction. If any step fails, nothing changes. Turbo shows the error message from the failing check.
 
-## Replacing an invoicing profile requires being signed in
+## Replacing an invoicing profile requires a signed-in user
 
 Lines 39-41
 
-Asked as: replace profile not logged in; replace unauthorized; not signed in replace; session expired replace
+Asked as: unauthorized replace profile; not logged in replace; replace without sign in; session missing replace
 
-Turbo refuses a replace-invoicing-profile request from someone who is not signed in. The reply is "unauthorized". Turbo checks this before anything else.
+The replace-invoicing-profile action refuses a request that has no signed-in user. Turbo answers 'unauthorized'.
 
-## Replace changes only the invoicing profile, bypassing edit hooks
+## Replacing an invoicing profile requires the job claim
 
-Lines 67-80
+Lines 96-102
 
-Asked as: replace blocked by closed job; replace ignores edit rules; replace fails validation old job; replace skips job validation
+Asked as: who can replace profile; no permission to replace invoicing; procurement role needed; can't replace profile as user
 
-Turbo updates the jobs and requests with direct SQL, not by saving each record. The job and request edit rules do not run, so a creator-only edit rule or a full job validation of an older Closed job cannot block the replace. Only the invoicing profile field changes.
+Only a person with the job claim (procurement) can replace a client's invoicing profile. Anyone else sees: "A user with the job claim is required to replace an invoicing profile."
 
-## Requests awaiting approval keep version and approval after replace
+## Replacing an invoicing profile needs job editing switched on
 
-Lines 85-90
+Lines 103-110
 
-Asked as: request awaiting approval after replace; approval lost after profile change; request version after replace; approved request profile swap
+Asked as: replace disabled jobs editing; job editing turned off; can't replace profile now; jobs locked replace
 
-The invoicing profile is not part of what an approval covers. A project request that awaits approval or job creation keeps its version and its approval when its profile is replaced.
+Replacing an invoicing profile edits jobs, so it follows the jobs editing switch. When job editing is disabled, Turbo refuses the action and returns utilities.ErrJobsEditingDisabled (its message is defined in another file).
 
-## Replace moves records in every status, including Closed
+## Profile must exist and belong to the client
 
-Lines 92-94
+Lines 112-115
 
-Asked as: replace closed jobs; move closed job profile; replace profile on closed requests; closed job wrong invoicing profile
+Asked as: profile not found for client; invoicing profile missing; wrong client profile; can't find invoicing profile
 
-Replacing an invoicing profile works the same for every status. Closed jobs and project requests in any status move to the replacement profile too.
+Turbo refuses with "Invoicing profile not found for this client." when the profile does not exist or belongs to a different client than the one in the request.
 
-## Only active job-claim holders can replace an invoicing profile
+## Replacement profile is required
 
-Lines 96-106
+Lines 116-118
 
-Asked as: who can replace invoicing profile; replace button missing; need procurement to replace profile; cannot replace invoicing profile permission
+Asked as: no replacement chosen; pick new invoicing profile; replacement field empty; which profile to use instead
 
-Replacing a client's invoicing profile requires an active user who holds the job claim (procurement). Anyone else gets: "An active user with the job claim is required to replace an invoicing profile."
+If no replacement is given, Turbo refuses with "Select the invoicing profile to use instead."
 
-## Replacing an invoicing profile follows the jobs editing switch
+## Replacement must differ from the profile
 
-Lines 107-114
+Lines 119-121
 
-Asked as: replace profile jobs editing off; jobs editing disabled replace; cannot change profile jobs locked; editing switch replace profile
+Asked as: same profile replacement; replace profile with itself; choose same invoicing profile; can't pick current profile
 
-When jobs editing is turned off, Turbo refuses to replace an invoicing profile. It returns the jobs-editing-disabled error (ErrJobsEditingDisabled), because the action edits jobs.
+Choosing the profile being replaced as its own replacement is refused with "Select a different invoicing profile."
 
-## The profile to replace must belong to the client
+## Replacement must exist and share the client
 
-Lines 116-119
+Lines 122-128
 
-Asked as: invoicing profile not found; old profile wrong client; profile belongs to other client; profile not for this client
-
-If the invoicing profile does not exist, or belongs to a different client than the one in the request, Turbo refuses with "Invoicing profile not found for this client."
-
-## A replacement profile is required
-
-Lines 120-122
-
-Asked as: no replacement profile chosen; blank replacement profile; pick new invoicing profile; replacement missing
-
-If no replacement is chosen, Turbo refuses with "Select the invoicing profile to use instead."
-
-## The replacement must differ from the profile being replaced
-
-Lines 123-125
-
-Asked as: same profile replacement; replace profile with itself; pick different profile; both profiles same
-
-If the replacement is the same profile as the one being replaced, Turbo refuses with "Select a different invoicing profile."
-
-## The replacement must exist and belong to the same client
-
-Lines 126-132
-
-Asked as: replacement profile not found; new profile other client; replacement wrong client; chosen profile unavailable
+Asked as: replacement profile not found; replacement belongs other client; wrong client replacement profile; new profile different client
 
 If the replacement profile is not found, Turbo says "The selected invoicing profile was not found." If it belongs to another client, Turbo says "The selected invoicing profile must belong to this client."
 
-## Replacing a profile moves all its jobs and requests, then deletes it
+## Replace moves all jobs and requests, then deletes the profile
 
-Lines 134-198
+Lines 130-194
 
-Asked as: old profile deleted after replace; move all jobs to new profile; profile replacement count; delete invoicing profile moving jobs
+Asked as: move jobs to another profile; merge invoicing profiles; closed jobs moved too; delete old invoicing profile
 
-Turbo moves every job and every project request (job request) that uses the profile to the replacement profile, then deletes the old profile. The jobs and requests move in any status, including Closed jobs. It returns the number of jobs and requests moved. It all runs in one transaction, so a failure changes nothing.
+Turbo moves every job and project request that uses the profile to the replacement profile, in any status (Closed jobs included). It then deletes the old profile and reports how many jobs and requests moved. It runs in one transaction, so a failure changes nothing.
 
-## A pending client or contact merge blocks the replacement
+## Pending client or contact merge blocks replacement
 
-Lines 142-154
+Lines 138-150
 
-Asked as: merge pending replace profile; client merge blocks replace; contact merge waiting commit; undo merge before replacing
+Asked as: merge waiting to commit; pending merge blocks replace; client merge in progress; contact merge stuck undo
 
-If a client or contact merge that touches these profiles, or their jobs or job requests, is waiting to be committed or undone, Turbo refuses. The message is: "A client or contact merge that involves these invoicing profiles or their jobs or requests is waiting to be committed or undone. Finish it before replacing the profile."
+Turbo refuses the replacement while a client or contact merge that involves either profile, or their jobs or project requests, is waiting to be committed or undone. The message is "A client or contact merge that involves these invoicing profiles or their jobs or requests is waiting to be committed or undone. Finish it before replacing the profile."
 
-## Old approvals are upgraded before the move
+## Draft, Recalled and Rejected requests get a new version
 
-Lines 156-166
+Lines 152-183
 
-Asked as: approval stale after replace; old digest approval; approval upgrade profile change; legacy approval replace
+Asked as: request edit form stale; draft request version changed; approval lost after move; moved request reload form
 
-Before the move, Turbo upgrades any request approval saved under the old digest, which included the profile, to the current digest (upgradeLegacyRequestApproval). The move then does not make that approval stale.
+A moved project request in Draft, Recalled or Rejected status gets version + 1 and a new last_edited, so an edit form opened earlier must reload. Requests in other statuses keep their version and last_edited, and so keep their approval. All moved requests get a new updated time.
 
-## Moved jobs are flagged for writeback to the legacy system
+## Moved jobs are marked for the jobs writeback
 
-Lines 169-177
+Lines 164-173
 
-Asked as: jobs not written back; legacy system sync profile change; imported flag job profile; job writeback after profile move
+Asked as: jobs writeback not syncing; moved jobs not exported; job sync flag after replace; jobs not sent to accounting
 
-Each moved job gets _imported set to false and its updated time set to now, as a normal profile edit does, so the jobs writeback picks it up.
+Each moved job gets _imported set to false and updated set to now, so the jobs writeback picks it up. The job's other hooks and validation do not run.
 
-## Moved requests in Draft, Recalled or Rejected get a new version
+## Replacement is checked against client after the move
 
-Lines 178-187
+Lines 184-191
 
-Asked as: request version changed after replace; form must reload replace; draft request version bump; rejected request edit form stale
+Asked as: profile still in use; delete old profile refused; record uses other client; replacement client mismatch after move
 
-A request in Draft, Recalled or Rejected status gets its version raised by 1 and last_edited set to now. An open edit form must then reload. Requests in other statuses keep their version and last_edited, so an approval stays valid because the profile is not part of what an approval covers. Every moved request still gets a new updated time.
-
-## Replacement is checked for client consistency and the old profile's delete is guarded
-
-Lines 188-195
-
-Asked as: client mismatch after replace; old profile delete refused; profile still in use delete; replace consistency check failed
-
-After the move, Turbo checks that every record using the replacement shares its client (ValidateClientReferences). It then deletes the old profile, and the delete hook refuses if anything still uses it.
+After the move, Turbo checks that every record that uses the replacement shares its client. If the old profile is still in use, the delete is refused.

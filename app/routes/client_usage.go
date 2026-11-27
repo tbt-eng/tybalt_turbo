@@ -52,19 +52,10 @@ type ClientUsage struct {
 // a client's contacts or invoicing profiles. collection is client_contacts or
 // client_invoicing_information, and the record id comes from the path.
 //
-// Like the client details, it requires an active account. Every user may read
-// jobs. Job requests follow the job_requests read rule: the job claim, the
-// creator, or the approver with the project_authorization claim.
+// Every user may read jobs. Job requests follow the job_requests read rule: the
+// job claim, the creator, or the approver with the project_authorization claim.
 func createGetClientUsageHandler(app core.App, collection string) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		active, err := utilities.IsUserActive(app, e.Auth.Id)
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to check account status", err)
-		}
-		if !active {
-			return e.Error(http.StatusForbidden, "an active account is required to view client details", nil)
-		}
-
 		clientID := e.Request.PathValue("id")
 		record, err := app.FindRecordById(collection, e.Request.PathValue("record"))
 		if err != nil || record.GetString("client") != clientID {

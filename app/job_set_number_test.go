@@ -20,12 +20,6 @@ func TestSetJobNumberEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// inactive.admin@example.com holds admin but its admin profile is inactive.
-	inactiveAdminToken, err := testutils.GenerateRecordToken("users", "inactive.admin@example.com")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "admin can renumber a regular project",
@@ -113,33 +107,6 @@ func TestSetJobNumberEndpoint(t *testing.T) {
 				`"message":"you are not authorized to change job numbers"`,
 			},
 			TestAppFactory: testutils.SetupTestApp,
-		},
-		{
-			Name:   "inactive admin is rejected",
-			Method: http.MethodPost,
-			URL:    "/api/jobs/fcprojimpnoprop1/set-number",
-			Body:   strings.NewReader(`{"number":"88-9191"}`),
-			Headers: map[string]string{
-				"Authorization": inactiveAdminToken,
-			},
-			ExpectedStatus: http.StatusForbidden,
-			ExpectedContent: []string{
-				`"code":"unauthorized"`,
-				`"message":"you are not authorized to change job numbers"`,
-			},
-			TestAppFactory: testutils.SetupTestApp,
-			AfterTestFunc: func(tb testing.TB, app *tests.TestApp, _ *http.Response) {
-				job, err := app.FindRecordById("jobs", "fcprojimpnoprop1")
-				if err != nil {
-					tb.Fatalf("failed to reload job: %v", err)
-				}
-				if got := job.GetString("number"); got != "88-9101" {
-					tb.Fatalf("expected number to stay 88-9101, got %q", got)
-				}
-				if !job.GetBool("_imported") {
-					tb.Fatal("expected refused renumber to leave _imported=true")
-				}
-			},
 		},
 		{
 			Name:   "project cannot be renumbered to proposal form",

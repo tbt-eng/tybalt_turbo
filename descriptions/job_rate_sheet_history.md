@@ -15,7 +15,7 @@ Changing the rate sheet of an existing project is possible, but strongly
 discouraged. `validateRateSheetIsActive` in `app/hooks/jobs.go` allows it only
 when all of these hold:
 
-- The user is active and holds the `job` claim, as for any project edit.
+- The user holds the `job` claim, as for any project edit.
 - The user holds the `rate_sheet_revise` claim. Without it, the save fails
   with `missing_claim`.
 - The new sheet is active.
@@ -149,12 +149,12 @@ deactivated, since it was valid when set.
 
 - **View:** anyone who can view the job.
 - **First rate sheet on an existing project:** a project with no rows gets its
-  opening row from any active user with the `job` claim. `rate_sheet_revise` is
+  opening row from any user with the `job` claim. `rate_sheet_revise` is
   not needed. This keeps today's rule, where setting a project's rate sheet for
   the first time needs only the `job` claim. It matters because most imported
   projects have no rate sheet (see Migration). As today, it reprices that
   project's past time from employee default rates to the new sheet.
-- **Every other change to a row:** an active user with both the `job` and
+- **Every other change to a row:** a user with both the `job` and
   `rate_sheet_revise` claims, matching today's rule for changing a project's
   rate sheet. This covers dated rows, changing the opening row's sheet, and
   edits and deletes.
@@ -317,7 +317,7 @@ which is why it needs `admin` and a confirmation. The routes are in
 Both return `{effective_date, move, closed, cancelled, later_period}`. The
 GET date defaults to the revision's `effective_date`; the POST needs one.
 
-- **Who:** an active user with the `admin` claim. `job` and
+- **Who:** a user with the `admin` claim. `job` and
   `rate_sheet_revise` are not needed. Anyone else gets 403.
 - **Target:** `{id}` must be the latest revision of its sheet, and active,
   because a new row needs an active sheet.
@@ -935,7 +935,7 @@ the active sheets that already have them.
 `POST /api/job_requests/find_rates` (`requestFindRatesHandler` in
 `app/routes/job_request_rate_sheets.go`), in the job request group beside
 `compare_rates`, with its checks: signed in (401), project requests on, and
-an active user with the `time` claim (403). It changes nothing.
+a user with the `time` claim (403). It changes nothing.
 
 - Body: `{entries: [{role, rate, overtime_rate?}]}`. No entry, an unknown,
   empty or repeated role, a bad rate or an overtime rate without a rate is a
@@ -1085,7 +1085,7 @@ In `app/job_rate_sheets_test.go` (routes), `app/routes/job_rate_sheets_pricing_t
   sheet.
 - **Mirror:** `jobs.rate_sheet` follows the latest row after create, edit,
   and delete. Direct writes to it are rejected on existing projects.
-- **Permissions:** missing `job` or `rate_sheet_revise`; inactive user; the
+- **Permissions:** missing `job` or `rate_sheet_revise`; the
   opening row created through job request approval without
   `rate_sheet_revise`; a first sheet set on an existing project with only the
   `job` claim; changing an existing opening row's sheet without

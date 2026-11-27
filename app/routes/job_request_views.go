@@ -341,9 +341,6 @@ func respondRequestDetail(app core.App, e *core.RequestEvent, id string) error {
 	return e.JSON(http.StatusOK, result)
 }
 func requestQueueSelection(app core.App, auth *core.Record, queue string) (string, dbx.Params, error) {
-	if err := workflowActive(app, auth); err != nil {
-		return "", nil, err
-	}
 	params := dbx.Params{"uid": auth.Id}
 	switch queue {
 	case "creation":
@@ -429,9 +426,6 @@ func requestListHandler(app core.App) func(*core.RequestEvent) error {
 }
 func requestOptionsHandler(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		if err := workflowActive(app, e.Auth); err != nil {
-			return err
-		}
 		allowed := false
 		for _, claim := range []string{"time", "job", "project_authorization", "admin"} {
 			ok, err := utilities.HasClaim(app, e.Auth, claim)
@@ -520,9 +514,6 @@ func requestOptionsHandler(app core.App) func(*core.RequestEvent) error {
 }
 func authorizationApproversHandler(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		if err := workflowActive(app, e.Auth); err != nil {
-			return err
-		}
 		value, err := strconv.ParseFloat(e.Request.URL.Query().Get("value"), 64)
 		if err != nil || !validWholeAmount(value, true) {
 			return workflowError("Enter a positive whole-dollar project value.")
@@ -549,9 +540,6 @@ func authorizationApproversHandler(app core.App) func(*core.RequestEvent) error 
 	}
 }
 func addProjectWorkflowBadges(app core.App, auth *core.Record, counts map[string]int) error {
-	if err := workflowActive(app, auth); err != nil {
-		return nil
-	}
 	enabled, err := utilities.IsJobRequestApprovalRequired(app)
 	if err != nil {
 		return err

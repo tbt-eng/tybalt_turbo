@@ -177,15 +177,6 @@ type Category struct {
 
 func createGetJobDetailsHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		// This response includes invoicing profiles. Match their active-account
-		// read rule, including when a user still has a token after deactivation.
-		active, err := utilities.IsUserActive(app, e.Auth.Id)
-		if err != nil {
-			return e.Error(http.StatusInternalServerError, "failed to check account status", err)
-		}
-		if !active {
-			return e.Error(http.StatusForbidden, "an active account is required to view job details", nil)
-		}
 		id := e.Request.PathValue("id")
 
 		var rows []jobDetailsRow

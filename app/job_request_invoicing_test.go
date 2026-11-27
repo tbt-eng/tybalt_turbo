@@ -159,10 +159,6 @@ func TestJobRequestProcurementInvoicingProfileRefusals(t *testing.T) {
 	setJobsEditingFlag(t, app, false)
 	setRequestProfile(t, app, workflowAuthor, "painvoice000004", 1, http.StatusForbidden)
 	setJobsEditingFlag(t, app, true)
-	// Test-time change to fixture data: author@soup.com, who holds job, is
-	// made inactive.
-	execSQL(t, app, "UPDATE admin_profiles SET active = 0 WHERE uid = 'f2j5a8vk006baub'")
-	setRequestProfile(t, app, workflowAuthor, "painvoice000004", 1, http.StatusForbidden)
 	if got := workflowRecord(t, app, "job_requests", invoicingRequest).GetString("invoicing_information"); got != "painvoice000001" {
 		t.Fatalf("a refused change set the profile to %q", got)
 	}

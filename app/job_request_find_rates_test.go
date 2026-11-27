@@ -162,8 +162,8 @@ func TestFindByRatesRefusesBadInput(t *testing.T) {
 	}
 }
 
-// The route has the compare route's checks: a signed-in, active user with the
-// time claim, while project requests are on. noclaims@example.com lacks the
+// The route has the compare route's checks: a signed-in user with the time
+// claim, while project requests are on. noclaims@example.com lacks the
 // time claim.
 func TestFindByRatesPermissions(t *testing.T) {
 	app := newWorkflowTestApp(t, true)

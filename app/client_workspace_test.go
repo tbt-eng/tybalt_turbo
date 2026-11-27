@@ -125,17 +125,9 @@ func TestClientWorkspaceJobDetailsIncludesInvoicing(t *testing.T) {
 	}
 }
 
-func TestClientWorkspaceJobDetailsRequiresActiveAccount(t *testing.T) {
+func TestClientWorkspaceJobDetailsRequiresSignIn(t *testing.T) {
 	app := newClientWorkspaceTestApp(t)
-	path := "/api/jobs/cwjob0000000001/details"
-	for _, email := range []string{"inactive@example.com", "francesco@mac.com"} {
-		t.Run(email, func(t *testing.T) {
-			// Existing fixtures cover an inactive account and an account without
-			// an admin profile. Both can still hold a valid authentication token.
-			clientSetupJSON(t, app, http.MethodGet, path, email, nil, http.StatusForbidden)
-		})
-	}
-	clientSetupJSON(t, app, http.MethodGet, path, "", nil, http.StatusUnauthorized)
+	clientSetupJSON(t, app, http.MethodGet, "/api/jobs/cwjob0000000001/details", "", nil, http.StatusUnauthorized)
 }
 
 func TestClientWorkspaceEmptyMissingAndUnauthenticated(t *testing.T) {
@@ -149,9 +141,6 @@ func TestClientWorkspaceEmptyMissingAndUnauthenticated(t *testing.T) {
 	}
 	clientSetupJSON(t, app, http.MethodGet, "/api/clients/missingclient00", "author@soup.com", nil, http.StatusNotFound)
 	clientSetupJSON(t, app, http.MethodGet, "/api/clients/"+workspaceClient, "", nil, http.StatusUnauthorized)
-	// Use an existing inactive account fixture with a valid token to verify
-	// that the combined response follows the invoicing collection's read rule.
-	clientSetupJSON(t, app, http.MethodGet, "/api/clients/"+workspaceClient, "inactive@example.com", nil, http.StatusForbidden)
 }
 
 // BN Rail's seeded jobs have committed time in CB and CI. Its E entries are
@@ -360,11 +349,10 @@ func TestClientWorkspaceUsageLists(t *testing.T) {
 	}
 
 	// A record of another client, a contact id on the profile route, a missing
-	// id, an inactive account and a signed-out caller get no list.
+	// id and a signed-out caller get no list.
 	clientSetupJSON(t, app, http.MethodGet, "/api/clients/cwclient0000002/contacts/cwcontact000001/usage", "author@soup.com", nil, http.StatusNotFound)
 	clientSetupJSON(t, app, http.MethodGet, base+"/invoicing_profiles/cwcontact000001/usage", "author@soup.com", nil, http.StatusNotFound)
 	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/missingcontact0/usage", "author@soup.com", nil, http.StatusNotFound)
-	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "inactive@example.com", nil, http.StatusForbidden)
 	clientSetupJSON(t, app, http.MethodGet, base+"/contacts/cwcontact000001/usage", "", nil, http.StatusUnauthorized)
 }
 
@@ -494,10 +482,9 @@ func TestClientWorkspaceReplaceInvoicingProfileRejections(t *testing.T) {
 		})
 	}
 
-	// Only active holders of job may replace a profile.
+	// Only holders of job may replace a profile.
 	replacement := map[string]any{"replacement": "cwinvoice000002"}
 	replaceProfile(t, app, "cwinvoice000001", "time@test.com", replacement, http.StatusForbidden)
-	replaceProfile(t, app, "cwinvoice000001", "inactive@example.com", replacement, http.StatusForbidden)
 	replaceProfile(t, app, "cwinvoice000001", "", replacement, http.StatusUnauthorized)
 
 	if got := profileUses(t, app, "jobs", "cwinvoice000001"); len(got) != 2 {
@@ -508,18 +495,6 @@ func TestClientWorkspaceReplaceInvoicingProfileRejections(t *testing.T) {
 	}
 	if _, err := app.FindRecordById("client_invoicing_information", "cwinvoice000001"); err != nil {
 		t.Errorf("a refused replace deleted the profile: %v", err)
-	}
-}
-
-// A holder of job whose account is inactive may not replace a profile.
-func TestClientWorkspaceReplaceInvoicingProfileRequiresActiveAccount(t *testing.T) {
-	app := newClientWorkspaceTestApp(t)
-	// Test-time change to fixture data: author@soup.com, who holds job, is
-	// made inactive.
-	execSQL(t, app, "UPDATE admin_profiles SET active = 0 WHERE uid = 'f2j5a8vk006baub'")
-	replaceProfile(t, app, "cwinvoice000001", "author@soup.com", map[string]any{"replacement": "cwinvoice000002"}, http.StatusForbidden)
-	if got := profileUses(t, app, "jobs", "cwinvoice000001"); len(got) != 2 {
-		t.Errorf("an inactive user moved jobs: %v remain", got)
 	}
 }
 

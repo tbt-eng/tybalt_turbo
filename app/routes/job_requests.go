@@ -103,22 +103,9 @@ func workflowError(message string) error { return apis.NewBadRequestError(messag
 func workflowContext(ctx context.Context) context.Context {
 	return hooks.WithProjectWorkflowMutation(ctx, hooks.ProjectWorkflowMutationRequest)
 }
-func workflowActive(app core.App, auth *core.Record) error {
+func workflowClaim(app core.App, auth *core.Record, claim string) error {
 	if auth == nil {
 		return apis.NewUnauthorizedError("Sign in to continue.", nil)
-	}
-	active, err := utilities.IsUserActive(app, auth.Id)
-	if err != nil {
-		return err
-	}
-	if !active {
-		return apis.NewForbiddenError("An active staff member is required.", nil)
-	}
-	return nil
-}
-func workflowClaim(app core.App, auth *core.Record, claim string) error {
-	if err := workflowActive(app, auth); err != nil {
-		return err
 	}
 	ok, err := utilities.HasClaim(app, auth, claim)
 	if err != nil {
@@ -143,9 +130,6 @@ func abandonedRequest(r *core.Record) bool {
 	return !r.GetDateTime("last_edited").Time().After(time.Now().UTC().AddDate(0, 0, -JOB_REQUEST_ABANDONMENT_DAYS))
 }
 func requestCanView(app core.App, r, auth *core.Record) (bool, error) {
-	if err := workflowActive(app, auth); err != nil {
-		return false, err
-	}
 	if r.GetString("creator") == auth.Id {
 		return true, nil
 	}
@@ -176,9 +160,6 @@ func loadVisibleRequest(app core.App, id string, auth *core.Record) (*core.Recor
 }
 func requestEditable(app core.App, r, auth *core.Record) error {
 	if err := requestEnabled(app); err != nil {
-		return err
-	}
-	if err := workflowActive(app, auth); err != nil {
 		return err
 	}
 	if r.GetString("creator") != auth.Id {
@@ -704,9 +685,6 @@ func requestActionHandler(app core.App, action string) func(*core.RequestEvent) 
 					r.Set("status", "Recalled")
 					clearRequestRejection(r)
 				} else {
-					if err = workflowActive(tx, e.Auth); err != nil {
-						return err
-					}
 					canReject, err := canRejectRequest(tx, r, e.Auth)
 					if err != nil {
 						return err
@@ -992,9 +970,6 @@ func createRequestNote(app core.App, ctx context.Context, r, job *core.Record) (
 func requestDeleteHandler(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		err := app.RunInTransaction(func(tx core.App) error {
-			if err := workflowActive(tx, e.Auth); err != nil {
-				return err
-			}
 			r, err := tx.FindRecordById("job_requests", e.Request.PathValue("id"))
 			if err != nil {
 				return err

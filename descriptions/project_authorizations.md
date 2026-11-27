@@ -255,8 +255,10 @@ change from $80,000 to $120,000 requires a limit of at least $120,000.
 
 ### Permissions
 
-A claim is a permission assigned to a user. Workflow actions require an active
-user as well as the applicable claim or ownership rule.
+A claim is a permission assigned to a user. Workflow actions require the
+applicable claim or ownership rule. They do not check that the user is active:
+deactivating a person signs them out at once (`hooks/admin_profiles.go`), so a
+signed-in user is always active.
 
 | Action | Permission |
 | --- | --- |
@@ -269,14 +271,14 @@ user as well as the applicable claim or ownership rule.
 | Approve one's own request | Allowed when the creator is the selected approver and meets the same authority checks. |
 | Reject a request before job creation | Its selected approver, or a holder of `job` once it is `Awaiting creation`, with a reason. |
 | Create a job from an approved request | A holder of `job`. |
-| View the Job Create Queue and its badge | Active holders of `job`, when the request workflow is enabled. |
+| View the Job Create Queue and its badge | Holders of `job`, when the request workflow is enabled. |
 | Create an invoicing profile using an existing client contact | Active holders of `time` or `job`. No separate profile approval is required. |
 | Edit existing invoicing profiles, or maintain clients and contacts | Holders of `job`. A profile creator without `job` cannot edit it. |
-| Delete an unused invoicing profile, or replace one that is in use | Active holders of `job`. A profile creator without `job` cannot delete or replace it. |
-| List the jobs and requests that use a contact or invoicing profile | Any active user. The list leaves out requests the user may not read and says how many. |
+| Delete an unused invoicing profile, or replace one that is in use | Holders of `job`. A profile creator without `job` cannot delete or replace it. |
+| List the jobs and requests that use a contact or invoicing profile | Any signed-in user. The list leaves out requests the user may not read and says how many. |
 | Add or remove division allocations, or change allocated hours on an existing job | Holders of `job`, or the user assigned to `jobs.manager` or `jobs.alternate_manager` on that job. Managers and alternate managers do not need `job` for these allocation edits. Existing allocation validation applies. |
 | Edit other job fields, including proposing a new project value and uploading its PDF | Holders of `job`, subject to validation and additional field permissions. Client is immutable except through the controlled merge process or **Change Client**. The server also accepts a proposal's field edits from its manager or alternate manager without `job`; the job editor shows them allocations only. |
-| Change a project's client with **Change Client** | Active holders of `job`, with a written reason. |
+| Change a project's client with **Change Client** | Holders of `job`, with a written reason. |
 | Select or change the approver for a pending project-value change | Holders of `job`. |
 | Approve or reject a pending project-value change | Its selected approver. Approval requires `project_authorization` and a limit that covers the full proposed value. Rejection requires `project_authorization` and a reason. |
 | Delete the latest approved project-value change or clear a pending approval for admin correction | Holders of `admin`, subject to the deletion rules below. |
@@ -313,7 +315,7 @@ editor shows only division allocations and sends `PUT /api/jobs/{id}` with
 and retains the existing project validation. A save that changes allocations
 updates the job's writeback marker and timestamp, but no other job fields.
 A save with no allocation changes preserves the existing rows and review state.
-An allocation-only save needs an active user and job editing switched on
+An allocation-only save needs job editing switched on
 (`jobs.create_edit_absorb`). While job editing is off, the server refuses the
 save with "job editing is currently disabled", and the job editor shows the
 editing-disabled notice instead of the form. The server also refuses an
@@ -361,7 +363,7 @@ approval and rejection notices (see Workflow Emails).
 
 ### Job Create Queue
 
-Provide a **Job Create Queue** for active holders of `job`. Show all approved
+Provide a **Job Create Queue** for holders of `job`. Show all approved
 requests in `Awaiting creation`, including subjob requests. Do not restrict the
 queue to the holder's own requests or approver assignments. Include a navigation
 badge that counts these requests. Use the same server selection rule for the
@@ -617,7 +619,7 @@ Authorization.
 * Procurement sets, changes, or clears the profile of a request awaiting job
   creation, on anyone's request, without changing its status, version, or
   approval: `POST /api/job_requests/{id}/invoicing_profile` with `version` and
-  `invoicing_information` (empty to clear). Active holders of `job` only, while
+  `invoicing_information` (empty to clear). Holders of `job` only, while
   requests and job editing are on. Only the profile changes. The profile must
   belong to the request's client, and its billing contact needs an email or the
   **No email address** mark. The request page shows **Set profile** or
@@ -697,7 +699,7 @@ If any part fails, roll back the entire merge.
 
 **Change Client** is the other exception, for a project whose client was chosen
 in error or whose work now belongs to another client. It is not a merge: both
-clients remain. Active holders of `job` use it from the project's details page,
+clients remain. Holders of `job` use it from the project's details page,
 on a top-level project; a subjob always uses its parent's client. They choose
 the new client, a contact and, optionally, an invoicing profile of that client, and give a
 reason of 20 to 500 characters, short enough that the notes quoting it with
@@ -835,7 +837,7 @@ Each count opens a list of those jobs and requests
 (`GET /api/clients/{id}/contacts/{record}/usage` and
 `.../invoicing_profiles/{record}/usage`). For a contact, each row is labelled
 **Project contact**, **Invoice recipient**, or both; a job that uses the contact
-in both roles is listed once. Jobs are open to every active user. Requests
+in both roles is listed once. Jobs are open to every signed-in user. Requests
 follow the `job_requests` read rule, and the response counts the ones it leaves
 out.
 
@@ -1259,8 +1261,8 @@ server. Allocation-only saves must not pass through a blanket `job`-claim gate
 or require a project-value approval. Preserve the existing allocation checks,
 including active divisions, no duplicate divisions, nonnegative whole hours, and at
 least one allocation. Retain stale-review checks for pending approvals when
-allocations change. An allocation-only save still requires an active user and
-job editing switched on (`jobs.create_edit_absorb`), and the server refuses it on
+allocations change. An allocation-only save still requires job editing
+switched on (`jobs.create_edit_absorb`), and the server refuses it on
 a `Cancelled` proposal.
 
 Enforce the job-deletion attachment guard in collection rules and model-delete

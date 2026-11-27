@@ -92,16 +92,12 @@ func createChangeJobClientHandler(app core.App) func(e *core.RequestEvent) error
 }
 
 func changeJobClient(tx core.App, e *core.RequestEvent, jobID string, req jobChangeClientRequest) ([]string, error) {
-	active, err := utilities.IsUserActive(tx, e.Auth.Id)
-	if err != nil {
-		return nil, err
-	}
 	hasJob, err := utilities.HasClaim(tx, e.Auth, "job")
 	if err != nil {
 		return nil, err
 	}
-	if !active || !hasJob {
-		return nil, jobChangeClientError(http.StatusForbidden, "", "", "An active user with the job claim is required to change a project's client.")
+	if !hasJob {
+		return nil, jobChangeClientError(http.StatusForbidden, "", "", "A user with the job claim is required to change a project's client.")
 	}
 	editing, err := utilities.IsJobsEditingEnabled(tx)
 	if err != nil {

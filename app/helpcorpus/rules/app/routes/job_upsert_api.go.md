@@ -1,332 +1,324 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_upsert_api.go","sha256":"8fe9b4fee5e4b04f00e0e7b17c8962e0b6bc3c9b7122244037da40743c2c69ea","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_upsert_api.go","sha256":"d5eab159cbe5b6ead90411a9ddff32756169bd47cf6037f1f31fc2742ac89d8f","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_upsert_api.go
 
-## Allocation errors name the row by position
+## Allocation errors point to the row that failed
 
 Lines 37-52
 
-Asked as: which row is wrong; allocation error row number; allocation validation failed; error on allocation field
+Asked as: allocation error on wrong row; which row failed allocation; allocation validation failed; error on division field; allocation row error location
 
-When an allocation fails basic validation, Turbo reports "allocation validation failed". The error is attached to the field allocation_division_N, where N is the row's position counting from 0. The editor uses this to show which row is wrong.
+When an allocation row fails validation, Turbo reports the error on that row's division field (allocation_division_N, where N is the row's position starting at 0). The message is "allocation validation failed". The error carries a code and a text for the row, such as required, invalid_hours or duplicate_division.
 
-## Job save requires at least one division allocation
+## Job allocations need at least one row
 
 Lines 54-66
 
-Asked as: can't save job without allocations; empty allocations list; job needs a division; no divisions added to job
+Asked as: job without allocations; no allocation rows; save job with no allocations; at least one allocation; job needs an allocation
 
-Saving or creating a job with an empty allocations list is refused with 'at least one allocation is required' (code required, field allocations).
+When a job is created or saved, Turbo refuses a request with no allocations. The message is "at least one allocation is required" (field allocations, code required).
 
-## Each allocation needs a division
+## Each allocation needs a division and non-negative hours
 
-Lines 69-72
+Lines 69-75
 
-Asked as: allocation missing division; row has no division; division blank on allocation; choose division for row
+Asked as: division is required; allocation missing division; negative hours error; hours must be zero or more; minus hours not accepted
 
-An allocation row with no division is refused with 'division is required'. The error names the row's division field.
+Turbo refuses an allocation row with no division, with the message "division is required". It refuses negative hours with "hours must be >= 0". Zero hours are allowed.
 
-## Allocation hours cannot be negative
-
-Lines 73-75
-
-Asked as: negative hours on allocation; minus hours not allowed; can I enter zero hours; hours below zero
-
-An allocation with hours below 0 is refused with 'hours must be >= 0' (code invalid_hours). Zero hours is allowed.
-
-## A division cannot be used twice in a job's allocations
+## A division can appear only once per job
 
 Lines 76-79
 
-Asked as: same division twice; duplicate division on job; division added twice; division already on another row
+Asked as: same division twice; duplicate division on job; division already selected; can't add division twice; repeated division allocation
 
-If a division appears on more than one allocation row, Turbo refuses the later row with 'division is already selected on row N', where N is the first row that used it.
+Turbo refuses a second allocation row with the same division. The message is "division is already selected on row N", where N is the first row that used it.
 
-## Allocation change detection
+## Changed allocations mark the job as not imported
 
 Lines 84-109
 
-Asked as: why does allocation count as changed; duplicate allocation rows for division; allocation change detection; hours changed but save says no change
+Asked as: job marked not imported; job shows modified after allocation change; writeback flag allocations changed; job flagged as modified; allocation change not imported
 
-Turbo treats allocations as changed when the row count differs, a division is added or missing, or the hours for a division differ. Duplicate existing rows for one division also count as changed, so the save normalizes them.
+When the allocations differ from the existing ones, Turbo marks the job as modified (not imported) for writeback tracking. Different row counts, a different division, different hours, or duplicate existing rows count as different.
 
-## Job save requires sign-in and a job id
+## Saving a job needs a signed-in user
 
-Lines 114-122
+Lines 114-117
 
-Asked as: job update not signed in; missing job id error; update job unauthorized; no job id sent
+Asked as: not signed in saving job; unauthorized job save; job save no user; can't save job logged out; save fails user missing
 
-Updating a job without a signed-in user is refused as 'unauthorized'. A request with no job id is refused with 'missing job id'.
+Saving a job's fields and allocations fails with 'unauthorized' when the request has no signed-in user. Creating a job and checking a proposal fail the same way.
+
+## Job save needs a job id
+
+Lines 119-122
+
+Asked as: missing job id save; job id not sent; save job without id; no job id error
+
+Saving a job's fields and allocations fails with 'missing job id' when the request has no job id.
 
 ## Job save rejects an unreadable request body
 
 Lines 124-127
 
-Asked as: invalid JSON body; job save bad request body; malformed job data; request body won't parse
+Asked as: invalid JSON body; bad request body job; malformed job request; job save body not parsed; broken json saving job
 
-When saving a job, Turbo refuses a request body that is not valid JSON and shows "invalid JSON body". Nothing is changed.
+When a job save request body is not valid JSON, Turbo refuses it with "invalid JSON body". It changes nothing.
 
-## Allocation checks run before the job is looked up
+## Allocation rows are checked before the job is touched
 
 Lines 129-136
 
-Asked as: allocation error on missing job; bad allocations before job lookup; allocation check before permission; allocation error for job I can't edit
+Asked as: bad allocation before save; job unchanged after allocation error; invalid allocations check first; allocation checked before saving; allocation error job untouched
 
-When updating a job, Turbo checks the allocation list (at least one row, a division on each row, hours of 0 or more, no repeated division) before it loads the job or checks who the user is. A bad allocation list is refused with "allocation validation failed", even if the job does not exist or the user may not edit it.
+On a job save, Turbo checks the allocation rows (at least one, a division on each row, hours of 0 or more, no repeated division) before it opens the save. If a row is invalid, it returns the allocation error and does not change the job or its allocations.
 
-## Updating a job that does not exist
+## Job save is all or nothing
+
+Lines 140-347
+
+Asked as: partial job save; job half saved; rollback job save failure; save failed job changes lost; inactive division blocks save
+
+Turbo saves the job and replaces its allocations in one transaction. If any step fails, such as job validation, an inactive division or an allocation that cannot be saved, nothing is saved. The job and its old allocations stay as they were.
+
+## Saving an unknown job fails
 
 Lines 142-149
 
-Asked as: job not found on update; job id doesn't exist; can't find job to update; update nonexistent job
+Asked as: job not found saving; save nonexistent job; unknown job id error; job_not_found code; job does not exist save
 
-If the job id is not found, the update is refused with code job_not_found and the message 'job not found: ...'.
+When the job does not exist, Turbo refuses the save with the code job_not_found.
 
-## Who may edit a job and what managers may change
+## Who may save a job or its allocations
 
 Lines 152-164
 
-Asked as: who can edit job; manager can't change job fields; only job claim holders can edit; why can't I change project fields; alternate manager edit rights
+Asked as: manager cannot edit job fields; who can edit job; can't change project fields; alternate manager edit permission; only procurement edits job
 
-A job claim holder may change any project field. A manager or alternate manager without the job claim may save allocations only, or may do a full edit only on a proposal (number starts with P). Anyone else gets 'only job claim holders may change project fields; assigned managers may save allocations only' (job_edit_forbidden).
+A procurement user (the job claim) may save all job fields and allocations. An assigned manager or alternate manager without the claim may save only allocations, or a full job edit on a proposal (number starting with P). Anyone else gets 'only job claim holders may change project fields; assigned managers may save allocations only'.
 
-## Allocation-only save skips full job validation
+## Allocation-only save respects the jobs editing switch
 
-Lines 166-171
+Lines 166-180
 
-Asked as: save allocations without job details; old project missing billing data; skip job validation when saving allocations; allocations only save; approved fields stay unchanged
+Asked as: allocations only save disabled; editing switched off allocations; jobs editing disabled error; can't save allocations editing off; ErrJobsEditingDisabled
 
-When the request has no job object, Turbo saves only the allocations. It does not validate or save the job record, so old projects with missing billing data and their approved fields stay unchanged. An empty job object counts as a full job save and is validated.
+A save with no job object (allocations only) skips full job validation and does not save the job record. It still fails when job editing is switched off, with the error ErrJobsEditingDisabled.
 
-## Allocation-only save needs an active user
+## Cancelled proposals cannot have allocations changed
 
-Lines 172-180
+Lines 181-184
 
-Asked as: inactive user allocation save; deactivated user can't save allocations; active user required; disabled user saving hours
+Asked as: cancelled proposal allocations; change allocations on cancelled; cancelled proposal locked; can't modify cancelled proposal; cancelled proposal edit blocked
 
-In an allocation-only save, an inactive user is refused with 'an active user is required' (inactive_user).
+An allocations-only save on a proposal whose status is Cancelled fails with 'cancelled proposals cannot be modified'.
 
-## Allocation-only save blocked when job editing is disabled
+## Job number cannot change on save
 
-Lines 181-189
+Lines 187-192
 
-Asked as: jobs editing disabled; can't save allocations editing off; editing switch turned off; ErrJobsEditingDisabled
+Asked as: change job number; renumber job on save; job number won't change; edit job number error; change number action
 
-In an allocation-only save, Turbo checks the jobs editing switch. If editing is disabled, it refuses with the error ErrJobsEditingDisabled, which the full job path checks in ProcessJobCore.
+A save that sends a number different from the job's current number fails with 'use Change Number to renumber a job'. Only the Change Number action renumbers a job.
 
-## Cancelled proposals' allocations cannot be changed
+## Save ignores unknown and system job fields
 
-Lines 190-193
+Lines 194-206
 
-Asked as: cancelled proposal allocations locked; change hours on cancelled proposal; cancelled proposal can't be edited; allocations frozen on cancelled proposal
+Asked as: unknown field job save; system fields ignored; collectionId error saving; extra fields in job data; created updated fields rejected
 
-An allocation-only save on a proposal whose status is Cancelled is refused with 'cancelled proposals cannot be modified' (cancelled_proposal_immutable).
+When saving a job, Turbo ignores id, collectionId, collectionName, created, updated and divisions. It also ignores any field the jobs collection does not have.
 
-## Job number cannot be changed through save
+## Full job save runs job validation; allocation-only does not
 
-Lines 196-201
+Lines 208-220
 
-Asked as: change job number on save; renumber job from edit; job number won't save; how to change job number
+Asked as: job validation skipped allocations; full save validation; allocations only skips validation; save stopped by validation; business rules on job save
 
-If the request's job object has a number that differs from the current number, Turbo refuses with 'use Change Number to renumber a job'. Renumbering must use the Change Number action.
-
-## Job update ignores system fields and unknown fields
-
-Lines 203-215
-
-Asked as: extra fields ignored on job save; unknown field in job update; system fields in job body; why are my job fields dropped
-
-On update, Turbo ignores id, collectionId, collectionName, created, updated and divisions in the job object. It also ignores any key that is not a field of the jobs collection.
-
-## Full job update runs job validation rules
-
-Lines 217-229
-
-Asked as: job rules fail on save; business rules error when updating job; full job save validation; project rules check on update
-
-A full job update (not allocation-only) runs the job business rules (ProcessJobCore) before saving. A failure returns that error with its own status.
+A full job save (a job object is sent, even an empty one) runs the job validation and business rules (ProcessJobCore) and then saves the job. If validation fails, the save stops with that error. An allocations-only save skips both.
 
 ## Allocation divisions must exist and be active
 
-Lines 231-260
+Lines 222-251
 
-Asked as: division not found on allocation; inactive division on job; division doesn't exist; can't use inactive division
+Asked as: division not found allocation; inactive division allocation; can't use inactive division; division does not exist; selected division not active
 
-On update, each allocation's division must exist, or the save is refused with 'selected division was not found' (invalid_division). It must also be active, or the save is refused with 'selected division is inactive' (division_not_active).
+Turbo refuses an allocation whose division is not found, with the message "selected division was not found". It refuses an inactive division with "selected division is inactive". This applies when a job is created and when it is saved.
 
-## Missing hours on stored allocations count as zero
+## Unchanged allocations are a no-op
 
-Lines 262-276
+Lines 253-272
 
-Asked as: zero hours counted as no change; empty hours on stored allocation; blank hours treated as zero; stored hours missing
+Asked as: same allocations no change; save unchanged allocations; allocations identical nothing saved; review kept after save; resave same allocations
 
-When Turbo compares the submitted allocations with the job's stored allocations, a stored row with no hours counts as 0 hours. A submitted 0 for that division therefore counts as no change.
+An allocations-only save whose allocations match the existing ones (same divisions and hours) changes nothing. It keeps the allocation records and any pending review.
 
-## Unchanged allocation-only save does nothing
+## Job save validation errors are reported per field
 
-Lines 275-281
+Lines 273-297
 
-Asked as: save with same allocations; nothing changed allocation save; allocations unchanged so nothing happens; keep allocation ids on resave
+Asked as: validation failed field messages; error saving job generic; which field is invalid saving; job save field errors; save error message per field
 
-If an allocation-only save has the same allocations as the current ones, Turbo returns success without replacing them. Allocation IDs and any pending review stay as they are.
+If saving the job fails on field validation, Turbo returns 'validation failed' with each field's message. Other save failures return 'error saving job'.
 
-## Changed allocations mark the job as not imported
+## Saving allocations replaces the old set
 
-Lines 275-316
+Lines 309-346
 
-Asked as: job marked not imported; writeback flag after allocation change; job modified after hours change; why job shows modified
+Asked as: replace allocations; old allocations deleted; allocations overwritten on save; new allocation rows replace old; allocation save removes existing
 
-When the allocations change, Turbo marks the job as modified (not imported) for writeback tracking. This applies to allocation-only saves too.
+Saving deletes all of the job's existing allocations and inserts the submitted rows, all in one transaction. A failure undoes the whole save.
 
-## Full job save errors
+## Successful job save returns the job id
 
-Lines 282-306
+Lines 365-365
 
-Asked as: validation failed on job save; error saving job; field errors when saving job; job save message
+Asked as: what does save return; job save response id; save succeeded no id; allocations unchanged success response; returned job id after save
 
-On a full update, field validation failures are returned as 'validation failed' with a message for each field. Other save failures return 'error saving job: ...' (error_saving_job).
+When a job save succeeds, Turbo answers with the id of the job that it saved. A save that changes nothing, because only allocations were sent and they are unchanged, also succeeds and returns the id.
 
-## Allocations are replaced as a set
+## Job creation needs sign-in
 
-Lines 318-356
+Lines 372-375
 
-Asked as: allocations replaced on save; old allocations deleted on save; rollback job save failure; allocations overwritten when saving
+Asked as: create job not signed in; new job unauthorized; create job logged out; can't create job no user; sign in to create job
 
-Saving deletes all of the job's existing allocations and inserts the submitted ones in the same transaction. The full job update also saves the job in that transaction, and a failure rolls back both.
+Creating a job fails with 'unauthorized' when the request has no signed-in user.
 
-## A failed job save changes nothing
+## Only procurement can create jobs
 
-Lines 357-374
+Lines 382-389
 
-Asked as: save failed nothing changed; partial job save; save error code returned; what job id is returned on success
+Asked as: who can create jobs; not authorized to create jobs; can't create job as manager; procurement create job only; create job permission denied
 
-Turbo saves the job fields and replaces the allocations in one transaction. If any step fails, the save returns an error message and a code, or field-level errors. A success returns the job id.
+Creating a job requires the job claim (procurement). Anyone else gets 'you are not authorized to create jobs'.
 
-## Only job claim holders can create jobs
+## Job creation validates, numbers and saves the job with its allocations
 
-Lines 381-398
+Lines 403-518
 
-Asked as: can't create job; not allowed to create job; create job unauthorized; no permission to add job
+Asked as: new job numbering; job number generated on create; create job with allocations; job creation validation; new job saved with allocations
 
-Creating a job without sign-in is refused as 'unauthorized'. A user without the job claim is refused with 'you are not authorized to create jobs'.
+Creating a job runs the job validation (ProcessJobCore), which generates the job number, and then saves the job. Turbo then checks each allocation division exists and is active, and creates the allocations. All of it happens in one transaction.
 
-## Job creation validates allocations first
+## Job creation is all or nothing and returns the new id
 
-Lines 400-407
+Lines 403-536
 
-Asked as: new job allocation errors; create job check allocations; job creation fails on allocations; allocation rules when creating job
+Asked as: job not created partial; create job rollback; new job id returned; failed create leaves nothing; create job transaction failed
 
-Job creation applies the same allocation rules as update: at least one row, a division on each row, hours of 0 or more, and no repeated division. A failure is refused before the job is created.
+Turbo creates the job and its allocations in one transaction. If validation, the job save or any allocation fails, no job is created. When it succeeds, Turbo answers with the id of the new job.
 
-## Job creation runs job rules and generates the number
+## Create ignores system job fields
 
-Lines 421-468
+Lines 412-422
 
-Asked as: job number generated; new job number missing; error creating job; job creation business rules
+Asked as: create job extra fields; system fields on new job; divisions field create error; ignored fields new job; id sent when creating job
 
-Creating a job runs the job business rules (ProcessJobCore), which generate the job number. It ignores id, collectionId, collectionName, created, updated and divisions in the job object. A failure returns that error. A save failure returns 'validation failed' with field messages, or 'error creating job: ...' (error_creating_job).
+When creating a job, Turbo ignores id, collectionId, collectionName, created, updated and divisions in the job data.
 
-## Job creation checks allocation divisions
+## Job creation reports field validation errors
 
-Lines 471-526
+Lines 436-459
 
-Asked as: division check on new job; new job inactive division; new job division not found; create job with unknown division
+Asked as: error creating job; new job field errors; create job validation message; why job creation failed fields; create job error text
 
-On creation, each allocation's division must exist ('selected division was not found') and be active ('selected division is inactive'). The job and allocations are created in one transaction, so a failed check leaves no job.
+If saving the new job fails on field validation, Turbo returns 'validation failed' with each field's message. Other failures return 'error creating job'.
 
-## A failed job creation leaves no job or allocations
+## Proposal check needs sign-in and an id
 
-Lines 527-545
+Lines 545-553
 
-Asked as: job not created after error; partial job creation; nothing created when job fails; rollback new job
+Asked as: proposal check not signed in; check proposal missing id; proposal readiness unauthorized; missing proposal id; check proposal no user
 
-Turbo creates a new job and its allocations in one transaction. If job rules, saving, division checks or allocation saves fail, the error is returned and nothing is created. A success returns the new job's id.
+Checking a proposal for project readiness fails with 'unauthorized' without a signed-in user and 'missing proposal id' without an id.
 
-## Proposal validation check needs sign-in and a proposal
+## Proposal check only accepts proposals
 
-Lines 554-590
+Lines 556-581
 
-Asked as: proposal ready check; proposal not found; not a proposal error; check proposal before awarding
+Asked as: proposal not found check; job is not a proposal; number not starting with P; check on non proposal job; proposal check invalid job
 
-The proposal readiness check requires a signed-in user and a proposal id ('missing proposal id'). An unknown id returns valid false with 'proposal not found'. A job whose number does not start with P returns valid false with 'the specified job is not a proposal'.
+The check returns valid false with 'proposal not found' when the job does not exist. It returns 'the specified job is not a proposal' when the number does not start with P.
 
-## Proposal readiness check changes nothing
+## Proposal check result
 
-Lines 592-606
+Lines 583-597
 
-Asked as: does proposal check save; proposal check changes data; validate proposal without saving; proposal readiness result
+Asked as: proposal check result; does proposal check change anything; proposal check errors list; is proposal ready result; proposal valid false list
 
-The check validates the proposal without saving it. It returns valid true, or valid false with errors for each field.
+The proposal check changes nothing. It returns valid true, or valid false with a list of field errors.
 
 ## Proposal needs a valid location Plus Code
 
-Lines 615-622
+Lines 606-613
 
-Asked as: proposal location missing; Plus Code required; invalid plus code on proposal; proposal location error
+Asked as: location required proposal; plus code missing; proposal location invalid; plus code format proposal; proposal can't create project location
 
-A proposal with no location, or a location that is not a valid Plus Code, fails readiness with 'location (Plus Code) is required'.
+A proposal is not ready for project creation without a location that matches the Plus Code pattern. The message is 'location (Plus Code) is required'.
 
-## Proposal needs branch and client
+## Proposal needs a branch and a client
 
-Lines 624-638
+Lines 615-629
 
-Asked as: proposal no branch; proposal no client; branch missing on proposal; client required proposal
+Asked as: proposal missing branch; proposal missing client; branch required proposal; client required proposal; proposal not ready no client
 
-A proposal without a branch fails readiness with 'branch is required'. A proposal without a client fails with 'client is required'.
+A proposal is not ready without a branch ('branch is required') and a client ('client is required').
 
-## Proposal contact is required and must belong to the client
+## Proposal contact must exist and belong to the client
 
-Lines 640-664
+Lines 631-655
 
-Asked as: proposal contact missing; contact belongs to other client; proposal contact not found; wrong contact for client
+Asked as: proposal contact missing; contact not belong to client; contact not found proposal; proposal contact error; wrong contact for client
 
-A proposal with no contact fails with 'contact is required'. If the contact is not found, it fails with 'specified contact not found'. If the contact belongs to a different client, it fails with 'contact must belong to the selected client'. The client match is only checked when the proposal has a client.
+A proposal needs a contact ('contact is required'). The contact must exist ('specified contact not found') and belong to the proposal's client ('contact must belong to the selected client'). The ownership check runs only when a client is set.
 
-## Proposal manager must be set and active
+## Proposal manager must be active
 
-Lines 666-687
+Lines 657-678
 
-Asked as: proposal manager missing; manager inactive on proposal; proposal manager not active; can't verify manager status
+Asked as: proposal manager missing; manager inactive proposal; manager not active user; proposal manager check failed; proposal owner inactive
 
-A proposal without a manager fails readiness with 'manager is required'. An inactive manager fails with 'manager must be an active user'. If the status lookup fails, the message is 'failed to verify manager active status'.
+A proposal needs a manager ('manager is required'), and the manager must be an active user ('manager must be an active user'). If the status lookup fails, the message is 'failed to verify manager active status'.
 
-## Alternate manager must be active when set
+## Proposal alternate manager must be active if set
 
-Lines 689-704
+Lines 680-695
 
-Asked as: alternate manager inactive; alternate manager not active; alternate manager check failed; proposal alternate manager error
+Asked as: alternate manager inactive; second manager not active; proposal backup manager error; alternate manager check failed; secondary manager inactive
 
-If a proposal has an alternate manager, that person must be active, or readiness fails with 'alternate manager must be an active user'. If the lookup fails, the message is 'failed to verify alternate manager active status'. An empty alternate manager is not checked.
+An alternate manager is optional on a proposal. If set, the person must be active ('alternate manager must be an active user'). If the lookup fails, the message is 'failed to verify alternate manager active status'.
 
 ## Proposal needs opening and submission due dates
 
-Lines 706-722
+Lines 697-713
 
-Asked as: proposal opening date missing; proposal submission date required; proposal dates missing; no due date on proposal
+Asked as: proposal dates missing; opening date required; submission due date missing; proposal no due date; proposal no opening date
 
-A proposal without an opening date fails readiness with 'proposal_opening_date is required'. A proposal without a submission due date fails with 'proposal_submission_due_date is required'.
+A proposal needs an opening date ('proposal_opening_date is required') and a submission due date ('proposal_submission_due_date is required').
 
-## Submission due date cannot precede opening date
+## Proposal due date cannot precede opening date
 
-Lines 724-732
+Lines 715-723
 
-Asked as: due date before opening date; submission date earlier than opening; proposal date order wrong; proposal dates conflict
+Asked as: due date before opening; submission date earlier than opening; proposal dates wrong order; due date same as opening; proposal date order error
 
 When both dates are set, a due date before the opening date fails with 'proposal submission due date must be on or after opening date'. The same date is allowed.
 
 ## Proposal needs a value or time and materials
 
-Lines 734-744
+Lines 725-735
 
-Asked as: proposal value zero; proposal needs value or T&M; can't award proposal no value; time and materials proposal not ready
+Asked as: proposal no value; proposal value zero not ready; time and materials proposal; proposal can't create project value; proposal needs value or T&M
 
-A proposal fails readiness unless its proposal value is above 0 or it is marked time and materials. Turbo checks this whatever the proposal's status, so the proposal is ready to be awarded. The message is 'proposal must have a proposal value or be marked as time and materials to create a referencing project'.
+For project creation readiness, a proposal needs a proposal value above 0 or time and materials turned on. Otherwise the message is 'proposal must have a proposal value or be marked as time and materials to create a referencing project'. Turbo checks this whatever the proposal's status.
 
-## Proposal description minimum length
+## Proposal description needs 3 characters
 
-Lines 746-753
+Lines 737-744
 
-Asked as: proposal description too short; description length proposal; proposal description error; short proposal description
+Asked as: proposal description too short; description characters minimum; proposal description error; short description proposal; description not ready project
 
-A proposal whose description is shorter than 3 characters fails readiness with 'description must be at least 3 characters'.
+A proposal is not ready when its description is shorter than 3 characters. The message is 'description must be at least 3 characters'.

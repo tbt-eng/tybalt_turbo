@@ -169,15 +169,6 @@ func createUpsertJobHandler(app core.App) func(e *core.RequestEvent) error {
 			// Keep the editing switch and terminal proposal rule in this path because
 			// ProcessJobCore normally checks them during a full job edit.
 			if allocationOnly {
-				active, err := utilities.IsUserActive(txApp, authRecord.Id)
-				if err != nil {
-					httpResponseStatusCode = http.StatusInternalServerError
-					return err
-				}
-				if !active {
-					httpResponseStatusCode = http.StatusForbidden
-					return &CodeError{Code: "inactive_user", Message: "an active user is required"}
-				}
 				enabled, err := utilities.IsJobsEditingEnabled(txApp)
 				if err != nil {
 					httpResponseStatusCode = http.StatusInternalServerError

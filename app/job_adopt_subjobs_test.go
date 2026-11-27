@@ -161,19 +161,3 @@ func TestAdoptSubjobsRefusals(t *testing.T) {
 		t.Errorf("a refused request adopted %s", adoptFirst)
 	}
 }
-
-// inactive.admin@example.com holds admin but its admin profile is inactive.
-func TestAdoptSubjobsRefusesAnInactiveAdmin(t *testing.T) {
-	app := newAdoptSubjobsApp(t)
-
-	postAdoptSubjobs(t, app, adoptProject, "inactive.admin@example.com", []string{adoptFirst, adoptSecond}, http.StatusForbidden)
-
-	for _, id := range []string{adoptFirst, adoptSecond} {
-		if got := workflowRecord(t, app, "jobs", id).GetString("parent"); got != "" {
-			t.Errorf("an inactive admin adopted %s", id)
-		}
-	}
-	if _, err := app.FindFirstRecordByData("client_notes", "note", "Adopted unlinked subjobs: 26-7710-02, 26-7710-1."); err == nil {
-		t.Error("a refused request recorded an adoption note")
-	}
-}

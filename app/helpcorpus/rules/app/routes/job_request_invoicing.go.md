@@ -1,84 +1,76 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_request_invoicing.go","sha256":"e569031a61fb5e7a6bb966ae46f8551223c82b2e4bdd22887d4320feed824d5e","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_request_invoicing.go","sha256":"3125f9da05a7279051ea21e4d5cb8b44fcc8ca3b122108c413331a656d8a432a","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_request_invoicing.go
 
-## Who can set a request's invoicing profile
+## Who can set the invoicing profile of a project request
 
-Lines 19-39
+Lines 19-35
 
-Asked as: who can set invoicing profile; invoicing profile permission; can't edit invoicing details; billing profile access
+Asked as: who can change invoicing profile; set invoicing profile on request; procurement invoicing profile permission; can't change invoicing profile
 
-Only an active holder of the job claim (procurement) can set the invoicing profile of a project request. The request must have status "Awaiting creation". Project requests (approval) and job editing must both be switched on.
+Only a holder of the job claim (procurement) can set the invoicing profile of a project request. The request must have the status "Awaiting creation". Project requests (approval required) and job editing must both be on. Without a signed-in user, the answer is no.
 
-## Procurement can change invoicing profile on anyone's request
+## Invoicing change keeps status, version and approval
 
-Lines 41-47
+Lines 37-43
 
-Asked as: change someone else's request billing; clear invoicing profile; procurement edit other request; remove billing details from request
+Asked as: clear invoicing profile; does profile change reset approval; invoicing change lose approval; approval still valid after profile edit
 
-Procurement can set, change or clear the invoicing profile (invoicing_information) of any project request in the Job Create Queue, not only its own. An empty profile clears it.
-
-## Invoicing profile change keeps status and approval
-
-Lines 41-47
-
-Asked as: does changing billing reset approval; approval lost after billing change; status changes after invoicing edit; keep approval when editing profile
-
-Only the invoicing profile changes. The status, the version and the approval stay as they were, because the review digest leaves the profile out. The approval still covers the request.
+Changing or clearing the invoicing profile (an empty value clears it) changes only the profile. The status, the version and the approval stay. The review digest leaves the profile out, so the approval still covers the request.
 
 ## Invoicing profile change needs project requests and job editing on
 
-Lines 55-69
+Lines 51-65
 
-Asked as: invoicing profile not saving; billing change blocked jobs editing; job editing disabled error; can't change billing when jobs off
+Asked as: invoicing profile greyed out; jobs editing disabled error; can't edit profile project request; profile change refused job editing off
 
-Turbo checks that project requests are enabled and that the person holds the job claim. It also refuses the change when job editing is switched off, because the profile becomes the job's. The error for that case is utilities.ErrJobsEditingDisabled.
+Turbo refuses the change when project requests are off, or when the user lacks the job claim. It also refuses when job editing is off, because the profile becomes the job's and follows the jobs editing switch. In that case Turbo returns the jobs-editing-disabled error (ErrJobsEditingDisabled).
 
 ## Invoicing profile changes only while awaiting job creation
 
-Lines 74-76
+Lines 66-72
 
-Asked as: invoicing profile locked; can't edit billing after approval; billing change refused status; awaiting job creation billing
+Asked as: invoicing profile locked; change billing profile after created; procurement can't edit invoicing once approved; job create queue invoicing edit
 
-If the request's status is not "Awaiting creation", Turbo refuses with: "Procurement can change the invoicing profile only while the request is awaiting job creation."
+Procurement can change a request's invoicing profile only when its status is "Awaiting creation". Otherwise Turbo says: "Procurement can change the invoicing profile only while the request is awaiting job creation." Procurement can do this on anyone's request in the Job Create Queue.
 
-## Request version must match when changing invoicing profile
+## Invoicing profile change checks the request version
 
-Lines 77-79
+Lines 73-75
 
-Asked as: version mismatch invoicing save; request changed by someone else; conflict when saving billing; someone else edited request
+Asked as: invoicing change version out of date; request version conflict; someone else edited request; stale request version error
 
-Turbo checks the version sent against the request's version (requestVersion). A mismatch is refused. The version does not change after a successful edit.
+The change must carry the request's current version. Turbo checks it with requestVersion and refuses the change if the version is out of date.
 
-## Same invoicing profile makes no change
+## Setting the same invoicing profile changes nothing
 
-Lines 80-82
+Lines 76-78
 
-Asked as: save with no changes; billing unchanged nothing saved; same invoicing profile selected; saving same billing details
+Asked as: save same invoicing profile; nothing happens when saving profile; invoicing profile unchanged; same profile selected again
 
-When the profile sent equals the request's current profile, Turbo returns the request detail and saves nothing.
+When the submitted profile equals the one already on the request, Turbo makes no change and saves nothing. It simply returns the request.
 
-## Old approval gets the current digest before profile change
+## Old approval is upgraded before a profile change
 
-Lines 83-127
+Lines 79-123
 
-Asked as: approval out of date after update; stale approval digest; approval shows outdated; approval not matching request data
+Asked as: approval went stale after profile change; old approval digest; approval outdated after update; profile edit makes approval stale
 
-Before a profile change, Turbo upgrades an "Approved" approval saved with an older review digest, only if that digest still matches the request's data. A saved digest that matches no older form is left alone, so a stale approval stays stale. An approval with no saved digest is also left alone.
+Before a profile change, Turbo upgrades an "Approved" approval saved with an older review digest. It does so only when the old digest still matches the request's data. Turbo then stores the current digest, so the change does not make the approval stale. A saved digest that matches no older form stays stale, and so does an empty one.
 
-## Invoicing profile must fit the client and billing contact
+## Profile must fit the client and billing contact email
 
-Lines 89-96
+Lines 85-91
 
-Asked as: billing contact has no email; wrong client invoicing profile; profile rejected on save; billing contact missing email error
+Asked as: invoicing profile wrong client; billing contact missing email; profile rejected when saving; billing contact no email error
 
-After the change, Turbo checks that the profile belongs to the request's client (ValidateClientReferences). It also checks that the profile's billing contact has an email address or the no-email mark (ValidateRequestContactEmails), as job creation does. A failure rejects the change.
+A new profile must belong to the request's client. Its billing contact needs an email address or the no-email mark, as job creation checks. Otherwise Turbo refuses the change and does not save it.
 
-## Approvals upgraded when the server starts
+## Server start upgrades approvals of requests awaiting creation
 
-Lines 129-156
+Lines 125-152
 
-Asked as: approvals after server restart; server deploy approval stale; approval broken after update; startup approval upgrade
+Asked as: approval stale after deploy; server restart approvals; old approval after upgrade; job creation digest mismatch after deploy
 
-At server start, Turbo upgrades the saved approval of every request awaiting job creation, so a later profile edit does not make an approval saved before a deploy stale. A failure is logged and does not stop the server. Job creation still accepts an older digest that matches.
+When the server starts, Turbo upgrades the saved approval of every request that waits for job creation. A profile edit after a deploy therefore does not make an earlier approval stale. If the upgrade fails, Turbo logs the error and keeps running. Job creation still accepts an older matching digest.

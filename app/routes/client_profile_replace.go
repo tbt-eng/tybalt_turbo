@@ -32,8 +32,8 @@ func replaceProfileError(status int, field, code, message string) *errs.HookErro
 
 // createReplaceInvoicingProfileHandler retires an invoicing profile that was
 // made in error: it moves every job and job request that uses the profile to
-// another profile of the same client, then deletes the profile. Active holders
-// of job may do it. It runs in one transaction, so a failure changes nothing.
+// another profile of the same client, then deletes the profile. Holders of job
+// may do it. It runs in one transaction, so a failure changes nothing.
 func createReplaceInvoicingProfileHandler(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if e.Auth == nil {
@@ -93,16 +93,12 @@ func createReplaceInvoicingProfileHandler(app core.App) func(e *core.RequestEven
 // status move too.
 func replaceInvoicingProfile(tx core.App, e *core.RequestEvent, clientID, profileID, replacementID string) (replaceInvoicingProfileResult, error) {
 	result := replaceInvoicingProfileResult{}
-	active, err := utilities.IsUserActive(tx, e.Auth.Id)
-	if err != nil {
-		return result, err
-	}
 	hasJob, err := utilities.HasClaim(tx, e.Auth, "job")
 	if err != nil {
 		return result, err
 	}
-	if !active || !hasJob {
-		return result, replaceProfileError(http.StatusForbidden, "", "", "An active user with the job claim is required to replace an invoicing profile.")
+	if !hasJob {
+		return result, replaceProfileError(http.StatusForbidden, "", "", "A user with the job claim is required to replace an invoicing profile.")
 	}
 	// The action edits jobs, so it follows the jobs editing switch.
 	editing, err := utilities.IsJobsEditingEnabled(tx)

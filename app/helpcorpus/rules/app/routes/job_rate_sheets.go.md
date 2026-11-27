@@ -1,284 +1,172 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_rate_sheets.go","sha256":"cde5c060302d088795b578a31b4581ea9bafeef8c0de0f682cff8db2e543ce8b","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_rate_sheets.go","sha256":"f242880c75e9b0262c714b62487325bb994f0fa569feb972ee78f53a9780c2e1","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_rate_sheets.go
 
-## Opening period has a fixed ID until its row is saved
+## Opening period id for a project with no saved history
 
 Lines 22-24
 
-Asked as: opening id; period id opening; first rate sheet id; opening row missing
+Asked as: opening period id; project with no rate sheet history; history never written; opening row missing
 
-A project whose rate sheet history has not been written is addressed as the period "opening" (openingRateSheetPeriodID). Turbo creates its row on the first change.
+A project whose rate sheet history has not been written yet has its opening period addressed by the id "opening" (openingRateSheetPeriodID). Turbo creates the opening period's row when the history is first changed.
 
-## Rate sheet reason is limited to 500 characters
+## Who may change or set a project's rate sheet history
 
-Lines 26-26
+Lines 85-95
 
-Asked as: reason too long; reason character limit; how many characters reason; reason text too big
+Asked as: job claim required; who can change rate sheet; missing rate_sheet_revise permission; can't set first rate sheet
 
-The reason for a rate sheet period change is capped at 500 characters (rateSheetReasonMaxLength). The limit counts characters, not bytes.
+Setting a project's first rate sheet needs the job claim (procurement). Adding a dated period, changing a period or deleting a period also needs the rate_sheet_revise claim. Without the job claim, Turbo says "A user with the job claim is required." Without the revise claim, it says "Changing a project's rate sheet history requires the rate_sheet_revise claim."
 
-## Opening period is shown without a start date or end
+## Proposals have no rate sheet history
 
-Lines 37-48
+Lines 97-106
 
-Asked as: blank start date meaning; period no start date; why end date empty; latest period no end
+Asked as: proposal rate sheet; P job number rate sheet; why no rate sheets on proposal; project not found rate sheet
 
-A period with no start date (Starts empty) is the opening period; it covers all earlier time. The last period has no end date (Through empty), meaning it applies to the latest time.
+Turbo refuses to read or change the rate sheet history of a job whose number starts with P (a proposal). The message is "Proposals do not have rate sheets." If the project id does not exist, the message is "Project not found."
 
-## Rate sheet errors are reported with the message and field
+## History shows who created and last updated each period
 
-Lines 65-83
+Lines 108-117
 
-Asked as: rate sheet error message; error next to field; refused change message; where error shows
+Asked as: who last updated period; creator name on rate sheet history; blank name in history; last changed by
 
-When a rate sheet change is refused, Turbo shows the message and ties it to a field (rate_sheet, effective_date or reason) when the check concerns one. A refusal with no status counts as a bad request. An error that is not a rule refusal shows its own text.
+Each period in the history shows the given name and surname of the person who created it (created_by) and of the person who last updated it (updated_by). The name is blank when Turbo has no profile for that person or the field is empty. The history also shows when the period was last updated.
 
-## Who sees revise and set-first-sheet options
+## Period end date is the day before the next period starts
 
-Lines 85-99
+Lines 119-125
 
-Asked as: cannot see revise button; revise option missing; set first sheet hidden; who can revise
+Asked as: period end date wrong; through date blank; when does rate sheet period end; end date empty
 
-The history view tells the user whether they can revise (the rate_sheet_revise claim) and whether they can set the first rate sheet. Both need an active user with the job claim. Revising also needs the rate_sheet_revise claim. Setting the first sheet is offered only when the project has no rate sheet.
+Turbo works out the last day of a period (Through) as the day before the next period's start date. If the next start date can't be read as a date (YYYY-MM-DD), the end date is blank.
 
-## Proposals have no rate sheets
+## Implied opening period when no history rows exist
 
-Lines 101-110
+Lines 132-141
 
-Asked as: proposal rate sheet; P job no sheets; proposals do not have rate sheets; rate sheet for proposal
+Asked as: history empty but has rate sheet; one opening period shown; no periods showing; project shows no periods
 
-Turbo refuses any rate sheet history request for a job whose number starts with P. The message is "Proposals do not have rate sheets." A project that does not exist gets "Project not found."
+A project that has a rate sheet but no history rows shows one opening period (id "opening") on its current rate sheet. It has no start date. A project with neither shows no periods.
 
-## Project not found when opening rate sheet history
+## Period start and end dates in the history
 
-Lines 101-105
+Lines 142-158
 
-Asked as: project not found history; job number missing; rate sheet project does not exist; history project not found
+Asked as: when does rate sheet start; period start date empty; opening period dates; latest period no end date
 
-Turbo answers "Project not found." when the project in a rate sheet history request does not exist.
+A period starts on its effective date. An opening period has an empty start and covers all earlier time. Each period ends the day before the next period starts. The latest period has no end date.
 
-## Periods are listed with who created and last updated them
+## History lists details of each period's rate sheet
 
-Lines 112-175
+Lines 162-171
 
-Asked as: who created period; who last updated period; creator name history; period editor name
+Asked as: rate sheet code in history; which revision is active; rate sheet details per period; active flag history
 
-Each period in the history shows the name of the person who created it and who last updated it (given name plus surname), its reason, its update time, and a summary of its rate sheet: code, name, revision, effective date and active flag.
+Each period in the history shows its rate sheet's code, name, revision, effective date and whether it is active.
 
-## Opening period is implied when a project has a sheet but no history
+## Viewing history shows what the user may do
 
-Lines 137-145
+Lines 173-194
 
-Asked as: sheet but no history; history empty but sheet; opening shown without history; project has sheet no periods
+Asked as: why cannot edit rate sheet history; can_revise false; set first rate sheet button missing; who can edit history
 
-If a project has a rate sheet but no history rows, Turbo shows one opening period (id "opening") on the project's current rate sheet. The opening period has no start date and covers all earlier time. Turbo writes its row only when the history is first changed.
-
-## Each period ends the day before the next starts
-
-Lines 146-162
-
-Asked as: period end date wrong; through date; why period ends day before; end date of period
-
-In a project's rate sheet history, each period's last day (through) is the day before the next period's start date. The latest period has no end date.
-
-## Rate sheet history is fetched with permission flags and no access check
-
-Lines 177-198
-
-Asked as: can revise flag; can set first flag; history view permissions; history permission flags
-
-Viewing a project's rate sheet history returns its periods plus two flags: can revise (can_revise) and can set first (can_set_first). The view itself does not refuse anyone; it only reports the flags. The can-set-first flag is true only for an active user with the job claim on a project that has no rate sheet.
-
-## Rate sheet history changes need editing enabled
-
-Lines 202-210
-
-Asked as: cannot edit rate sheet; job editing switched off; rate sheet changes disabled; editing disabled error
-
-Every add, change or delete of a project's rate sheet history is refused when job editing is switched off. The refusal is the error for disabled job editing (ErrJobsEditingDisabled).
-
-## Changed history is returned after each change
-
-Lines 202-241
-
-Asked as: list after change; history refresh after save; failed change rollback; periods after edit
-
-After a successful add, update or delete of a period, Turbo returns the project's rebuilt list of periods. The whole change runs in one transaction, so a refused change leaves the history unchanged.
-
-## Changing history requires an active user with the job claim
-
-Lines 215-221
-
-Asked as: no job claim; not active user error; cannot add rate sheet period; job claim required
-
-Adding, changing or deleting a rate sheet period needs an active user with the job claim. Otherwise Turbo says "An active user with the job claim is required."
+The history view returns the project's periods. It reports can_revise as true only for holders of both the job claim and rate_sheet_revise. It reports can_set_first as true only for holders of the job claim when the project has no rate sheet.
 
 ## History change is validated and syncs the project's rate sheet
 
-Lines 243-258
+Lines 196-254
 
-Asked as: project rate sheet not updated; latest period sets sheet; rate sheet did not sync; jobs rate sheet changed
+Asked as: rate sheet not saved after change; jobs rate_sheet out of sync; change rolled back; history validation failed
 
-Each history change runs in one transaction. Turbo then checks the whole history and sets the project's rate sheet (jobs.rate_sheet) to the latest period. If any step fails, the change is not saved.
+Each change runs in one transaction. Afterwards Turbo validates the whole history and sets the project's rate sheet (jobs.rate_sheet) to match the latest period. If any step fails, the change is not kept.
 
-## After any change the whole history is validated and the project's sheet synced
+## Rate sheet changes blocked when jobs editing is off
 
-Lines 246-258
+Lines 198-206
 
-Asked as: history check after edit; validation after delete; project sheet mismatch; validate whole history
+Asked as: cannot edit rate sheet jobs editing off; rate sheet locked; job editing disabled rate sheet; can't add rate sheet period
 
-After each add, update or delete, Turbo checks the whole history against the pairs that existed before (via ValidateJobRateSheetHistory) and then sets the project's rate sheet (jobs.rate_sheet) to match the latest period.
+Turbo refuses any add, change or delete of a rate sheet period when job editing is disabled. The error is utilities.ErrJobsEditingDisabled; its message is not in this file.
 
 ## Pending rate sheet absorb blocks history changes
 
-Lines 260-292
+Lines 256-288
 
-Asked as: absorb waiting to commit; undo absorb first; absorb blocks history; pending absorb error
+Asked as: absorb waiting to be committed; undo rate sheet absorb; pending absorb blocks rate sheet; can't change history after absorb
 
-Turbo refuses to change a project's rate sheet history while an uncommitted rate sheet absorb has moved that project's rate sheet or one of its periods. The message is "A rate sheet absorb that moved this project's rate sheet is waiting to be committed or undone. Finish it before changing the rate sheet history." The user must commit or undo the absorb first.
-
-## Revise claim required to change history
-
-Lines 294-299
-
-Asked as: no revise permission; rate_sheet_revise missing; cannot change period claim; changing history needs claim
-
-Changing or deleting a period, or adding a dated one, needs the rate_sheet_revise claim. Otherwise Turbo says "Changing a project's rate sheet history requires the rate_sheet_revise claim."
+Turbo refuses to change a project's rate sheet history while an uncommitted rate sheet absorb that moved the project's rate sheet or one of its periods can still be undone. The message is "A rate sheet absorb that moved this project's rate sheet is waiting to be committed or undone. Finish it before changing the rate sheet history." The user must commit or undo the absorb first.
 
 ## Reason is required and limited to 500 characters
 
-Lines 301-310
+Lines 297-306
 
-Asked as: empty reason error; explain why rate sheet changing; reason is required; reason blank refused
+Asked as: reason required rate sheet; explain why rate sheet changing; reason too long; 500 character limit reason
 
-A period change needs a reason. An empty reason gets "Explain why the rate sheet is changing." A reason over 500 characters gets "Keep the reason to 500 characters or fewer." Turbo trims spaces from the reason first.
+A dated add or a change to a period needs a reason, which Turbo trims first. An empty reason gives "Explain why the rate sheet is changing." A reason over 500 characters gives "Keep the reason to 500 characters or fewer."
 
-## Two periods cannot start on the same date
+## Only one period may start on a date
 
-Lines 312-324
+Lines 308-320
 
-Asked as: two periods same date; another period starts on date; duplicate start date; date already used period
+Asked as: two periods same start date; date already taken rate sheet; another period starts this day; duplicate rate sheet date
 
-Turbo refuses a period whose start date is already used by another period of the project. The message is "Another period already starts on this date."
+Turbo refuses to add or move a period to a date on which another period of the same project already starts. The message is "Another period already starts on this date."
 
-## Reason is trimmed before it is checked
+## Adding a period requires selecting a rate sheet
 
-Lines 335-335
+Lines 332-334
 
-Asked as: spaces in reason; reason only spaces; trailing space reason; reason counts as empty
+Asked as: no rate sheet selected; rate sheet dropdown empty; select a rate sheet error; add period without sheet
 
-Turbo trims spaces from the start and end of the reason before checking it. A reason of only spaces counts as empty.
+Adding a period without a rate sheet fails with "Select a rate sheet."
 
-## Adding a period requires choosing a rate sheet
+## Setting a project's first rate sheet (no date)
 
-Lines 336-338
+Lines 341-349
 
-Asked as: no rate sheet chosen; add period without sheet; select a rate sheet error; period sheet missing
+Asked as: add first rate sheet no date; enter start date rate sheet; project already has rate sheet; optional reason first sheet
 
-Adding a period without a rate sheet gets "Select a rate sheet."
+Adding a period with no start date sets the first rate sheet and needs only the job claim. It is refused if the project already has a rate sheet, with "Enter the date the new rate sheet starts." The reason is optional here, and only a reason over 500 characters is refused. The new period has an empty start date.
 
-## Setting a project's first rate sheet needs no date or revise claim
+## Adding a dated rate sheet period
 
-Lines 345-353
+Lines 350-376
 
-Asked as: set first rate sheet; add sheet without date; first sheet no revise; first sheet reason optional
+Asked as: add dated rate sheet; set first rate sheet before dated; new rate sheet from date; add rate sheet effective date
 
-An add with no start date sets the first rate sheet of a project that has none. It needs only the job claim. The reason is optional here, but a reason over 500 characters is refused.
+Adding a period with a start date needs the revise claim and a project that already has a rate sheet. Without one, Turbo says "Set the project's first rate sheet before adding a dated one." The reason is required. If the history is not written yet, Turbo first creates the opening row from the current sheet. The user's id is saved as creator and updater.
 
-## Undated add refused when project already has a sheet
+## New period records who created it and why
 
-Lines 346-348
+Lines 380-392
 
-Asked as: enter start date error; date needed new sheet; undated add refused; new sheet start date required
+Asked as: who created rate sheet period; recorded creator of period; saved rate sheet period fields; updated by on new period
 
-If the project already has a rate sheet, an add without a start date gets "Enter the date the new rate sheet starts."
+When Turbo saves a new rate sheet period, it records the project, the chosen rate sheet, the start date, the reason, and the person making the change as both creator (created_by) and last updater (updated_by). The row's own hooks then check the new period.
 
-## Reason too long on undated first-sheet add is refused
+## Finding a period by id
 
-Lines 349-351
+Lines 395-414
 
-Asked as: long reason first sheet; first sheet reason limit; undated first sheet reason
+Asked as: period not found reload; rate sheet period lookup; opening period lookup fails; history may have changed
 
-When setting a project's first rate sheet with no date, a reason is optional, but a reason over 500 characters is refused with "Keep the reason to 500 characters or fewer."
+A period id of "opening" finds the period with no start date; if none exists, Turbo says "This project has no rate sheet." Any other id must belong to this project, or Turbo says "Rate sheet period not found. The history may have changed; reload it." Looking up a period first creates the opening row if the history is not written yet.
 
-## Dated period needs a first sheet and a reason
+## Changing a period's rate sheet or start date
 
-Lines 355-364
+Lines 416-456
 
-Asked as: add dated period error; dated period needs sheet; set first sheet before dated; dated period no reason
+Asked as: change rate sheet on period; move rate sheet start date; edit existing rate sheet period; reprice before first period
 
-Adding a dated period needs the rate_sheet_revise claim and a reason. If the project has no rate sheet, Turbo says "Set the project's first rate sheet before adding a dated one."
-
-## Dated add writes the opening row first
-
-Lines 372-380
-
-Asked as: dated add opening row; first dated period saves opening; adding dated period no history
-
-Adding a dated period to a project with no written history first creates the opening period row. Turbo then checks the date is free and saves the new period.
-
-## New period records who made it
-
-Lines 384-397
-
-Asked as: created by user; who made period; last editor recorded; period stores user
-
-A new period stores the user as both its creator (created_by) and its last editor (updated_by).
-
-## Period lookup errors
-
-Lines 401-418
-
-Asked as: period not found reload; history changed reload; project has no rate sheet; period belongs another project
-
-If the period id is not found or belongs to another project, Turbo says "Rate sheet period not found. The history may have changed; reload it." If the opening period has no row, Turbo says "This project has no rate sheet."
-
-## Updating a period
-
-Lines 423-459
-
-Asked as: change period sheet; edit period start date; reprice opening period; update rate sheet period
-
-Changing a period needs the rate_sheet_revise claim and a reason. The user can change its rate sheet and its start date. An empty rate sheet gets "Select a rate sheet." The change records the user as last editor. Changing the opening period's sheet reprices all time before the first dated period.
-
-## Update requires revise claim and reason before looking up the period
-
-Lines 430-440
-
-Asked as: update period error order; reason checked before lookup; update needs claim first
-
-Updating a period first requires the rate_sheet_revise claim, then a reason (1 to 500 characters), and only then looks up the period.
-
-## Updating a period needs a rate sheet when one is sent
-
-Lines 441-446
-
-Asked as: empty sheet on update; period keeps current sheet; update rate sheet blank
-
-When an update names a rate sheet but leaves it empty, Turbo refuses with "Select a rate sheet." If no rate sheet is sent, the period keeps its current one.
-
-## Update changes start date only when one is sent, and checks duplicates
-
-Lines 447-455
-
-Asked as: change start date; date already used update; update start date only
-
-An update sets a new start date only if one is sent, trimmed of spaces. It refuses a date that another period of the project already uses. The period's reason and last-updated-by are always set to the new reason and the current user.
+Changing a period needs the revise claim and a reason. The user may change its rate sheet, its start date or both. An empty rate sheet gives "Select a rate sheet." The new date must not match another period. The reason and updater are always overwritten. Changing the opening period's sheet reprices all time before the first dated period.
 
 ## Deleting a period
 
-Lines 462-480
+Lines 458-476
 
-Asked as: delete rate sheet period; remove period; previous period prices time; delete dated period
+Asked as: remove rate sheet period; delete rate sheet period; cannot delete opening period; undo added rate sheet period
 
-Deleting a period needs the rate_sheet_revise claim. The opening period cannot be deleted. Turbo says "The opening period cannot be deleted. Change its rate sheet instead." After a delete, the previous period prices that time.
-
-## Opening period cannot be deleted
-
-Lines 466-478
-
-Asked as: delete opening period; cannot delete first period; opening period delete error
-
-Deleting the opening period (no start date) is refused with "The opening period cannot be deleted. Change its rate sheet instead." Deleting a dated period needs the rate_sheet_revise claim; its time is then priced by the period before it.
+Deleting a period needs the revise claim. Time in the deleted period is then priced by the period before it. The opening period cannot be deleted: "The opening period cannot be deleted. Change its rate sheet instead."

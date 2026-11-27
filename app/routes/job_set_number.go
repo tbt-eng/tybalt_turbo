@@ -96,14 +96,6 @@ func createSetJobNumberHandler(app core.App) func(e *core.RequestEvent) error {
 		var updatedNumber string
 
 		err = app.RunInTransaction(func(txApp core.App) error {
-			active, err := utilities.IsUserActive(txApp, authRecord.Id)
-			if err != nil {
-				return &jobSetNumberCodeError{
-					Status:  http.StatusInternalServerError,
-					Code:    "active_check_failed",
-					Message: "failed to verify that the account is active",
-				}
-			}
 			hasAdminClaim, err := utilities.HasClaim(txApp, authRecord, "admin")
 			if err != nil {
 				return &jobSetNumberCodeError{
@@ -112,7 +104,7 @@ func createSetJobNumberHandler(app core.App) func(e *core.RequestEvent) error {
 					Message: "failed to verify admin claim",
 				}
 			}
-			if !active || !hasAdminClaim {
+			if !hasAdminClaim {
 				return &jobSetNumberCodeError{
 					Status:  http.StatusForbidden,
 					Code:    "unauthorized",

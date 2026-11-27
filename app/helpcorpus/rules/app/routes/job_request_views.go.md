@@ -1,268 +1,260 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/job_request_views.go","sha256":"4d900e2a8be38a5443a9fe3b463c36a2fbbbdedb997573bb81965dca68d58d43","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/job_request_views.go","sha256":"a2e8df4351827b6afa0cfd4052bfbf38812f6d6d2d2f0d43b0a11561d6ad24eb","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/job_request_views.go
 
-## Request page fails if a linked record is missing
+## Request page shows related records for each linked field
 
 Lines 27-42
 
-Asked as: request page error; project request won't open; broken link on request; missing client record error
+Asked as: request page not loading; linked record missing error; project request won't open; page fails to load
 
-Turbo loads each record that a project request links to: client, job owner, contact, manager, alternate manager, creator, approver, branch, rate sheet, parent, proposal and invoicing profile. If any linked record cannot be found, the request page returns an error and does not load. Turbo leaves out a link that is empty.
+The project request page loads the linked records for client, job owner, contact, manager, alternate manager, creator, approver, branch, rate sheet, parent job, proposal and invoicing profile (invoicing_information). It shows only the links that are set. The page fails to load if a linked record is missing.
+
+## Linked people on a request show profile names and phone
+
+Lines 37-39
+
+Asked as: approver shows email not name; manager phone number blank; person name wrong on request; contact phone missing
+
+The request page shows each linked person (manager, alternate manager, creator, approver) with the name from their profile (given name and surname), plus their phone. Without a profile, Turbo shows the user's name and email and an empty phone.
 
 ## Request page shows the invoicing profile's billing contact
 
 Lines 43-51
 
-Asked as: billing contact missing; no billing contact shown; invoice contact not on request
+Asked as: billing contact not showing; invoice contact on request; who is the billing contact; billing person missing
 
-When a project request has an invoicing profile (invoicing_information) with a contact, Turbo adds that contact to the request page as the billing contact (billing_contact). A request with no invoicing profile shows no billing contact.
+When a project request has an invoicing profile (invoicing_information) that names a contact, the request page shows that contact as the billing contact (billing_contact). A request with no invoicing profile, or a profile with no contact, shows no billing contact.
 
-## Request page shows the client's bill-to name
+## Bill-to name on a project request follows the invoicing profile
 
 Lines 52-65
 
-Asked as: wrong bill to name; alias billed instead of name; invoice shows wrong client name
+Asked as: bill to name wrong; billing name on project request; client name on invoice; wrong name for billing
 
-Turbo sets the bill-to name (bill_to_name) of a project request from the client and the request's invoicing profile. The profile decides whether the official name or the alias is billed. The profile is optional. Without one, the name comes from the client alone (utilities.BillingName).
+A project request's bill-to name (bill_to_name) comes from utilities.BillingName for the client and the chosen invoicing profile. The profile is optional. Without one, the function gets the client alone.
 
-## Request rates list shows highest rate first
+## Rate sheet rates listed highest first on a request
 
-Lines 66-85
+Lines 66-80
 
-Asked as: rate list order wrong; rates sorted lowest first; rate sheet entries order
+Asked as: rate sheet order; highest rate first; rates listed in wrong order; rate list sorting
 
-When a project request has a rate sheet, Turbo lists the sheet's entries from the highest rate to the lowest. Each entry shows its role name, rate and overtime rate. Turbo adds the request's proposed rates to this list.
+A project request shows the rates of its rate sheet with the highest rate first. Each entry shows the role name, the rate and the overtime rate.
 
-## Manager and approver names come from the profile
+## Request page rate list adds proposed rates from another function
+
+Lines 81-84
+
+Asked as: proposed rates not showing; extra rates on request page; rates missing from request; where do proposed rates come from
+
+The request page lists the rate sheet's entries, then calls requestProposedRates to add the request's proposed rates to that list. This file does not show how those rates are chosen or combined.
+
+## Approver and manager names come from the profile first
 
 Lines 87-96
 
-Asked as: name shows email; approver name missing; person shows no phone
+Asked as: name shows email instead of profile; approver shown with wrong name; phone number empty for approver; profile name not used
 
-Turbo shows a person on a request by the given name and surname of their profile, and shows their phone. Without a profile, Turbo shows the user's own name and email, with an empty phone.
+Where a request page names a person, such as the manager, approver or creator, Turbo uses the given name and surname from that person's profile. If the person has no profile, it uses the user record's name. The phone number comes from the profile and is empty when there is no profile.
 
-## Review token needs a submission token to approve or create
+## Review token ties approval to one submission
 
 Lines 98-108
 
-Asked as: cannot approve checklist; approve button rejected; empty submission token
+Asked as: approval link stopped working; old review page invalid; resubmit broke approval; approval token expired
 
-A review digest binds the review page to the saved data and to one submission, using a random submission token that only submit issues. Recalling and resubmitting therefore gives a new digest, and an old checked checklist is not accepted. A draft can have an empty token for viewing or printing. Approval and creation reject an empty token.
+The review token covers the saved request data, its allocations, the attachment's document hash and a random submission token (submission_token) issued on submit. A recall and resubmit of unchanged data gets a new token, so an old review page does not stay valid. A draft can have an empty submission token for viewing, but approve and create reject an empty one.
 
-## Two older forms of the review digest exist
+## Older approval digests still count as matching
 
-Lines 109-138
+Lines 126-154
 
-Asked as: old review digest; legacy digest version; digest format outdated
+Asked as: old approval still counts; approval still valid after edit; digest mismatch on approval; older approval matching
 
-Turbo can rebuild two older forms of a request's review digest. One holds the invoicing profile, its billing contact and the bill-to name (reviewDigestWithProfile). The other also holds the whole proposal record, with its status (reviewDigestWholeProposal). Turbo issues only the current form, and it uses the older forms only to recognise approvals saved before the change.
+An approval still matches if its saved digest equals the current digest or one of two older forms. The older forms hold the invoicing profile, or the whole proposal. They hold more data, so a match proves that the data the current digest covers did not change.
 
-## Older approval digests still match
+## Test helper can build older review digest forms
 
-Lines 140-154
+Lines 156-170
 
-Asked as: approval still valid after change; old approval still counted; approval not stale
+Asked as: test digest helper; unknown digest form error; build old digest test; digest form in tests
 
-An approval's saved digest still counts as current if it equals the current digest or one of the two older forms (with the invoicing profile, or with the whole proposal record). Any other saved digest is stale.
+A test-only function builds an older form of the review digest, "profile" or "proposal", for a request. It rejects any other form name with the error "unknown digest form".
 
-## Invoicing profile excluded from approval review digest
+## Review token leaves out invoicing profile and approver
 
-Lines 177-186
+Lines 177-188
 
-Asked as: change invoicing profile after approval; billing profile edit approval; clear invoicing profile approval
+Asked as: billing change makes approval stale; invoicing profile edit approval; clear invoice profile approval; approver change approval invalid
 
-A project request's current review digest (reviewDigestCurrent) leaves out the invoicing profile, its billing contact and the bill-to name. Procurement can set, change or clear the invoicing profile until the job is created without making an approval stale. A change to the client, including its name or alias, still makes the approval stale.
+The current review digest leaves out the invoicing profile, its billing contact and the bill-to name. Procurement can set, change or clear the profile until the job is created without making an approval stale. A change to the client's name or alias still makes the approval stale. The digest also leaves out the approver and the creator.
 
-## Approver and creator changes do not stale an approval
+## Proposed-rates display details do not stale an approval
 
-Lines 187-201
+Lines 189-213
 
-Asked as: changing approver after approval; creator edit resets approval; profile rename approval
+Asked as: rates approver profile edit approval; rate sheet rename approval; rate sheet code change stale; proposed rates display change
 
-The review digest of a project request leaves out the approver and creator details. It also leaves out the proposed-rates approver's contact details, the source rate sheet's own record and the missing-role rows. A profile edit, rename or newer revision of those does not change what was approved.
+The review digest leaves out the rates approver's contact details, the source sheet's own record and the missing-role rows. It also leaves out the rate sheet's code, name and updated time. A rename, a code change or a profile edit does not make an approval stale. A change to the revision, active, effective date, reason, based_on, rates approver, rates approved or any rate does.
 
-## Rate sheet code, name and updated time ignored in digest
+## Review token ignores rates approver details and missing roles
+
+Lines 189-201
+
+Asked as: approver contact change stale; missing roles approval; source sheet rename approval; rates approver details approval
+
+The review token leaves out the proposed rates approver's contact details, the source rate sheet's own record and the missing-roles rows. Editing the approver's profile or renaming the source sheet does not make an approval stale.
+
+## Review token leaves out rate sheet code, name and updated time
 
 Lines 202-213
 
-Asked as: rename rate sheet approval; rate sheet code changed; rate sheet name change
+Asked as: rate sheet renamed approval; rate sheet code change; rate sheet updated time approval; rate sheet name change stale
 
-The review digest binds the rate sheet by its id and leaves out its code, name and updated time. A rename or code change does not make the approval stale. A change to the revision, active flag, effective date, reason, based_on, rates_approver, rates_approved or any rate does make it stale.
+The review token leaves out the rate sheet's code, name and updated time, because the request binds the sheet by its id. A rename or code change does not make an approval stale. A change to the revision, active flag, effective date or rates does.
 
-## Awarding the linked proposal does not stale approval
+## Awarding the proposal does not stale an approval
 
 Lines 214-225
 
-Asked as: award proposal after approval; proposal awarded approval lost; proposal edit resets approval
+Asked as: award proposal makes approval stale; proposal status change approval; proposal marked awarded after approval; proposal edit approval invalid
 
-The review digest leaves out the linked proposal's status, updated time and _imported mark. Procurement can award the proposal after approval and before job creation without making the approval stale. Any other edit to the proposal makes the approval stale.
+The review digest leaves out the linked proposal's status, updated time and _imported mark. Procurement can award the proposal after approval and before creation without making the approval stale. Any other edit to the proposal makes the approval stale. Job creation needs an Awarded proposal. Approval does not.
 
-## Review digest covers submission token, allocations and document
+## Review token includes version, submission and business fields
 
 Lines 226-258
 
-Asked as: recall and resubmit new token; checklist reset after recall; allocation change review
+Asked as: approval no longer valid; review token mismatch; submission token changed; why approval went stale
 
-The review digest includes the request's version, its submission token, its business fields, each division allocation (division, hours, whether the division is active) and the attachment's document hash. Recalling and resubmitting therefore issues a new token. A page that was reviewed earlier no longer matches.
+The review token (digest) covers the request's version, its submission token (submission_token), its business fields, its related records, its division hours and the PDF's document hash. A change to any of them makes the old token no longer match.
 
-## Request page shows divisions and the current checklist
+## Division active flag is part of the digest
 
-Lines 263-289
+Lines 233-245
 
-Asked as: division code not shown; hour allocations show id; checklist not loading
+Asked as: division inactive approval stale; hours allocation change approval; division active flag stale; allocation edit breaks approval
 
-The request page loads the request, its attachment and its hour allocations in one transaction. Each allocation shows its division code and name, not its id. The page also gets the review token and the current checklist version and questions for the request's scope (requestChecklistScope).
+The review digest holds each hours allocation with its division and the division's active flag. A change to the allocations or a division's active flag makes an approval stale.
 
-## Request detail tells the page if approval is on
+## Replacing the authorization PDF makes an approval stale
 
-Lines 290-335
+Lines 246-252
 
-Asked as: approval disabled buttons gone; no edit button; approval turned off
+Asked as: replace PDF approval invalid; new attachment approval stale; document changed after approval; swap authorization document approval
 
-The request detail and the list carry an enabled flag, which shows whether project request approval is required (IsJobRequestApprovalRequired). When it is off, the detail page gives no edit, submit, recall, reject, approve or create permission. The delete permission for an abandoned request (admin) does not depend on it.
+The review token includes the hash of the request's attachment document (document_hash). A different document therefore gives a different token, and an approval given on the old document no longer matches. A request with no attachment adds no hash.
 
-## Request detail permissions
+## Request page permissions
 
 Lines 306-335
 
-Asked as: cannot edit draft; recall button missing; cannot submit request
+Asked as: cannot edit project request; submit button missing; recall button not showing; why request not editable
 
-All request actions need project request approval to be enabled (IsJobRequestApprovalRequired). Only the creator can edit a request in Draft, Recalled or Rejected status. The creator can submit it unless it is Rejected. The creator can recall it while it is Awaiting approval or Awaiting creation.
+A project request is editable by its creator while its status is Draft, Recalled or Rejected. Submit has the same rule, except that a Rejected request cannot be submitted. Recall is available to the creator while the status is Awaiting approval or Awaiting creation. Every one of these actions needs the approval workflow to be on (enabled).
 
-## Approval blocked message for selected approver
+## Who can delete a project request
+
+Lines 306-335
+
+Asked as: delete project request; remove abandoned request; admin delete request; delete draft request
+
+The creator can delete an editable request (Draft, Recalled or Rejected) when the workflow is on. An admin can delete an abandoned request (abandonedRequest) even when the workflow is off.
+
+## Only the selected approver can approve, within their limit
+
+Lines 308-335
+
+Asked as: approve button missing; cannot approve request; no approve option; approver limit approve
+
+The page offers Approve only when the workflow is on, the status is Awaiting approval, the person is the selected approver and their project authorization limit covers the project value.
+
+## Request page shows the current checklist
+
+Lines 309-312
+
+Asked as: checklist not showing; approval checklist questions; request checklist version; checklist missing on request
+
+The request page loads the current approval checklist version and its questions for the request's scope (requestChecklistScope). The caller of the page receives them with the review token.
+
+## Approver told why Approve is blocked
 
 Lines 317-330
 
-Asked as: approval limit message; cannot approve over limit; no project authority
+Asked as: why cannot approve; approval blocked message; no project authority message; approval limit reason
 
-When the selected approver's limit does not cover the value, the request detail shows only them "Your approval limit does not cover this project value." If they lack the project authorization claim it shows "You do not have project approval authority." Nobody else sees this message.
+The selected approver of an Awaiting approval request, whose limit does not cover it, sees a reason. It is "You do not have project approval authority." if they lack the project authorization claim. Otherwise it is "Your approval limit does not cover this project value." Nobody else sees the reason.
 
-## Who can approve, create and delete a request
+## Create job needs the job claim and Awaiting creation
 
-Lines 321-335
+Lines 335-335
 
-Asked as: who can approve request; delete abandoned request; cannot delete request
+Asked as: create job button missing; no create job option; job claim create; cannot create job from request
 
-Only the selected approver can approve, and only while the request is Awaiting approval and the approver's project limit covers the project value. A job-claim holder can create a job from a request that is Awaiting creation. A creator can delete an editable request. An admin can delete an abandoned request (abandonedRequest).
+The page offers creating a job from a request only when the workflow is on, the person has the job claim (procurement) and the status is Awaiting creation.
 
-## Request queues and who may open them
+## Request queues and their required claims
 
-Lines 343-384
+Lines 343-382
 
-Asked as: unknown request queue; request queue names; where is my queue
+Asked as: unknown request queue; queue access denied; approval queue not visible; which queues can I see
 
-The queues are: creation (job claim, needs approval enabled), approval and approved (project authorization claim, the requests where you are the approver, with status Awaiting approval or Awaiting creation), abandoned (admin claim), all (job claim), and mine (default, your own requests). Any other queue name gives "Unknown request queue."
+The creation queue needs the workflow on and the job claim. The approval and approved queues need the project authorization claim. The abandoned queue needs the admin claim. The all queue needs the job claim. The mine queue, which is the default, lists the person's own requests and needs no claim. An unknown queue gives "Unknown request queue."
 
-## Request list for the queue "all" and "creation" needs the job claim
+## Queue contents
 
-Lines 349-379
+Lines 354-371
 
-Asked as: cannot see all requests; creation queue missing; all tab not showing
+Asked as: approval queue empty; what shows in approved queue; abandoned requests list; queue contents explained
 
-The creation queue and the all queue both need procurement (the job claim). The creation queue also needs project approval to be turned on. The abandoned queue needs the admin claim.
-
-## Abandoned queue cutoff
-
-Lines 369-374
-
-Asked as: abandoned requests list; stale requests days; old requests cutoff
-
-The abandoned queue lists requests whose last_edited is on or before the cutoff of now minus JOB_REQUEST_ABANDONMENT_DAYS days. Only an admin can open it.
+The approval queue lists requests where the person is the approver and the status is Awaiting approval. The approved queue lists those with the status Awaiting creation. The abandoned queue lists requests last edited on or before JOB_REQUEST_ABANDONMENT_DAYS days ago.
 
 ## Request list paging and order
 
-Lines 392-402
+Lines 383-426
 
-Asked as: request list order; newest requests first; request list sorting
+Asked as: request list paging; how many requests per page; request list sort order; newest requests first
 
-The request list shows the newest submitted first, then the newest created. It defaults to page 1 and 50 items per page. A perPage below 1 or above 100 falls back to 50. A page below 1 becomes 1.
+The request list shows 50 per page by default. A perPage below 1 or above 100 also gives 50, and a page below 1 gives page 1. Requests are sorted by newest submitted, then newest created.
 
-## Request list page size defaults to 50
+## Project request options need one of four claims
 
-Lines 392-399
+Lines 427-439
 
-Asked as: list 50 per page; items per page request; default page size requests
+Asked as: cannot use project requests; request form options error; no access to request form; request form won't load options
 
-The request list shows 50 requests a page when perPage is missing, below 1 or above 100. A page below 1 becomes page 1. The list reports the total items and total pages.
+Loading the request form's options needs the time, job, project authorization or admin claim. Without one Turbo refuses with "You cannot use project requests."
 
-## Request list shows client name
+## Option lists on the request form
 
-Lines 402-416
+Lines 440-506
 
-Asked as: client name missing list; request list client column; client name in list
+Asked as: rate sheet missing from dropdown; proposal missing from list; people dropdown missing someone; inactive person in list
 
-Each row in the request list carries the client's name when the client is found. The list is sorted by newest submission, then newest creation, then id.
+The options leave out rate sheets that belong to a request's proposed rates. The people list holds only people whose admin profile is active. A person's name comes from their profile when one exists. The proposals list holds only proposals (number starts with P) with status In Progress, Submitted or Awarded.
 
-## Request list reports paging totals and whether approval is on
+## Approver search needs a positive whole-dollar value
 
-Lines 406-421
+Lines 515-520
 
-Asked as: total pages requests; how many pages; empty page request list
+Asked as: approver search needs value; positive whole dollar error; enter project value; approver search error
 
-The request list reports the total number of requests (totalItems), the page, the page size and the number of pages. The number of pages is the total divided by the page size, rounded up. A page past the last one returns an empty list. The list also reports whether project request approval is required (enabled).
+The list of possible approvers needs a positive whole-dollar project value. Otherwise Turbo says "Enter a positive whole-dollar project value."
 
-## Project request options need a qualifying claim
+## Approver search lists people whose limit covers the value
 
-Lines 432-445
+Lines 521-539
 
-Asked as: cannot use project requests; request form not opening; project request access denied
+Asked as: approver list missing person; who can approve this amount; approver max value; people over limit approver list
 
-Loading the request form's options needs an active account and at least one of the time, job, project_authorization or admin claims. Otherwise Turbo says "You cannot use project requests."
+The list holds people with the project authorization claim whose limit covers the value, each with their maximum value (max_value). People whose limit does not cover it are skipped.
 
-## Request form option lists
+## Menu badges for project workflow
 
-Lines 449-512
+Lines 542-583
 
-Asked as: rate sheet dropdown; proposal dropdown missing; people list on form
+Asked as: menu badge count; notification badge requests; pending approvals badge; job badge number
 
-The form's rate sheet list leaves out the proposed rates that belong to a request. Its people list holds only people with an active admin profile, named from their profile when they have one. Its proposals list holds only proposals (numbers starting with P) with status In Progress, Submitted or Awarded.
-
-## Request form lists only active people with an admin profile
-
-Lines 474-501
-
-Asked as: missing person in request; inactive admin in dropdown; user not in list
-
-The people in the request form are users whose admin profile is active. Turbo names each from the profile when there is one.
-
-## Request form options say whether approval is required
-
-Lines 513-517
-
-Asked as: approval required option; form approval setting; approval flag on form
-
-The project request options include a flag (enabled) that says whether project request approval is required. The form loads this flag with its lists.
-
-## Authorization approvers lookup needs an active signed-in user
-
-Lines 521-525
-
-Asked as: approver lookup failed; cannot find approvers; workflow check error
-
-Before Turbo lists the approvers who can cover a project value, it checks that the caller passes the workflowActive check. A caller who fails that check gets its error and no list.
-
-## Authorization approvers lookup by project value
-
-Lines 526-547
-
-Asked as: who can approve amount; approver limit list; find approver for value
-
-Looking up approvers needs a positive whole-dollar value, otherwise Turbo says "Enter a positive whole-dollar project value." It lists project authorization claim holders whose limit covers that value, each with their max_value. Holders whose limit does not cover it are skipped.
-
-## Authorization approvers lookup needs a positive whole-dollar value
-
-Lines 526-529
-
-Asked as: enter positive whole dollar; project value invalid; cents in project value
-
-The approvers lookup refuses a missing, non-numeric or non-positive value or a value that is not a whole number of dollars. Turbo answers "Enter a positive whole-dollar project value."
-
-## Project workflow badge counts
-
-Lines 551-593
-
-Asked as: badge count requests; approval notification count; pending value change count
-
-Job-claim holders see a badge count of requests Awaiting creation when approval is enabled. Project authorization holders see a count of requests Awaiting approval that name them as approver, only when approval is enabled. They also see a count of pending value-change attachments assigned to them, even when approval is disabled.
+A person with the job claim sees a badge counting requests Awaiting creation, when the workflow is on. A person with the project authorization claim sees a badge of requests Awaiting approval assigned to them, when the workflow is on. They also see a badge of pending value approvals assigned to them, when the workflow is on or off.

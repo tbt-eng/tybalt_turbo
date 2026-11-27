@@ -140,8 +140,6 @@ func TestManagerAllocationAccessUsesCurrentState(t *testing.T) {
 			switch state {
 			case "removed_assignment":
 				query = "UPDATE jobs SET alternate_manager='' WHERE id='pawflegacy00001'"
-			case "inactive":
-				query = "UPDATE admin_profiles SET active=0 WHERE uid='rzr98oadsp9qc11'"
 			case "cancelled_proposal":
 				query = "UPDATE jobs SET manager='rzr98oadsp9qc11', status='Cancelled' WHERE id='test_prop_inprog'"
 			case "editing_disabled":
@@ -150,6 +148,18 @@ func TestManagerAllocationAccessUsesCurrentState(t *testing.T) {
 			// These targeted fixture changes simulate permissions changing after the editor opens.
 			if query != "" {
 				if _, err := app.DB().NewQuery(query).Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if state == "inactive" {
+				// Deactivate the manager's fixture profile with a save, as the app
+				// does, so the hook signs them out and the held token stops working.
+				profile, err := app.FindRecordById("admin_profiles", "r568267d6ac6f0c")
+				if err != nil {
+					t.Fatal(err)
+				}
+				profile.Set("active", false)
+				if err := app.Save(profile); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -163,6 +173,9 @@ func TestManagerAllocationAccessUsesCurrentState(t *testing.T) {
 			status := http.StatusForbidden
 			if state == "cancelled_proposal" {
 				status = http.StatusBadRequest
+			}
+			if state == "inactive" {
+				status = http.StatusUnauthorized
 			}
 			mustStatus(t, response, status)
 			if !reflect.DeepEqual(before, workflowRecord(t, app, "jobs", jobID).PublicExport()) || !reflect.DeepEqual(allocations, allocationSnapshot(t, app, jobID)) {

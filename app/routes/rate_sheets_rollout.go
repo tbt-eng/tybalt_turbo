@@ -43,16 +43,12 @@ type rateSheetRolloutRequest struct {
 var errRolloutChanged = errors.New("the projects to move have changed")
 
 func checkRolloutPermission(app core.App, auth *core.Record) error {
-	active, err := utilities.IsUserActive(app, auth.Id)
-	if err != nil {
-		return err
-	}
 	admin, err := utilities.HasClaim(app, auth, "admin")
 	if err != nil {
 		return err
 	}
-	if !active || !admin {
-		return rateSheetRouteError(http.StatusForbidden, "", "", "Only an active admin can move projects to a revision.")
+	if !admin {
+		return rateSheetRouteError(http.StatusForbidden, "", "", "Only an admin can move projects to a revision.")
 	}
 	return nil
 }
