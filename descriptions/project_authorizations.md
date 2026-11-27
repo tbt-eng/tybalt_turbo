@@ -625,8 +625,8 @@ Authorization.
   dialog with a profile picker. **Create an invoicing profile** opens the
   client's profile editor in a new tab; **Check again** reloads the list.
 * Holders of `job` see a warning on the Invoicing card of a job or request with
-  no profile; others see no empty card on a job. **Projects Without an
-  Invoicing Profile**, a procurement button beside **Jobs** (`/jobs/no-invoicing`),
+  no profile; others see no empty card on a job. **No Invoicing
+  Profile**, a procurement link in the **Job Reports** menu (`/jobs/no-invoicing`),
   lists the Active projects and subjobs with no profile, from the jobs list
   data (`no_invoicing_profile` in `/api/jobs`).
 

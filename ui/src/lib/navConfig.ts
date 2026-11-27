@@ -258,34 +258,6 @@ export const navSections: NavSection[] = [
         href: "/jobs/list",
         buttons: [
           {
-            action: "/jobs/unused",
-            canView: anyClaim("job"),
-            icon: "mdi:cancel",
-            title: "Unused Active Jobs",
-            color: "blue",
-          },
-          {
-            action: "/jobs/stale",
-            canView: anyClaim("job"),
-            icon: "mdi:timeline-clock-outline",
-            title: "Stale Jobs",
-            color: "blue",
-          },
-          {
-            action: "/jobs/no-invoicing",
-            canView: anyClaim("job"),
-            icon: "mdi:file-alert-outline",
-            title: "Projects Without an Invoicing Profile",
-            color: "blue",
-          },
-          {
-            action: "/jobs/latest",
-            canView: anyClaim("job"),
-            icon: "mdi:timeline-text-outline",
-            title: "Latest Jobs",
-            color: "blue",
-          },
-          {
             action: "/jobs/map",
             icon: "feather:map",
             title: "Jobs Map",
@@ -302,6 +274,19 @@ export const navSections: NavSection[] = [
             title: "New Project or Proposal",
             color: "green",
           },
+        ],
+      },
+      // Procurement reports. They are a flyout because six buttons beside
+      // Jobs left no room for the label.
+      {
+        label: "Job Reports",
+        href: "",
+        buttons: [],
+        children: [
+          { label: "Unused Active Jobs", href: "/jobs/unused", canView: anyClaim("job") },
+          { label: "Stale Jobs", href: "/jobs/stale", canView: anyClaim("job") },
+          { label: "No Invoicing Profile", href: "/jobs/no-invoicing", canView: anyClaim("job") },
+          { label: "Latest Jobs", href: "/jobs/latest", canView: anyClaim("job") },
         ],
       },
       {

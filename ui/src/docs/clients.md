@@ -49,6 +49,7 @@ No profile fits? Select **Create an invoicing profile**. It opens in a new tab. 
 
 The invoicing profile is optional. Procurement can list the Active projects that have none.
 
-1. Select the **Projects Without an Invoicing Profile** button beside **Jobs**.
-2. Open a project. Select **Edit Job**.
-3. Select an invoicing profile. Save the job.
+1. In the menu, select **Job Reports**.
+2. Select **No Invoicing Profile**.
+3. Open a project. Select **Edit Job**.
+4. Select an invoicing profile. Save the job.
