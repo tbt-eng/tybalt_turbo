@@ -20,7 +20,7 @@ This is the preferred start.
 4. Select an approver.
 5. Select **Save request**.
 
-Only an In Progress, Submitted or Awarded proposal has the button.
+Only an In Progress, Submitted or Awarded proposal has the button. You can submit the request before the award.
 
 ## Create a request
 
@@ -62,7 +62,7 @@ Requests that you approved stay below your list, under **Approved By Me, Awaitin
 
 1. Open **Job Create Queue**. Open the request.
 2. Check the request, PDF and **Duplicate-work review**.
-3. Select **Award proposal** if Turbo shows it.
+3. Select [**Award proposal**](/docs/proposals#award-from-a-request) if shown.
 4. Confirm the checklist.
 5. Select **Create Job**.
 

@@ -57,6 +57,15 @@ After the award, you need a project that links to the proposal. You can then cha
 
 A new project normally starts from a proposal. Anyone who enters time can [create a project request from it](/docs/project-requests#start-from-a-proposal). One proposal can lead to more than one project. Procurement must award the proposal before it creates the job.
 
+## Award from a request
+
+Procurement does this on the [project request](/docs/project-requests#create-the-job). The request can get its approval before the award.
+
+Select **Award proposal**. The request keeps its approval.
+
+- **Edit the proposal** shown? Add a **Proposal Value** or **Time and Materials** first.
+- Selected **Create Job** first? Select **Award and create**.
+
 ## Proposal statuses
 
 | Status      | What it means                                                                  |
