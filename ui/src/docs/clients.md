@@ -12,6 +12,10 @@ Turbo lists each job and project request. For a contact, a label shows its role:
 
 The list leaves out project requests that you cannot open.
 
+## Use an email that another contact has
+
+Each email address can belong to one contact only. If another contact has the email, Turbo does not save. The message names the client of that contact.
+
 ## Delete an unused invoicing profile
 
 Procurement can delete an invoicing profile that no job or project request uses.

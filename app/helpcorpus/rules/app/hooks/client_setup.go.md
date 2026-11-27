@@ -1,100 +1,84 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/hooks/client_setup.go","sha256":"34e317d366a04742a20c098ce5d3e7905379fb510536d3b15b0340d3fdd8c9f8","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/hooks/client_setup.go","sha256":"2713280b100eadded70e7125e89fd987faa2c71a195c85034de61eca1585a5b6","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/hooks/client_setup.go
 
-## Which records block deleting a client
+## Contact and invoicing profile deletion uses
 
 Lines 15-38
 
-Asked as: cannot delete client; client delete blocked; client still in use; delete client error
+Asked as: cannot delete contact; delete client contact blocked; contact still in use; delete invoicing profile error
 
-A client cannot be deleted while a job (client or job owner), a project request (job_requests, client or job owner), an invoicing profile (client_invoicing_information) or a client note uses it. Contacts are not on this list because they are deleted with their client, and each contact's own uses are checked as it is deleted.
-
-## Which records block deleting a contact
-
-Lines 29-33
-
-Asked as: cannot delete contact; contact delete blocked; remove contact fails; contact still used
-
-A client contact cannot be deleted while a job, a project request or an invoicing profile uses it as its contact.
-
-## Which records block deleting an invoicing profile
-
-Lines 34-37
-
-Asked as: cannot delete invoicing profile; billing profile delete blocked; invoicing profile still used; remove invoicing details error
-
-An invoicing profile cannot be deleted while a job or a project request uses it (invoicing_information).
+A client contact cannot be deleted while a job, a project request or an invoicing profile uses it as contact. An invoicing profile cannot be deleted while a job or a project request uses it. Contacts are not checked when their client is deleted, because they are deleted with the client. Their own uses are checked as they are deleted.
 
 ## Invoicing profile creator is set by Turbo
 
 Lines 43-51
 
-Asked as: invoicing profile creator wrong; creator overwritten on profile; who created invoicing profile; creator field ignored
+Asked as: who created invoicing profile; creator set automatically; invoicing profile owner; creator field ignored
 
-When an invoicing profile is created through a request, Turbo sets its creator (creator) to the signed-in user's id. A value from the form is overwritten. The creator is empty when the requester is not a user (not in the users collection).
+When someone creates an invoicing profile (client_invoicing_information) through a request, Turbo sets its creator (creator) to the signed-in staff user. The creator is empty if the request does not come from a staff user. A creator value in the form is ignored.
 
 ## Invoicing profile creator cannot be changed
 
 Lines 53-64
 
-Asked as: change creator invoicing profile; cannot edit creator; creator change refused; update profile creator error
+Asked as: change creator invoicing profile; edit profile creator; creator cannot be changed; reassign invoicing profile
 
-Turbo refuses an update to an invoicing profile that changes its creator (creator). The message is "the creator of an invoicing profile cannot be changed".
+Turbo refuses an update of an invoicing profile that changes its creator (creator). The message is "the creator of an invoicing profile cannot be changed".
+
+## Client contact and invoicing profile references are validated on save
+
+Lines 66-77
+
+Asked as: client contact save fails; reference check error; invalid client link; contact won't save
+
+When a client contact or an invoicing profile is created or updated, Turbo checks its references with utilities.ValidateClientReferences and refuses the save if the check fails. This file does not show the rules of that check.
 
 ## Contact with an email is not marked as having no email
 
-Lines 66-70
+Lines 67-70
 
-Asked as: contact email but no email ticked; no email checkbox wrong; email unticked automatically; no_email still set
+Asked as: no email box ticked; no email still checked; contact has email flag; email but marked none
 
-When a client contact is created or updated with a non-blank email, Turbo sets no_email to false. Spaces alone count as blank. Turbo does not change no_email when the email is blank.
+When Turbo saves a client contact (client_contacts) that has a non-blank email, it sets no_email to false. Spaces alone count as blank, so they do not trigger this.
 
-## Contacts and invoicing profiles have their client references validated
-
-Lines 71-77
-
-Asked as: client reference error contact; client link invalid on contact; profile client validation failed; contact save refused client
-
-Turbo validates the client references of every client contact and invoicing profile on create and update, using utilities.ValidateClientReferences. It refuses the save if that check returns an error. The rules of that check are in another file.
-
-## Invoicing profile billing name is validated on create and update
+## Invoicing profile billing name is validated on save
 
 Lines 81-101
 
-Asked as: billing name rejected; invoicing name error; billing name invalid; profile name validation failed
+Asked as: billing name rejected; invoicing name invalid; billing name error; profile name won't save
 
-Turbo runs utilities.ValidateBillingName on an invoicing profile whenever it is created or updated, and refuses the save if the check fails. The request hooks return the error with its field codes. Saves made outside requests are checked too. The rules of that check are in another file.
+Turbo checks the billing name of an invoicing profile on create and update with utilities.ValidateBillingName. The check also runs on saves made outside requests, such as from the dashboard or code. This file does not show its rules.
 
-## Client edits are checked for alias removal
+## Alias check applies to client updates only
 
-Lines 81-102
+Lines 102-102
 
-Asked as: alias removed from client; client alias deleted; alias change refused; edit client alias check
+Asked as: alias removal error; client alias not saving; remove client alias; alias check on edit
 
-Turbo checks every update to a client for alias removal. It does not run this check on create. It applies to requests and to saves made outside requests.
+The alias removal check runs when a client is updated, not when it is created. It is skipped when the client had no alias before.
 
-## Record in use cannot be deleted
+## Records still in use cannot be deleted
 
-Lines 104-139
+Lines 105-142
 
-Asked as: record still used error; why can't I delete; in use cannot delete; still used by collection
+Asked as: cannot delete client; record still in use; delete blocked by jobs; client has linked records
 
-Turbo refuses to delete a client, a client contact or an invoicing profile while another record still uses it. The message is "this record is still used by <collection>", with the name of the first collection found that uses it. The check applies to requests, to saves outside requests and to cascaded deletes.
+Turbo refuses to delete a client, a client contact or an invoicing profile while other records use it. The message is "this record is still used by <collection>". A client is used by jobs (client, job_owner), project requests (job_requests: client, job_owner), invoicing profiles and client notes.
 
-## Alias cannot be cleared while profiles bill it
+## Contact email must be unique across clients
 
-Lines 143-164
+Lines 144-174
 
-Asked as: clear alias blocked; alias billed by profile; cannot remove alias; alias used by invoicing
+Asked as: email already used; duplicate contact email; same email other client; contact email taken
 
-Turbo refuses to clear a client's alias if invoicing profiles bill that alias. The message is "An invoicing profile bills this alias. Change it to bill the client name first." For several profiles it is "<n> invoicing profiles bill this alias. Change them to bill the client name first."
+Turbo refuses to save a client contact whose email another contact already has. The message is "This email is already a contact for <client name>." It says "another client" if the client cannot be found. The check compares exact values and skips an empty email.
 
-## Alias check applies only when an existing alias is cleared
+## Cannot clear a client alias while invoicing profiles bill it
 
-Lines 146-148
+Lines 176-198
 
-Asked as: new client alias error; alias check on create; alias error when adding client; alias warning existing client
+Asked as: cannot clear alias; alias billed by invoicing profile; remove alias error; delete client alias blocked
 
-Turbo skips the alias check for a new client. It also skips it when the client still has an alias or had none before. The check only runs when an alias that was set is removed.
+Turbo refuses to clear the alias of an existing client when invoicing profiles bill that alias. For one profile the message is "An invoicing profile bills this alias. Change it to bill the client name first." For several it is "N invoicing profiles bill this alias. Change them to bill the client name first." Setting the alias for the first time, or changing it to another value, is not blocked.

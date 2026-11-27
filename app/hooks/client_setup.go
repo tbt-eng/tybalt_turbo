@@ -100,6 +100,7 @@ func AddClientSetupHooks(app core.App) {
 	}
 	guard(utilities.ValidateBillingName, "client_invoicing_information", true)
 	guard(validateAliasRemoval, "clients", false)
+	guard(validateContactEmail, "client_contacts", true)
 
 	// The request hook returns the in_use error to the caller. PocketBase
 	// replaces errors from the model hook with a generic message, and the model
@@ -138,6 +139,38 @@ func recordInUse(app core.App, record *core.Record) error {
 		}
 	}
 	return nil
+}
+
+// validateContactEmail refuses an email address that another contact has, and
+// names the client of that contact. The unique index on client_contacts.email
+// stays the final guard. It compares exact values and leaves out blank emails,
+// and so does this check.
+func validateContactEmail(app core.App, contact *core.Record) error {
+	email := contact.GetString("email")
+	if email == "" {
+		return nil
+	}
+	// The index allows one contact for each email, so at most one is found.
+	existing, err := app.FindAllRecords("client_contacts",
+		dbx.HashExp{"email": email},
+		dbx.Not(dbx.HashExp{"id": contact.Id}),
+	)
+	if err != nil {
+		return err
+	}
+	if len(existing) == 0 {
+		return nil
+	}
+	clientName := "another client"
+	if client, err := app.FindRecordById("clients", existing[0].GetString("client")); err == nil {
+		clientName = client.GetString("name")
+	}
+	message := fmt.Sprintf("This email is already a contact for %s.", clientName)
+	return &errs.HookError{
+		Status:  http.StatusBadRequest,
+		Message: message,
+		Data:    map[string]errs.CodeError{"email": {Code: "email_in_use", Message: message}},
+	}
 }
 
 // validateAliasRemoval keeps a client's alias while invoicing profiles bill it,
