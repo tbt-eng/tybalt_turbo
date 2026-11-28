@@ -1,44 +1,52 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/cron/computer_login_retention.go","sha256":"493658497b0372af15103107bf1800238c3fdf95927508dcae3d18f3644c37e2","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/cron/computer_login_retention.go","sha256":"d25b1892f506fb4733a52408c9e3050b26bb87d13158cdc36027741ad56c1623","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/cron/computer_login_retention.go
 
-## Old computer logins and raw logins are deleted after the retention period
+## Computer logins are deleted after the retention period
 
-Lines 13-40
+Lines 13-42
 
-Asked as: old computer logins deleted; login retention period; delete old logins daily; raw logins cleanup; login history purge
+Asked as: old computer logins deleted; login records expire; how long logins are kept; login retention period; computer login cleanup
 
-A daily job deletes every computer login (computer_logins) and every raw login (computer_raw_logins) that was created before the cutoff. The cutoff is now (UTC) minus COMPUTER_LOGIN_RETENTION_DAYS days. The number of days is set in the constants file, not here.
+A daily job deletes computer login records (computer_logins) created before the cutoff. The cutoff is now minus COMPUTER_LOGIN_RETENTION_DAYS days, in UTC. The number of days is set in the constants file, which this file does not show.
 
-## Login cleanup never changes computers
+## Raw logins with a computer name never expire
 
-Lines 19-40
+Lines 20-27
 
-Asked as: computer lost last login; last user cleared on computer; computer login removed after cleanup; last_login missing
+Asked as: raw login never deleted; old raw logins kept; radiator keeps newest login; computer name login not expiring; why login still there
 
-The cleanup deletes only logins and raw logins. It does not touch computers, so a computer keeps its last login (last_login) and its last user even after all its logins are deleted.
+The retention job does not delete a raw login that has a computer name, however old it is. The radiator endpoint keeps the newest one per computer name and deletes it when that computer sends a valid report.
 
-## Login cleanup deletes with SQL and skips record hooks
+## Retention job leaves computers unchanged
 
-Lines 19-53
+Lines 29-31
 
-Asked as: login deletion no hooks; bulk delete logins sql; deleted logins without callbacks; cleanup skips hooks
+Asked as: computer last login after cleanup; last user cleared on computer; computer record unchanged by job; login deletion effect on computer; computer keeps last login
 
-The cleanup deletes rows directly with SQL, not record by record. No record hook runs for these deletions.
+The retention job never changes computers. A computer keeps its last login (last_login) and its last user after all its login records are deleted.
 
-## Login cleanup stops at the first failure
+## Retention job deletes directly in the database
 
-Lines 28-40
+Lines 32-37
 
-Asked as: login cleanup failed halfway; raw logins not deleted; partial login deletion; cleanup error stops midway
+Asked as: retention job no hooks; cleanup runs raw SQL; login delete bypasses hooks; cutoff date format text; database delete login cleanup
 
-The job deletes logins first, then raw logins. If deleting logins fails, Turbo does not try to delete raw logins. If deleting raw logins fails, the logins already deleted stay deleted.
+The retention job deletes rows with SQL, not record by record. No hooks run on these deletes. The job compares the created time with the cutoff as text, so it formats the cutoff in the PocketBase date layout.
 
-## A login created exactly at the cutoff is kept
+## Retention job stops at the first error
 
-Lines 45-53
+Lines 43-53
 
-Asked as: login exactly at cutoff; login same time as cutoff; why login not deleted at cutoff; boundary login kept
+Asked as: cleanup job failed halfway; raw logins not deleted after error; partial login deletion; retention job error log; cleanup stopped early
 
-Turbo deletes a login or raw login only when its created time is strictly earlier than the cutoff. A row created exactly at the cutoff stays.
+If deleting logins fails, the job does not try to delete the raw logins and logs the error. If deleting raw logins fails, the logins already deleted stay deleted. On success the job logs the cutoff and both counts.
+
+## Raw logins without a computer name expire like logins
+
+Lines 46-49
+
+Asked as: raw reports without computer name; empty computer name raw login; unmatched raw login deleted; old raw reports removed; raw login daily cleanup
+
+The daily job deletes raw logins (computer_raw_logins) that have no computer name (an empty or null computer_name) and were created before the cutoff. These reports cannot be matched to a computer, so only this job removes them.

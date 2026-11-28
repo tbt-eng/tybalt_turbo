@@ -1,308 +1,244 @@
 <!-- A model wrote this file from the source. Do not edit it: run `go run ./cmd/helprules` in app/. -->
-<!-- helprules {"source":"app/routes/radiator.go","sha256":"0950e6bb433376015e697bb70c621bc0652a4099708a2ec76a21ccb85ee7edd9","model":"claude-sonnet-5-5"} -->
+<!-- helprules {"source":"app/routes/radiator.go","sha256":"0e763d3a84142fc86c198df3e5cc255c48a799fe25b2ebf4ed9e99d07213e97d","model":"claude-sonnet-5-5"} -->
 
 # Rules in app/routes/radiator.go
 
-## Radiator report body limited to 64 KB
+## Radiator checks run before the body is read
 
-Lines 38-43
+Lines 3-11
 
-Asked as: radiator report too big; file size limit radiator; request body too large; report upload size limit
+Asked as: refused before body read; early refusal radiator request; body ignored wrong header; size check before reading; radiator request rejected early
 
-Turbo caps a radiator report body at 64 KB (radiatorMaxBodySize, 64<<10). This replaces PocketBase's default 32 MB limit for this route. A larger body is refused as too large.
+Turbo checks the method, the machine secret and the Content-Type of a radiator report before it reads any of the body. A request that fails one of these checks is refused without its body being read. The body size limit applies after these checks.
 
-## Radiator report endpoint accepts only POST
+## Radiator secret must belong to the radiator machine role
+
+Lines 39-40
+
+Asked as: radiator token wrong role; unauthorized radiator token; bearer token not accepted; machine token rejected radiator; radiator login refused unauthorized
+
+The radiator route takes no user sign-in. The bearer token must be a valid machine token for the machine role "radiator" (radiatorMachineRole), as checked by ValidateMachineToken. Turbo answers "unauthorized" otherwise.
+
+## Radiator body is capped at 64 KB
+
+Lines 41-41
+
+Asked as: radiator report too big; 64 kb limit radiator; request body too large; radiator size limit; large content-length refused
+
+The radiator body may not exceed 64 KB (radiatorMaxBodySize, 64<<10). Turbo refuses a larger Content-Length at once, and stops reading a body without a length once it passes the limit. This replaces PocketBase's default 32 MB limit for this route.
+
+## Radiator endpoint accepts only POST
 
 Lines 45-78
 
-Asked as: radiator endpoint GET request; method not allowed radiator; radiator wrong http method; can't PUT to radiator
+Asked as: get radiator endpoint; method not allowed radiator; radiator rejects put; allow post header; wrong http verb radiator
 
-The radiator endpoint (/api/radiator) answers only POST requests. Any other method (GET, PUT, PATCH, DELETE) is refused with 'method not allowed' and an Allow: POST header.
+The radiator login endpoint (POST /api/radiator) answers only POST. GET, PUT, PATCH and DELETE are refused with 'method not allowed' and an Allow: POST header. The check runs before any of the body is read.
 
-## Radiator report needs the machine secret
+## Radiator requires a valid machine secret
 
 Lines 80-88
 
-Asked as: radiator unauthorized error; radiator token rejected; machine token radiator login; radiator bearer token missing
+Asked as: radiator password missing; missing authorization header; blank radiator token; invalid radiator secret; radiator key not working
 
-A radiator report must carry an Authorization header 'Bearer <token>'. The token must be a valid machine token for the 'radiator' role. A missing header, an empty token or an invalid token is refused with 'unauthorized'. No user login is used.
+A radiator report must carry an Authorization header with a Bearer token that is valid for the machine role 'radiator'. Turbo trims white space around the token. A missing header, a blank token or an invalid token is refused with 'unauthorized'. No user sign-in is used.
 
-## Radiator report must be sent as JSON
+## Radiator requires JSON content type
 
-Lines 90-95
+Lines 90-93
 
-Asked as: radiator content type error; radiator report not JSON; Content-Type must be application/json; radiator wrong content type
+Asked as: content-type must be json; radiator wrong content type; send radiator report as json; charset content type error; json header missing radiator
 
-The Content-Type of a radiator report must be application/json. Otherwise Turbo refuses it with 'Content-Type must be application/json'. The method, secret and Content-Type are checked before the body is read.
+The request Content-Type must be application/json, and parameters such as charset are allowed. Otherwise Turbo refuses with 'Content-Type must be application/json'. This check runs after the secret check.
 
-## Unreadable radiator request body is refused
+## Radiator body read errors
 
-Lines 102-108
+Lines 100-108
 
-Asked as: cannot read radiator body; radiator request body unreadable; radiator upload failed to read; could not read request body
+Asked as: could not read request body; radiator upload failed; body read error radiator; report body unreadable; too large body error
 
-When Turbo cannot read the body of a radiator report, it refuses it with "could not read the request body". A body larger than the limit gets Turbo's too-large-request refusal instead.
+If the body is larger than the 64 KB limit, Turbo refuses it as too large. If the body cannot be read for another reason, Turbo answers "could not read the request body".
 
-## Empty or malformed radiator submissions are refused
+## Radiator rejects empty or malformed bodies
 
 Lines 109-137
 
-Asked as: empty radiator submission; radiator report rejected empty; radiator body not valid JSON; radiator report is a list
+Asked as: empty submission not saving; body not valid json; report must be json object; radiator byte order mark; blank or null radiator body
 
-Turbo refuses an empty body, JSON null, an empty list or an empty object with 'empty submission, not saving'. It refuses text that is not valid JSON, or has extra content after the JSON, with 'the body is not valid JSON'. It refuses any other non-object, such as a non-empty list or a string, with 'the report must be a JSON object'. A leading UTF-8 byte order mark is ignored.
+Turbo refuses with 'empty submission, not saving' a body that is blank, null, an empty list or an empty object. It refuses with 'the body is not valid JSON' a body that does not parse or has extra content after the JSON. It refuses any other non-object, such as a non-empty list, with 'the report must be a JSON object'. A leading UTF-8 byte order mark is ignored.
 
-## Radiator report may start with a byte order mark
-
-Lines 109-110
-
-Asked as: radiator BOM error; radiator PowerShell script byte order mark; radiator script adds hidden characters; radiator report starts with odd bytes
-
-Turbo removes a UTF-8 byte order mark at the start of a radiator report body before it reads the JSON. Old PowerShell scripts add this mark.
-
-## Radiator report must be one JSON value only
-
-Lines 116-124
-
-Asked as: radiator JSON parse error; radiator report extra text after JSON; radiator body malformed; radiator invalid JSON report
-
-A radiator report that is not valid JSON, or has extra content after the JSON value, is refused with "the body is not valid JSON".
-
-## Radiator report that is not an object is refused
-
-Lines 125-137
-
-Asked as: radiator report not an object; radiator report is an array; radiator empty object submitted; radiator null submission
-
-A JSON list or value that is not an object is refused with "the report must be a JSON object". A null, an empty list or an empty object is refused with "empty submission, not saving".
-
-## Accepted radiator reports answer with no content
+## Rejected radiator reports are saved as raw logins
 
 Lines 139-158
 
-Asked as: radiator report success response; radiator no content reply; radiator accepted but empty response; radiator 204 status
+Asked as: report accepted but not saved; raw login reasons; failed report still stored; why accepted but missing; validation errors stored radiator
 
-Turbo answers a radiator report with an accepted status and no content, whether the report is valid or is stored as a rejected raw login. A server failure while storing gives 'failed to store the report'.
+When a report fails validation or cannot be stored, Turbo still answers 'accepted' and keeps the report as a raw login with the reasons joined by '; '. The reasons are cut to 4000 characters. A server failure while storing returns 'failed to store the report'.
 
-## Radiator report storage failure gives a server error
+## Radiator accepted report returns no content
 
-Lines 140-156
+Lines 151-158
 
-Asked as: radiator report server error; failed to store radiator report; radiator storage failed; radiator 500 error on save
+Asked as: accepted with no body; empty radiator response; cannot tell if saved; radiator reply no content; success response empty radiator
 
-If Turbo fails to store a valid report, or fails to save a raw login, it answers "failed to store the report". It logs the cause.
+After a report passes the guard checks and is processed, Turbo answers "accepted" with no body. It does this for a stored login and for a report saved as a raw login. A person cannot tell the two apart from the answer.
 
-## Invalid report is saved as a raw login
+## Valid report updates computer, adds login, clears raw logins
 
-Lines 151-156
+Lines 169-243
 
-Asked as: bad radiator report saved where; radiator rejected report stored; raw logins radiator invalid reports; radiator failed report kept
+Asked as: report saves computer and login; old raw logins deleted; new login record created; valid radiator report saved; computer updated from report
 
-When a report fails validation or cannot be stored, Turbo saves the body as received in the raw logins (computer_raw_logins). It saves the reasons joined with '; ' and the computer name if the report has a valid one. The reasons are cut to 4000 characters.
+A valid report is saved in one transaction. Turbo creates or updates the computer, adds a login record, and deletes the raw logins with the same computer name.
 
-## Valid report updates the computer and records a login
+## Missing report fields keep stored computer values
 
-Lines 169-239
+Lines 207-225
 
-Asked as: radiator login recorded for computer; radiator computer not updated; radiator last login time; radiator report creates login record
+Asked as: missing field erased computer; fields not sent keep old; report changed assigned to; radiator keeps stored values; retired flag changed by report
 
-A valid report finds the computer by its slug (serial and manufacturer) or creates it. It saves the computer, adds a login record and sets the last login time. All of this happens in one transaction.
+A computer field missing from a report keeps its stored value. The user fields (given name, surname, email, UPN, source anchor, last user) and the last login time are always replaced. A report never changes assigned_to, assigned_time or retired.
 
-## Radiator email and UPN are lowercased
+## Unsavable field values make a raw login
 
-Lines 179-184
+Lines 245-250
 
-Asked as: radiator email uppercase; radiator UPN case mismatch; radiator email lowercase; radiator upn letter case
+Asked as: upn too long error; field value too long; could not be saved raw login; valid value still not saved; storage rejected field value
 
-Turbo lowercases the source anchor, UPN and email of a report before it stores or matches them. Email is empty when the report has none.
+If a field refuses a value that passed validation, such as a very long UPN, Turbo stores the report as a raw login with 'the report could not be saved: ...' and not as a server error.
 
-## Radiator new computer is created when slug is unknown
+## Last user is matched by anchor, then email, then UPN
 
-Lines 195-205
+Lines 254-292
 
-Asked as: radiator new laptop appears; radiator computer not showing up; radiator unknown computer added; radiator first report from machine
+Asked as: last user not found; which user last logged in; last user matched by email; user lookup by upn; last user empty radiator
 
-If no computer has the report's slug, Turbo creates one. Otherwise it updates the existing computer.
+Turbo finds the last user first from the admin profile with the same user source anchor. If none matches, it looks for a user whose email equals the report's email, then its UPN, ignoring case. If nothing matches the last user is empty. Turbo never creates a user.
 
-## Missing computer fields keep stored values
+## Raw logins are replaced per computer name
 
-Lines 207-222
+Lines 294-338
 
-Asked as: radiator blank field overwritten; radiator missing field lost data; radiator keeps old values; radiator report partial update
+Asked as: duplicate raw logins computer; blank computer name raw logins; raw logins cleanup 30 days; old raw logins piling up; raw login name case matters
 
-A field missing from a report keeps its stored value on the computer. These fields are serial, mfg, model, computerName, systemType, ram, osVersion, osSku, osArch, the boot drive fields, radiatorVersion and networkConfig. The user fields (given name, surname, email, UPN, source anchor, last user) are always replaced by the latest report. The report never writes assigned_to, assigned_time or retired.
+A new raw login deletes older raw logins with the exact same computer name (case and spaces count), so each computer keeps one. A blank name matches nothing, so those raw logins stay until the retention job deletes them after 30 days. A valid report also deletes raw logins of its computer name.
 
-## Radiator user fields replace stored values
+## Report fields copied to the computer record
 
-Lines 215-222
+Lines 340-358
 
-Asked as: radiator user changed on computer; radiator last user wrong; radiator user details not updating; radiator logged in user field
+Asked as: computer record not updated; which fields update computer; ram and os version stored; radiator fields copied computer; hardware info not updating
 
-Each valid report replaces the computer's user given name, surname, email, UPN, source anchor and last user, and sets the last login time to now. It never writes assigned_to, assigned_time or retired. If no user matches, last user is empty.
+A valid report sets these computer fields: serial, mfg, model, computerName, systemType, ram, osVersion, osSku, osArch, bootDrive, bootDriveFS, bootDriveCap, bootDriveFree, radiatorVersion and networkConfig. A field that is present in the report replaces the stored value.
 
-## Valid report deletes earlier raw logins of that computer name
+## Radiator report validation lists every problem and ignores unknown fields
 
-Lines 241-248
+Lines 360-363
 
-Asked as: radiator old raw logins remain; radiator duplicate raw login; radiator clear old login entries; radiator computer name raw logins
+Asked as: all validation errors at once; unknown fields ignored report; legacy schema validation; report errors listed together; extra report fields dropped
 
-After a valid report with a computer name is stored, Turbo deletes all raw logins with that computer name. A report without a computer name deletes none.
+Turbo checks a radiator report against the schema of the legacy system. It collects all the problems and does not stop at the first. It drops any property that the schema does not list. It converts values to the expected type where it can.
 
-## Report values refused by a field become raw logins
+## Radiator UPN may not contain line breaks
 
-Lines 252-257
+Lines 385-386
 
-Asked as: radiator report saved as raw login; radiator value too long for field; radiator could not be saved; radiator field refused value
+Asked as: upn newline rejected; upn with line break; carriage return in upn; upn must have at sign; upn line separator error
 
-When the schema accepts a value but a computer field refuses it, such as a very long UPN, the report is saved as a raw login. The reason starts with 'the report could not be saved: '. It does not give a server error.
+A radiator report's UPN (upn) needs an @ with at least one character before it and one after it. These characters cannot be line breaks: \n, \r, or the Unicode line and paragraph separators. A UPN with a line break fails the pattern check, and the report becomes a raw login.
 
-## Report user is matched by anchor, then email, then UPN
+## Radiator network config keys must be MAC addresses
 
-Lines 261-299
+Lines 389-389
 
-Asked as: radiator user not matched; radiator wrong user linked; radiator last user empty; radiator finds no user
+Asked as: network config key format; mac address keys invalid; networkconfig names colons; mac key rejected report; hex pairs network key
 
-Turbo finds the user of a report first by the admin profile with the same user source anchor. If none matches, it finds a user whose email equals the report's email, then the report's UPN, ignoring case. If nothing matches, the last user is left empty. Turbo never creates a user.
+In a radiator report, each property name in the network config (networkConfig) must be a MAC address. That is six pairs of hex digits separated by colons, such as 00:1A:2B:3C:4D:5E. Upper and lower case both pass. A name in any other form makes the report invalid.
 
-## Radiator report validation failures are all collected
+## Email must look like an email address
 
-Lines 303-312
+Lines 390-391
 
-Asked as: radiator all errors listed; radiator several problems in report; radiator error message long; radiator validation errors combined
+Asked as: invalid email stored blank; email dropped from report; bad email address computer; email format not accepted; computer email empty
 
-Turbo checks every property of a report and lists all the problems, not only the first. It joins them with "; " in the raw login's error. It cuts the error text to 4000 characters (radiatorMaxErrorRunes).
+A report's email must match a simple email-address pattern (the ajv 6 "fast" format). An email that does not match is dropped from the report and does not cause a rejection. Turbo then stores the computer's email as blank.
 
-## Raw login keeps the report and computer name
+## Radiator field length and pattern limits
 
-Lines 314-318
+Lines 397-418
 
-Asked as: raw login computer name empty; radiator rejected report name; raw login shows error reason; radiator bad report record
+Asked as: serial too short; field max length radiator; osversion format wrong; bootdrive format error; osarch length limit
 
-A rejected report is saved as received in a raw login (computer_raw_logins), with the error text. Its computer name (computer_name) comes from the report only when that name is valid. Otherwise it is empty.
+Text limits: serial 4-48 characters, mfg 2-32, model up to 48, bootDriveFS 2-32, osArch 2-16, userGivenName 1-24, userSurname 2-35. userSourceAnchor must be 32 hex characters, bootDrive a letter and colon such as C:, and osVersion like 10.0.19045. upn must have an @ with text on both sides.
 
-## Radiator computer fields map to columns
+## Bad computerName or email is dropped, not rejected
 
-Lines 321-339
+Lines 400-400
 
-Asked as: radiator field stored where; radiator computer columns mapping; radiator bootDrive saved to; radiator report field location
+Asked as: computer name too long dropped; bad computername ignored; report valid but name blank; computername field removed; invalid name still accepted
 
-A report's computer fields (serial, mfg, model, computerName, systemType, ram, osVersion, osSku, osArch, bootDrive, bootDriveFS, bootDriveCap, bootDriveFree, radiatorVersion, networkConfig) are stored in the matching computer columns.
+If computerName (1-48 characters) or email fails its check, Turbo drops that field and the report can still be valid. Other failing fields make the report invalid.
 
-## Radiator pattern rules for report fields
+## Required report fields
 
-Lines 366-391
+Lines 420-461
 
-Asked as: radiator must match the pattern; radiator wrong format anchor; radiator boot drive format error; radiator osVersion format
+Asked as: required field missing report; is required error radiator; missing serial or upn; report needs mfg field; required radiator fields list
 
-userSourceAnchor must be 32 hex characters. bootDrive must be a letter and a colon, such as C:. osVersion must be dotted numbers, such as 10.0.19045. upn must have text, an @ and more text on one line. A mismatch gives 'must match the pattern ...'.
+A report must have serial, upn, networkConfig, userSourceAnchor, radiatorVersion, mfg, userGivenName and userSurname. A missing one gives the reason '<name>: is required'. Unknown properties are dropped.
 
-## Radiator string field length limits
+## Field error messages in rejected reports
 
-Lines 378-399
+Lines 462-496
 
-Asked as: radiator field too short; radiator text too long; radiator serial length error; radiator name characters limit
+Asked as: must be at least characters; must match pattern error; must be a string message; radiator error message wording; every failing field reported
 
-Text fields have limits. bootDriveFS 2-32 characters. serial 4-48. computerName 1-48. model up to 48. userGivenName 1-24. osArch 2-16. mfg 2-32. userSurname 2-35. A failing field is reported as 'must be at least N characters' or 'must be at most N characters'.
+A rejected report's reasons use fixed messages. They read "name: must be at least N characters", "name: must be at most N characters", "name: must match the pattern ...", "name: must be an email address", "name: must be a string", and "name: must be an integer". Turbo reports every failing field, not just the first. Unknown properties are dropped. A minimum length of 0 is never checked.
 
-## Bad computer name or email is dropped, not rejected
+## Network config must be MAC addresses
 
-Lines 381-394
+Lines 497-511
 
-Asked as: radiator email dropped; radiator computer name ignored; radiator invalid email stored blank; radiator bad computer name kept old
+Asked as: networkconfig empty rejected; network config must be object; network config needs property; mac names network config error; networkconfig rejected report
 
-If computerName or email fails its checks, Turbo drops that property and the report stays valid. For email the check is that it is an email address. A dropped email is stored as empty. A dropped computerName means the report deletes no raw logins and the stored name stays.
+networkConfig must be an object with at least 1 property, and each property name must be a MAC address such as 00:1A:2B:3C:4D:5E. Otherwise the report is rejected.
 
-## Required radiator report properties
+## Radiator values are coerced to the expected type
 
-Lines 401-442
+Lines 516-613
 
-Asked as: radiator is required error; radiator missing serial; radiator required fields list; radiator report incomplete
+Asked as: number sent as text; null becomes empty string; boolean in text field; radiator value type conversion; numeric string integer field
 
-A report needs serial, upn, networkConfig, userSourceAnchor, radiatorVersion, mfg, userGivenName and userSurname. A missing one is reported as '<name>: is required'. Unknown properties are dropped.
+Numbers and booleans in text fields become text, and null becomes an empty string. Integer fields (systemType, osSku, bootDriveFree, radiatorVersion, ram, bootDriveCap) accept whole numbers, numeric strings including hex, true as 1, false as 0 and null as 0. Fractions, infinity and an empty string are refused with '<name>: must be an integer'.
 
-## Radiator unknown properties are dropped
+## Whole numbers required for integer fields
 
-Lines 416-436
+Lines 539-574
 
-Asked as: radiator extra properties ignored; radiator unknown fields report; radiator extra data not saved; radiator unrecognised keys
+Asked as: must be an integer error; fraction ram rejected; blank integer field; decimal in ram field; whole number required radiator
 
-Turbo ignores report properties that are not in its list. It does not store them.
+The fields systemType, osSku, bootDriveFree, radiatorVersion, ram and bootDriveCap must be whole numbers. A value with a fraction, an infinite number or text that is not a number fails with "must be an integer". A blank string also fails. A boolean, null or numeric text is converted to a number.
 
-## Radiator optional string lengths and bounds
+## Numbers in text fields are converted like JavaScript
 
-Lines 456-462
+Lines 615-637
 
-Asked as: radiator optional field length; radiator minimum length zero; radiator string too long; radiator characters counted
+Asked as: number to text 1e21; zero becomes 0 string; non-breaking space trimmed; javascript number formatting; unicode spaces in text
 
-A minimum length of 0 or less is not enforced. A string whose length is below the minimum or above the maximum fails with a message such as "must be at least N characters". Lengths count characters.
+A number sent for a text field becomes text in JavaScript style. Zero becomes "0". Numbers from 1e-6 up to below 1e21 are written in plain form, and others in exponent form such as 1e+21. Whitespace is judged by JavaScript's rules, including the non-breaking space and the Unicode spaces from U+2000 to U+200A.
 
-## Radiator number fields are coerced to whole numbers
+## Computer is identified by serial and manufacturer
 
-Lines 471-594
+Lines 639-662
 
-Asked as: radiator must be an integer; radiator number field error; radiator decimal value rejected; radiator ram not a number
+Asked as: how computer is matched; serial and manufacturer slug; manufacturer inc removed; computer identity lookup; slashes removed from serial
 
-The fields systemType, osSku, bootDriveFree, radiatorVersion, ram and bootDriveCap must be whole numbers. Turbo accepts true as 1, false and null as 0, and numeric strings, including hex, octal and binary forms. Decimals, infinity and other text fail with '<name>: must be an integer'. An empty string fails.
+Turbo finds a computer by a slug built from serial and manufacturer (makeSlug). The serial loses white space, slashes and commas. The manufacturer is lowercased and loses slashes, periods, commas, 'inc' and 'ltd'. It is then trimmed and spaces become underscores. The slug is serial, a comma, then manufacturer.
 
-## Network config must map MAC addresses
+## Slug needs serial of 4 and manufacturer of 2 characters
 
-Lines 478-492
+Lines 658-661
 
-Asked as: radiator network config error; radiator MAC address format; radiator networkConfig must be object; radiator MAC address invalid
+Asked as: serial too short raw login; manufacturer too short error; short serial number stored; serial or manufacturer too short; computer match too short
 
-networkConfig must be an object with at least 1 property. Every property name must be a MAC address in the form aa:bb:cc:dd:ee:ff. Otherwise the report is invalid, with 'must have at least 1 property' or 'the property name ... must be a MAC address'. A value that is not an object fails with 'must be an object'.
-
-## Radiator text fields coerce numbers and null
-
-Lines 497-518
-
-Asked as: radiator must be a string; radiator number in text field; radiator null text field; radiator object in field
-
-A text field given a number or boolean is read as its JavaScript text. A null becomes an empty string. An object or list fails with '<name>: must be a string'. An empty string is then too short for fields with a minimum length.
-
-## Radiator number zero and boolean coercion
-
-Lines 523-555
-
-Asked as: radiator true false as number; radiator fraction number rejected; radiator null number field; radiator zero for empty number
-
-A boolean becomes 1 or 0 and null becomes 0 for number fields. A string with only white space becomes 0 in the string reader, but an empty string is refused as not an integer. A number with a fraction, or an infinite number, fails with "must be an integer".
-
-## Radiator numeric strings accept hex, octal and binary
-
-Lines 559-594
-
-Asked as: radiator hex number in report; radiator 0x value rejected; radiator binary number string; radiator numbers with spaces
-
-A number field given as text may be a decimal, or start with 0x, 0o or 0b for hex, octal or binary. Signs or underscores in those digits are refused. Surrounding white space is trimmed.
-
-## Number sent for a text field is written as JavaScript would
-
-Lines 596-608
-
-Asked as: radiator serial number as text; radiator number turned into string; radiator 1e21 format; radiator serial shows exponent
-
-When a radiator report sends a number for a text field such as the serial, Turbo turns it into text the way JavaScript does. Zero becomes "0". A number from 1e-6 up to, but not including, 1e21 is written in plain decimal form. A smaller or larger number is written in exponent form, such as 1e+21.
-
-## Radiator white space includes non-breaking and Unicode spaces
-
-Lines 610-618
-
-Asked as: radiator serial spaces removed; radiator non-breaking space in name; radiator unicode whitespace report; radiator trim manufacturer spaces
-
-Turbo treats tab, line feed, vertical tab, form feed, carriage return, space, no-break space, the U+2000 to U+200A spaces, U+1680, U+2028, U+2029, U+202F, U+205F, U+3000 and U+FEFF as white space. It uses this definition to trim numeric strings in number fields. It also uses it to strip white space from the serial and to trim the manufacturer when it builds the computer slug.
-
-## Radiator computer slug from serial and manufacturer
-
-Lines 620-643
-
-Asked as: radiator computer key format; radiator slug how built; radiator serial manufacturer key; radiator computer id from serial
-
-The computer key (slug) is the cleaned serial, a comma and the cleaned manufacturer. The serial loses white space, slashes and commas. The manufacturer is lowercased, loses slashes, periods, commas, 'inc' and 'ltd', is trimmed and has spaces turned into underscores. The cleaned serial must be at least 4 characters and the manufacturer at least 2, counted in UTF-16 units. Otherwise the report is invalid and saved as a raw login with 'serial ... or manufacturer ... too short'.
-
-## Radiator slug needs minimum serial and manufacturer length
-
-Lines 627-643
-
-Asked as: radiator serial too short; radiator manufacturer too short; radiator slug length error; radiator short serial number rejected
-
-A computer's key (slug) is the cleaned serial, a comma and the cleaned manufacturer. After cleaning, the serial must have at least 4 characters and the manufacturer at least 2. Otherwise the report is saved as a raw login with "serial ... or manufacturer ... too short".
+After cleaning, the serial must have at least 4 characters and the manufacturer at least 2, counted in UTF-16 units. Otherwise the report is stored as a raw login with the error 'serial ... or manufacturer ... too short'.
