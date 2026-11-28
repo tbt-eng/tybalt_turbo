@@ -16,8 +16,9 @@ export async function requireComputersAccess() {
 }
 
 // Loads every row of a server-searched list (the sign-ins or the rejected
-// reports) that match the search in the URL. Rows are deleted after 30 days,
-// so the server sends them all.
+// reports) that match the search in the URL. Sign-ins are deleted after 30
+// days and Turbo keeps one rejected report per computer name, so the server
+// sends them all.
 export async function loadComputerList<T>(path: string, url: URL) {
   await requireComputersAccess();
   const q = url.searchParams.get("q")?.trim() ?? "";

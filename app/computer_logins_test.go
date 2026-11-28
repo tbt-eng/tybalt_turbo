@@ -23,11 +23,11 @@ import (
 //   - cmplogin0000026, the oldest, on cmpnolastuser01. Its matched user,
 //     uabsorbrevise01, has no profile and no name, so the row shows the email.
 //   - computer_raw_logins: cmprawlogin0003 (FAKE-PC-0098, its report holds
-//     markup) and cmprawlogin0004 (no computer name). With the two of
-//     radiator_test.go there are 4.
+//     markup) and cmprawlogin0004 (no computer name). With the six of
+//     radiator_test.go there are 8.
 const (
 	fixtureLogins        = 26
-	fixtureRawLogins     = 4
+	fixtureRawLogins     = 8
 	unassignedLogins     = 22
 	newestLogin          = "cmplogin0000025"
 	oldestLogin          = "cmplogin0000026"
@@ -328,7 +328,12 @@ func TestComputerRawLogins(t *testing.T) {
 				rows := readLoginRows(t, res)
 				checkCount(t, rows, fixtureRawLogins)
 				got := strings.Join(loginIDs(rows), ",")
-				want := strings.Join([]string{namelessRawLogin, markupRawLogin, "cmprawlogin0002", firstFixtureRawLogin}, ",")
+				// Newest first; cmprawlogin0006 and 0007 share a created time
+				// and the larger id comes first.
+				want := strings.Join([]string{
+					"cmprawlogin0007", "cmprawlogin0006", "cmprawlogin0008", "cmprawlogin0005",
+					namelessRawLogin, markupRawLogin, "cmprawlogin0002", firstFixtureRawLogin,
+				}, ",")
 				if got != want {
 					t.Errorf("ids = %s, want %s", got, want)
 				}

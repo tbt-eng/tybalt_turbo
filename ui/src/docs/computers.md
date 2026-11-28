@@ -58,7 +58,7 @@ A raw login is a report that Turbo rejected because it is not complete or not va
 2. Select **Raw Logins**.
 3. Select **Report** to see what the computer sent.
 
-The next good report from the same computer name deletes its raw logins. Turbo deletes the others after 30 days.
+Turbo keeps only the newest raw login of each computer name. A good report deletes it. Turbo deletes one without a name after 30 days.
 
 ## Delete a raw login
 

@@ -49,9 +49,10 @@ func AddCronJobs(app core.App) {
 		notifications.QueueExpenseUncommitRequestReminders(app, true)
 	})
 
-	// delete computer logins and raw logins older than
-	// COMPUTER_LOGIN_RETENTION_DAYS at 7am UTC (2am or 3am Eastern) every day,
-	// when nobody signs in. Computers are never deleted.
+	// delete computer logins, and raw logins without a computer name, older
+	// than COMPUTER_LOGIN_RETENTION_DAYS at 7am UTC (2am or 3am Eastern) every
+	// day, when nobody signs in. A raw login with a name never expires, and
+	// computers are never deleted.
 	app.Cron().MustAdd("computer_login_retention", "0 7 * * *", func() {
 		runComputerLoginRetention(app)
 	})

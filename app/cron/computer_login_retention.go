@@ -10,16 +10,24 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
-// computerLoginRetentionCutoff is the oldest created time that a login or a
-// raw login can have and stay. A row created before it is deleted.
+// computerLoginRetentionCutoff is the oldest created time that a login, or a
+// raw login without a computer name, can have and stay. A row created before
+// it is deleted.
 func computerLoginRetentionCutoff(now time.Time) time.Time {
 	return now.UTC().AddDate(0, 0, -constants.COMPUTER_LOGIN_RETENTION_DAYS)
 }
 
-// deleteExpiredComputerLogins deletes the computer_logins and
-// computer_raw_logins rows created more than COMPUTER_LOGIN_RETENTION_DAYS
-// before now. It never touches computers: the last_login and the last user of
-// a computer stay when all its logins are gone.
+// deleteExpiredComputerLogins deletes the computer_logins rows, and the
+// computer_raw_logins rows without a computer name, created more than
+// COMPUTER_LOGIN_RETENTION_DAYS before now.
+//
+// A raw login with a computer name never expires. The radiator endpoint keeps
+// one per name, the newest report of that computer, and deletes it when the
+// computer sends a valid report. A raw login without a name can't be matched
+// to a computer, so only this job deletes it.
+//
+// It never touches computers: the last_login and the last user of a computer
+// stay when all its logins are gone.
 //
 // It deletes with SQL, not record by record. No hook watches these
 // collections and no row refers to a login or a raw login, so a record delete
@@ -28,24 +36,28 @@ func computerLoginRetentionCutoff(now time.Time) time.Time {
 func deleteExpiredComputerLogins(app core.App, now time.Time) (logins int64, rawLogins int64, err error) {
 	cutoff := computerLoginRetentionCutoff(now).Format(types.DefaultDateLayout)
 
-	logins, err = deleteCreatedBefore(app, "computer_logins", cutoff)
+	logins, err = deleteCreatedBefore(app,
+		"DELETE FROM computer_logins WHERE created < {:cutoff}",
+		cutoff,
+	)
 	if err != nil {
 		return 0, 0, err
 	}
-	rawLogins, err = deleteCreatedBefore(app, "computer_raw_logins", cutoff)
+	rawLogins, err = deleteCreatedBefore(app,
+		"DELETE FROM computer_raw_logins WHERE created < {:cutoff} AND COALESCE(computer_name, '') = ''",
+		cutoff,
+	)
 	if err != nil {
 		return logins, 0, err
 	}
 	return logins, rawLogins, nil
 }
 
-// deleteCreatedBefore deletes the rows of table created before cutoff and
-// returns how many it deleted. table is always a constant name from this file,
+// deleteCreatedBefore runs a DELETE statement with cutoff bound and returns
+// how many rows it deleted. statement is always a constant from this file,
 // never input.
-func deleteCreatedBefore(app core.App, table string, cutoff string) (int64, error) {
-	result, err := app.DB().NewQuery(
-		"DELETE FROM " + table + " WHERE created < {:cutoff}",
-	).Bind(dbx.Params{"cutoff": cutoff}).Execute()
+func deleteCreatedBefore(app core.App, statement string, cutoff string) (int64, error) {
+	result, err := app.DB().NewQuery(statement).Bind(dbx.Params{"cutoff": cutoff}).Execute()
 	if err != nil {
 		return 0, err
 	}

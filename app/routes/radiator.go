@@ -239,14 +239,7 @@ func storeRadiatorLogin(app core.App, report map[string]any) error {
 		}
 
 		// A valid report makes the earlier rejects of the computer redundant.
-		if computerName != "" {
-			if _, err := txApp.DB().NewQuery(
-				"DELETE FROM computer_raw_logins WHERE computer_name = {:name}",
-			).Bind(dbx.Params{"name": computerName}).Execute(); err != nil {
-				return err
-			}
-		}
-		return nil
+		return deleteRadiatorRawLogins(txApp, computerName)
 	})
 
 	// A value the schema allows but a field refuses (a very long UPN, say)
@@ -298,24 +291,50 @@ func resolveRadiatorUser(app core.App, anchor, email, upn string) (string, error
 	return "", nil
 }
 
+// deleteRadiatorRawLogins deletes the raw logins of a computer name. The name
+// must match exactly, case and white space included. A blank name matches
+// nothing: a raw login without a name can't be tied to a computer, so it is
+// never deleted here (the retention job deletes it after 30 days).
+func deleteRadiatorRawLogins(app core.App, computerName string) error {
+	if computerName == "" {
+		return nil
+	}
+	_, err := app.DB().NewQuery(
+		"DELETE FROM computer_raw_logins WHERE computer_name = {:name}",
+	).Bind(dbx.Params{"name": computerName}).Execute()
+	return err
+}
+
 // storeRadiatorRawLogin stores a rejected report as it was received, with the
 // reasons. computer_name comes from the report when it is valid.
+//
+// A raw login is kept only while it is the newest report of its computer
+// name, so the insert first deletes the raw logins with the same name, in the
+// same transaction. A computer that is rejected at every sign-in keeps one
+// row. Raw logins without a name are not matched and pile up until the
+// retention job deletes them.
 func storeRadiatorRawLogin(app core.App, body []byte, report map[string]any, problems []string) error {
-	collection, err := app.FindCollectionByNameOrId("computer_raw_logins")
-	if err != nil {
-		return err
-	}
 	computerName, _ := report["computerName"].(string)
 	message := strings.Join(problems, "; ")
 	if utf8.RuneCountInString(message) > radiatorMaxErrorRunes {
 		message = string([]rune(message)[:radiatorMaxErrorRunes])
 	}
 
-	record := core.NewRecord(collection)
-	record.Set("report", types.JSONRaw(body))
-	record.Set("computer_name", computerName)
-	record.Set("error", message)
-	return app.Save(record)
+	return app.RunInTransaction(func(txApp core.App) error {
+		collection, err := txApp.FindCollectionByNameOrId("computer_raw_logins")
+		if err != nil {
+			return err
+		}
+		if err := deleteRadiatorRawLogins(txApp, computerName); err != nil {
+			return err
+		}
+
+		record := core.NewRecord(collection)
+		record.Set("report", types.JSONRaw(body))
+		record.Set("computer_name", computerName)
+		record.Set("error", message)
+		return txApp.Save(record)
+	})
 }
 
 // radiatorComputerFields maps the computer fields of a report to columns of

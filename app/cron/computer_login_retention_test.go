@@ -13,10 +13,25 @@ import (
 
 // The fixture rows of computer_logins.csv and computer_raw_logins.csv. The
 // tests pass a fixed now, so they use these rows and add none.
+//
+// The raw logins: cmprawlogin0001 to 0003 and 0005 to 0007 have a computer
+// name and never expire. cmprawlogin0004 (2026-10-18 13:00) and
+// cmprawlogin0008 (2026-10-20 07:00) have none and expire after 30 days.
 const (
-	retentionFixtureLogins    = 26
-	retentionFixtureRawLogins = 4
+	retentionFixtureLogins            = 26
+	retentionFixtureRawLogins         = 8
+	retentionFixtureNamelessRawLogins = 2
 )
+
+// The raw logins with a computer name, which the job must never delete.
+var namedFixtureRawLogins = []string{
+	"cmprawlogin0001", // FAKE-PC-0001, 2026-10-15 13:00
+	"cmprawlogin0002", // FAKE-PC-0099, 2026-10-16 13:00
+	"cmprawlogin0003", // FAKE-PC-0098, 2026-10-17 13:00
+	"cmprawlogin0005", // FAKE-PC-0097, 2026-10-19 13:00
+	"cmprawlogin0006", // FAKE-PC-0097, 2026-10-21 13:00
+	"cmprawlogin0007", // FAKE-PC-0097, 2026-10-21 13:00
+}
 
 func TestDeleteExpiredComputerLogins(t *testing.T) {
 	tests := []struct {
@@ -40,23 +55,26 @@ func TestDeleteExpiredComputerLogins(t *testing.T) {
 			name: "a login created at the cutoff stays",
 			// Cutoff 2026-10-20 13:00:00.000, the created time of cmplogin0000026.
 			now:           time.Date(2026, 11, 19, 13, 0, 0, 0, time.UTC),
-			goneRawLogins: []string{"cmprawlogin0001", "cmprawlogin0002", "cmprawlogin0003", "cmprawlogin0004"},
+			goneRawLogins: []string{"cmprawlogin0004", "cmprawlogin0008"},
 			keptLogins:    []string{"cmplogin0000026"},
+			keptRawLogins: namedFixtureRawLogins,
 		},
 		{
 			name:          "a login created a millisecond before the cutoff goes",
 			now:           time.Date(2026, 11, 19, 13, 0, 0, int(time.Millisecond), time.UTC),
 			goneLogins:    []string{"cmplogin0000026"},
-			goneRawLogins: []string{"cmprawlogin0001", "cmprawlogin0002", "cmprawlogin0003", "cmprawlogin0004"},
+			goneRawLogins: []string{"cmprawlogin0004", "cmprawlogin0008"},
 			keptLogins:    []string{"cmplogin0000001"},
+			keptRawLogins: namedFixtureRawLogins,
 		},
 		{
-			name: "a raw login created at the cutoff stays",
-			// Cutoff 2026-10-18 13:00:00.000, the created time of cmprawlogin0004.
-			now:           time.Date(2026, 11, 17, 13, 0, 0, 0, time.UTC),
-			goneRawLogins: []string{"cmprawlogin0001", "cmprawlogin0002", "cmprawlogin0003"},
+			name: "a raw login without a name created at the cutoff stays",
+			// Cutoff 2026-10-20 07:00:00.000, the created time of cmprawlogin0008.
+			// The named raw logins are older still and stay too.
+			now:           time.Date(2026, 11, 19, 7, 0, 0, 0, time.UTC),
+			goneRawLogins: []string{"cmprawlogin0004"},
 			keptLogins:    []string{"cmplogin0000026"},
-			keptRawLogins: []string{"cmprawlogin0004"},
+			keptRawLogins: append([]string{"cmprawlogin0008"}, namedFixtureRawLogins...),
 		},
 		{
 			name: "old logins go and newer ones stay",
@@ -71,8 +89,9 @@ func TestDeleteExpiredComputerLogins(t *testing.T) {
 				"cmplogin0000005", // 2026-11-06 01:00
 				"cmplogin0000006", // 2026-11-06 07:00
 			},
-			goneRawLogins: []string{"cmprawlogin0001", "cmprawlogin0002", "cmprawlogin0003", "cmprawlogin0004"},
+			goneRawLogins: []string{"cmprawlogin0004", "cmprawlogin0008"},
 			keptLogins:    []string{"cmplogin0000007", "cmplogin0000024", "cmplogin0000025"},
+			keptRawLogins: namedFixtureRawLogins,
 		},
 	}
 
@@ -119,15 +138,20 @@ func TestDeleteExpiredComputerLogins_LeavesComputersUntouched(t *testing.T) {
 		t.Fatal("expected fixture computers")
 	}
 
-	// Far enough ahead that every fixture login and raw login is old.
+	// Far enough ahead that every fixture login and raw login is old. Every
+	// login and every raw login without a name goes; the named raw logins stay.
 	now := time.Date(2027, 6, 1, 0, 0, 0, 0, time.UTC)
 	logins, rawLogins, err := deleteExpiredComputerLogins(app, now)
 	if err != nil {
 		t.Fatalf("deleteExpiredComputerLogins: %v", err)
 	}
-	if logins != retentionFixtureLogins || rawLogins != retentionFixtureRawLogins {
+	if logins != retentionFixtureLogins || rawLogins != retentionFixtureNamelessRawLogins {
 		t.Fatalf("deleted %d logins and %d raw logins, want %d and %d",
-			logins, rawLogins, retentionFixtureLogins, retentionFixtureRawLogins)
+			logins, rawLogins, retentionFixtureLogins, retentionFixtureNamelessRawLogins)
+	}
+	assertRowCount(t, app, "computer_raw_logins", len(namedFixtureRawLogins))
+	for _, id := range namedFixtureRawLogins {
+		assertRowExists(t, app, "computer_raw_logins", id, true)
 	}
 
 	if after := computerRows(t, app); !reflect.DeepEqual(before, after) {

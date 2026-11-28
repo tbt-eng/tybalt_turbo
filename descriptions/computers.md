@@ -62,6 +62,10 @@ The anchor, the email and the UPN are stored in lowercase.
 
 It is stored in `computer_raw_logins` as it was received, with the reasons in `error`. Nothing else changes. Nothing reprocesses raw logins.
 
+A raw login is kept only while it is the newest report of its computer name. In one transaction, the endpoint deletes the raw logins with the same `computer_name` and then inserts the new one, so a computer rejected at every sign-in keeps one row. A reject without a name (the report had none, or the name was dropped as invalid) deletes nothing.
+
+The name matches exactly, case and white space included, the same way for a reject and for a valid report (`deleteRadiatorRawLogins`).
+
 ---
 
 ## The computer key
@@ -113,7 +117,9 @@ One row per valid report: `computer` (deleted with the computer), `given_name`, 
 
 ### `computer_raw_logins`
 
-One row per rejected report: `report` (the body as received), `computer_name` (from the report, when valid), `error` (the reasons, separated by `; `) and `created`.
+One row per rejected report, at most one per computer name: `report` (the body as received), `computer_name` (from the report, when valid), `error` (the reasons, separated by `; `) and `created`.
+
+There is no unique index on `computer_name`. The one-per-name rule is kept by the endpoint, the only writer, whose delete and insert run in one SQLite write transaction. An index would turn a lost race or a bug into a 500 and lose the report, which is worse than a second row, and it would stop the fixtures holding the duplicates that the cleanup migration is tested on.
 
 ---
 
@@ -139,7 +145,7 @@ The two GET routes exist because a holder of the `computers` claim can't read ot
 
 `app/routes/computer_logins.go`, with `computer_logins.sql` and `computer_raw_logins.sql`.
 
-These lists don't page. Logins and raw logins are deleted after 30 days (see Retention), so each list route answers with a JSON array of every matching row. They take `q`, which is matched with `LIKE` anywhere in the text, with `%`, `_` and `\` taken literally: for logins, the computer name, the serial, the reported name and the matched user's name; for raw logins, the computer name and the error.
+These lists don't page. Logins are deleted after 30 days and there is at most one raw login per computer name (see Retention), so each list route answers with a JSON array of every matching row. They take `q`, which is matched with `LIKE` anywhere in the text, with `%`, `_` and `\` taken literally: for logins, the computer name, the serial, the reported name and the matched user's name; for raw logins, the computer name and the error.
 
 The login rows have the login fields plus `computer_name`, `serial` and `user_name`, the matched user's name, joined from the profiles for the same reason as above.
 
@@ -151,10 +157,14 @@ The pages are `/computers/list`, `/computers/retired`, `/computers/logins` (**Lo
 
 ## Retention
 
-Logins and raw logins are kept for 30 days (`constants.COMPUTER_LOGIN_RETENTION_DAYS`). The cron job `computer_login_retention` in `app/cron/cron.go` runs at 07:00 UTC every day and deletes each `computer_logins` and `computer_raw_logins` row whose `created` is before now less 30 days. A row created exactly at that cutoff stays until the next run. It logs how many rows of each it deleted.
+Logins, and raw logins with a blank `computer_name`, are kept for 30 days (`constants.COMPUTER_LOGIN_RETENTION_DAYS`). The cron job `computer_login_retention` in `app/cron/cron.go` runs at 07:00 UTC every day and deletes each `computer_logins` row, and each `computer_raw_logins` row with a blank `computer_name`, whose `created` is before now less 30 days. A row created exactly at that cutoff stays until the next run. It logs how many rows of each it deleted.
+
+A raw login with a computer name never expires. It is the newest report of that computer, and the endpoint replaces it with the next reject and deletes it with the next valid report (see An invalid report). A raw login without a name can't be matched to a computer, so it isn't deduplicated and only the 30 days remove it.
+
+`app/migrations/1795823645_dedupe_computer_raw_logins.go` cleaned up the rows stored before this rule: for each non-blank `computer_name` it kept the newest raw login by `created`, the tie broken by the larger `id`, and deleted the rest. It left the nameless rows alone. Its down migration does nothing.
 
 It never touches `computers`: `last_login` and the last user of a computer stay when all its logins are gone, and a computer is never deleted.
 
 The code is `app/cron/computer_login_retention.go`. It deletes with one SQL `DELETE` per collection, not record by record: no hook watches these collections and no row refers to a login or a raw login, so a record delete would do nothing more. `created` is text in the PocketBase layout (`2026-11-12 13:00:00.000Z`), so the cutoff is formatted the same way and compared as text, which the index on `created` serves.
 
-A raw login can also go sooner: a valid report from the same computer name deletes it, and a person can delete it.
+A person can also delete a raw login.

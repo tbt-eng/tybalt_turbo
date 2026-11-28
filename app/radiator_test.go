@@ -24,9 +24,13 @@ import (
 //     add FAKE-PC-0003 to FAKE-PC-0005, which these tests only count.
 //   - computer_logins: one login of cmpassigned0001. The tests of
 //     computer_logins_test.go add 25 more, which these tests only count.
-//   - computer_raw_logins: one reject for FAKE-PC-0001, one for FAKE-PC-0099.
-//     The tests of computer_logins_test.go add two more, for FAKE-PC-0098 and
-//     for no computer name, which these tests only count.
+//   - computer_raw_logins: one reject for FAKE-PC-0001 (cmprawlogin0001), one
+//     for FAKE-PC-0099 (cmprawlogin0002), three for FAKE-PC-0097
+//     (cmprawlogin0005 to 0007, stored before the endpoint kept one per name;
+//     the cleanup migration test uses them too) and a second one with no
+//     computer name (cmprawlogin0008). The tests of computer_logins_test.go
+//     add two more, for FAKE-PC-0098 (cmprawlogin0003) and for no computer
+//     name (cmprawlogin0004).
 const (
 	radiatorToken        = "radiator-test-secret"
 	radiatorExpiredToken = "radiator-expired-secret"
@@ -34,7 +38,7 @@ const (
 
 	radiatorFixtureComputers = 5
 	radiatorFixtureLogins    = 26
-	radiatorFixtureRawLogins = 4
+	radiatorFixtureRawLogins = 8
 
 	anchorTimeUser   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	timeUserID       = "rzr98oadsp9qc11"
@@ -385,6 +389,177 @@ func TestRadiatorStoresInvalidReportsAsRawLogins(t *testing.T) {
 		},
 	}
 	scenario.Test(t)
+}
+
+// rawLoginIDs returns the ids of the raw logins whose computer_name is name,
+// in id order.
+func rawLoginIDs(t testing.TB, app core.App, name string) []string {
+	t.Helper()
+	var rows []struct {
+		ID string `db:"id"`
+	}
+	if err := app.DB().NewQuery(
+		"SELECT id FROM computer_raw_logins WHERE computer_name = {:name} ORDER BY id",
+	).Bind(dbx.Params{"name": name}).All(&rows); err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	return ids
+}
+
+func assertRawLoginsExist(t testing.TB, app core.App, ids ...string) {
+	t.Helper()
+	for _, id := range ids {
+		if _, err := app.FindRecordById("computer_raw_logins", id); err != nil {
+			t.Errorf("raw login %s was deleted: %v", id, err)
+		}
+	}
+}
+
+func assertRawLoginsGone(t testing.TB, app core.App, ids ...string) {
+	t.Helper()
+	for _, id := range ids {
+		if _, err := app.FindRecordById("computer_raw_logins", id); err == nil {
+			t.Errorf("raw login %s was not deleted", id)
+		}
+	}
+}
+
+// A raw login is kept only while it is the newest report of its computer
+// name: a reject deletes the older raw logins of the name, a valid report
+// deletes them all, and raw logins without a name are never matched.
+func TestRadiatorKeepsOneRawLoginPerComputerName(t *testing.T) {
+	reject := func(computerName any) string {
+		return radiatorReport(map[string]any{"upn": nil, "computerName": computerName})
+	}
+	otherRawLogins := []string{"cmprawlogin0002", "cmprawlogin0003", "cmprawlogin0004", "cmprawlogin0008"}
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:           "a second reject for a computer name replaces the first",
+			Method:         http.MethodPost,
+			URL:            "/api/radiator",
+			Body:           strings.NewReader(reject("FAKE-PC-0001")),
+			Headers:        radiatorHeaders(),
+			ExpectedStatus: http.StatusAccepted,
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				ids := rawLoginIDs(t, app, "FAKE-PC-0001")
+				if len(ids) != 1 || ids[0] == "cmprawlogin0001" {
+					t.Fatalf("raw logins of FAKE-PC-0001 = %v, want only the new one", ids)
+				}
+				raw, err := app.FindRecordById("computer_raw_logins", ids[0])
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(raw.GetString("error"), "upn: is required") {
+					t.Errorf("error = %q", raw.GetString("error"))
+				}
+				assertRawLoginsExist(t, app, otherRawLogins...)
+				assertRawLoginsExist(t, app, "cmprawlogin0005", "cmprawlogin0006", "cmprawlogin0007")
+				if got := radiatorCount(t, app, "computer_raw_logins"); got != radiatorFixtureRawLogins {
+					t.Errorf("computer_raw_logins = %d, want %d", got, radiatorFixtureRawLogins)
+				}
+			},
+		},
+		{
+			Name:           "a reject replaces every older raw login of its computer name",
+			Method:         http.MethodPost,
+			URL:            "/api/radiator",
+			Body:           strings.NewReader(reject("FAKE-PC-0097")),
+			Headers:        radiatorHeaders(),
+			ExpectedStatus: http.StatusAccepted,
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				ids := rawLoginIDs(t, app, "FAKE-PC-0097")
+				if len(ids) != 1 {
+					t.Fatalf("raw logins of FAKE-PC-0097 = %v, want only the new one", ids)
+				}
+				assertRawLoginsGone(t, app, "cmprawlogin0005", "cmprawlogin0006", "cmprawlogin0007")
+				assertRawLoginsExist(t, app, "cmprawlogin0001")
+				assertRawLoginsExist(t, app, otherRawLogins...)
+				if got, want := radiatorCount(t, app, "computer_raw_logins"), radiatorFixtureRawLogins-2; got != want {
+					t.Errorf("computer_raw_logins = %d, want %d", got, want)
+				}
+			},
+		},
+		{
+			// Matching is exact, as for a valid report: a name that differs
+			// only in case is another computer name.
+			Name:           "a reject for another computer name leaves the raw logins alone",
+			Method:         http.MethodPost,
+			URL:            "/api/radiator",
+			Body:           strings.NewReader(reject("fake-pc-0001")),
+			Headers:        radiatorHeaders(),
+			ExpectedStatus: http.StatusAccepted,
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				if ids := rawLoginIDs(t, app, "fake-pc-0001"); len(ids) != 1 {
+					t.Errorf("raw logins of fake-pc-0001 = %v, want 1", ids)
+				}
+				assertRawLoginsExist(t, app, "cmprawlogin0001", "cmprawlogin0005", "cmprawlogin0006", "cmprawlogin0007")
+				assertRawLoginsExist(t, app, otherRawLogins...)
+				if got, want := radiatorCount(t, app, "computer_raw_logins"), radiatorFixtureRawLogins+1; got != want {
+					t.Errorf("computer_raw_logins = %d, want %d", got, want)
+				}
+			},
+		},
+		{
+			Name:           "a valid report deletes every raw login of its computer name",
+			Method:         http.MethodPost,
+			URL:            "/api/radiator",
+			Body:           strings.NewReader(radiatorReport(map[string]any{"computerName": "FAKE-PC-0097"})),
+			Headers:        radiatorHeaders(),
+			ExpectedStatus: http.StatusAccepted,
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				if ids := rawLoginIDs(t, app, "FAKE-PC-0097"); len(ids) != 0 {
+					t.Errorf("raw logins of FAKE-PC-0097 = %v, want none", ids)
+				}
+				assertRawLoginsExist(t, app, "cmprawlogin0001")
+				assertRawLoginsExist(t, app, otherRawLogins...)
+				if got, want := radiatorCount(t, app, "computer_raw_logins"), radiatorFixtureRawLogins-3; got != want {
+					t.Errorf("computer_raw_logins = %d, want %d", got, want)
+				}
+			},
+		},
+	}
+
+	// A reject without a computer name, or with one the schema drops (too
+	// long), can't be matched: it is added and deletes nothing.
+	for _, tc := range []struct {
+		name         string
+		computerName any
+	}{
+		{"no computer name", nil},
+		{"a too long computer name", strings.Repeat("N", 49)},
+	} {
+		scenarios = append(scenarios, tests.ApiScenario{
+			Name:           "rejects with " + tc.name + " pile up",
+			Method:         http.MethodPost,
+			URL:            "/api/radiator",
+			Body:           strings.NewReader(reject(tc.computerName)),
+			Headers:        radiatorHeaders(),
+			ExpectedStatus: http.StatusAccepted,
+			TestAppFactory: testutils.SetupTestApp,
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				if ids := rawLoginIDs(t, app, ""); len(ids) != 3 {
+					t.Errorf("raw logins without a name = %v, want the two of the fixtures and the new one", ids)
+				}
+				assertRawLoginsExist(t, app, "cmprawlogin0001", "cmprawlogin0004", "cmprawlogin0008")
+				if got, want := radiatorCount(t, app, "computer_raw_logins"), radiatorFixtureRawLogins+1; got != want {
+					t.Errorf("computer_raw_logins = %d, want %d", got, want)
+				}
+			},
+		})
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
 }
 
 func TestRadiatorStoresValidReportForNewComputer(t *testing.T) {
